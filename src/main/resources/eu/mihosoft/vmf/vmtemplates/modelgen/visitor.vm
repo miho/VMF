@@ -1,0 +1,52 @@
+package $model.package;
+
+import org.mism.transverse.Traverse;
+import org.mism.transverse.Traverselet;
+import java.util.Map;
+import java.util.HashMap;
+
+public class ModelVisitor implements Traverse
+{
+
+#foreach ($type in $model.types)##
+    private static final Traverselet<$type.simpleName> _visitor${type.simpleName} = (in,ctx) -> {
+#foreach ($prop in $type.properties)
+#if ($prop.modelType)
+        ctx.traverse(in.get${prop.name}());
+#elseif ($prop.collection)
+        for($prop.containedType e : in.get${prop.name}())
+        {
+           ctx.traverse(e);
+        }
+#end
+#end
+    };
+#end
+    
+    private static final Map<Class<?>, Traverselet<?>> traverselets = new HashMap<Class<?>, Traverselet<?>>(); 
+    static {
+#foreach ($type in $model.types)##
+        traverselets.put(${type.simpleName}.class, _visitor${type.simpleName});
+#end     
+    }
+    
+    public static <T> Traverselet<T> getTraverselet(Class<T> cls)
+    {
+        return (Traverselet<T>) traverselets.get(cls);
+    }
+    
+    public void traverse(Object in) {
+        if (in==null)
+            return;
+#foreach ($type in $model.types)
+        if (in instanceof ${type.simpleName})
+        {
+            _visitor${type.simpleName}.traverse(($type.simpleName) in, this);
+        }
+        else
+#end
+        {
+           return;
+        }
+    }
+}

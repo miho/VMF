@@ -1,0 +1,11 @@
+    // start Mutable implementation
+    
+    PropertyChangeSupport pcs;
+    boolean changed = false;
+    
+    public PropertyChangeSupport getChangeSupport()
+    {
+        return pcs==null?pcs = new PropertyChangeSupport(this):pcs;
+    }
+    
+    // end mutable implementation

@@ -1,0 +1,13 @@
+package $type.clzzPackageName;
+import ${type.packageName}.*;
+import ${VMFProps.CORE_API_PKG}.*;
+import java.beans.PropertyChangeSupport;
+
+/**
+ * A representation of the model object {@code $type.getJavaFQN()}.
+ */
+public interface $type.simpleName extends VObject<Writable${type.simpleName}> {
+#foreach( $prop in $type.properties )
+  public $prop.declaration get${prop.name}();
+#end
+}

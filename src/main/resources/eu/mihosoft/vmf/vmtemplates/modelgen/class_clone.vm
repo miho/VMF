@@ -1,0 +1,43 @@
+    // start Clonable implementation
+    
+    public $type.simpleName shallowClone() {
+        $type.clzzName cl = new ${type.clzzName}();
+#foreach ($prop in $type.properties)
+        cl.$prop.nameCc = this.$prop.nameCc;
+#end
+        return cl;
+    }
+    
+    public $type.simpleName deepClone() {
+        $type.clzzName cl = new ${type.clzzName}();
+#foreach ($prop in $type.properties)
+#if ($prop.modelType)
+        cl.$prop.nameCc = ($prop.declaration) ((Clonable)this.${prop.nameCc}).deepClone();
+#else
+#if ($prop.collection && $prop.contained)
+        cl.$prop.nameCc = new ContainedList<${type.simpleName}, ${prop.containedType}>("${prop.name}", cl);
+        for (${prop.containedType} elem : this.${prop.nameCc})
+        {
+           cl.${prop.nameCc}.add( (${prop.containedType}) ((Clonable)elem).deepClone() );
+        }
+#elseif ($prop.collection)
+        cl.$prop.nameCc = new ObservableList<${prop.collectionType}>("${prop.name}", cl.pcs);
+        if (Clonable.class.isAssignableFrom(${prop.collectionType}.class))
+        {
+            for(${prop.collectionType} elem : this.${prop.nameCc})
+            {
+                cl.${prop.nameCc}.add((${prop.collectionType}) Clonable.class.cast(elem).deepClone());
+            }
+        } else
+        {
+            cl.${prop.nameCc}.addAll(this.${prop.nameCc});
+        }
+#else
+        cl.$prop.nameCc = this.$prop.nameCc;
+#end
+#end
+#end
+        return cl;
+    }
+    
+    // end Clonable implementation

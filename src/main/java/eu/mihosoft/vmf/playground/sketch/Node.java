@@ -1,4 +1,4 @@
-package eu.mihosoft.vmf.playground;
+package eu.mihosoft.vmf.playground.sketch;
 
 import javafx.collections.ObservableList;
 
@@ -30,7 +30,7 @@ interface NodeSpec {
 }
 
 /**
- * A representation of the model object {@code eu.mihosoft.vmf.playground.Node}.
+ * A representation of the model object {@code eu.mihosoft.vmf.playground.sketch.Node}.
  */
 public interface Node extends VObject<WritableNode> {
 
@@ -96,8 +96,8 @@ public interface Node extends VObject<WritableNode> {
     Node getSlave();
 
     /**
-     * Creates a new instance of '{@link Node <em><b>eu.mihosoft.vmf.playground.Node</b></em>'}
-     * @return a new instance of '{@link Node <em><b>eu.mihosoft.vmf.playground.Node</b></em>'}
+     * Creates a new instance of '{@link Node <em><b>eu.mihosoft.vmf.playground.sketch.Node</b></em>'}
+     * @return a new instance of '{@link Node <em><b>eu.mihosoft.vmf.playground.sketch.Node</b></em>'}
      */
     @Override
     default WritableNode newInstance() {
@@ -107,9 +107,9 @@ public interface Node extends VObject<WritableNode> {
     }
 
     /**
-     * Creates a new instance of '{@link Node <em><b>eu.mihosoft.vmf.playground.Node</b></em>'}
+     * Creates a new instance of '{@link Node <em><b>eu.mihosoft.vmf.playground.sketch.Node</b></em>'}
      * @param name the value of the '<em>Name</em>' property
-     * @return a new instance of '{@link Node <em><b>eu.mihosoft.vmf.playground.Node</b></em>'}
+     * @return a new instance of '{@link Node <em><b>eu.mihosoft.vmf.playground.sketch.Node</b></em>'}
      */
     default WritableNode newInstance(String name) {
         NodeImpl result = new NodeImpl();
@@ -120,7 +120,7 @@ public interface Node extends VObject<WritableNode> {
 }
 
 /**
- * A writable representation of the model object {@code eu.mihosoft.vmf.playground.Node}.
+ * A writable representation of the model object {@code eu.mihosoft.vmf.playground.sketch.Node}.
  */
 interface WritableNode extends Node {
 
@@ -135,8 +135,8 @@ interface WritableNode extends Node {
      */
     void setName(String name);
 
-    // disabled due to @eu.mihosoft.vmf.playground.Access(publicSetter=false) in eu.mihosoft.vmf.playground.NodeSpec
-    // void setChildren(List<eu.mihosoft.vmf.playground.Node> children);
+    // disabled due to @eu.mihosoft.vmf.playground.sketch.Access(publicSetter=false) in eu.mihosoft.vmf.playground.sketch.NodeSpec
+    // void setChildren(List<eu.mihosoft.vmf.playground.sketch.Node> children);
 
     /**
      * Sets the value of the '{@link Node#getMaster() <em>Master</em>}' container reference.

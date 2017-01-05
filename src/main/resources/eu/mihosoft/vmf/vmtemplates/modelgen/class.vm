@@ -1,0 +1,68 @@
+package $type.clzzPackageName;
+
+import ${type.packageName}.*;
+import org.mism.modelgen.api.*;
+import java.beans.PropertyChangeSupport;
+import ${type.typeName};
+#foreach( $import in $type.imports )
+import $import;
+#end
+
+public class $type.clzzName implements $type.simpleName, Clonable<$type.simpleName>, Mutable {
+
+#foreach( $prop in $type.properties )
+#if($prop.containedType)
+#if($prop.collection)
+    ContainedList<$type.simpleName,${prop.containedType}> $prop.nameCc = new ContainedList<$type.simpleName,${prop.containedType}>("${prop.name}", this);
+#else
+    // contained property
+    $prop.declaration $prop.nameCc;
+#end
+#else
+#if($prop.collection)
+    ObservableList<${prop.collectionType}> $prop.nameCc = new ObservableList<${prop.collectionType}>("${prop.name}", getChangeSupport());
+#else
+    $prop.declaration $prop.nameCc;
+#end
+#end
+#end
+
+#if ($type.requiredCount > 0)
+    public ${type.clzzName}(##
+#foreach( $prop in $type.required )$prop.declaration _$prop.nameCc##
+#if ($velocityCount < ${type.requiredCount}), ##
+#end
+#end) {
+#foreach( $prop in $type.required )
+       this.${prop.nameCc} = _${prop.nameCc};
+#end
+    }
+#end
+ 
+    public $type.clzzName () {}
+
+#foreach ( $prop in $type.properties )
+
+#parse("eu/mihosoft/vmf/vmtemplates/class_setter.vm")
+
+
+#parse("eu/mihosoft/vmf/vmtemplates/class_getter.vm")
+
+#end
+
+#parse("eu/mihosoft/vmf/vmtemplates/class_clone.vm")
+
+
+#parse("eu/mihosoft/vmf/vmtemplates/class_equals.vm")
+
+
+#if($type.contained)
+#parse("eu/mihosoft/vmf/vmtemplates/class_containedimpl.vm")
+
+#end
+
+#parse("eu/mihosoft/vmf/vmtemplates/class_mutable.vm")
+
+#parse("eu/mihosoft/vmf/vmtemplates/class_tostring.vm")
+
+}

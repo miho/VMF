@@ -1,0 +1,20 @@
+    public $prop.declaration get${prop.name}()
+    {
+#if ($prop.collection)
+       return this.${prop.nameCc}.getContent();
+#else
+       return this.$prop.nameCc;
+#end
+    }
+    
+#if ($prop.containedType && $prop.collection)
+    public ContainedList<$type.simpleName,${prop.containedType}> get${prop.name}Ref()
+    {
+       return this.$prop.nameCc;
+    }
+#elseif ($prop.collection)
+    public ObservableList<${prop.collectionType}> get${prop.name}Ref()
+    {
+       return this.$prop.nameCc;
+    }
+#end

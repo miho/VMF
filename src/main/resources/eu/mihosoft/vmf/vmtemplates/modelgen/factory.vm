@@ -1,0 +1,43 @@
+package $model.package;
+
+#foreach ($type in $model.types)
+import ${type.javaFQN};
+#end
+
+public enum ModelFactory {
+
+   INSTANCE;
+   
+   private ModelFactory() { };
+   
+#foreach ($type in $model.types)
+#if ($type.contained)##
+   public $type.simpleName add${type.simpleName}To${type.container.simpleName}($type.container.simpleName _parent##
+#foreach ($prop in $type.properties), $prop.type _$prop.nameCc##
+#end
+)
+   {
+      $type.clzzName n = new ${type.clzzName}();
+      (($type.container.clzzName) _parent).get${type.containmentName}Ref().add(n);
+#foreach ($prop in $type.properties)
+      n.set${prop.name}(_$prop.nameCc);
+#end
+      return n;
+   }
+   
+   public boolean remove${type.simpleName}From${type.container.simpleName}($type.container.simpleName _parent, $type.simpleName _child)
+   {
+      return (($type.container.clzzName) _parent).getChildrenRef().remove(_child);
+   }
+   
+#else
+   public $type.simpleName create${type.simpleName}(##
+#foreach ($prop in $type.required) $prop.type _$prop.nameCc ##
+#end##
+) {
+      return new ${type.clzzName}(#foreach ($prop in $type.required) _$prop.nameCc #end);
+   }
+   
+#end   
+#end
+}

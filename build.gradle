@@ -17,4 +17,6 @@ repositories {
 
 dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.11'
+
+    compile group: 'org.apache.velocity', name: 'velocity', version: '1.7+'
 }

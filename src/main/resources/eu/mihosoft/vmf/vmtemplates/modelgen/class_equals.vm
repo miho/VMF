@@ -1,0 +1,24 @@
+    public boolean equals(Object o) {
+        if (o==null) return false;
+        else if (this==o) return true;
+        else if (o instanceof $type.clzzName) {
+           $type.clzzName other = ($type.clzzName) o;
+           return
+#foreach ($prop in $type.properties)
+               ObjectUtil.equals(this.$prop.nameCc, other.$prop.nameCc) &&
+#end       
+           true
+           ;    
+        }
+        else return false;
+    }
+    
+    public int hashCode()
+    {
+        return ObjectUtil.newHash()
+#foreach ($prop in $type.properties)
+           .hash(this.$prop.nameCc)
+#end         
+        .value();
+        
+    }

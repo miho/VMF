@@ -1,4 +1,4 @@
-package eu.mihosoft.vmf.playground;
+package eu.mihosoft.vmf.playground.sketch;
 
 /**
  * Created by miho on 02.01.2017.

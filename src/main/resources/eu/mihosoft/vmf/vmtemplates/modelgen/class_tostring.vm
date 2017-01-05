@@ -1,0 +1,13 @@
+    // start toString implementation
+    public String toString() {
+        return "{ \"@Type\":\"$type.simpleName\"" +
+#foreach ($prop in $type.properties)
+#if ($prop.containedType && $prop.collection)
+        ", " + this.${prop.nameCc}.asJSONString() +
+#else
+        ", \"$prop.name\": \"" + this.$prop.nameCc + "\"" +
+#end
+#end
+        "}";
+    }
+    // end toString
