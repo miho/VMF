@@ -17,11 +17,17 @@ public interface SimpleNode {
     @Required
     int getMyId();
 
-    @Container(opposite = "parent")
+    @Contains(opposite = "parent")
     List<SimpleNode> getChildren();
 
-    @Contains(opposite = "children")
+    @Container(opposite = "children")
     SimpleNode getParent();
 
     int[] getIds();
+
+    @Container(opposite = "slave")
+    SimpleNode getMaster();
+
+    @Contains(opposite = "master")
+    SimpleNode getSlave();
 }

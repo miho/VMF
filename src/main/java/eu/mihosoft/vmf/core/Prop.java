@@ -167,7 +167,7 @@ public class Prop {
     }
 
     public String getSetterDeclaration() {
-        return "void set" + getNameWithUpperCase()+ "(" + getTypeName() + ")";
+        return "void set" + getNameWithUpperCase()+ "(" + getTypeName() + " " + getName() + ")";
     }
 
     public boolean isContainmentProperty() {

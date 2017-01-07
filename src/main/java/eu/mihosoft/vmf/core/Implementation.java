@@ -17,7 +17,7 @@ public class Implementation {
         this.type = type;
 
         this.packageName = type.getPackageName();
-        this.name = type.getTypeName();
+        this.name = type.getTypeName()+"Impl";
 
         this.properties.addAll(type.getProperties());
     }

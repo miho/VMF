@@ -1,5 +1,6 @@
+package ${type.packageName};
+
 // vmf imports
-import ${type.packageName}.*;
 import ${VMF_CORE_API_PKG}.*;
 import java.beans.PropertyChangeSupport;
 
@@ -16,6 +17,46 @@ import $import;
 public interface $type.typeName extends VObject<Writable${type.typeName}> {
 #foreach( $prop in $type.properties )
 
+#if(${prop.containmentInfo.containmentType}=="CONTAINER")
+#set($opposite = ${prop.containmentInfo.opposite})
+/**
+ * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
+ *
+ * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+ *
+ * <!-- vmf-begin-model-doc -->
+ * <!-- vmf-end-model-doc -->
+ *
+ * @return the value of the '<em><b>Master</b></em>' container reference.
+ * @see WritableNode#setMaster(Node)
+ */
+#elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
+#if(${prop.propType}=="COLLECTION")
+#set($opposite = ${prop.containmentInfo.opposite})
+  /**
+   * Returns the value of the '<em>${prop.name}</em>' containment list.
+   *
+   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em>${prop.name}</em>' containment list.
+   */
+#else ## if collection
+  /**
+   * Returns the value of the '<em><b>${prop.name}</b></em>' containment reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
+   * @see  Writable${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   */
+#end ## if collection
+#else ## if container / contained
  /**
   * Returns the value of the '<em>${prop.name}</em>' property.
   *
@@ -25,6 +66,19 @@ public interface $type.typeName extends VObject<Writable${type.typeName}> {
   * @return the value of the '<em>${prop.name}</em>' property.
   * @see Writable${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
   */
+#end ## if container / contained
   public $prop.typeName get${prop.nameWithUpperCase}();
-#end
+
+#end ## for each
+
+  /**
+   * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
+   * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
+   */
+  @Override
+  default Writable${type.typeName} newInstance() {
+    ${type.implementation.name} result = new ${type.implementation.name}();
+
+    return result;
+  }
 }

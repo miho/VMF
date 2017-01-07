@@ -21,18 +21,9 @@ public class WritableInterface {
         this.packageName = type.getPackageName();
         this.name = type.getTypeName();
 
-        System.out.println(type.resolveProp("children").get().isContainmentProperty());
-
-        Predicate<Prop> isContainmentProp = p->p.isContainmentProperty();
-        Predicate<Prop> isCollectionType = p->p.getPropType()==PropType.COLLECTION;
-        Predicate<Prop> oppositeIsCollectionType = p->p.isContainmentProperty()
-                &&p.getContainmentInfo().getOpposite().getPropType()==PropType.COLLECTION;
-
-        this.properties.addAll(type.getProperties().stream().
-                filter(p->isContainmentProp.and(isCollectionType).negate().test(p)).
-                filter(oppositeIsCollectionType.negate()).
-                collect(Collectors.toList()));
+        this.properties.addAll(ModelType.propertiesWithoutCollectionsBasedContainment(type));
     }
+
 
     public static WritableInterface newInstance(ModelType type) {
         return new WritableInterface(type);

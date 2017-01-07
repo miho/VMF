@@ -3,6 +3,7 @@ package eu.mihosoft.vmf.core;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -14,6 +15,7 @@ public class ModelType {
     private final String typeName;
 
     private final List<Prop> properties = new ArrayList<>();
+    private final List<Prop> propertiesWithoutCollectionsBasedContainment = new ArrayList<>();
 
     private final List<String> imports = new ArrayList<>();
 
@@ -63,6 +65,9 @@ public class ModelType {
         for (Prop p : properties) {
             p.initContainment();
         }
+
+        propertiesWithoutCollectionsBasedContainment.addAll(
+                propertiesWithoutCollectionsBasedContainment(this));
     }
 
     private void initImports(List<String> imports) {
@@ -71,7 +76,7 @@ public class ModelType {
         }
 
         imports.addAll(properties.stream().map(p->p.getPackageName()).
-                filter(pkg->!pkg.isEmpty()).filter(pkg->!"java.lang".equals(pkg)).distinct().
+                filter(pkg->!pkg.isEmpty()).filter(pkg->!"java.lang".equals(pkg)).map(imp->imp+".*").distinct().
                 collect(Collectors.toList()));
     }
 
@@ -125,6 +130,10 @@ public class ModelType {
         return imports;
     }
 
+    public Implementation getImplementation() {
+        return implementation;
+    }
+
     private static final Map<String,String> primitiveToBoxedTypeNames = new HashMap<>();
 
     public static String primitiveToBoxedType(String typeName) {
@@ -144,5 +153,21 @@ public class ModelType {
 
     public WritableInterface getWritableInterface() {
         return writableInterface;
+    }
+
+    public List<Prop> getPropertiesWithoutCollectionsBasedContainment() {
+        return propertiesWithoutCollectionsBasedContainment;
+    }
+
+    public static List<Prop> propertiesWithoutCollectionsBasedContainment(ModelType type) {
+        Predicate<Prop> isContainmentProp = p->p.isContainmentProperty();
+        Predicate<Prop> isCollectionType = p->p.getPropType()== PropType.COLLECTION;
+        Predicate<Prop> oppositeIsCollectionType = p->p.isContainmentProperty()
+                &&p.getContainmentInfo().getOpposite().getPropType()==PropType.COLLECTION;
+
+        return type.getProperties().stream().
+                filter(p->isContainmentProp.and(isCollectionType).negate().test(p)).
+                filter(oppositeIsCollectionType.negate()).
+                collect(Collectors.toList());
     }
 }

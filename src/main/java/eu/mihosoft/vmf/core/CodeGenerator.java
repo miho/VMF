@@ -13,9 +13,15 @@ class VMFEngineProperties {
     public static final String VMF_TEMPLATE_PATH = "eu/mihosoft/vmf/vmtemplates/";
     public static final String VMF_CORE_API_PKG = "eu.mihosoft.vmf.core";
 
+    public static final String VMF_IMPL_PKG_EXT = "impl";
+    public static final String VMF_VMFUTIL_PKG_EXT = "impl.vmfutil";
+
     public static void installProperties(VelocityContext ctx) {
         ctx.put("VMF_TEMPLATE_PATH", VMF_TEMPLATE_PATH);
         ctx.put("VMF_CORE_API_PKG", VMF_CORE_API_PKG);
+
+        ctx.put("VMF_IMPL_PKG_EXT", VMF_IMPL_PKG_EXT);
+        ctx.put("VMF_VMFUTIL_PKG_EXT", VMF_VMFUTIL_PKG_EXT);
     }
 }
 
@@ -57,7 +63,15 @@ public class CodeGenerator {
     public void generate(ResourceSet set, Class<?>... classes) throws Exception {
         Model model = new Model();
         model.init(classes);
+
+        String packageName = null;
+
         for (ModelType t : model.getTypes()) {
+
+            if(packageName == null) {
+                packageName = t.getPackageName();
+            }
+
             try (Resource res = set.open(t.getPackageName() + "." + t.getTypeName())) {
                 Writer out = res.open();
                 generateTypeInterface(out, t);
@@ -67,6 +81,14 @@ public class CodeGenerator {
                 Writer out = res.open();
                 generateWritableTypeInterface(out, t);
             }
+
+            try (Resource res = set.open(t.getPackageName()+"." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                    + t.getImplementation().getName())) {
+                Writer out = res.open();
+                generateTypeImplementation(out, t);
+            }
+
+
 
 //        try(Resource factoryRes = set.open(model.getPackage() + ".ModelFactory")) {
 //            Writer out = factoryRes.open();
@@ -84,6 +106,42 @@ public class CodeGenerator {
 //        }
 
         }
+
+        try (Resource res = set.open(packageName+"." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
+            Writer out = res.open();
+            generateVContainmentUtil(out, packageName);
+        }
+
+        try (Resource res = set.open(packageName+"." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VObject")) {
+            Writer out = res.open();
+            generateVObjectUtil(out, packageName);
+        }
+
+        try (Resource res = set.open(packageName+"." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
+            Writer out = res.open();
+            generateObservableObjectUtil(out, packageName);
+        }
+    }
+
+    private void generateObservableObjectUtil(Writer out, String packageName) throws Exception {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        mergeTemplate("vmfutil-observableobject", context, out);
+    }
+
+    private void generateVObjectUtil(Writer out, String packageName) throws Exception {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        mergeTemplate("vmfutil-vobject", context, out);
+    }
+
+    private void generateVContainmentUtil(Writer out, String packageName) throws Exception {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        mergeTemplate("vmfutil-vcontainmentutil", context, out);
     }
 
     public void generateTypeInterface(Writer out, ModelType t) throws Exception {
@@ -98,6 +156,13 @@ public class CodeGenerator {
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("writable-interface", context, out);
+    }
+
+    public void generateTypeImplementation(Writer out, ModelType t) throws Exception {
+        VelocityContext context = new VelocityContext();
+        context.put("type", t);
+        VMFEngineProperties.installProperties(context);
+        mergeTemplate("implementation", context, out);
     }
 
 //    public void generateFactory(Writer out, Model model) throws Exception {
