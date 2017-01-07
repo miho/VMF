@@ -41,19 +41,29 @@ public class Prop {
         if (propClass.isPrimitive()) {
             propType = PropType.PRIMITIVE;
             typeName = propClass.getSimpleName();
-            packageName = propClass.getPackage().getName();
+            packageName = "";
         } else if (propClass.isAssignableFrom(Collection.class)) {
             propType = PropType.COLLECTION;
+
+            ParameterizedType retType = (ParameterizedType) getterMethod
+                    .getGenericReturnType();
+
+            Class<?> containedClazz = (Class<?>) (retType
+                    .getActualTypeArguments()[0]);
 
             if (!propClass.isAssignableFrom(List.class)) {
                 throw new IllegalArgumentException(
                         "Currently only 'java.util.List<?>' is supported as Collection type.");
-            }
+            } else {
+                propType.collectionType = PropType.CollectionType.LIST;
+                if (containedClazz.getPackage() == null) {
+                    propType.collectionType.genericPackageName = "";
+                } else {
+                    propType.collectionType.genericPackageName = containedClazz.getPackage().getName();
+                }
 
-            ParameterizedType retType = (ParameterizedType) getterMethod
-                    .getGenericReturnType();
-            Class<?> containedClazz = (Class<?>) (retType
-                    .getActualTypeArguments()[0]);
+                propType.collectionType.genericTypeName = containedClazz.getSimpleName();
+            }
 
             typeName = "List<" + containedClazz.getName() + ">";
             packageName = "java.util";
@@ -63,6 +73,15 @@ public class Prop {
             Class<?> containedClazz = propClass.getComponentType();
             typeName = "List<" + containedClazz.getName() + ">";
             packageName = "java.util";
+
+            propType.collectionType = PropType.CollectionType.LIST;
+            if (containedClazz.getPackage() == null) {
+                propType.collectionType.genericPackageName = "";
+            } else {
+                propType.collectionType.genericPackageName = containedClazz.getPackage().getName();
+            }
+
+            propType.collectionType.genericTypeName = containedClazz.getSimpleName();
         } else {
             propType = PropType.CLASS;
             typeName = propClass.getSimpleName();
@@ -107,10 +126,6 @@ public class Prop {
         return new Prop(parent, getterMethod);
     }
 
-    public String getSimpleTypeName() {
-        return typeName;
-    }
-
     public String getTypeName() {
         return typeName;
     }
@@ -139,9 +154,17 @@ public class Prop {
         return required;
     }
 
+    public String getGetterDeclaration() {
+        return getTypeName() + " get" + getName()+ "()";
+    }
+
+    public String getSetterDeclaration() {
+        return "void set" + getName()+ "(" + getTypeName() + ")";
+    }
+
     static String propertyNameFromGetter(Method getterMethod) {
         String name = getterMethod.getName().substring("get".length());
-        name = name.substring(0, 1).toLowerCase() + name.substring(1);
+//        name = name.substring(0, 1).toLowerCase() + name.substring(1);
         return name;
     }
 }

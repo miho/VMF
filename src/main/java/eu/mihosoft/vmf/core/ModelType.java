@@ -10,6 +10,7 @@ import java.util.*;
 public class ModelType {
 
     private final String packageName;
+    private final String typeName;
 
     private final List<Prop> properties = new ArrayList<>();
 
@@ -21,6 +22,7 @@ public class ModelType {
     private ModelType(Model model, Class<?> clazz) {
         this.model = model;
         this.packageName = clazz.getPackage().getName();
+        this.typeName = clazz.getSimpleName();
 
         initProperties(clazz);
 
@@ -56,6 +58,14 @@ public class ModelType {
         return model;
     }
 
+    public String getTypeName() {
+        return typeName;
+    }
+
+    public String getFullTypeName() {
+        return packageName+"."+typeName;
+    }
+
     public Optional<Prop> resolveProp(String prop) {
         for(Prop p : properties) {
             if (Objects.equals(p.getName(),prop)) {
@@ -81,4 +91,11 @@ public class ModelType {
     }
 
 
+    public String getPackageName() {
+        return packageName;
+    }
+
+    public List<Prop> getProperties() {
+        return properties;
+    }
 }

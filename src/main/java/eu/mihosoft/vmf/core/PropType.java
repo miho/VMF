@@ -15,5 +15,9 @@ public enum PropType {
         LIST,
 //        SET,
 //        MAP
+        ;
+
+        String genericTypeName;
+        String genericPackageName;
     }
 }

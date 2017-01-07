@@ -9,9 +9,36 @@ import java.util.List;
 public class Interface {
 
     private final String name;
-    private final List<Property> properties = new ArrayList<>();
+    private final String packageName;
+    private final List<Prop> properties = new ArrayList<>();
+    private final ModelType type;
+
+    private Interface(ModelType type) {
+        this.type = type;
+
+        this.packageName = type.getPackageName();
+        this.name = type.getTypeName();
+
+        this.properties.addAll(type.getProperties());
+    }
 
     public static Interface newInstance(ModelType type) {
+        return new Interface(type);
+    }
 
+    public String getName() {
+        return name;
+    }
+
+    public String getPackageName() {
+        return packageName;
+    }
+
+    public List<Prop> getProperties() {
+        return properties;
+    }
+
+    public ModelType getType() {
+        return type;
     }
 }

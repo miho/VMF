@@ -57,8 +57,8 @@ public class CodeGenerator {
     public void generate(ResourceSet set, Class<?>... classes) throws Exception {
         Model model = new Model();
         model.init(classes);
-        for (Type t : model.getTypes()) {
-            try (Resource res = set.open(t.getPackageName() + "." + t.getSimpleTypeName())) {
+        for (ModelType t : model.getTypes()) {
+            try (Resource res = set.open(t.getPackageName() + "." + t.getTypeName())) {
                 Writer out = res.open();
                 generateTypeInterface(out, t);
             }
@@ -80,7 +80,7 @@ public class CodeGenerator {
 //        }
     }
 
-    public void generateTypeInterface(Writer out, Type t) throws Exception {
+    public void generateTypeInterface(Writer out, ModelType t) throws Exception {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
