@@ -1,6 +1,14 @@
+// vmf imports
 import ${type.packageName}.*;
 import ${VMF_CORE_API_PKG}.*;
 import java.beans.PropertyChangeSupport;
+
+// property types imports
+#foreach( $import in $type.imports )
+import $import;
+#end
+
+// interface
 
 /**
  * A representation of the model object {@code $type.fullTypeName}.
@@ -15,8 +23,8 @@ public interface $type.typeName extends VObject<Writable${type.typeName}> {
   * <!-- vmf-end-model-doc -->
   *
   * @return the value of the '<em>${prop.name}</em>' property.
-  * @see Writable${type.typeName}#set${prop.name}($prop.typeName)
+  * @see Writable${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
   */
-  public $prop.typeName get${prop.name}();
+  public $prop.typeName get${prop.nameWithUpperCase}();
 #end
 }

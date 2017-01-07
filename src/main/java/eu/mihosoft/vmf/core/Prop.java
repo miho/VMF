@@ -11,6 +11,8 @@ import java.util.Optional;
  */
 public class Prop {
 
+    private final Method getterMethod;
+
     // property name
     private final String name;
 
@@ -33,6 +35,7 @@ public class Prop {
     private PropType propType;
 
     private Prop(ModelType parent, Method getterMethod) {
+        this.getterMethod = getterMethod;
         name = propertyNameFromGetter(getterMethod);
         this.parent = parent;
 
@@ -42,7 +45,7 @@ public class Prop {
             propType = PropType.PRIMITIVE;
             typeName = propClass.getSimpleName();
             packageName = "";
-        } else if (propClass.isAssignableFrom(Collection.class)) {
+        } else if (Collection.class.isAssignableFrom(propClass)) {
             propType = PropType.COLLECTION;
 
             ParameterizedType retType = (ParameterizedType) getterMethod
@@ -51,7 +54,7 @@ public class Prop {
             Class<?> containedClazz = (Class<?>) (retType
                     .getActualTypeArguments()[0]);
 
-            if (!propClass.isAssignableFrom(List.class)) {
+            if (!List.class.isAssignableFrom(propClass)) {
                 throw new IllegalArgumentException(
                         "Currently only 'java.util.List<?>' is supported as Collection type.");
             } else {
@@ -71,7 +74,7 @@ public class Prop {
         } else if (propClass.isArray()) {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
-            typeName = "List<" + containedClazz.getName() + ">";
+            typeName = "List<" + ModelType.primitiveToBoxedType(containedClazz.getName()) + ">";
             packageName = "java.util";
 
             propType.collectionType = PropType.CollectionType.LIST;
@@ -88,12 +91,20 @@ public class Prop {
             packageName = propClass.getPackage().getName();
         }
 
+
+        // check whether prop is required
+
+        required = getterMethod.getAnnotation(Required.class) != null;
+    }
+
+    void initContainment() {
         // containment
 
         Container container = getterMethod.getAnnotation(Container.class);
         Contains contained = getterMethod.getAnnotation(Contains.class);
 
         if (container != null) {
+            System.out.println("Container: " + getName());
             Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), container.opposite());
 
             if (opposite.isPresent()) {
@@ -104,6 +115,7 @@ public class Prop {
                         "Specified opposite property '" + container.opposite() + "'cannot be found");
             }
         } else if (contained != null) {
+            System.out.println("Contained: " + getName());
             Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), contained.opposite());
 
             if (opposite.isPresent()) {
@@ -111,15 +123,11 @@ public class Prop {
                         parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINED);
             } else {
                 throw new RuntimeException(
-                        "Specified opposite property '" + container.opposite() + "'cannot be found");
+                        "Specified opposite property '" + contained.opposite() + "' cannot be found");
             }
         } else {
             containmentInfo = ContainmentInfo.newInstance(null, null, null, ContainmentType.NONE);
         }
-
-        // check whether prop is required
-
-        required = getterMethod.getAnnotation(Required.class) != null;
     }
 
     public static Prop newInstance(ModelType parent, Method getterMethod) {
@@ -155,16 +163,24 @@ public class Prop {
     }
 
     public String getGetterDeclaration() {
-        return getTypeName() + " get" + getName()+ "()";
+        return getTypeName() + " get" + getNameWithUpperCase()+ "()";
     }
 
     public String getSetterDeclaration() {
-        return "void set" + getName()+ "(" + getTypeName() + ")";
+        return "void set" + getNameWithUpperCase()+ "(" + getTypeName() + ")";
+    }
+
+    public boolean isContainmentProperty() {
+        return getContainmentInfo().getContainmentType() != ContainmentType.NONE;
+    }
+
+    public String getNameWithUpperCase() {
+        return name.substring(0, 1).toUpperCase() + name.substring(1);
     }
 
     static String propertyNameFromGetter(Method getterMethod) {
         String name = getterMethod.getName().substring("get".length());
-//        name = name.substring(0, 1).toLowerCase() + name.substring(1);
+        name = name.substring(0, 1).toLowerCase() + name.substring(1);
         return name;
     }
 }

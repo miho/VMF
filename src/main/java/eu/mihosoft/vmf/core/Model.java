@@ -25,6 +25,7 @@ public class Model {
 			throw new IllegalArgumentException(
 					"All interfaces must be from same package, but found "
 							+ packages);
+
 		packageName = packages.iterator().next();
 		//
 	}

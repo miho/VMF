@@ -1,9 +1,11 @@
 package eu.mihosoft.vmf;
 
 import eu.mihosoft.vmf.core.CodeGenerator;
+import eu.mihosoft.vmf.core.FileResourceSet;
 import eu.mihosoft.vmf.core.Model;
 
 
+import java.io.File;
 import java.io.StringWriter;
 
 /**
@@ -17,14 +19,16 @@ public class VMF {
 
 
 
-        Model model = new Model();
-        model.init(SimpleNode.class);
+//        Model model = new Model();
+//        model.init(SimpleNode.class);
 
         StringWriter writer = new StringWriter();
 
-        generator.generateTypeInterface(
-                writer,
-                model.getTypes().iterator().next());
+        generator.generate(new FileResourceSet(new File("src-gen")), SimpleNode.class);
+
+//        generator.generateTypeInterface(
+//                writer,
+//                model.getTypes().iterator().next());
 
         writer.close();
 

@@ -3,6 +3,7 @@ package eu.mihosoft.vmf.core;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by miho on 06.01.2017.
@@ -14,9 +15,11 @@ public class ModelType {
 
     private final List<Prop> properties = new ArrayList<>();
 
+    private final List<String> imports = new ArrayList<>();
+
     private final Model model;
     private final Interface iface;
-    private final WritableInterface writableIface;
+    private final WritableInterface writableInterface;
     private final Implementation implementation;
 
     private ModelType(Model model, Class<?> clazz) {
@@ -26,8 +29,10 @@ public class ModelType {
 
         initProperties(clazz);
 
+        initImports(imports);
+
         this.iface = Interface.newInstance(this);
-        this.writableIface = WritableInterface.newInstance(this);
+        this.writableInterface = WritableInterface.newInstance(this);
         this.implementation = Implementation.newInstance(this);
     }
 
@@ -50,8 +55,24 @@ public class ModelType {
 
         for (Method m : list) {
             Prop p = Prop.newInstance(this,m);
+
             properties.add(p);
         }
+
+        // resolve containment relations
+        for (Prop p : properties) {
+            p.initContainment();
+        }
+    }
+
+    private void initImports(List<String> imports) {
+        if (!imports.isEmpty()) {
+            throw new RuntimeException("Already initialized.");
+        }
+
+        imports.addAll(properties.stream().map(p->p.getPackageName()).
+                filter(pkg->!pkg.isEmpty()).filter(pkg->!"java.lang".equals(pkg)).distinct().
+                collect(Collectors.toList()));
     }
 
     public Model getModel() {
@@ -68,6 +89,7 @@ public class ModelType {
 
     public Optional<Prop> resolveProp(String prop) {
         for(Prop p : properties) {
+            System.out.println("name: " + p.getName() + " == " + prop);
             if (Objects.equals(p.getName(),prop)) {
                 return Optional.of(p);
             }
@@ -97,5 +119,30 @@ public class ModelType {
 
     public List<Prop> getProperties() {
         return properties;
+    }
+
+    public List<String> getImports() {
+        return imports;
+    }
+
+    private static final Map<String,String> primitiveToBoxedTypeNames = new HashMap<>();
+
+    public static String primitiveToBoxedType(String typeName) {
+
+        if(primitiveToBoxedTypeNames.isEmpty()){
+            primitiveToBoxedTypeNames.put("int", Integer.class.getSimpleName() );
+            primitiveToBoxedTypeNames.put("float", Float.class.getSimpleName() );
+            primitiveToBoxedTypeNames.put("bool", Boolean.class.getSimpleName() );
+            primitiveToBoxedTypeNames.put("char", Character.class.getSimpleName() );
+            primitiveToBoxedTypeNames.put("byte", Byte.class.getSimpleName() );
+            primitiveToBoxedTypeNames.put("void", Void.class.getSimpleName() );
+            primitiveToBoxedTypeNames.put("short", Short.class.getSimpleName() );
+        }
+
+        return primitiveToBoxedTypeNames.get(typeName);
+    }
+
+    public WritableInterface getWritableInterface() {
+        return writableInterface;
     }
 }

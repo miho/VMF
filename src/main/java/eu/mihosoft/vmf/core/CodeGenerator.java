@@ -62,7 +62,11 @@ public class CodeGenerator {
                 Writer out = res.open();
                 generateTypeInterface(out, t);
             }
-        }
+
+            try (Resource res = set.open(t.getPackageName() + ".Writable" + t.getTypeName())) {
+                Writer out = res.open();
+                generateWritableTypeInterface(out, t);
+            }
 
 //        try(Resource factoryRes = set.open(model.getPackage() + ".ModelFactory")) {
 //            Writer out = factoryRes.open();
@@ -78,6 +82,8 @@ public class CodeGenerator {
 //            Writer out = commandRes.open();
 //            generateCommands(out, model);
 //        }
+
+        }
     }
 
     public void generateTypeInterface(Writer out, ModelType t) throws Exception {
@@ -85,6 +91,13 @@ public class CodeGenerator {
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("interface", context, out);
+    }
+
+    public void generateWritableTypeInterface(Writer out, ModelType t) throws Exception {
+        VelocityContext context = new VelocityContext();
+        context.put("type", t);
+        VMFEngineProperties.installProperties(context);
+        mergeTemplate("writable-interface", context, out);
     }
 
 //    public void generateFactory(Writer out, Model model) throws Exception {

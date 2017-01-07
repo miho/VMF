@@ -7,9 +7,10 @@ public class FileResourceSet implements ResourceSet {
 	final File rootSrcFolder;
 
 	public FileResourceSet(File rootSrcFolder) {
-		if (!rootSrcFolder.isDirectory())
+		if (rootSrcFolder.exists() && !rootSrcFolder.isDirectory())
 			throw new IllegalArgumentException("Root src path not a directory.");
 		this.rootSrcFolder = rootSrcFolder;
+		this.rootSrcFolder.mkdirs();
 	}
 
 	@Override
