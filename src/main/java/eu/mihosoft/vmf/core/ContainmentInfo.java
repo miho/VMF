@@ -1,7 +1,5 @@
 package eu.mihosoft.vmf.core;
 
-import java.lang.annotation.Annotation;
-
 /**
  * Created by miho on 06.01.2017.
  */

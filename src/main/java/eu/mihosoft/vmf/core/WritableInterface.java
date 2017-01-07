@@ -2,8 +2,6 @@ package eu.mihosoft.vmf.core;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 /**
  * Created by miho on 06.01.2017.

@@ -15,7 +15,7 @@ class VMFEngineProperties {
 
     public static final String VMF_IMPL_PKG_EXT = "impl";
     public static final String VMF_IMPL_CLASS_EXT = "Impl";
-    public static final String VMF_VMFUTIL_PKG_EXT = "impl.vmfutil";
+    public static final String VMF_VMFUTIL_PKG_EXT = "vmfutil";
 
     public static void installProperties(VelocityContext ctx) {
         ctx.put("VMF_TEMPLATE_PATH", VMF_TEMPLATE_PATH);
@@ -63,8 +63,7 @@ public class CodeGenerator {
     }
 
     public void generate(ResourceSet set, Class<?>... classes) throws Exception {
-        Model model = new Model();
-        model.init(classes);
+        Model model = Model.newInstance(classes);
 
         String packageName = null;
 

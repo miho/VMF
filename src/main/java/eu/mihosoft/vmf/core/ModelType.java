@@ -26,7 +26,9 @@ public class ModelType {
 
     private ModelType(Model model, Class<?> clazz) {
         this.model = model;
-        this.packageName = clazz.getPackage().getName();
+
+        this.packageName = model.getPackageName();
+
         this.typeName = clazz.getSimpleName();
 
         initProperties(clazz);
@@ -94,7 +96,6 @@ public class ModelType {
 
     public Optional<Prop> resolveProp(String prop) {
         for(Prop p : properties) {
-            System.out.println("name: " + p.getName() + " == " + prop);
             if (Objects.equals(p.getName(),prop)) {
                 return Optional.of(p);
             }

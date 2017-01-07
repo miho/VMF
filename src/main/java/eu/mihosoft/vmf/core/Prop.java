@@ -68,13 +68,16 @@ public class Prop {
                 propType.collectionType.genericTypeName = containedClazz.getSimpleName();
             }
 
-            typeName = "List<" + containedClazz.getName() + ">";
+            typeName = "List<" + parent.getModel().
+                    convertModelTypeToDestination(containedClazz) + ">";
             packageName = "java.util";
 
         } else if (propClass.isArray()) {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
-            typeName = "List<" + ModelType.primitiveToBoxedType(containedClazz.getName()) + ">";
+            typeName = "List<" + ModelType.primitiveToBoxedType(
+                                    parent.getModel().
+                                            convertModelTypeToDestination(containedClazz)) + ">";
             packageName = "java.util";
 
             propType.collectionType = PropType.CollectionType.LIST;
@@ -88,7 +91,9 @@ public class Prop {
         } else {
             propType = PropType.CLASS;
             typeName = propClass.getSimpleName();
-            packageName = propClass.getPackage().getName();
+
+            this.packageName = getParent().getModel().
+                    convertModelPackageToDestination(propClass.getPackage().getName());
         }
 
 
@@ -101,7 +106,7 @@ public class Prop {
         // containment
 
         Container container = getterMethod.getAnnotation(Container.class);
-        Contains contained = getterMethod.getAnnotation(Contains.class);
+        Contained contained = getterMethod.getAnnotation(Contained.class);
 
         if (container != null) {
             System.out.println("Container: " + getName());

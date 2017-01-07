@@ -1,8 +1,8 @@
 package eu.mihosoft.vmf;
 
-import eu.mihosoft.vmf.core.CodeGenerator;
 import eu.mihosoft.vmf.core.FileResourceSet;
-import eu.mihosoft.vmf.core.Model;
+import eu.mihosoft.vmf.core.CodeGenerator;
+import eu.mihosoft.vmf.tutorial.vmfmodel.SimpleNode;
 
 
 import java.io.File;
@@ -26,9 +26,6 @@ public class VMF {
 
         generator.generate(new FileResourceSet(new File("C:\\Users\\miho\\Documents\\tmp\\VMFTest\\src\\main\\java")), SimpleNode.class);
 
-//        generator.generateTypeInterface(
-//                writer,
-//                model.getTypes().iterator().next());
 
         writer.close();
 

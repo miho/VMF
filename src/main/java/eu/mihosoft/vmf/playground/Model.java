@@ -1,7 +1,5 @@
 package eu.mihosoft.vmf.playground;
 
-import com.sun.javafx.UnmodifiableArrayList;
-
 import java.util.*;
 
 public class Model {
