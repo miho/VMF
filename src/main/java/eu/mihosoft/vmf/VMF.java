@@ -1,7 +1,8 @@
 package eu.mihosoft.vmf;
 
-import eu.mihosoft.vmf.playground.Model;
-import eu.mihosoft.vmf.playground.ModelGenerator;
+import eu.mihosoft.vmf.core.CodeGenerator;
+import eu.mihosoft.vmf.core.Model;
+
 
 import java.io.StringWriter;
 
@@ -12,7 +13,7 @@ import java.io.StringWriter;
  */
 public class VMF {
     public static void main(String[] args) throws Exception {
-        ModelGenerator generator = new ModelGenerator();
+        CodeGenerator generator = new CodeGenerator();
 
 
 

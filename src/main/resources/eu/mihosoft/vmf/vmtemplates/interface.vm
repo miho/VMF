@@ -1,13 +1,22 @@
-package $type.clzzPackageName;
 import ${type.packageName}.*;
-import ${VMFProps.CORE_API_PKG}.*;
+import ${VMF_CORE_API_PKG}.*;
 import java.beans.PropertyChangeSupport;
 
 /**
- * A representation of the model object {@code $type.getJavaFQN()}.
+ * A representation of the model object {@code $type.fullTypeName}.
  */
-public interface $type.simpleName extends VObject<Writable${type.simpleName}> {
+public interface $type.typeName extends VObject<Writable${type.typeName}> {
 #foreach( $prop in $type.properties )
-  public $prop.declaration get${prop.name}();
+
+ /**
+  * Returns the value of the '<em>${prop.name}</em>' property.
+  *
+  * <!-- vmf-begin-model-doc -->
+  * <!-- vmf-end-model-doc -->
+  *
+  * @return the value of the '<em>${prop.name}</em>' property.
+  * @see Writable${type.typeName}#set${prop.name}($prop.typeName)
+  */
+  public $prop.typeName get${prop.name}();
 #end
 }

@@ -9,10 +9,13 @@ import java.io.Writer;
 import java.util.Properties;
 
 class VMFEngineProperties {
-    public final String TEMPLATE_PATH = "eu/mihosoft/vmf/vmtemplates/";
-    public final String CORE_API_PKG = "eu.mihosoft.vmf.core";
+    public static final String VMF_TEMPLATE_PATH = "eu/mihosoft/vmf/vmtemplates/";
+    public static final String VMF_CORE_API_PKG = "eu.mihosoft.vmf.core";
 
-    public static final VMFEngineProperties INSTANCE = new VMFEngineProperties();
+    public static void installProperties(VelocityContext ctx) {
+        ctx.put("VMF_TEMPLATE_PATH", VMF_TEMPLATE_PATH);
+        ctx.put("VMF_CORE_API_PKG", VMF_CORE_API_PKG);
+    }
 }
 
 public class ModelGenerator {
@@ -79,7 +82,7 @@ public class ModelGenerator {
     public void generateTypeInterface(Writer out, Type t) throws Exception {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
-        context.put("VMFProps", VMFEngineProperties.INSTANCE);
+        VMFEngineProperties.installProperties(context);
         mergeTemplate("interface", context, out);
     }
 

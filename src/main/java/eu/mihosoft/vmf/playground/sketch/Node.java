@@ -48,7 +48,7 @@ public interface Node extends VObject<WritableNode> {
     /**
      * Returns the value of the '<em>Children</em>' containment list.
      *
-     * It is bidirectional and its opposite is '{@link Node#getParent <em>Parent</em>}'.
+     * It is bidirectional and its opposite is '{@link Node#getParent() <em>Parent</em>}'.
      *
      * <!-- vmf-begin-model-doc -->
      * <!-- vmf-end-model-doc -->
@@ -60,7 +60,7 @@ public interface Node extends VObject<WritableNode> {
     /**
      * Returns the value of the '<em><b>Parent</b></em>' container reference.
      *
-     * It is bidirectional and its opposite is '{@link Node#getChildren <em>Children</em>}'.
+     * It is bidirectional and its opposite is '{@link Node#getChildren() <em>Children</em>}'.
      *
      * <!-- vmf-begin-model-doc -->
      * <!-- vmf-end-model-doc -->
@@ -278,7 +278,7 @@ class NodeImpl implements WritableNode {
     private void _vmf_firePropertyChangeIfListenersArePresent(String propertyName, Object oldValue, Object newValue) {
         if(_vmf_hasListeners()) {
             _vmf_getPropertyChanges().
-                    firePropertyChange("name", oldValue, newValue);
+                    firePropertyChange(propertyName, oldValue, newValue);
         }
     }
 }

@@ -9,4 +9,7 @@ public interface SimpleNode {
 
     @Required
     String getName();
+
+    @Required
+    int getMyId();
 }

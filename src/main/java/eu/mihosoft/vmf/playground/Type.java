@@ -149,7 +149,7 @@ public class Type {
 	}
 
 	static Collection<Property> initProperties(Type type, Class<?> clzz,
-			Model model) {
+													Model model) {
 		List<Method> list = new ArrayList<Method>();
 		for (Method m : clzz.getDeclaredMethods()) {
 			if (m.getName().startsWith("get")) {
