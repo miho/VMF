@@ -84,7 +84,7 @@ public class Type {
         for (Class<?> ifs : clazz.getInterfaces()) {
             //if (Contained.class.getName().equals(ifs.getName()))
             //	continue;
-            Type parent = model.resolve(ifs);
+            Type parent = model.resolveType(ifs);
             if (parent == null)
                 throw new IllegalArgumentException(
                         "Interface "

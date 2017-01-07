@@ -45,7 +45,7 @@ public class Property {
     }
 
     public Type getContainedTypeDescr() {
-        return parent.getModel().resolve(getContainedTypeFQN());
+        return parent.getModel().resolveType(getContainedTypeFQN());
     }
 
     public Type getParent() {

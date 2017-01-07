@@ -2,9 +2,7 @@ package eu.mihosoft.vmf.core;
 
 
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 /**
  * Created by miho on 06.01.2017.
@@ -13,7 +11,7 @@ public class ModelType {
 
     private final String packageName;
 
-    private final List<Property> properties = new ArrayList<>();
+    private final List<Prop> properties = new ArrayList<>();
 
     private final Model model;
     private final Interface iface;
@@ -37,21 +35,35 @@ public class ModelType {
 
     private void initProperties(Class<?> clazz) {
 
+        if (!properties.isEmpty()) {
+            throw new RuntimeException("Already initialized.");
+        }
+
         List<Method> list = new ArrayList<Method>();
         for (Method m : clazz.getDeclaredMethods()) {
             if (m.getName().startsWith("get")) {
                 list.add(m);
             }
         }
-        Collection<Prop> props = new ArrayList<>();
+
         for (Method m : list) {
-            Prop f = Prop.newInstance(this,m);
-            props.add(f);
+            Prop p = Prop.newInstance(this,m);
+            properties.add(p);
         }
     }
 
     public Model getModel() {
         return model;
+    }
+
+    public Optional<Prop> resolveProp(String prop) {
+        for(Prop p : properties) {
+            if (Objects.equals(p.getName(),prop)) {
+                return Optional.of(p);
+            }
+        }
+
+        return Optional.empty();
     }
 
     public static List<String> getExtends(Class<?> clazz) {

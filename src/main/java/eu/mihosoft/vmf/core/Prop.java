@@ -75,13 +75,25 @@ public class Prop {
         Contains contained = getterMethod.getAnnotation(Contains.class);
 
         if (container != null) {
-            Prop opposite = parent.getModel().resolveOpposite(container.opposite());
-            containmentInfo = ContainmentInfo.newInstance(
-                    parent, opposite.getParent(), opposite, ContainmentType.CONTAINER);
+            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), container.opposite());
+
+            if (opposite.isPresent()) {
+                containmentInfo = ContainmentInfo.newInstance(
+                        parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINER);
+            } else {
+                throw new RuntimeException(
+                        "Specified opposite property '" + container.opposite() + "'cannot be found");
+            }
         } else if (contained != null) {
-            Prop opposite = parent.getModel().resolveOpposite(contained.opposite());
-            containmentInfo = ContainmentInfo.newInstance(
-                    parent, opposite.getParent(), opposite, ContainmentType.CONTAINED);
+            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), contained.opposite());
+
+            if (opposite.isPresent()) {
+                containmentInfo = ContainmentInfo.newInstance(
+                        parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINED);
+            } else {
+                throw new RuntimeException(
+                        "Specified opposite property '" + container.opposite() + "'cannot be found");
+            }
         } else {
             containmentInfo = ContainmentInfo.newInstance(null, null, null, ContainmentType.NONE);
         }
@@ -92,7 +104,7 @@ public class Prop {
     }
 
     public static Prop newInstance(ModelType parent, Method getterMethod) {
-        return new Prop(parent,getterMethod);
+        return new Prop(parent, getterMethod);
     }
 
     public String getSimpleTypeName() {
