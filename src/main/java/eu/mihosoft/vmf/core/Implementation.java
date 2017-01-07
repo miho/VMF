@@ -8,7 +8,7 @@ import java.util.List;
  */
 public class Implementation {
 
-    private final String name;
+    private final String typeName;
     private final String packageName;
     private final List<Prop> properties = new ArrayList<>();
     private final ModelType type;
@@ -16,8 +16,8 @@ public class Implementation {
     private Implementation(ModelType type) {
         this.type = type;
 
-        this.packageName = type.getPackageName();
-        this.name = type.getTypeName()+"Impl";
+        this.packageName = type.getPackageName()+"."+VMFEngineProperties.VMF_IMPL_PKG_EXT;
+        this.typeName = type.getTypeName()+VMFEngineProperties.VMF_IMPL_CLASS_EXT;
 
         this.properties.addAll(type.getProperties());
     }
@@ -26,8 +26,8 @@ public class Implementation {
         return new Implementation(type);
     }
 
-    public String getName() {
-        return name;
+    public String getTypeName() {
+        return typeName;
     }
 
     public String getPackageName() {

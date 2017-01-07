@@ -28,7 +28,7 @@
 //            collectionType = containedClzz.getSimpleName();
 //        }
 //        if (getterMethod.getReturnType().getPackage() != null)
-//            packageName = getterMethod.getReturnType().getPackage().getName();
+//            packageName = getterMethod.getReturnType().getPackage().getTypeName();
 //        else
 //            packageName = "java.lang";
 //

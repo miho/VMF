@@ -82,7 +82,7 @@ public class Type {
 
 		ArrayList<Type> ext3nds = new ArrayList<Type>();
 		for (Class<?> ifs : clzz.getInterfaces()) {
-			//if (Contained.class.getName().equals(ifs.getName()))
+			//if (Contained.class.getTypeName().equals(ifs.getTypeName()))
 			//	continue;
 			Type parent = model.resolve(ifs);
 			if (parent == null)
@@ -158,7 +158,7 @@ public class Type {
 		}
 		Collection<Property> props = new ArrayList<Property>();
 		for (Method m : list) {
-			//if (Contained.class.getName().equals(m.getDeclaringClass().getName()))
+			//if (Contained.class.getTypeName().equals(m.getDeclaringClass().getTypeName()))
 			//	continue;
 			Property f = new Property();
 			f.init(type, m);

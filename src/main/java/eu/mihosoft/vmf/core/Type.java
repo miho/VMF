@@ -33,9 +33,9 @@
 //        this.model = model;
 //        this.clazz = clazz;
 //
-//        this.packageName = clazz.getPackage().getName();
+//        this.packageName = clazz.getPackage().getTypeName();
 //
-//        this.fullTypeName = clazz.getName();
+//        this.fullTypeName = clazz.getTypeName();
 //        this.simpleTypeName = clazz.getSimpleName();
 //
 //        computeProperties(model,this,clazz);
@@ -47,13 +47,13 @@
 //            Model model, Type type, Class<?> clazz) {
 //        List<Method> list = new ArrayList<Method>();
 //        for (Method m : clazz.getDeclaredMethods()) {
-//            if (m.getName().startsWith("get")) {
+//            if (m.getTypeName().startsWith("get")) {
 //                list.add(m);
 //            }
 //        }
 //        Collection<Property> props = new ArrayList<Property>();
 //        for (Method m : list) {
-//            //if (Contained.class.getName().equals(m.getDeclaringClass().getName()))
+//            //if (Contained.class.getTypeName().equals(m.getDeclaringClass().getTypeName()))
 //            //	continue;
 //            Property f = new Property();
 //            f.init(type, m);
@@ -71,7 +71,7 @@
 //        Set<String> imps = new HashSet<>();
 //        for (Property m : properties) {
 //            if (!"java.lang".equals(m.getPackageName())) {
-//                if (!clazz.getPackage().getName().equals(m.getPackageName())) {
+//                if (!clazz.getPackage().getTypeName().equals(m.getPackageName())) {
 //                    imps.add(m.getImport());
 //                }
 //            }
@@ -82,15 +82,15 @@
 //    private static void computeExtends(Model model, ModelType type, Class<?> clazz) {
 //        ArrayList<ModelType> ext3nds = new ArrayList<>();
 //        for (Class<?> ifs : clazz.getInterfaces()) {
-//            //if (Contained.class.getName().equals(ifs.getName()))
+//            //if (Contained.class.getTypeName().equals(ifs.getTypeName()))
 //            //	continue;
 //            ModelType parent = model.resolveType(ifs).get();
 //            if (parent == null)
 //                throw new IllegalArgumentException(
 //                        "Interface "
-//                                + clazz.getName()
+//                                + clazz.getTypeName()
 //                                + " extends "
-//                                + ifs.getName()
+//                                + ifs.getTypeName()
 //                                + ", but this type is not part of the declared model types.");
 ////            properties.addAll(parent.getProperties());
 ////            imports.addAll(parent.getImports());
@@ -104,7 +104,7 @@
 //    }
 //
 //    static String propertyNameFromGetter(Method getterMethod) {
-//        String name = getterMethod.getName().substring("get".length());
+//        String name = getterMethod.getTypeName().substring("get".length());
 //        name = name.substring(0, 1).toLowerCase() + name.substring(1);
 //        return name;
 //    }

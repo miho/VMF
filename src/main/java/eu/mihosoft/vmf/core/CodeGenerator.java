@@ -14,6 +14,7 @@ class VMFEngineProperties {
     public static final String VMF_CORE_API_PKG = "eu.mihosoft.vmf.core";
 
     public static final String VMF_IMPL_PKG_EXT = "impl";
+    public static final String VMF_IMPL_CLASS_EXT = "Impl";
     public static final String VMF_VMFUTIL_PKG_EXT = "impl.vmfutil";
 
     public static void installProperties(VelocityContext ctx) {
@@ -21,6 +22,7 @@ class VMFEngineProperties {
         ctx.put("VMF_CORE_API_PKG", VMF_CORE_API_PKG);
 
         ctx.put("VMF_IMPL_PKG_EXT", VMF_IMPL_PKG_EXT);
+        ctx.put("VMF_IMPL_CLASS_EXT", VMF_IMPL_CLASS_EXT);
         ctx.put("VMF_VMFUTIL_PKG_EXT", VMF_VMFUTIL_PKG_EXT);
     }
 }
@@ -83,7 +85,7 @@ public class CodeGenerator {
             }
 
             try (Resource res = set.open(t.getPackageName()+"." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                    + t.getImplementation().getName())) {
+                    + t.getImplementation().getTypeName())) {
                 Writer out = res.open();
                 generateTypeImplementation(out, t);
             }

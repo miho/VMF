@@ -24,7 +24,7 @@ public class VMF {
 
         StringWriter writer = new StringWriter();
 
-        generator.generate(new FileResourceSet(new File("src-gen")), SimpleNode.class);
+        generator.generate(new FileResourceSet(new File("C:\\Users\\miho\\Documents\\tmp\\VMFTest\\src\\main\\java")), SimpleNode.class);
 
 //        generator.generateTypeInterface(
 //                writer,
