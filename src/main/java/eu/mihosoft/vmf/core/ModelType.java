@@ -21,8 +21,12 @@ public class ModelType {
 
     private final Model model;
     private final Interface iface;
-    private final WritableInterface writableInterface;
+    private WritableInterface writableInterface;
     private final Implementation implementation;
+
+    private final String ext3nds;
+    private final String implementz;
+    private final String writableImplementz;
 
     private ModelType(Model model, Class<?> clazz) {
         this.model = model;
@@ -36,8 +40,12 @@ public class ModelType {
         initImports(imports);
 
         this.iface = Interface.newInstance(this);
-        this.writableInterface = WritableInterface.newInstance(this);
+
         this.implementation = Implementation.newInstance(this);
+
+        this.ext3nds = generateExtendsString(getModel(), clazz);
+        this.implementz = generateImplementsString(getModel(), clazz);
+        this.writableImplementz = generateWritableImplementsString(getModel(), clazz);
     }
 
     public static ModelType newInstance(Model model, Class<?> clazz) {
@@ -63,6 +71,9 @@ public class ModelType {
             properties.add(p);
         }
 
+    }
+
+    void initContainments() {
         // resolve containment relations
         for (Prop p : properties) {
             p.initContainment();
@@ -70,6 +81,8 @@ public class ModelType {
 
         propertiesWithoutCollectionsBasedContainment.addAll(
                 propertiesWithoutCollectionsBasedContainment(this));
+
+        this.writableInterface = WritableInterface.newInstance(this);
     }
 
     private void initImports(List<String> imports) {
@@ -78,7 +91,8 @@ public class ModelType {
         }
 
         imports.addAll(properties.stream().map(p->p.getPackageName()).
-                filter(pkg->!pkg.isEmpty()).filter(pkg->!"java.lang".equals(pkg)).map(imp->imp+".*").distinct().
+                filter(pkg->!pkg.isEmpty()).filter(pkg->!"java.lang".equals(pkg)).
+                filter(pkg->!getModel().getPackageName().equals(pkg)).map(imp->imp+".*").distinct().
                 collect(Collectors.toList()));
     }
 
@@ -104,12 +118,72 @@ public class ModelType {
         return Optional.empty();
     }
 
-    public static List<String> getExtends(Class<?> clazz) {
+    private static String generateImplementsString(Model model, Class<?> clazz) {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
-            ext3nds.add(ifs.getName());
+
+            String ifsName = model.convertModelTypeToDestination(ifs);
+
+            if (ifsName.startsWith(model.getPackageName())) {
+                ext3nds.add(ifs.getSimpleName());
+            }
         }
-        return ext3nds;
+
+        return String.join(",",ext3nds);
+    }
+
+    private static String generateWritableImplementsString(Model model, Class<?> clazz) {
+        List<String> ext3nds = new ArrayList<String>();
+        for (Class<?> ifs : clazz.getInterfaces()) {
+
+            String ifsName = model.convertModelTypeToDestination(ifs);
+
+            if (ifsName.startsWith(model.getPackageName())) {
+                ext3nds.add("Writable"+ifs.getSimpleName());
+            }
+        }
+
+        return String.join(",",ext3nds);
+    }
+
+    private static String generateExtendsString(Model model, Class<?> clazz) {
+        List<String> ext3nds = new ArrayList<String>();
+        for (Class<?> ifs : clazz.getInterfaces()) {
+
+            String implClsName = model.convertModelPackageToDestination(
+                    ifs.getPackage().getName())+"."
+                    +VMFEngineProperties.VMF_IMPL_PKG_EXT+"."+ifs.getSimpleName()
+                    + VMFEngineProperties.VMF_IMPL_CLASS_EXT;
+
+            ext3nds.add(implClsName);
+        }
+
+        return String.join(",",ext3nds);
+    }
+
+    public String getExtendsString() {
+        if(ext3nds.isEmpty()) {
+            return "";
+        } else
+            return "extends "+ ext3nds;
+    }
+
+    public String getImplementsString() {
+
+        if(implementz.isEmpty()) {
+            return "";
+        } else
+
+        return ", " + implementz;
+    }
+
+    public String getWritableImplementsString() {
+
+        if(writableImplementz.isEmpty()) {
+            return "";
+        } else
+
+            return ", " + writableImplementz;
     }
 
     static String propertyNameFromGetter(Method getterMethod) {

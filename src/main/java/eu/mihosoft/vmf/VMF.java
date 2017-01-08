@@ -2,6 +2,8 @@ package eu.mihosoft.vmf;
 
 import eu.mihosoft.vmf.core.FileResourceSet;
 import eu.mihosoft.vmf.core.CodeGenerator;
+import eu.mihosoft.vmf.tutorial.vmfmodel.ChildNode;
+import eu.mihosoft.vmf.tutorial.vmfmodel.ContainerNode;
 import eu.mihosoft.vmf.tutorial.vmfmodel.SimpleNode;
 
 
@@ -24,7 +26,7 @@ public class VMF {
 
         StringWriter writer = new StringWriter();
 
-        generator.generate(new FileResourceSet(new File("C:\\Users\\miho\\Documents\\tmp\\VMFTest\\src\\main\\java")), SimpleNode.class);
+        generator.generate(new FileResourceSet(new File("C:\\Users\\miho\\Documents\\tmp\\VMFTest\\src\\main\\java")), SimpleNode.class, ContainerNode.class, ChildNode.class);
 
 
         writer.close();

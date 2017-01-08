@@ -47,9 +47,9 @@ public class Model {
                             + packages);
         }
 
-
-
-        //
+        for(ModelType t : types.values()) {
+            t.initContainments();
+        }
     }
 
     public String getPackageName() {
@@ -59,7 +59,7 @@ public class Model {
     public ModelType initType(Class<?> clazz) {
 
         ModelType t = ModelType.newInstance(this, clazz);
-        types.put(clazz.getName(), t);
+        types.put(convertModelTypeToDestination(clazz), t);
 
         return t;
     }
@@ -68,16 +68,16 @@ public class Model {
         return Collections.unmodifiableCollection(types.values());
     }
 
-    public Optional<ModelType> resolveType(Class<?> clazz) {
-        if (types.containsKey(clazz.getName()))
-            return Optional.of(types.get(clazz.getName()));
-        else {
-            if (Arrays.stream(interfaces).anyMatch(ifc -> clazz.equals(ifc)))
-                return Optional.of(initType(clazz));
-            else
-                return Optional.empty();
-        }
-    }
+//    public Optional<ModelType> resolveType(Class<?> clazz) {
+//        if (types.containsKey(clazz.getName()))
+//            return Optional.of(types.get(clazz.getName()));
+//        else {
+//            if (Arrays.stream(interfaces).anyMatch(ifc -> clazz.equals(ifc)))
+//                return Optional.of(initType(clazz));
+//            else
+//                return Optional.empty();
+//        }
+//    }
 
     public Optional<ModelType> resolveType(String clazzName) {
         return Optional.ofNullable(types.get(clazzName));
@@ -88,7 +88,8 @@ public class Model {
      *
      * @param type         model type
      * @param oppositeProp fully qualified name of the opposite property of the given type, e.g.,
-     *                     '<em>eu.mihosoft.tutorial.MyType.myProp</em>'
+     *                     '<em>eu.mihosoft.tutorial.MyType.myProp</em>' or simplified, i.e., without package if the
+     *                     package matches the current model package, e.g., '<em>MyType.myProp</em>'
      * @return resolved opposite property or {@code Optional<Prop>.empty()} if the specified property does not exist
      */
     public Optional<Prop> resolveOppositeOf(ModelType type, String oppositeProp) {
@@ -106,10 +107,19 @@ public class Model {
             return Optional.empty();
         }
 
+        // we specified property without package name. we assume it is in the current package
+        if(typeNameParts.length==2) {
+            typeNameParts = (getPackageName()+"."+oppositeProp).split("\\.");
+        }
+
         String typeName = "";
 
         for (int i = 0; i < typeNameParts.length - 1; i++) {
             typeName += typeNameParts[i];
+
+            if(i < typeNameParts.length - 2) {
+                typeName+=".";
+            }
         }
 
         String propName = typeNameParts[typeNameParts.length - 1];
@@ -136,8 +146,6 @@ public class Model {
     }
 
     public String convertModelPackageToDestination(String srcPkg) {
-        System.out.println("src: " + srcPkg);
-        System.out.println("model: " + getPackageName());
         if(Objects.equals(getPackageName()+".vmfmodel",srcPkg)) {
             return getPackageName();
         } else {
@@ -146,9 +154,6 @@ public class Model {
     }
 
     public String convertModelTypeToDestination(Class<?> srcType) {
-        System.out.println("src: " + srcType.getName());
-        System.out.println("model: " + getPackageName());
-
         String srcPackage = "";
 
         if (srcType.getPackage()!=null) {

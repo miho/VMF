@@ -117,7 +117,7 @@ public class Prop {
                         parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINER);
             } else {
                 throw new RuntimeException(
-                        "Specified opposite property '" + container.opposite() + "'cannot be found");
+                        "Specified opposite property '" + container.opposite() + "' cannot be found");
             }
         } else if (contained != null) {
             System.out.println("Contained: " + getName());

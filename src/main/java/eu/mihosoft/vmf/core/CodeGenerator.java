@@ -69,7 +69,7 @@ public class CodeGenerator {
 
         for (ModelType t : model.getTypes()) {
 
-            if(packageName == null) {
+            if (packageName == null) {
                 packageName = t.getPackageName();
             }
 
@@ -83,12 +83,11 @@ public class CodeGenerator {
                 generateWritableTypeInterface(out, t);
             }
 
-            try (Resource res = set.open(t.getPackageName()+"." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+            try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
                     + t.getImplementation().getTypeName())) {
                 Writer out = res.open();
                 generateTypeImplementation(out, t);
             }
-
 
 
 //        try(Resource factoryRes = set.open(model.getPackage() + ".ModelFactory")) {
@@ -108,17 +107,17 @@ public class CodeGenerator {
 
         }
 
-        try (Resource res = set.open(packageName+"." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
+        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
             Writer out = res.open();
             generateVContainmentUtil(out, packageName);
         }
 
-        try (Resource res = set.open(packageName+"." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VObject")) {
+        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VObject")) {
             Writer out = res.open();
             generateVObjectUtil(out, packageName);
         }
 
-        try (Resource res = set.open(packageName+"." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
+        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
             Writer out = res.open();
             generateObservableObjectUtil(out, packageName);
         }

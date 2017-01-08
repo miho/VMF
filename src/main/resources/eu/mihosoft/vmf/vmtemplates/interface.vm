@@ -2,9 +2,6 @@ package ${type.packageName};
 
 // vmf imports
 import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
-import ${type.packageName}.${VMF_IMPL_PKG_EXT}.*;
-import java.beans.PropertyChangeSupport;
-import java.beans.PropertyChangeListener;
 
 // property types imports
 #foreach( $import in $type.imports )
@@ -16,7 +13,7 @@ import $import;
 /**
  * A representation of the model object {@code $type.fullTypeName}.
  */
-public interface $type.typeName extends VObject<Writable${type.typeName}> {
+public interface $type.typeName extends VObject$type.implementsString {
 #foreach( $prop in $type.properties )
 
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")
@@ -78,8 +75,27 @@ public interface $type.typeName extends VObject<Writable${type.typeName}> {
    * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
    */
   static Writable${type.typeName} newInstance() {
-    ${type.implementation.typeName} result = new ${type.implementation.typeName}();
+    try {
+      Class<?> cls = Class.forName("${type.implementation.packageName}.${type.implementation.typeName}");
+      java.lang.reflect.Constructor constructor = cls.getConstructor();
+      constructor.setAccessible(true);
+      return (Writable${type.typeName}) constructor.newInstance();
+    } catch (ClassNotFoundException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (InstantiationException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (IllegalAccessException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    }  catch (NoSuchMethodException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (SecurityException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (IllegalArgumentException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (java.lang.reflect.InvocationTargetException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    }
 
-    return result;
+    return null;
   }
 }
