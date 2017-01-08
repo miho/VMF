@@ -34,6 +34,12 @@ class $type.implementation.typeName $type.extendsString implements Writable${typ
 #parse("$VMF_TEMPLATE_PATH/impl/setter.vm")
 
   // --------------------------------------------------------------------
+  // --- Object methods (equals(), toString() etc.)
+  // --------------------------------------------------------------------
+
+#parse("$VMF_TEMPLATE_PATH/impl/to-string.vm")
+
+  // --------------------------------------------------------------------
   // --- Utility methods
   // --------------------------------------------------------------------
 
