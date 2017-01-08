@@ -22,11 +22,16 @@ public class ModelType {
     private final Model model;
     private final Interface iface;
     private WritableInterface writableInterface;
-    private final Implementation implementation;
+    private Implementation implementation;
 
-    private final String ext3nds;
-    private final String implementz;
-    private final String writableImplementz;
+    private final String ext3ndsString;
+    private final String implementzString;
+    private final List<String> implementsList = new ArrayList<>();
+    private final String writableImplementzString;
+
+    private final List<ModelType> implementz = new ArrayList<>();
+
+    private final List<Prop> propertiesForEquals = new ArrayList<>();
 
     private ModelType(Model model, Class<?> clazz) {
         this.model = model;
@@ -41,11 +46,11 @@ public class ModelType {
 
         this.iface = Interface.newInstance(this);
 
-        this.implementation = Implementation.newInstance(this);
+        this.ext3ndsString = generateExtendsString(getModel(), clazz);
+        this.implementzString = generateImplementsString(getModel(), clazz);
+        this.writableImplementzString = generateWritableImplementsString(getModel(), clazz);
 
-        this.ext3nds = generateExtendsString(getModel(), clazz);
-        this.implementz = generateImplementsString(getModel(), clazz);
-        this.writableImplementz = generateWritableImplementsString(getModel(), clazz);
+        this.implementsList.addAll(generateImplementsList(model,clazz));
     }
 
     public static ModelType newInstance(Model model, Class<?> clazz) {
@@ -71,6 +76,9 @@ public class ModelType {
             properties.add(p);
         }
 
+        propertiesForEquals.addAll(properties.stream().
+                filter(p->!p.isIgnoredForEquals()).collect(Collectors.toList()));
+
     }
 
     void initContainments() {
@@ -80,9 +88,25 @@ public class ModelType {
         }
 
         propertiesWithoutCollectionsBasedContainment.addAll(
-                propertiesWithoutCollectionsBasedContainment(this));
+                propertiesWithoutCollectionsBasedContainment(this, properties));
 
         this.writableInterface = WritableInterface.newInstance(this);
+    }
+
+    void initImplements() {
+        // init implements
+        for(String implClsName : implementsList) {
+            Optional<ModelType> type = model.resolveType(implClsName);
+
+            if(!type.isPresent()) {
+                throw new RuntimeException("Model types can only extend other model types." +
+                        " Extending external type '" + implClsName + "' is not supported.");
+            }
+
+            implementz.add(type.get());
+        }
+
+        this.implementation = Implementation.newInstance(this);
     }
 
     private void initImports(List<String> imports) {
@@ -116,6 +140,19 @@ public class ModelType {
         }
 
         return Optional.empty();
+    }
+
+    private static List<String> generateImplementsList(Model model, Class<?> clazz) {
+        List<String> implementz = new ArrayList<>();
+        for (Class<?> ifs : clazz.getInterfaces()) {
+
+            String ifsName = model.convertModelTypeToDestination(ifs);
+
+            if (ifsName.startsWith(model.getPackageName())) {
+                implementz.add(ifsName);
+            }
+        }
+        return implementz;
     }
 
     private static String generateImplementsString(Model model, Class<?> clazz) {
@@ -162,28 +199,32 @@ public class ModelType {
     }
 
     public String getExtendsString() {
-        if(ext3nds.isEmpty()) {
+        if(ext3ndsString.isEmpty()) {
             return "";
         } else
-            return "extends "+ ext3nds;
+            return "extends "+ ext3ndsString;
     }
 
     public String getImplementsString() {
 
-        if(implementz.isEmpty()) {
+        if(implementzString.isEmpty()) {
             return "";
         } else
 
-        return ", " + implementz;
+        return ", " + implementzString;
     }
 
     public String getWritableImplementsString() {
 
-        if(writableImplementz.isEmpty()) {
+        if(writableImplementzString.isEmpty()) {
             return "";
         } else
 
-            return ", " + writableImplementz;
+            return ", " + writableImplementzString;
+    }
+
+    public List<Prop> getPropertiesForEquals() {
+        return propertiesForEquals;
     }
 
     static String propertyNameFromGetter(Method getterMethod) {
@@ -203,6 +244,10 @@ public class ModelType {
 
     public List<String> getImports() {
         return imports;
+    }
+
+    public List<ModelType> getImplementz() {
+        return implementz;
     }
 
     public Implementation getImplementation() {
@@ -234,13 +279,13 @@ public class ModelType {
         return propertiesWithoutCollectionsBasedContainment;
     }
 
-    public static List<Prop> propertiesWithoutCollectionsBasedContainment(ModelType type) {
+    public static List<Prop> propertiesWithoutCollectionsBasedContainment(ModelType type, List<Prop> properties) {
         Predicate<Prop> isContainmentProp = p->p.isContainmentProperty();
         Predicate<Prop> isCollectionType = p->p.getPropType()== PropType.COLLECTION;
         Predicate<Prop> oppositeIsCollectionType = p->p.isContainmentProperty()
                 &&p.getContainmentInfo().getOpposite().getPropType()==PropType.COLLECTION;
 
-        return type.getProperties().stream().
+        return properties.stream().
                 filter(p->isContainmentProp.and(isCollectionType).negate().test(p)).
                 filter(oppositeIsCollectionType.negate()).
                 collect(Collectors.toList());

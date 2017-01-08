@@ -5,6 +5,8 @@ import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeSupport;
 import java.beans.PropertyChangeListener;
+import java.util.Objects;
+import java.util.Arrays;
 
 // property types imports
 #foreach( $import in $type.imports )
@@ -38,6 +40,8 @@ class $type.implementation.typeName $type.extendsString implements Writable${typ
   // --------------------------------------------------------------------
 
 #parse("$VMF_TEMPLATE_PATH/impl/to-string.vm")
+
+#parse("$VMF_TEMPLATE_PATH/impl/equals.vm")
 
   // --------------------------------------------------------------------
   // --- Utility methods

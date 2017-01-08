@@ -50,6 +50,10 @@ public class Model {
         for(ModelType t : types.values()) {
             t.initContainments();
         }
+
+        for(ModelType t : types.values()) {
+            t.initImplements();
+        }
     }
 
     public String getPackageName() {

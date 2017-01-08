@@ -29,7 +29,10 @@ public class Prop {
     private ContainmentInfo containmentInfo;
 
     //indicates whether this property is required (validation & constructors)
-    private boolean required;
+    private final boolean required;
+
+    // indicates whether this property should be ignored for equals() code generation
+    private final boolean ignoredForEquals;
 
     //type of the property, e.g., primitive or Collection
     private PropType propType;
@@ -100,6 +103,7 @@ public class Prop {
         // check whether prop is required
 
         required = getterMethod.getAnnotation(Required.class) != null;
+        ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
     }
 
     void initContainment() {
@@ -183,9 +187,47 @@ public class Prop {
         return name.substring(0, 1).toUpperCase() + name.substring(1);
     }
 
+    public boolean isIgnoredForEquals() {
+        return ignoredForEquals;
+    }
+
+    public boolean isContained() {
+        return getContainmentInfo().getContainmentType() == ContainmentType.CONTAINED;
+    }
+
+    public boolean isContainer() {
+        return getContainmentInfo().getContainmentType() == ContainmentType.CONTAINER;
+    }
+
+    public boolean isCollectionType() {
+        return getPropType() == PropType.COLLECTION;
+    }
+
+
+
     static String propertyNameFromGetter(Method getterMethod) {
         String name = getterMethod.getName().substring("get".length());
         name = name.substring(0, 1).toLowerCase() + name.substring(1);
         return name;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        Prop prop = (Prop) o;
+
+        if (!name.equals(prop.name)) return false;
+        if (!packageName.equals(prop.packageName)) return false;
+        return typeName.equals(prop.typeName);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = name.hashCode();
+        result = 31 * result + packageName.hashCode();
+        result = 31 * result + typeName.hashCode();
+        return result;
     }
 }

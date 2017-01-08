@@ -19,7 +19,7 @@ public class WritableInterface {
         this.packageName = type.getPackageName();
         this.name = type.getTypeName();
 
-        this.properties.addAll(ModelType.propertiesWithoutCollectionsBasedContainment(type));
+        this.properties.addAll(type.getPropertiesWithoutCollectionsBasedContainment());
     }
 
 
