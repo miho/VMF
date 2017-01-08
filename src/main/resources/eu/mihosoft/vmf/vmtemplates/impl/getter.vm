@@ -1,7 +1,11 @@
 #foreach( $prop in ${type.properties} )
   @Override
   public $prop.getterDeclaration {
+#if($prop.containmentProperty && $prop.propType == "COLLECTION")
+    return VContainmentUtil.asContainmentList(this.$prop.name, "${prop.containmentInfo.opposite.name}");
+#else
     return this.$prop.name;
+#end
   }
 
 #end

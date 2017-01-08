@@ -1,4 +1,5 @@
 #foreach( $prop in ${type.propertiesWithoutCollectionsBasedContainment} )
+  @Override
   public $prop.setterDeclaration {
     // set the new value
     $prop.typeName oldValue = this.$prop.name;
