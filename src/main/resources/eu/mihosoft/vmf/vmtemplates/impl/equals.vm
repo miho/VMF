@@ -1,0 +1,29 @@
+  @Override
+  public boolean equals(Object o) {
+    if (o==null) return false;
+    else if (this==o) return true;
+    else if (o instanceof $type.fullTypeName) {
+      $type.implementation.typeName other = ($type.implementation.typeName) o;
+      return
+#foreach ($prop in $type.propertiesForEquals)
+        Objects.equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
+
+#end
+    }
+    else return false;
+  } // end equals()
+
+  @Override
+  public int hashCode() {
+    return _vmf_deepHashCode(
+#foreach ($prop in $type.propertiesForEquals)
+      this.$prop.name#if($foreach.hasNext),#end
+
+#end    );
+  } // end hashCode()
+
+  // fixes 'array discovery problems' with the 'Objects.hash(...)' method
+  // see http://stackoverflow.com/questions/30385018/how-to-use-java-7-objects-hash-with-arrays
+  private int _vmf_deepHashCode(Object... fields) {
+    return Arrays.deepHashCode(fields);
+  } // end _vmf_deepHashCode()

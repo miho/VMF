@@ -1,0 +1,13 @@
+
+  @Override
+  public String toString() {
+    return "{ \"@Type\":\"$type.typeName\"" +
+#foreach ($prop in $type.properties)
+#if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
+    "CONTAINED COLLECTION TODO" + // TODO ", " + this.${prop.name}.asJSONString() +
+#else
+    ", \"$prop.name\": \"" + this.$prop.name + "\"" +
+#end
+#end
+    "}";
+  } // end toString()
