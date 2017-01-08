@@ -1,0 +1,3 @@
+#foreach( $prop in ${type.properties})
+  private $prop.typeName $prop.name;
+#end

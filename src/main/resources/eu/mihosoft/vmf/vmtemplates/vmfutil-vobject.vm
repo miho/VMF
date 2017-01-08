@@ -1,0 +1,5 @@
+package ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT};
+
+public interface VObject extends ObservableObject {
+    // static T newInstance();
+}

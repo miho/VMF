@@ -1,0 +1,7 @@
+#foreach( $prop in ${type.properties} )
+  @Override
+  public $prop.getterDeclaration {
+    return this.$prop.name;
+  }
+
+#end

@@ -1,0 +1,74 @@
+package ${type.implementation.packageName};
+
+// vmf imports
+import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${type.packageName}.*;
+import java.beans.PropertyChangeSupport;
+import java.beans.PropertyChangeListener;
+
+// property types imports
+#foreach( $import in $type.imports )
+import $import;
+#end
+
+// implementation
+
+/**
+ * An implementation of the model object {@code $type.fullTypeName}.
+ */
+class $type.implementation.typeName $type.extendsString implements Writable${type.typeName} {
+
+
+// declare member vars
+#parse("$VMF_TEMPLATE_PATH/impl/declare-props.vm")
+  private PropertyChangeSupport propertyChanges;
+
+  public ${type.implementation.typeName}() {
+    // ...
+  }
+
+// public getter methods for accessing properties
+#parse("$VMF_TEMPLATE_PATH/impl/getter.vm")
+
+// public setter methods for accessing properties
+#parse("$VMF_TEMPLATE_PATH/impl/setter.vm")
+
+  // --------------------------------------------------------------------
+  // --- Utility methods
+  // --------------------------------------------------------------------
+  
+  @Override
+  public void addPropertyChangeListener(PropertyChangeListener l) {
+      _vmf_getPropertyChanges().addPropertyChangeListener(l);
+  }
+  @Override
+  public void removePropertyChangeListener(PropertyChangeListener l) {
+      _vmf_getPropertyChanges().removePropertyChangeListener(l);
+
+      if(_vmf_getPropertyChanges().getPropertyChangeListeners().length==0) {
+          propertyChanges = null;
+      }
+  }
+
+  private PropertyChangeSupport _vmf_getPropertyChanges() {
+
+      if(propertyChanges==null) {
+          propertyChanges = new PropertyChangeSupport(this);
+      }
+
+      return propertyChanges;
+  }
+
+  private boolean _vmf_hasListeners() {
+      return propertyChanges!=null;
+  }
+
+  private void _vmf_firePropertyChangeIfListenersArePresent(
+    String propertyName, Object oldValue, Object newValue) {
+      if(_vmf_hasListeners()) {
+          _vmf_getPropertyChanges().
+                  firePropertyChange(propertyName, oldValue, newValue);
+      }
+  }
+
+}

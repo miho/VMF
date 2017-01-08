@@ -1,0 +1,31 @@
+package ${type.packageName};
+
+// vmf imports
+import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import java.beans.PropertyChangeSupport;
+import java.beans.PropertyChangeListener;
+
+// property types imports
+#foreach( $import in $type.imports )
+import $import;
+#end
+
+// writable interface
+
+/**
+ * A writable representation of the model object {@code ${type.fullTypeName}}.
+ */
+public interface Writable$type.typeName extends $type.typeName$type.writableImplementsString {
+#foreach( $prop in ${type.writableInterface.properties} )
+
+ /**
+  * Sets the value of the '<em>${prop.name}</em>' property.
+  *
+  * <!-- vmf-begin-model-doc -->
+  * <!-- vmf-end-model-doc -->
+  *
+  * @see ${type.typeName}#get${prop.nameWithUpperCase}($prop.typeName)
+  */
+  public void set${prop.nameWithUpperCase}($prop.typeName ${prop.nameWithUpperCase});
+#end
+}
