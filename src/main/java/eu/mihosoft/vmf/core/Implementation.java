@@ -23,8 +23,8 @@ public class Implementation {
 
         this.properties.addAll(type.getProperties());
 
-//        this.properties.addAll(type.getImplementz().stream().flatMap(t->t.getProperties()
-//                .stream()).filter(p->!properties.contains(p)).collect(Collectors.toList()));
+        this.properties.addAll(type.getImplementz().stream().flatMap(t->t.getProperties()
+                .stream()).filter(p->!properties.contains(p)).collect(Collectors.toList()));
 
         this.propertiesWithoutCollectionsBasedContainment =
                 ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties);

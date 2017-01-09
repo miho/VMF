@@ -18,7 +18,7 @@ import $import;
 /**
  * An implementation of the model object {@code $type.fullTypeName}.
  */
-class $type.implementation.typeName $type.extendsString implements Writable${type.typeName} {
+class $type.implementation.typeName implements Writable${type.typeName} {
 
 
 // declare member vars
