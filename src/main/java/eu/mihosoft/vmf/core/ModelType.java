@@ -31,7 +31,7 @@ public class ModelType {
 
     private final List<ModelType> implementz = new ArrayList<>();
 
-    private final List<Prop> propertiesForEquals = new ArrayList<>();
+
 
     private ModelType(Model model, Class<?> clazz) {
         this.model = model;
@@ -76,8 +76,7 @@ public class ModelType {
             properties.add(p);
         }
 
-        propertiesForEquals.addAll(properties.stream().
-                filter(p->!p.isIgnoredForEquals()).collect(Collectors.toList()));
+
 
     }
 
@@ -223,9 +222,7 @@ public class ModelType {
             return ", " + writableImplementzString;
     }
 
-    public List<Prop> getPropertiesForEquals() {
-        return propertiesForEquals;
-    }
+
 
     static String propertyNameFromGetter(Method getterMethod) {
         String name = getterMethod.getName().substring("get".length());

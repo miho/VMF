@@ -1,13 +1,40 @@
 
   @Override
   public String toString() {
-    return "{ \"@Type\":\"$type.typeName\"" +
-#foreach ($prop in $type.properties)
+
+
+  boolean entry = _vmf_fToStringChecker.get().isEmpty();
+    try {
+        // test if "this" has been seen before
+        // implementation based on http://stackoverflow.com/a/11300376/1493549
+        if (_vmf_fToStringChecker.get().containsKey(this)) {
+          return "{skipping recursion}";
+        } else {
+          _vmf_fToStringChecker.get().put(this, null);
+          entry = true;
+        }
+        return "{ \"@Type\":\"$type.typeName\"" +
+#foreach ($prop in $type.implementation.properties)
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
-    "CONTAINED COLLECTION TODO" + // TODO ", " + this.${prop.name}.asJSONString() +
+        "CONTAINED COLLECTION TODO" + // TODO ", " + this.${prop.name}.asJSONString() +
 #else
-    ", \"$prop.name\": \"" + this.$prop.name + "\"" +
+        ", \"$prop.name\": \"" + this.$prop.name + "\"" +
 #end
 #end
-    "}";
-  } // end toString()
+        "}";
+    } finally {
+        if (entry) {
+            _vmf_fToStringChecker.get().clear();
+        }
+    }
+  }
+
+  private final ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_fToStringChecker
+          = new ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>>() {
+      @Override
+      protected java.util.IdentityHashMap<$type.typeName, ?> initialValue() {
+          return new java.util.IdentityHashMap<>();
+      }
+  };
+
+ // end toString()

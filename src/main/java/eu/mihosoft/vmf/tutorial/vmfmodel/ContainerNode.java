@@ -5,7 +5,7 @@ import eu.mihosoft.vmf.core.Container;
 /**
  * Created by miho on 08.01.2017.
  */
-public interface ContainerNode extends ChildNode{
+public interface ContainerNode extends ChildNode, OtherClass{
     @Container(opposite = "ChildNode.container")
     ChildNode getChild();
 

@@ -14,6 +14,7 @@ public class Implementation {
     private final List<Prop> properties = new ArrayList<>();
     private final ModelType type;
     private final List<Prop> propertiesWithoutCollectionsBasedContainment;
+    private final List<Prop> propertiesForEquals = new ArrayList<>();
 
     private Implementation(ModelType type) {
         this.type = type;
@@ -28,7 +29,12 @@ public class Implementation {
 
         this.propertiesWithoutCollectionsBasedContainment =
                 ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties);
+
+        propertiesForEquals.addAll(properties.stream().
+                filter(p->!p.isIgnoredForEquals()).
+                filter(p->!p.isContainmentProperty()).collect(Collectors.toList()));
     }
+
 
     public static Implementation newInstance(ModelType type) {
         return new Implementation(type);
@@ -52,5 +58,9 @@ public class Implementation {
 
     public List<Prop> getPropertiesWithoutCollectionsBasedContainment() {
         return propertiesWithoutCollectionsBasedContainment;
+    }
+
+    public List<Prop> getPropertiesForEquals() {
+        return propertiesForEquals;
     }
 }
