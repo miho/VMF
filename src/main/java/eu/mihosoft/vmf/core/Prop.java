@@ -110,7 +110,7 @@ public class Prop {
         // containment
 
         Container container = getterMethod.getAnnotation(Container.class);
-        Contained contained = getterMethod.getAnnotation(Contained.class);
+        Contains contained = getterMethod.getAnnotation(Contains.class);
 
         if (container != null) {
             System.out.println("Container: " + getName());
@@ -124,7 +124,7 @@ public class Prop {
                         "Specified opposite property '" + container.opposite() + "' cannot be found");
             }
         } else if (contained != null) {
-            System.out.println("Contained: " + getName());
+            System.out.println("Contains: " + getName());
             Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), contained.opposite());
 
             if (opposite.isPresent()) {

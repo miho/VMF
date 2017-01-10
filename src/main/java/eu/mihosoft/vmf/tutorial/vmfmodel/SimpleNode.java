@@ -1,9 +1,9 @@
 package eu.mihosoft.vmf.tutorial.vmfmodel;
 
 import eu.mihosoft.vmf.core.Container;
+import eu.mihosoft.vmf.core.Contains;
 import eu.mihosoft.vmf.core.IgnoreEquals;
 import eu.mihosoft.vmf.core.Required;
-import eu.mihosoft.vmf.core.Contained;
 
 import java.util.List;
 
@@ -19,7 +19,7 @@ public interface SimpleNode {
     @IgnoreEquals
     int getMyId();
 
-    @Contained(opposite = "parent")
+    @Contains(opposite = "parent")
     @IgnoreEquals
     List<SimpleNode> getChildren();
 
@@ -33,7 +33,7 @@ public interface SimpleNode {
     @IgnoreEquals
     SimpleNode getMaster();
 
-    @Contained(opposite = "master")
+    @Contains(opposite = "master")
     @IgnoreEquals
     SimpleNode getSlave();
 }

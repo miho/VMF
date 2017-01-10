@@ -53,7 +53,7 @@
 //        }
 //        Collection<Property> props = new ArrayList<Property>();
 //        for (Method m : list) {
-//            //if (Contained.class.getTypeName().equals(m.getDeclaringClass().getTypeName()))
+//            //if (Contains.class.getTypeName().equals(m.getDeclaringClass().getTypeName()))
 //            //	continue;
 //            Property f = new Property();
 //            f.init(type, m);
@@ -82,7 +82,7 @@
 //    private static void computeExtends(Model model, ModelType type, Class<?> clazz) {
 //        ArrayList<ModelType> ext3nds = new ArrayList<>();
 //        for (Class<?> ifs : clazz.getInterfaces()) {
-//            //if (Contained.class.getTypeName().equals(ifs.getTypeName()))
+//            //if (Contains.class.getTypeName().equals(ifs.getTypeName()))
 //            //	continue;
 //            ModelType parent = model.resolveType(ifs).get();
 //            if (parent == null)
