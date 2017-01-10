@@ -11,6 +11,7 @@ import java.util.Optional;
  */
 public class Prop {
 
+    // method used to specify this property in the model interface (subpackage '.vmfmodel')
     private final Method getterMethod;
 
     // property name
@@ -113,7 +114,6 @@ public class Prop {
         Contains contained = getterMethod.getAnnotation(Contains.class);
 
         if (container != null) {
-            System.out.println("Container: " + getName());
             Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), container.opposite());
 
             if (opposite.isPresent()) {
@@ -124,7 +124,6 @@ public class Prop {
                         "Specified opposite property '" + container.opposite() + "' cannot be found");
             }
         } else if (contained != null) {
-            System.out.println("Contains: " + getName());
             Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), contained.opposite());
 
             if (opposite.isPresent()) {

@@ -6,6 +6,7 @@ import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 
+import java.io.IOException;
 import java.io.Writer;
 import java.util.Properties;
 
@@ -44,7 +45,7 @@ public class CodeGenerator {
         }
     }
 
-    protected void mergeTemplate(String name, VelocityContext ctx, Writer out) throws Exception {
+    protected void mergeTemplate(String name, VelocityContext ctx, Writer out) throws IOException {
         String path = resolveTemplatePath(name);
         engine.mergeTemplate(path, "UTF-8", ctx, out);
     }
@@ -62,7 +63,7 @@ public class CodeGenerator {
         return new VelocityEngine(props);
     }
 
-    public void generate(ResourceSet set, Class<?>... classes) throws Exception {
+    public void generate(ResourceSet set, Class<?>... classes) throws IOException {
         Model model = Model.newInstance(classes);
 
         String packageName = null;
@@ -89,22 +90,6 @@ public class CodeGenerator {
                 generateTypeImplementation(out, t);
             }
 
-
-//        try(Resource factoryRes = set.open(model.getPackage() + ".ModelFactory")) {
-//            Writer out = factoryRes.open();
-//            generateFactory(out, model);
-//        }
-//
-//        try(Resource visitorRes = set.open(model.getPackage() + ".ModelVisitor")) {
-//            Writer out = visitorRes.open();
-//            generateVisitor(out, model);
-//        }
-//
-//        try(Resource commandRes = set.open(model.getPackage() + ".ModelCommandFactory")) {
-//            Writer out = commandRes.open();
-//            generateCommands(out, model);
-//        }
-
         }
 
         try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
@@ -123,42 +108,42 @@ public class CodeGenerator {
         }
     }
 
-    private void generateObservableObjectUtil(Writer out, String packageName) throws Exception {
+    private void generateObservableObjectUtil(Writer out, String packageName) throws IOException {
         VelocityContext context = new VelocityContext();
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         mergeTemplate("vmfutil-observableobject", context, out);
     }
 
-    private void generateVObjectUtil(Writer out, String packageName) throws Exception {
+    private void generateVObjectUtil(Writer out, String packageName) throws IOException {
         VelocityContext context = new VelocityContext();
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         mergeTemplate("vmfutil-vobject", context, out);
     }
 
-    private void generateVContainmentUtil(Writer out, String packageName) throws Exception {
+    private void generateVContainmentUtil(Writer out, String packageName) throws IOException {
         VelocityContext context = new VelocityContext();
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         mergeTemplate("vmfutil-vcontainmentutil", context, out);
     }
 
-    public void generateTypeInterface(Writer out, ModelType t) throws Exception {
+    public void generateTypeInterface(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("interface", context, out);
     }
 
-    public void generateWritableTypeInterface(Writer out, ModelType t) throws Exception {
+    public void generateWritableTypeInterface(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("writable-interface", context, out);
     }
 
-    public void generateTypeImplementation(Writer out, ModelType t) throws Exception {
+    public void generateTypeImplementation(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
