@@ -19,12 +19,9 @@ import java.util.logging.Logger;
  */
 public class VMF {
 
-    public static void main(String[] args) throws IOException {
-        generate(new File("~/tmp/src-gen"), "eu.mihosoft.vmf.tutorial.vmfmodel");
-    }
-
     /**
      * Generates code for the specified model definition.
+     *
      * @param outputDir output directory for the generated code, e.g., '<em>main/java/src-gen</em>'
      * @param interfaces model interfaces (all interfaces must be in the same package,
      *                   package must end with '.vmfmodel')
@@ -36,6 +33,7 @@ public class VMF {
 
     /**
      * Generates code for the specified model definition.
+     *
      * @param outputDir output directory for the generated code, e.g., '<em>main/java/src-gen</em>'
      * @param packageName package that contains the model interfaces
      *                    (all interfaces must be in the same package, package must end with '.vmfmodel')
@@ -48,6 +46,7 @@ public class VMF {
 
     /**
      * Lists all classes in the specified package.
+     *
      * @param packageName package name
      * @return all classes in the specified package
      */
