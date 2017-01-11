@@ -2,7 +2,6 @@
   @Override
   public String toString() {
 
-
   boolean entry = _vmf_fToStringChecker.get().isEmpty();
     try {
         // test if "this" has been seen before
@@ -16,7 +15,7 @@
         return "{ \"@Type\":\"$type.typeName\"" +
 #foreach ($prop in $type.implementation.properties)
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
-        "CONTAINED COLLECTION TODO" + // TODO ", " + this.${prop.name}.asJSONString() +
+        ", " + this.${prop.name}.toString() +
 #else
         ", \"$prop.name\": \"" + this.$prop.name + "\"" +
 #end

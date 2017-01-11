@@ -19,7 +19,7 @@ import java.io.Writer;
 import java.util.Properties;
 
 class VMFEngineProperties {
-    public static final String VMF_TEMPLATE_PATH = "eu/mihosoft/vmf/vmtemplates/";
+    public static final String VMF_TEMPLATE_PATH = "/eu/mihosoft/vmf/vmtemplates/";
     public static final String VMF_CORE_API_PKG = "eu.mihosoft.vmf.core";
 
     public static final String VMF_IMPL_PKG_EXT = "impl";
@@ -38,7 +38,7 @@ class VMFEngineProperties {
 
 public class CodeGenerator {
 
-    private static final String TEMPLATE_PATH = "eu/mihosoft/vmf/vmtemplates/";
+    private static final String TEMPLATE_PATH = "/eu/mihosoft/vmf/vmtemplates/";
     private VelocityEngine engine;
 
     public CodeGenerator(VelocityEngine engine) {
@@ -195,14 +195,7 @@ class VMFResourceLoader extends ClasspathResourceLoader {
     public InputStream getResourceStream(String name )
             throws ResourceNotFoundException
     {
-
-        name="/"+name;
-
-        System.out.println(">> search res: " + name);
-
         InputStream input = VMF.class.getResourceAsStream(name);
-
-        System.out.println(" --> found " + input);
 
         return input;
     }
