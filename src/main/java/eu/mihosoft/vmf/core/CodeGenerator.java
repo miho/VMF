@@ -1,12 +1,20 @@
 package eu.mihosoft.vmf.core;
 
 
+import eu.mihosoft.vmf.VMF;
+import org.apache.commons.collections.ExtendedProperties;
+import org.apache.commons.lang.StringUtils;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
+import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
+import org.apache.velocity.runtime.resource.loader.ResourceLoader;
+import org.apache.velocity.util.ClassUtils;
+import org.apache.velocity.util.ExceptionUtils;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Writer;
 import java.util.Properties;
 
@@ -56,11 +64,14 @@ public class CodeGenerator {
 
     public static VelocityEngine createDefaultEngine() throws Exception {
         Properties props = new Properties();
-        props.setProperty(RuntimeConstants.RESOURCE_LOADER, "classpath");
-        props.setProperty("classpath.resource.loader.class",
-                ClasspathResourceLoader.class.getName());
+        //props.setProperty("classpath.resource.loader.cache", "false");
 
-        return new VelocityEngine(props);
+        VelocityEngine engine = new VelocityEngine();
+
+        engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "vmf");
+        engine.setProperty("vmf.resource.loader.instance",new VMFResourceLoader());
+
+        return engine;
     }
 
     public void generate(ResourceSet set, Class<?>... classes) throws IOException {
@@ -167,5 +178,33 @@ public class CodeGenerator {
 //        context.put("model", model);
 //        mergeTemplate("commands", context, out);
 //    }
+
+}
+
+class VMFResourceLoader extends ClasspathResourceLoader {
+
+    /**
+     * Get an InputStream so that the Runtime can build a
+     * template with it.
+     *
+     * @param name name of template to get
+     * @return InputStream containing the template
+     * @throws ResourceNotFoundException if template not found
+     *         in  classpath.
+     */
+    public InputStream getResourceStream(String name )
+            throws ResourceNotFoundException
+    {
+
+        name="/"+name;
+
+        System.out.println(">> search res: " + name);
+
+        InputStream input = VMF.class.getResourceAsStream(name);
+
+        System.out.println(" --> found " + input);
+
+        return input;
+    }
 
 }

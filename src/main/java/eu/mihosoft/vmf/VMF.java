@@ -32,7 +32,8 @@ public class VMF {
     }
 
     /**
-     * Generates code for the specified model definition.
+     * Generates code for the specified model definition. The context classloader of the current thread is used to
+     * locate the model interfaces.
      *
      * @param outputDir output directory for the generated code, e.g., '<em>main/java/src-gen</em>'
      * @param packageName package that contains the model interfaces
@@ -40,7 +41,22 @@ public class VMF {
      * @throws IOException if the code generation fails due to I/O related problems
      */
     public static void generate(File outputDir, String packageName) throws IOException {
-        Collection<Class<?>> interfaces = listClassesInPackage(packageName);
+        Collection<Class<?>> interfaces = listClassesInPackage(
+                Thread.currentThread().getContextClassLoader(), packageName);
+        generate(outputDir,interfaces.toArray(new Class[interfaces.size()]));
+    }
+
+    /**
+     * Generates code for the specified model definition.
+     *
+     * @param outputDir output directory for the generated code, e.g., '<em>main/java/src-gen</em>'
+     * @param classLoader the classloader that shall be used to locate the model interfaces in the specified package
+     * @param packageName package that contains the model interfaces
+     *                    (all interfaces must be in the same package, package must end with '.vmfmodel')
+     * @throws IOException if the code generation fails due to I/O related problems
+     */
+    public static void generate(File outputDir, ClassLoader classLoader, String packageName) throws IOException {
+        Collection<Class<?>> interfaces = listClassesInPackage(classLoader, packageName);
         generate(outputDir,interfaces.toArray(new Class[interfaces.size()]));
     }
 
@@ -50,13 +66,13 @@ public class VMF {
      * @param packageName package name
      * @return all classes in the specified package
      */
-    private static Collection<Class<?>> listClassesInPackage(String packageName) {
+    public static Collection<Class<?>> listClassesInPackage(ClassLoader classLoader, String packageName) {
             // thanks to
             // http://mike.shannonandmike.net/2009/09/02/java-reflecting-to-get-all-classes-in-a-package/
             Set<Class<?>> classes = new HashSet<>();
             String packageNameSlashed = packageName.replace(".", "/");
-            // Get a File object for the package
-            URL directoryURL = Thread.currentThread().getContextClassLoader().getResource(packageNameSlashed);
+            // Get a file object for the package
+            URL directoryURL = classLoader.getResource(packageNameSlashed);
             if (directoryURL == null) {
                 Logger.getLogger(VMF.class.getName()).log(
                         Level.WARNING,
@@ -82,7 +98,7 @@ public class VMF {
                         // Remove the .class extension
                         fileName = fileName.substring(0, fileName.length() - 6);
                         try {
-                            classes.add(Class.forName(packageName + "." + fileName));
+                            classes.add(classLoader.loadClass(packageName + "." + fileName));
                         } catch (ClassNotFoundException e) {
                             Logger.getLogger(VMF.class.getName()).log(Level.WARNING,
                                     packageName + "." + fileName + " does not appear to be a valid class.", e);

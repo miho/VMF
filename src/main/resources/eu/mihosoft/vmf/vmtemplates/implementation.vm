@@ -22,7 +22,7 @@ class $type.implementation.typeName implements Writable${type.typeName} {
 
 
 // declare member vars
-#parse("$VMF_TEMPLATE_PATH/impl/declare-props.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
   private PropertyChangeSupport propertyChanges;
 
   public ${type.implementation.typeName}() {
@@ -30,18 +30,18 @@ class $type.implementation.typeName implements Writable${type.typeName} {
   }
 
 // public getter methods for accessing properties
-#parse("$VMF_TEMPLATE_PATH/impl/getter.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/getter.vm")
 
 // public setter methods for setting properties
-#parse("$VMF_TEMPLATE_PATH/impl/setter.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/setter.vm")
 
   // --------------------------------------------------------------------
   // --- Object methods (equals(), toString() etc.)
   // --------------------------------------------------------------------
 
-#parse("$VMF_TEMPLATE_PATH/impl/to-string.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/to-string.vm")
 
-#parse("$VMF_TEMPLATE_PATH/impl/equals.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/equals.vm")
 
   // --------------------------------------------------------------------
   // --- Utility methods

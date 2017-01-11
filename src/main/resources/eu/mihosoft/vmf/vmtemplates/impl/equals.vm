@@ -4,7 +4,7 @@
     else if (this==o) return true;
     else if (o instanceof $type.fullTypeName) {
       $type.implementation.typeName other = ($type.implementation.typeName) o;
-      return
+      return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
         Objects.equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
 

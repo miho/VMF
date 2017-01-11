@@ -20,7 +20,7 @@
 #set($propertyToModifyValue = "oldValue")
 #set($oppositeValue = "null")
 #set($codeIndentValue = "      ")
-#parse("$VMF_TEMPLATE_PATH/impl/set-opposite-via-reflection.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
     }
 
     // if new container is present then update containment relation
@@ -30,7 +30,7 @@
 #set($propertyToModifyValue = "this."+${prop.name})
 #set($oppositeValue = "this")
 #set($codeIndentValue = "      ")
-#parse("$VMF_TEMPLATE_PATH/impl/set-opposite-via-reflection.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
     }
 #end
 #else
@@ -45,7 +45,7 @@
 #set($propertyToModifyValue = "oldValue")
 #set($oppositeValue = "null")
 #set($codeIndentValue = "      ")
-#parse("$VMF_TEMPLATE_PATH/impl/set-opposite-via-reflection.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
     }
 
     // if new container is present then update containment relation
@@ -55,7 +55,7 @@
 #set($propertyToModifyValue = "this."+${prop.name})
 #set($oppositeValue = "this")
 #set($codeIndentValue = "      ")
-#parse("$VMF_TEMPLATE_PATH/impl/set-opposite-via-reflection.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
     }
 #end
 #end
