@@ -69,4 +69,36 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   public #if($prop.type)$prop.type.readOnlyInterface.typeName#else$prop.typeName#end get${prop.nameWithUpperCase}();
 
 #end ## for each
+
+  /**
+   * Creates an read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
+   * @param mutableObject mutable object
+   * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
+   */
+  static ${type.readOnlyInterface.typeName} asReadOnly(${type.typeName} mutableObject) {
+    try {
+      Class<?> cls = Class.forName("${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}");
+      java.lang.reflect.Constructor constructor = cls.getConstructor(${type.typeName}.class);
+      constructor.setAccessible(true);
+      return (${type.readOnlyInterface.packageName}.${type.readOnlyInterface.typeName}) constructor.newInstance(mutableObject);
+    } catch (ClassNotFoundException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (InstantiationException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (IllegalAccessException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    }  catch (NoSuchMethodException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (SecurityException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (IllegalArgumentException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (java.lang.reflect.InvocationTargetException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    }
+
+    return null;
+  }
+
+
 }
