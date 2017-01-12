@@ -80,6 +80,8 @@ public class VMF {
                 return classes;
             }
 
+        System.out.println("URL-DIR: " + directoryURL.toExternalForm());
+
             String directoryString = directoryURL.getFile();
             if (directoryString == null) {
                 Logger.getLogger(VMF.class.getName()).log(

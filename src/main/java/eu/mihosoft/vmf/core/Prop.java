@@ -117,7 +117,7 @@ public class Prop {
         System.out.println("getter-m: " + getterMethod.getName());
 
         for(Annotation a : getterMethod.getDeclaredAnnotations()) {
-            System.out.println("a: "+ a.annotationType());
+            System.out.println("a: " + a.annotationType());
         }
 
         Container container = getterMethod.getAnnotation(Container.class);
