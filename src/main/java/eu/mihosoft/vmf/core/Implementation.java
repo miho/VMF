@@ -15,6 +15,7 @@ public class Implementation {
     private final ModelType type;
     private final List<Prop> propertiesWithoutCollectionsBasedContainment;
     private final List<Prop> propertiesForEquals = new ArrayList<>();
+    private final List<String> imports = new ArrayList<>();
 
     private Implementation(ModelType type) {
         this.type = type;
@@ -33,6 +34,8 @@ public class Implementation {
         propertiesForEquals.addAll(properties.stream().
                 filter(p->!p.isIgnoredForEquals()).
                 filter(p->!p.isContainmentProperty()).collect(Collectors.toList()));
+
+        initImports(imports);
     }
 
 
@@ -62,5 +65,20 @@ public class Implementation {
 
     public List<Prop> getPropertiesForEquals() {
         return propertiesForEquals;
+    }
+
+    public List<String> getImports() {
+        return imports;
+    }
+
+    private void initImports(List<String> imports) {
+        if (!imports.isEmpty()) {
+            throw new RuntimeException("Already initialized.");
+        }
+
+        imports.addAll(properties.stream().map(p -> p.getPackageName()).
+                filter(pkg -> !pkg.isEmpty()).filter(pkg -> !"java.lang".equals(pkg)).
+                filter(pkg -> !getType().getModel().getPackageName().equals(pkg)).map(imp -> imp + ".*").distinct().
+                collect(Collectors.toList()));
     }
 }

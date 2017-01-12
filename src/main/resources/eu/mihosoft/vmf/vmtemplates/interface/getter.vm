@@ -1,0 +1,51 @@
+#if(${prop.containmentInfo.containmentType}=="CONTAINER")
+#set($opposite = ${prop.containmentInfo.opposite})
+/**
+ * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
+ *
+ * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+ *
+ * <!-- vmf-begin-model-doc -->
+ * <!-- vmf-end-model-doc -->
+ *
+ * @return the value of the '<em><b>Master</b></em>' container reference.
+ * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+ */
+#elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
+#if(${prop.propType}=="COLLECTION")
+#set($opposite = ${prop.containmentInfo.opposite})
+  /**
+   * Returns the value of the '<em>${prop.name}</em>' containment list.
+   *
+   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em>${prop.name}</em>' containment list.
+   */
+#else ## if collection
+  /**
+   * Returns the value of the '<em><b>${prop.name}</b></em>' containment reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
+   * @see  ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   */
+#end ## if collection
+#else ## if container / contained
+  /**
+   * Returns the value of the '<em>${prop.name}</em>' property.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em>${prop.name}</em>' property.
+   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   */
+#end ## if container / contained
+public $prop.typeName get${prop.nameWithUpperCase}();

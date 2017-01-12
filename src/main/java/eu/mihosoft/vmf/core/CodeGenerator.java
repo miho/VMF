@@ -87,15 +87,26 @@ public class CodeGenerator {
                 generateTypeInterface(out, t);
             }
 
-            try (Resource res = set.open(t.getPackageName() + ".Writable" + t.getTypeName())) {
+//            try (Resource res = set.open(t.getPackageName() + ".Writable" + t.getTypeName())) {
+//                Writer out = res.open();
+//                generateWritableTypeInterface(out, t);
+//            }
+
+            try (Resource res = set.open(t.getPackageName() + "." +  t.getReadOnlyInterface().getTypeName())) {
                 Writer out = res.open();
-                generateWritableTypeInterface(out, t);
+                generateReadOnlyTypeInterface(out, t);
             }
 
             try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
                     + t.getImplementation().getTypeName())) {
                 Writer out = res.open();
                 generateTypeImplementation(out, t);
+            }
+
+            try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                    + t.getReadOnlyImplementation().getTypeName())) {
+                Writer out = res.open();
+                generateReadOnlyTypeImplementation(out, t);
             }
 
         }
@@ -113,6 +124,11 @@ public class CodeGenerator {
         try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
             Writer out = res.open();
             generateObservableObjectUtil(out, packageName);
+        }
+
+        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VCollectionUtil")) {
+            Writer out = res.open();
+            generateVCollectionUtil(out, packageName);
         }
     }
 
@@ -137,6 +153,13 @@ public class CodeGenerator {
         mergeTemplate("vmfutil-vcontainmentutil", context, out);
     }
 
+    private void generateVCollectionUtil(Writer out, String packageName) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        mergeTemplate("vmfutil-vcollectionutil", context, out);
+    }
+
     public void generateTypeInterface(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
@@ -151,11 +174,25 @@ public class CodeGenerator {
         mergeTemplate("writable-interface", context, out);
     }
 
+    public void generateReadOnlyTypeInterface(Writer out, ModelType t) throws IOException {
+        VelocityContext context = new VelocityContext();
+        context.put("type", t);
+        VMFEngineProperties.installProperties(context);
+        mergeTemplate("read-only-interface", context, out);
+    }
+
     public void generateTypeImplementation(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("implementation", context, out);
+    }
+
+    public void generateReadOnlyTypeImplementation(Writer out, ModelType t) throws IOException {
+        VelocityContext context = new VelocityContext();
+        context.put("type", t);
+        VMFEngineProperties.installProperties(context);
+        mergeTemplate("read-only-implementation", context, out);
     }
 
 //    public void generateFactory(Writer out, Model model) throws Exception {

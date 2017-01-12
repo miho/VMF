@@ -38,6 +38,7 @@ public class Prop {
 
     //type of the property, e.g., primitive or Collection
     private PropType propType;
+    private ModelType type;
 
     private Prop(ModelType parent, Method getterMethod) {
         this.getterMethod = getterMethod;
@@ -208,6 +209,13 @@ public class Prop {
         return getPropType() == PropType.COLLECTION;
     }
 
+    public ModelType getType() {
+        if(this.type==null){
+            this.type = getParent().getModel().resolveType(getPackageName()+"."+getTypeName()).orElse(null);
+        }
+
+        return this.type;
+    }
 
 
     static String propertyNameFromGetter(Method getterMethod) {

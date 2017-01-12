@@ -1,0 +1,55 @@
+package ${type.readOnlyImplementation.packageName};
+
+// vmf imports
+import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${type.packageName}.*;
+import java.beans.PropertyChangeListener;
+
+// property types imports
+#foreach( $import in $type.implementation.imports )
+import $import;
+#end
+
+// interface
+
+/**
+ * An immutable representation of the model object {@code $type.fullTypeName}.
+ */
+class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName {
+
+  private final $type.typeName mutableObject;
+
+  public ${type.readOnlyImplementation.typeName}($type.typeName mutableObject) {
+    this.mutableObject = mutableObject;
+  }
+
+#foreach( $prop in $type.implementation.properties )
+
+  @Override
+#if($prop.propType == "COLLECTION")
+  public $prop.typeName get${prop.nameWithUpperCase}() {
+    return VCollectionUtil.asReadOnlyList(this.mutableObject.get${prop.nameWithUpperCase}());
+#elseif(${prop.type})
+  // model-type
+  public $prop.type.readOnlyInterface.typeName get${prop.nameWithUpperCase}() {
+    return ${prop.typeName}.asReadOnly(this.mutableObject.get${prop.nameWithUpperCase}());
+#else
+  public $prop.typeName get${prop.nameWithUpperCase}() {
+    return this.mutableObject.get${prop.nameWithUpperCase}();
+#end
+  }
+
+#end // end for each property
+
+  @Override
+  public void addPropertyChangeListener(PropertyChangeListener l) {
+    this.mutableObject.addPropertyChangeListener(l);
+  }
+
+  @Override
+  public void removePropertyChangeListener(PropertyChangeListener l) {
+    this.mutableObject.removePropertyChangeListener(l);
+  }
+
+
+}

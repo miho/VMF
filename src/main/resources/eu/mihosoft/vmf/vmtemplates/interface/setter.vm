@@ -1,0 +1,11 @@
+#if(!${prop.containmentType})
+ /**
+  * Sets the value of the '<em>${prop.name}</em>' property.
+  *
+  * <!-- vmf-begin-model-doc -->
+  * <!-- vmf-end-model-doc -->
+  *
+  * @see ${type.readOnlyInterface.typeName}#get${prop.nameWithUpperCase}($prop.typeName)
+  */
+  public $prop.setterDeclaration;
+#end

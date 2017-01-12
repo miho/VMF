@@ -6,25 +6,25 @@ import java.util.List;
 /**
  * Created by miho on 06.01.2017.
  */
-public class WritableInterface {
+public class ReadOnlyInterface {
 
     private final String name;
     private final String packageName;
     private final List<Prop> properties = new ArrayList<>();
     private final ModelType type;
 
-    private WritableInterface(ModelType type) {
+    private ReadOnlyInterface(ModelType type) {
         this.type = type;
 
         this.packageName = type.getPackageName();
         this.name = type.getTypeName();
 
-        this.properties.addAll(type.getPropertiesWithoutCollectionsBasedContainment());
+        this.properties.addAll(type.getProperties());
     }
 
 
-    public static WritableInterface newInstance(ModelType type) {
-        return new WritableInterface(type);
+    public static ReadOnlyInterface newInstance(ModelType type) {
+        return new ReadOnlyInterface(type);
     }
 
     public String getName() {
@@ -43,5 +43,5 @@ public class WritableInterface {
         return type;
     }
 
-    public String getTypeName() { return "Writable" + type.getTypeName();}
+    public String getTypeName() { return "ReadOnly" + type.getTypeName();}
 }
