@@ -22,6 +22,7 @@ public class FileResource implements Resource {
 
 	@Override
 	public PrintWriter open() throws IOException {
+
 		return new PrintWriter(fileWriter = new FileWriter(file));
 	}
 

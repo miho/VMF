@@ -63,9 +63,6 @@ public class CodeGenerator {
     }
 
     public static VelocityEngine createDefaultEngine() throws Exception {
-        Properties props = new Properties();
-        //props.setProperty("classpath.resource.loader.cache", "false");
-
         VelocityEngine engine = new VelocityEngine();
 
         engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "vmf");
