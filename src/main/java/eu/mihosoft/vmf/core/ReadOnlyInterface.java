@@ -44,4 +44,8 @@ public class ReadOnlyInterface {
     }
 
     public String getTypeName() { return "ReadOnly" + type.getTypeName();}
+
+    public String getFullTypeName() {
+        return getPackageName()+"."+getTypeName();
+    }
 }

@@ -66,7 +66,16 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   * @see Writable${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
   */
 #end ## if container / contained
+#if($prop.propType == "COLLECTION")
+#if($prop.genericType)
+  // generic model type
+  public List<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}();
+#else
+  public List<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}();
+#end ## if genericType
+#else
   public #if($prop.type)$prop.type.readOnlyInterface.typeName#else$prop.typeName#end get${prop.nameWithUpperCase}();
+#end ## if collection
 
 #end ## for each
 

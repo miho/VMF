@@ -10,14 +10,14 @@ public enum PropType {
 
     public CollectionType collectionType = CollectionType.NONE;
 
-    public static enum CollectionType {
+    public enum CollectionType {
         NONE,
         LIST,
 //        SET,
 //        MAP
         ;
 
-        String genericTypeName;
-        String genericPackageName;
+        public String genericTypeName;
+        public String genericPackageName;
     }
 }

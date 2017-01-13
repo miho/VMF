@@ -27,8 +27,18 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
   @Override
 #if($prop.propType == "COLLECTION")
-  public $prop.typeName get${prop.nameWithUpperCase}() {
-    return VCollectionUtil.asReadOnlyList(this.mutableObject.get${prop.nameWithUpperCase}());
+#if($prop.genericType)
+  public List<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}() {
+    return java.util.Collections.unmodifiableList(
+      this.mutableObject.get${prop.nameWithUpperCase}().stream().
+         map(e->e.asReadOnly()).collect(java.util.stream.Collectors.toList())
+   );
+#else
+  public List<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}() {
+    return java.util.Collections.unmodifiableList(
+      this.mutableObject.get${prop.nameWithUpperCase}()
+    );
+#end ## if generic type
 #elseif(${prop.type})
   // model-type
   public $prop.type.readOnlyInterface.typeName get${prop.nameWithUpperCase}() {

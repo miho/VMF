@@ -68,7 +68,9 @@ public class Prop {
                 if (containedClazz.getPackage() == null) {
                     propType.collectionType.genericPackageName = "";
                 } else {
-                    propType.collectionType.genericPackageName = containedClazz.getPackage().getName();
+                    propType.collectionType.genericPackageName = parent.getModel().
+                            convertModelPackageToDestination(
+                            containedClazz.getPackage().getName());
                 }
 
                 propType.collectionType.genericTypeName = containedClazz.getSimpleName();
@@ -84,14 +86,19 @@ public class Prop {
             typeName = "List<" + ModelType.primitiveToBoxedType(
                                     parent.getModel().
                                             convertModelTypeToDestination(containedClazz)) + ">";
+            System.out.println("TYPENAME: " + typeName);
+
             packageName = "java.util";
 
             propType.collectionType = PropType.CollectionType.LIST;
             if (containedClazz.getPackage() == null) {
                 propType.collectionType.genericPackageName = "";
             } else {
-                propType.collectionType.genericPackageName = containedClazz.getPackage().getName();
+                propType.collectionType.genericPackageName = parent.getModel().
+                        convertModelPackageToDestination(containedClazz.getPackage().getName());
             }
+
+            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
 
             propType.collectionType.genericTypeName = containedClazz.getSimpleName();
         } else {
@@ -207,6 +214,28 @@ public class Prop {
 
     public boolean isCollectionType() {
         return getPropType() == PropType.COLLECTION;
+    }
+
+    public String getGenericTypeName() {
+        if(isCollectionType()) {
+            return propType.collectionType.genericTypeName;
+        }
+
+        return null;
+    }
+
+    public String getGenericPackageName() {
+        if(isCollectionType()) {
+            return propType.collectionType.genericPackageName;
+        }
+
+        return null;
+    }
+
+    public ModelType getGenericType() {
+        return getParent().getModel().resolveType(
+                getGenericPackageName()+"."+getGenericTypeName()).
+                orElse(null);
     }
 
     public ModelType getType() {
