@@ -7,17 +7,4 @@ public enum PropType {
     PRIMITIVE,
     CLASS,
     COLLECTION;
-
-    public CollectionType collectionType = CollectionType.NONE;
-
-    public enum CollectionType {
-        NONE,
-        LIST,
-//        SET,
-//        MAP
-        ;
-
-        public String genericTypeName;
-        public String genericPackageName;
-    }
 }

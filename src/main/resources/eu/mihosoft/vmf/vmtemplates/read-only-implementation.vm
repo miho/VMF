@@ -32,7 +32,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return java.util.Collections.unmodifiableList(
       this.mutableObject.get${prop.nameWithUpperCase}().stream().
          map(e->e.asReadOnly()).collect(java.util.stream.Collectors.toList())
-   );
+    );
 #else
   public List<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}() {
     return java.util.Collections.unmodifiableList(
@@ -47,7 +47,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   public $prop.typeName get${prop.nameWithUpperCase}() {
     return this.mutableObject.get${prop.nameWithUpperCase}();
 #end
-  }
+ }
 
 #end // end for each property
 

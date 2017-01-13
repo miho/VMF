@@ -40,6 +40,10 @@ public class Prop {
     private PropType propType;
     private ModelType type;
 
+    private String genericPackageName;
+    private String genericTypeName;
+    private CollectionType collectionType;
+
     private Prop(ModelType parent, Method getterMethod) {
         this.getterMethod = getterMethod;
         name = propertyNameFromGetter(getterMethod);
@@ -64,16 +68,16 @@ public class Prop {
                 throw new IllegalArgumentException(
                         "Currently only 'java.util.List<?>' is supported as Collection type.");
             } else {
-                propType.collectionType = PropType.CollectionType.LIST;
+                collectionType = CollectionType.LIST;
                 if (containedClazz.getPackage() == null) {
-                    propType.collectionType.genericPackageName = "";
+                    genericPackageName = "";
                 } else {
-                    propType.collectionType.genericPackageName = parent.getModel().
+                    genericPackageName = parent.getModel().
                             convertModelPackageToDestination(
                             containedClazz.getPackage().getName());
                 }
 
-                propType.collectionType.genericTypeName = containedClazz.getSimpleName();
+                genericTypeName = containedClazz.getSimpleName();
             }
 
             typeName = "List<" + parent.getModel().
@@ -90,17 +94,17 @@ public class Prop {
 
             packageName = "java.util";
 
-            propType.collectionType = PropType.CollectionType.LIST;
+            collectionType = CollectionType.LIST;
             if (containedClazz.getPackage() == null) {
-                propType.collectionType.genericPackageName = "";
+                genericPackageName = "";
             } else {
-                propType.collectionType.genericPackageName = parent.getModel().
+                genericPackageName = parent.getModel().
                         convertModelPackageToDestination(containedClazz.getPackage().getName());
             }
 
             System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
 
-            propType.collectionType.genericTypeName = containedClazz.getSimpleName();
+            genericTypeName = containedClazz.getSimpleName();
         } else {
             propType = PropType.CLASS;
             typeName = propClass.getSimpleName();
@@ -218,7 +222,7 @@ public class Prop {
 
     public String getGenericTypeName() {
         if(isCollectionType()) {
-            return propType.collectionType.genericTypeName;
+            return genericTypeName;
         }
 
         return null;
@@ -226,7 +230,7 @@ public class Prop {
 
     public String getGenericPackageName() {
         if(isCollectionType()) {
-            return propType.collectionType.genericPackageName;
+            return genericPackageName;
         }
 
         return null;
