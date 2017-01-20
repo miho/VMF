@@ -4,7 +4,14 @@
 #if($prop.containmentProperty && $prop.propType == "COLLECTION")
     return VContainmentUtil.asContainmentList(this.$prop.name, "${prop.containmentInfo.opposite.name}");
 #else
+
+#if($prop.propType == "COLLECTION")
+    if(this.$prop.name==null) {
+      this.$prop.name = VList.newInstance(new ArrayList<>());
+    }
+#end
     return this.$prop.name;
+
 #end
   }
 

@@ -1,9 +1,7 @@
 #foreach( $prop in ${type.implementation.propertiesWithoutCollectionsBasedContainment} )
 
 ## we don't support setters for collection types
-#if(${prop.propType}=="COLLECTION")
-#break
-#end
+#if(${prop.propType}!="COLLECTION")
 
   @Override
   public $prop.setterDeclaration {
@@ -80,4 +78,6 @@
   }
 #end
 
-#end
+#end ## end if collection
+
+#end ## end for-each

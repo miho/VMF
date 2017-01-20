@@ -2,6 +2,7 @@ package ${type.implementation.packageName};
 
 // vmf imports
 import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeSupport;
 import java.beans.PropertyChangeListener;

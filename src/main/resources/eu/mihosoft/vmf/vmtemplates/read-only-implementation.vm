@@ -41,7 +41,6 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
   @Override
 #if($prop.propType == "COLLECTION")
-
 #if($prop.genericType)
   // generic type is a model-type
   public List<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}() {
@@ -73,7 +72,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   public $prop.typeName get${prop.nameWithUpperCase}() {
     return this.mutableObject.get${prop.nameWithUpperCase}();
 #end
- }
+  }
 
 #end // end for each property
 
