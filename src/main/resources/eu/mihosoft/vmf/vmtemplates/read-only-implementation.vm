@@ -2,6 +2,7 @@ package ${type.readOnlyImplementation.packageName};
 
 // vmf imports
 import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${VMF_CORE_API_PKG}.${VCOLL_PKG_EXT}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeListener;
 
@@ -27,6 +28,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
   @Override
 #if($prop.propType == "COLLECTION")
+
 #if($prop.genericType)
   public List<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}() {
     return java.util.Collections.unmodifiableList(
@@ -39,6 +41,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
       this.mutableObject.get${prop.nameWithUpperCase}()
     );
 #end ## if generic type
+
 #elseif(${prop.type})
   // model-type
   public $prop.type.readOnlyInterface.typeName get${prop.nameWithUpperCase}() {

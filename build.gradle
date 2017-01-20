@@ -34,4 +34,6 @@ dependencies {
 
     compile group: 'org.apache.velocity', name: 'velocity', version: '1.7+'
     compile group: 'io.github.lukehutch', name: 'fast-classpath-scanner', version: '2+'
+
+    // compile group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: '0+'
 }
