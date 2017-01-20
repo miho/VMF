@@ -82,4 +82,8 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return this.mutableObject.hashCode();
   }
 
+  $type.typeName _vmf_getMutableObject() {
+    return this.mutableObject;
+  }
+
 }

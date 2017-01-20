@@ -2,7 +2,14 @@
   public boolean equals(Object o) {
     if (o==null) return false;
     else if (this==o) return true;
-    else if (o instanceof $type.fullTypeName) {
+
+    // if object is read-only wrapper then unwrap the actual object
+    if(o instanceof $type.readOnlyImplementation.typeName) {
+      o = (($type.readOnlyImplementation.typeName)o)._vmf_getMutableObject();
+    }
+
+    // perform the actual comparison for each property
+    if (o instanceof $type.fullTypeName) {
       $type.implementation.typeName other = ($type.implementation.typeName) o;
       return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
