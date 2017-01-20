@@ -2,12 +2,36 @@
   @Override
   public $prop.getterDeclaration {
 #if($prop.containmentProperty && $prop.propType == "COLLECTION")
-    return VContainmentUtil.asContainmentList(this.$prop.name, "${prop.containmentInfo.opposite.name}");
+
+    if(this.$prop.name==null) {
+      this.$prop.name = VList.newInstance(new java.util.ArrayList<>());
+
+      this.${prop.name}.addChangeListener((evt)-> {
+            evt.added().elements().forEach((e)->{
+                #set($propertyToModifyValue = "e")
+                #set($oppositeValue = "this")
+                #set($codeIndentValue = "                ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+            });
+
+            evt.removed().elements().forEach((e)->{
+                #set($propertyToModifyValue = "e")
+                #set($oppositeValue = "null")
+                #set($codeIndentValue = "                ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+            });
+        });
+
+    }
+
+    return this.$prop.name;
+
+    // return VContainmentUtil.asContainmentList(this.$prop.name, "${prop.containmentInfo.opposite.name}");
 #else
 
 #if($prop.propType == "COLLECTION")
     if(this.$prop.name==null) {
-      this.$prop.name = VList.newInstance(new ArrayList<>());
+      this.$prop.name = VList.newInstance(new java.util.ArrayList<>());
     }
 #end
     return this.$prop.name;

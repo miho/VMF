@@ -20,7 +20,7 @@ public class ModelType {
     private final List<String> imports = new ArrayList<>();
 
     private final Model model;
-    private final Interface iface;
+    private Interface iface;
     private WritableInterface writableInterface;
     private ReadOnlyInterface readOnlyInterface;
     private ReadOnlyImplementation readOnlyImplementation;
@@ -46,7 +46,7 @@ public class ModelType {
 
         initImports(imports);
 
-        this.iface = Interface.newInstance(this);
+
 
         this.ext3ndsString = generateExtendsString(getModel(), clazz);
         this.implementzString = generateImplementsString(getModel(), clazz);
@@ -91,6 +91,7 @@ public class ModelType {
         propertiesWithoutCollectionsBasedContainment.addAll(
                 propertiesWithoutCollectionsBasedContainment(this, properties));
 
+        this.iface = Interface.newInstance(this);
         this.writableInterface = WritableInterface.newInstance(this);
         this.readOnlyInterface = ReadOnlyInterface.newInstance(this);
         this.readOnlyImplementation = ReadOnlyImplementation.newInstance(this);
@@ -293,6 +294,10 @@ public class ModelType {
         return primitiveToBoxedTypeNames.containsKey(typeName)?primitiveToBoxedTypeNames.get(typeName):typeName;
     }
 
+    public Interface getInterface() {
+        return iface;
+    }
+
     public WritableInterface getWritableInterface() {
         return writableInterface;
     }
@@ -317,7 +322,7 @@ public class ModelType {
 
         return properties.stream().
                 filter(p -> isContainmentProp.and(isCollectionType).negate().test(p)).
-                filter(oppositeIsCollectionType.negate()).
+                //filter(oppositeIsCollectionType.negate()).
                 collect(Collectors.toList());
     }
 }

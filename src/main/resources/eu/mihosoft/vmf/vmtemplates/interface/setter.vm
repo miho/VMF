@@ -1,5 +1,13 @@
-## we don't support setters for collection types
-#if(!${prop.containmentType} && ${prop.propType}!="COLLECTION")
+## we don't support setters for containment opposits with collection type
+#set($ignorePropertyWithCollectionOpposite = false)
+#if(${prop.containmentProperty})
+#if(${prop.containmentInfo.opposite.propType}=="COLLECTION")
+#set($ignorePropertyWithCollectionOpposite = true)
+#end ## end if collectionType
+#end ## end if containmentProperty
+
+## we don't support setters for collection types or setters for collection containment opposites
+#if(${prop.propType}!="COLLECTION" && !$ignorePropertyWithCollectionOpposite)
  /**
   * Sets the value of the '<em>${prop.name}</em>' property.
   *

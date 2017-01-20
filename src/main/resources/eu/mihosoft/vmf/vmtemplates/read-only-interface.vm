@@ -2,6 +2,7 @@ package ${type.packageName};
 
 // vmf imports
 import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${VCOLL_PKG}.*;
 
 // property types imports
 #foreach( $import in $type.imports )
@@ -69,9 +70,9 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
   // generic model type
-  public List<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}();
+  public VList<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}();
 #else
-  public List<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}();
+  public VList<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}();
 #end ## if genericType
 #else
   public #if($prop.type)$prop.type.readOnlyInterface.typeName#else$prop.typeName#end get${prop.nameWithUpperCase}();

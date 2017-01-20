@@ -14,7 +14,7 @@ import $import;
  * A representation of the model object {@code $type.fullTypeName}.
  */
 public interface $type.typeName extends VObject$type.implementsString {
-#foreach( $prop in $type.properties )
+#foreach( $prop in ${type.interface.properties} )
 
 #parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
 #parse("${VMF_TEMPLATE_PATH}interface/setter.vm")

@@ -11,6 +11,7 @@ public class Interface {
     private final String name;
     private final String packageName;
     private final List<Prop> properties = new ArrayList<>();
+    private final List<Prop> propertiesWithoutCollectionsBasedContainment;
     private final ModelType type;
 
     private Interface(ModelType type) {
@@ -20,6 +21,9 @@ public class Interface {
         this.name = type.getTypeName();
 
         this.properties.addAll(type.getProperties());
+
+        this.propertiesWithoutCollectionsBasedContainment =
+                ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties);
     }
 
     public static Interface newInstance(ModelType type) {
@@ -40,5 +44,9 @@ public class Interface {
 
     public ModelType getType() {
         return type;
+    }
+
+    public List<Prop> getPropertiesWithoutCollectionsBasedContainment() {
+        return propertiesWithoutCollectionsBasedContainment;
     }
 }

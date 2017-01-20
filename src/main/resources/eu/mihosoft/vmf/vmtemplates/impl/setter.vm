@@ -1,16 +1,31 @@
 #foreach( $prop in ${type.implementation.propertiesWithoutCollectionsBasedContainment} )
 
+
+## we don't support public setters for containment opposits with collection type
+## therefore we don't use override in this case, since the interface does not
+## declare such a method
+#set($overridePropertySetter = true)
+#if(${prop.containmentProperty})
+#if(${prop.containmentInfo.opposite.propType}=="COLLECTION")
+#set($overridePropertySetter = false)
+#end ## end if collectionType
+#end ## end if containmentProperty
+
+
+
 ## we don't support setters for collection types
 #if(${prop.propType}!="COLLECTION")
 
+#if($overridePropertySetter)
   @Override
+#end
   public $prop.setterDeclaration {
-    
+
     // return early if identical value has been set
     if (this.$prop.name == $prop.name) {
       return;
     }
-    
+
     // set the new value
     $prop.typeName oldValue = this.$prop.name;
     this.$prop.name = $prop.name;

@@ -26,9 +26,9 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #foreach( $prop in $type.implementation.properties )
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
-  private List<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.name};
+  private VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.name};
 #else
-  private List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name};
+  private VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name};
 #end ## if genericType
 #end ## if collection
 #end ## for each property
@@ -43,7 +43,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
   // generic type is a model-type
-  public List<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}() {
+  public VList<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}() {
 
     // we return an unmodifiable mapped list that contains read-only versions of the list elements
     // since read-only types and normal types are incompatible by design, we specify the lambda
@@ -55,7 +55,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return this.${prop.name};
 
 #else
-  public List<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}() {
+  public VList<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}() {
 
     if(this.${prop.name} == null) {
       this.${prop.name} = this.mutableObject.get${prop.nameWithUpperCase}();

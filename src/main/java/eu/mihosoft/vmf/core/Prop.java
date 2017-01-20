@@ -80,19 +80,19 @@ public class Prop {
                 genericTypeName = containedClazz.getSimpleName();
             }
 
-            typeName = "List<" + parent.getModel().
+            typeName = "VList<" + parent.getModel().
                     convertModelTypeToDestination(containedClazz) + ">";
-            packageName = "java.util";
+            packageName = "eu.mihosoft.vcollections";
 
         } else if (propClass.isArray()) {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
-            typeName = "List<" + ModelType.primitiveToBoxedType(
+            typeName = "VList<" + ModelType.primitiveToBoxedType(
                                     parent.getModel().
                                             convertModelTypeToDestination(containedClazz)) + ">";
             System.out.println("TYPENAME: " + typeName);
 
-            packageName = "java.util";
+            packageName = "eu.mihosoft.vcollections";
 
             collectionType = CollectionType.LIST;
             if (containedClazz.getPackage() == null) {
