@@ -2,7 +2,7 @@ package ${type.readOnlyImplementation.packageName};
 
 // vmf imports
 import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
-import ${VMF_CORE_API_PKG}.${VCOLL_PKG_EXT}.*;
+import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeListener;
 
@@ -30,11 +30,14 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #if($prop.propType == "COLLECTION")
 
 #if($prop.genericType)
+  // generic type is a model-type
   public List<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}() {
-    return java.util.Collections.unmodifiableList(
-      this.mutableObject.get${prop.nameWithUpperCase}().stream().
-         map(e->e.asReadOnly()).collect(java.util.stream.Collectors.toList())
-    );
+
+    // we return an unmodifiable mapped list that contains read-only versions of the list elements
+    // since read-only types and normal types are incompatible by design, we specify the lambda
+    // operation that converts an element into a read-only version of that element
+    return VMappedList.newUnmodifiableInstance(mutableObject.get${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
+
 #else
   public List<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}() {
     return java.util.Collections.unmodifiableList(
@@ -43,7 +46,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #end ## if generic type
 
 #elseif(${prop.type})
-  // model-type
+  // property type is a model-type
   public $prop.type.readOnlyInterface.typeName get${prop.nameWithUpperCase}() {
     return this.mutableObject.get${prop.nameWithUpperCase}().asReadOnly();
 #else
@@ -64,5 +67,19 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     this.mutableObject.removePropertyChangeListener(l);
   }
 
+  @Override
+  public String toString() {
+    return this.mutableObject.toString();
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return this.mutableObject.equals(o);
+  }
+
+  @Override
+  public int hashCode() {
+    return this.mutableObject.hashCode();
+  }
 
 }

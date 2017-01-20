@@ -22,10 +22,12 @@ class VMFEngineProperties {
     public static final String VMF_TEMPLATE_PATH = "/eu/mihosoft/vmf/vmtemplates/";
     public static final String VMF_CORE_API_PKG = "eu.mihosoft.vmf.runtime.core";
 
+    public static final String VCOLL_PKG = "eu.mihosoft.vcollections";
+
     public static final String VMF_IMPL_PKG_EXT = "impl";
     public static final String VMF_IMPL_CLASS_EXT = "Impl";
     public static final String VMF_VMFUTIL_PKG_EXT = "vmfutil";
-    public static final String VCOLL_PKG_EXT = "vcollections";
+
 
     public static void installProperties(VelocityContext ctx) {
         ctx.put("VMF_TEMPLATE_PATH", VMF_TEMPLATE_PATH);
@@ -34,7 +36,7 @@ class VMFEngineProperties {
         ctx.put("VMF_IMPL_PKG_EXT", VMF_IMPL_PKG_EXT);
         ctx.put("VMF_IMPL_CLASS_EXT", VMF_IMPL_CLASS_EXT);
         ctx.put("VMF_VMFUTIL_PKG_EXT", VMF_VMFUTIL_PKG_EXT);
-        ctx.put("VCOLL_PKG_EXT", VCOLL_PKG_EXT);
+        ctx.put("VCOLL_PKG", VCOLL_PKG);
     }
 }
 
