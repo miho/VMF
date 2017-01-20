@@ -67,7 +67,11 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #elseif(${prop.type})
   // property type is a model-type
   public $prop.type.readOnlyInterface.typeName get${prop.nameWithUpperCase}() {
-    return this.mutableObject.get${prop.nameWithUpperCase}().asReadOnly();
+    if(this.mutableObject.get${prop.nameWithUpperCase}()!=null) {
+      return this.mutableObject.get${prop.nameWithUpperCase}().asReadOnly();
+    } else {
+      return null;
+    }
 #else
   public $prop.typeName get${prop.nameWithUpperCase}() {
     return this.mutableObject.get${prop.nameWithUpperCase}();
