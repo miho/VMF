@@ -23,7 +23,7 @@
   @Override
   public int hashCode() {
     return _vmf_deepHashCode(
-#foreach ($prop in $type.propertiesForEquals)
+#foreach ($prop in $type.implementation.propertiesForEquals)
       this.$prop.name#if($foreach.hasNext),#end
 
 #end    );
