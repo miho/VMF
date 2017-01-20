@@ -5,6 +5,12 @@
 
   @Override
   public $prop.setterDeclaration {
+    
+    // return if identical value has been set
+    if (this.$prop.name == $prop.name) {
+      return;
+    }
+    
     // set the new value
     $prop.typeName oldValue = this.$prop.name;
     this.$prop.name = $prop.name;
