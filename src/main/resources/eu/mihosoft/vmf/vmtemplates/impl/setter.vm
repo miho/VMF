@@ -6,7 +6,7 @@
   @Override
   public $prop.setterDeclaration {
     
-    // return if identical value has been set
+    // return early if identical value has been set
     if (this.$prop.name == $prop.name) {
       return;
     }
