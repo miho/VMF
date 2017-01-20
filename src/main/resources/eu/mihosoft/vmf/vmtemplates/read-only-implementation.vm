@@ -20,6 +20,19 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
   private final $type.typeName mutableObject;
 
+// Read-only view for collection properties
+// - properties with collection type (model & non-model collections)
+// - we don't allow/provide setters for collection properties
+#foreach( $prop in $type.implementation.properties )
+#if($prop.propType == "COLLECTION")
+#if($prop.genericType)
+  private List<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.name};
+#else
+  private List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name};
+#end ## if genericType
+#end ## if collection
+#end ## for each property
+
   public ${type.readOnlyImplementation.typeName}($type.typeName mutableObject) {
     this.mutableObject = mutableObject;
   }
@@ -36,13 +49,20 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     // we return an unmodifiable mapped list that contains read-only versions of the list elements
     // since read-only types and normal types are incompatible by design, we specify the lambda
     // operation that converts an element into a read-only version of that element
-    return VMappedList.newUnmodifiableInstance(mutableObject.get${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
+    if(this.${prop.name} == null) {
+      this.${prop.name} = VMappedList.newUnmodifiableInstance(mutableObject.get${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
+    }
+
+    return this.${prop.name};
 
 #else
   public List<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}() {
-    return java.util.Collections.unmodifiableList(
-      this.mutableObject.get${prop.nameWithUpperCase}()
-    );
+
+    if(this.${prop.name} == null) {
+      this.${prop.name} = this.mutableObject.get${prop.nameWithUpperCase}();
+    }
+
+    return this.${prop.name};
 #end ## if generic type
 
 #elseif(${prop.type})

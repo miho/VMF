@@ -1,4 +1,5 @@
-#if(!${prop.containmentType})
+## we don't support setters for collection types
+#if(!${prop.containmentType} && ${prop.propType}!="COLLECTION")
  /**
   * Sets the value of the '<em>${prop.name}</em>' property.
   *

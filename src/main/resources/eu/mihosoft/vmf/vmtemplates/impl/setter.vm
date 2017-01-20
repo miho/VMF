@@ -1,4 +1,10 @@
 #foreach( $prop in ${type.implementation.propertiesWithoutCollectionsBasedContainment} )
+
+## we don't support setters for collection types
+#if(${prop.propType}=="COLLECTION")
+#break
+#end
+
   @Override
   public $prop.setterDeclaration {
     // set the new value
