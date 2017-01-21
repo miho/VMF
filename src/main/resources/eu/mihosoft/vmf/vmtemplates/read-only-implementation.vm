@@ -43,22 +43,22 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
   // generic type is a model-type
-  public VList<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}() {
+  public VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}() {
 
     // we return an unmodifiable mapped list that contains read-only versions of the list elements
     // since read-only types and normal types are incompatible by design, we specify the lambda
     // operation that converts an element into a read-only version of that element
     if(this.${prop.name} == null) {
-      this.${prop.name} = VMappedList.newUnmodifiableInstance(mutableObject.get${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
+      this.${prop.name} = VMappedList.newUnmodifiableInstance(mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
     }
 
     return this.${prop.name};
 
 #else
-  public VList<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}() {
+  public VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}() {
 
     if(this.${prop.name} == null) {
-      this.${prop.name} = this.mutableObject.get${prop.nameWithUpperCase}();
+      this.${prop.name} = this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}();
     }
 
     return this.${prop.name};
@@ -66,15 +66,15 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
 #elseif(${prop.type})
   // property type is a model-type
-  public $prop.type.readOnlyInterface.typeName get${prop.nameWithUpperCase}() {
-    if(this.mutableObject.get${prop.nameWithUpperCase}()!=null) {
-      return this.mutableObject.get${prop.nameWithUpperCase}().asReadOnly();
+  public $prop.type.readOnlyInterface.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+    if(this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}()!=null) {
+      return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}().asReadOnly();
     } else {
       return null;
     }
 #else
-  public $prop.typeName get${prop.nameWithUpperCase}() {
-    return this.mutableObject.get${prop.nameWithUpperCase}();
+  public $prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+    return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}();
 #end
   }
 

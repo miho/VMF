@@ -1,6 +1,5 @@
 package eu.mihosoft.vmf.core;
 
-
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Predicate;
@@ -34,7 +33,6 @@ public class ModelType {
 
     private final List<ModelType> implementz = new ArrayList<>();
 
-
     private ModelType(Model model, Class<?> clazz) {
         this.model = model;
 
@@ -45,8 +43,6 @@ public class ModelType {
         initProperties(clazz);
 
         initImports(imports);
-
-
 
         this.ext3ndsString = generateExtendsString(getModel(), clazz);
         this.implementzString = generateImplementsString(getModel(), clazz);
@@ -68,7 +64,9 @@ public class ModelType {
 
         List<Method> list = new ArrayList<Method>();
         for (Method m : clazz.getDeclaredMethods()) {
-            if (m.getName().startsWith("get")) {
+            if (m.getName().startsWith("get")
+                    || (m.getName().startsWith("is")
+                    && Objects.equals(m.getReturnType(), boolean.class))) {
                 list.add(m);
             }
         }
@@ -78,7 +76,6 @@ public class ModelType {
 
             properties.add(p);
         }
-
 
     }
 
@@ -103,8 +100,8 @@ public class ModelType {
             Optional<ModelType> type = model.resolveType(implClsName);
 
             if (!type.isPresent()) {
-                throw new RuntimeException("Model types can only extend other model types." +
-                        " Extending external type '" + implClsName + "' is not supported.");
+                throw new RuntimeException("Model types can only extend other model types."
+                        + " Extending external type '" + implClsName + "' is not supported.");
             }
 
             implementz.add(type.get());
@@ -219,8 +216,9 @@ public class ModelType {
     public String getExtendsString() {
         if (ext3ndsString.isEmpty()) {
             return "";
-        } else
+        } else {
             return "extends " + ext3ndsString;
+        }
     }
 
     public String getImplementsString() {
@@ -249,13 +247,6 @@ public class ModelType {
             return ", " + readOnlyImplementzString;
         }
     }
-
-    static String propertyNameFromGetter(Method getterMethod) {
-        String name = getterMethod.getName().substring("get".length());
-        name = name.substring(0, 1).toLowerCase() + name.substring(1);
-        return name;
-    }
-
 
     public String getPackageName() {
         return packageName;
@@ -291,7 +282,7 @@ public class ModelType {
             primitiveToBoxedTypeNames.put("short", Short.class.getSimpleName());
         }
 
-        return primitiveToBoxedTypeNames.containsKey(typeName)?primitiveToBoxedTypeNames.get(typeName):typeName;
+        return primitiveToBoxedTypeNames.containsKey(typeName) ? primitiveToBoxedTypeNames.get(typeName) : typeName;
     }
 
     public Interface getInterface() {

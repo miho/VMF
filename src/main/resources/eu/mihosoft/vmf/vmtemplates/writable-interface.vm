@@ -24,7 +24,7 @@ public interface Writable$type.typeName extends $type.typeName$type.writableImpl
   * <!-- vmf-begin-model-doc -->
   * <!-- vmf-end-model-doc -->
   *
-  * @see ${type.typeName}#get${prop.nameWithUpperCase}($prop.typeName)
+  * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}($prop.typeName)
   */
   public void set${prop.nameWithUpperCase}($prop.typeName ${prop.nameWithUpperCase});
 #end
