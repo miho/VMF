@@ -13,7 +13,7 @@ import $import;
 /**
  * A representation of the model object {@code $type.fullTypeName}.
  */
-public interface $type.typeName extends VObject$type.implementsString {
+public interface $type.typeName extends VObject$type.implementsString, Cloneable {
 #foreach( $prop in ${type.interface.properties} )
 
 #parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
@@ -78,6 +78,8 @@ public interface $type.typeName extends VObject$type.implementsString {
 
     return null;
   }
+
+  public Object clone() /*throws CloneNotSupportedException*/;
 
 
 }

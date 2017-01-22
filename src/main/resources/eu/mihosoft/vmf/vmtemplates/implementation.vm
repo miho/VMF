@@ -44,6 +44,8 @@ class $type.implementation.typeName implements ${type.typeName} {
 
 #parse("${VMF_TEMPLATE_PATH}impl/equals.vm")
 
+#parse("${VMF_TEMPLATE_PATH}impl/clone.vm")
+
   // --------------------------------------------------------------------
   // --- Utility methods
   // --------------------------------------------------------------------
