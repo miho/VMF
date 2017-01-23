@@ -1,0 +1,23 @@
+package ${packageName};
+
+// vmf imports
+import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+
+// property types imports
+#foreach( $import in $type.imports )
+import $import;
+#end
+
+// interface
+
+/**
+ * A representation of the model object {@code $type.fullTypeName}.
+ */
+interface VMFInternalInterface  {
+
+  /**
+   * Performs a deep copy (takes care of references and cycles).
+   */
+  Object _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap);
+
+}

@@ -1,6 +1,5 @@
 package eu.mihosoft.vmf.core;
 
-
 import eu.mihosoft.vmf.VMF;
 import org.apache.commons.collections.ExtendedProperties;
 import org.apache.commons.lang.StringUtils;
@@ -19,6 +18,7 @@ import java.io.Writer;
 import java.util.Properties;
 
 class VMFEngineProperties {
+
     public static final String VMF_TEMPLATE_PATH = "/eu/mihosoft/vmf/vmtemplates/";
     public static final String VMF_CORE_API_PKG = "eu.mihosoft.vmf.runtime.core";
 
@@ -27,7 +27,6 @@ class VMFEngineProperties {
     public static final String VMF_IMPL_PKG_EXT = "impl";
     public static final String VMF_IMPL_CLASS_EXT = "Impl";
     public static final String VMF_VMFUTIL_PKG_EXT = "vmfutil";
-
 
     public static void installProperties(VelocityContext ctx) {
         ctx.put("VMF_TEMPLATE_PATH", VMF_TEMPLATE_PATH);
@@ -70,7 +69,7 @@ public class CodeGenerator {
         VelocityEngine engine = new VelocityEngine();
 
         engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "vmf");
-        engine.setProperty("vmf.resource.loader.instance",new VMFResourceLoader());
+        engine.setProperty("vmf.resource.loader.instance", new VMFResourceLoader());
 
         return engine;
     }
@@ -95,8 +94,7 @@ public class CodeGenerator {
 //                Writer out = res.open();
 //                generateWritableTypeInterface(out, t);
 //            }
-
-            try (Resource res = set.open(t.getPackageName() + "." +  t.getReadOnlyInterface().getTypeName())) {
+            try (Resource res = set.open(t.getPackageName() + "." + t.getReadOnlyInterface().getTypeName())) {
                 Writer out = res.open();
                 generateReadOnlyTypeInterface(out, t);
             }
@@ -113,6 +111,11 @@ public class CodeGenerator {
                 generateReadOnlyTypeImplementation(out, t);
             }
 
+        }
+
+        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VMFInternalInterface")) {
+            Writer out = res.open();
+            generateVMFInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
         }
 
         try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
@@ -134,6 +137,13 @@ public class CodeGenerator {
             Writer out = res.open();
             generateVCollectionUtil(out, packageName);
         }
+    }
+
+    private void generateVMFInternalInterface(Writer out, String packageName) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        mergeTemplate("vmf-internal-interface", context, out);
     }
 
     private void generateObservableObjectUtil(Writer out, String packageName) throws IOException {
@@ -216,23 +226,19 @@ public class CodeGenerator {
 //        context.put("model", model);
 //        mergeTemplate("commands", context, out);
 //    }
-
 }
 
 class VMFResourceLoader extends ClasspathResourceLoader {
 
     /**
-     * Get an InputStream so that the Runtime can build a
-     * template with it.
+     * Get an InputStream so that the Runtime can build a template with it.
      *
      * @param name name of template to get
      * @return InputStream containing the template
-     * @throws ResourceNotFoundException if template not found
-     *         in  classpath.
+     * @throws ResourceNotFoundException if template not found in classpath.
      */
-    public InputStream getResourceStream(String name )
-            throws ResourceNotFoundException
-    {
+    public InputStream getResourceStream(String name)
+            throws ResourceNotFoundException {
         InputStream input = VMF.class.getResourceAsStream(name);
 
         return input;
