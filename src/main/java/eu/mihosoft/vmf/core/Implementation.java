@@ -33,7 +33,7 @@ public class Implementation {
 
         propertiesForEquals.addAll(properties.stream().
                 filter(p->!p.isIgnoredForEquals()).
-                filter(p->!p.isContainmentProperty()).collect(Collectors.toList()));
+                filter(p->!p.isContainer()).collect(Collectors.toList()));
 
         initImports(imports);
     }

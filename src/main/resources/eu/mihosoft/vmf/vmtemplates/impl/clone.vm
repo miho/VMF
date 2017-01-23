@@ -38,12 +38,14 @@
       this.$prop.name = other.$prop.name;
     }
 #if($prop.contained)
-    this.${prop.name}.forEach((e) -> {
-        #set($propertyToModifyValue = "e")
-        #set($oppositeValue = "this")
-        #set($codeIndentValue = "        ")
+    if(this.${prop.name}!=null) {
+      this.${prop.name}.forEach((e) -> {
+          #set($propertyToModifyValue = "e")
+          #set($oppositeValue = "this")
+          #set($codeIndentValue = "        ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
-    });
+      });
+    }
 #end ## if contained
 #else
 //    if(deepCopy) {
