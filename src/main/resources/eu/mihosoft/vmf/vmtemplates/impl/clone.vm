@@ -1,3 +1,6 @@
+
+  // --------------------------- BEGIN CLONING -----------------------------
+
   /**Package private copy constructor.
    * It creates a deep or shallow copy of the specified other object.
    * @param other other object
@@ -82,3 +85,5 @@
       new java.util.IdentityHashMap<>();
     return _vmf_deepCopy(identityMap);
   }
+
+  // ---------------------------- END CLONING ------------------------------

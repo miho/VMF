@@ -13,7 +13,7 @@
 
 
 
-## we don't support setters for collection types
+## we don't support setters for collection types and properties with collection opposites
 #if(${prop.propType}!="COLLECTION" && ${prop.containmentInfo.opposite.propType}!="COLLECTION")
 
 #if($overridePropertySetter)

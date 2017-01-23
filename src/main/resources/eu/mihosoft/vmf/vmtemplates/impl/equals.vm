@@ -1,23 +1,45 @@
+
+  // --------------------------- BEGIN EQUALITY -----------------------------
+
   @Override
   public boolean equals(Object o) {
-    if (o==null) return false;
-    else if (this==o) return true;
 
-    // if object is read-only wrapper then unwrap the actual object
-    if(o instanceof $type.readOnlyImplementation.typeName) {
-      o = (($type.readOnlyImplementation.typeName)o)._vmf_getMutableObject();
-    }
+  boolean entry = _vmf_fEqualsChecker.get().isEmpty();
+    try {
+      // test if the object pair (this,o) has been checked before
+      if (_vmf_fEqualsChecker.get().containsKey(new EqualsPair(this, o))) {
+        // This pair has been seen before. That's why we return true now.
+        // If this pair wasn't equal, we wouldn't need to do a second
+        // comparison.
+        return true;
+      } else {
+        _vmf_fEqualsChecker.get().put(new EqualsPair(this, o), null);
+        entry = true;
+      }
 
-    // perform the actual comparison for each property
-    if (o instanceof $type.fullTypeName) {
-      $type.implementation.typeName other = ($type.implementation.typeName) o;
-      return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
+      if (o==null) return false;
+      else if (this==o) return true;
+
+      // if object is read-only wrapper then unwrap the actual object
+      if(o instanceof $type.readOnlyImplementation.typeName) {
+        o = (($type.readOnlyImplementation.typeName)o)._vmf_getMutableObject();
+      }
+
+      // perform the actual comparison for each property
+      if (o instanceof $type.fullTypeName) {
+        $type.implementation.typeName other = ($type.implementation.typeName) o;
+        return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
-        Objects.equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
+          Objects.equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
 
-#end
+#end ## for-each property
+      }
+      else return false;
+    } finally {
+      if (entry) {
+          _vmf_fEqualsChecker.get().clear();
+      }
     }
-    else return false;
   } // end equals()
 
   @Override
@@ -34,3 +56,61 @@
   private int _vmf_deepHashCode(Object... fields) {
     return Arrays.deepHashCode(fields);
   } // end _vmf_deepHashCode()
+
+  /**
+   * The purpose of this class is to store a pair of objects used for equals().
+   * This object's equals() method checks equality by object identity. Same
+   * for hashCode() which uses identity hashes of 'first' and 'second' to
+   * compute the hash.
+   *
+   * This class can be used in conjunction with a regular HashMap to get
+   * similar results to a IdentityHashMap, except that in this case identity
+   * pairs can be used.
+   */
+  private static class EqualsPair {
+
+      final Object first;
+      final Object second;
+
+      public EqualsPair(Object first, Object second) {
+          this.first = first;
+          this.second = second;
+      }
+
+      @Override
+      public int hashCode() {
+          return Objects.hash(System.identityHashCode(first),
+                  System.identityHashCode(second));
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final EqualsPair other = (EqualsPair) obj;
+        if (this.first!=other.first) {
+            return false;
+        }
+        if (this.second!=other.second) {
+            return false;
+        }
+        return true;
+      }
+  }
+
+  private final ThreadLocal<java.util.HashMap<EqualsPair, ?>> _vmf_fEqualsChecker
+          = new ThreadLocal<java.util.HashMap<EqualsPair, ?>>() {
+      @Override
+      protected java.util.HashMap<EqualsPair, ?> initialValue() {
+          return new java.util.HashMap<>();
+      }
+  };
+
+  // ---------------------------- END EQUALITY ------------------------------
