@@ -10,7 +10,8 @@
       if (_vmf_fEqualsChecker.get().containsKey(new EqualsPair(this, o))) {
         // This pair has been seen before. That's why we return true now.
         // If this pair wasn't equal, we wouldn't need to do a second
-        // comparison.
+        // comparison. Returning 'true' is equivalent to ignoring this
+        // particular test in the calling 'equals()' method.
         return true;
       } else {
         _vmf_fEqualsChecker.get().put(new EqualsPair(this, o), null);
@@ -59,13 +60,14 @@
 
   /**
    * The purpose of this class is to store a pair of objects used for equals().
-   * This object's equals() method checks equality by object identity. Same
+   * This class's equals() method checks equality by object identity. Same
    * for hashCode() which uses identity hashes of 'first' and 'second' to
    * compute the hash.
    *
    * This class can be used in conjunction with a regular HashMap to get
    * similar results to a IdentityHashMap, except that in this case identity
-   * pairs can be used.
+   * pairs can be used. And we don't have to use a map implementation that is
+   * deliberately broken by design.
    */
   private static class EqualsPair {
 
