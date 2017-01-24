@@ -151,8 +151,11 @@ public class ModelType {
 
             if (ifsName.startsWith(model.getPackageName())) {
                 implementz.add(ifsName);
+            } else {
+                throw new RuntimeException("FIXME: in type '" + clazz.getName() + "' wrong pkg in impl: " + ifsName);
             }
         }
+
         return implementz;
     }
 

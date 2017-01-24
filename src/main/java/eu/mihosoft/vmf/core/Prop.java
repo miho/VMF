@@ -107,7 +107,7 @@ public class Prop {
                         convertModelPackageToDestination(containedClazz.getPackage().getName());
             }
 
-            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
+//            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
 
             genericTypeName = containedClazz.getSimpleName();
         } else {

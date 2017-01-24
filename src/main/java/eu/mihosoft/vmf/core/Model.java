@@ -47,12 +47,19 @@ public class Model {
                             + packages);
         }
 
+        // PASS 1
         for(ModelType t : types.values()) {
             t.initContainments();
         }
 
+        // PASS 2
         for(ModelType t : types.values()) {
             t.initImplements();
+        }
+
+        // PASS 3
+        for(ModelType t : types.values()) {
+            t.getImplementation().initPropertiesAndImports();
         }
     }
 
