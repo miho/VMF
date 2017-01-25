@@ -79,7 +79,7 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
     return null;
   }
 
-  public Object clone() /*throws CloneNotSupportedException*/;
+  public $type.typeName clone() /*throws CloneNotSupportedException*/;
 
 
 }

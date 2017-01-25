@@ -68,7 +68,7 @@
    } // end copy constructor
 
    @Override
-   public Object _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap) {
+   public ${type.implementation.typeName} _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap) {
       if(identityMap.containsKey(this)) {
         return (${type.implementation.typeName})identityMap.get(this);
       } else {
@@ -78,7 +78,7 @@
    }
 
   @Override
-  public Object clone() /*throws CloneNotSupportedException*/ {
+  public ${type.implementation.typeName} clone() /*throws CloneNotSupportedException*/ {
     // http://stackoverflow.com/questions/12886036/deep-copying-a-graph-structure
     // http://softwareengineering.stackexchange.com/questions/228848/how-does-java-handle-cyclic-data-references-when-serializing-an-object
     // https://gist.github.com/kanrourou/47223bdaf481505d4c7e
