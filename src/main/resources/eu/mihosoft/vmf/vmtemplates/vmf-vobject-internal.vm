@@ -33,11 +33,23 @@ public interface VObjectInternal  {
    /**
     * Returns values of properties by id (calls getter methods).
     */
-   public Object getPropertyValueById(int propertyId);
+   public Object _vmf_getPropertyValueById(int propertyId);
 
   /**
-   * Returns the indices of all properties with model types.
+   * Returns the indices of all properties with model types or collections
+   * that contain model instances.
    */
    public int[] _vmf_getIndicesOfPropertiesWithModelTypes();
+
+  /**
+   * Returns the indices of all collection properties with model element types.
+   */
+   public int[] _vmf_getIndicesOfPropertiesWithModelElementTypes();
+
+   /**
+    * Returns the indices of all collection properties with model element types
+    * or collections that contain model instances.
+    */
+   public int[] _vmf_getIndicesOfPropertiesWithModelTypeOrElementTypes();
 
 }

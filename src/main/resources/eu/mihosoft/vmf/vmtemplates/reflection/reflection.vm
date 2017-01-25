@@ -1,36 +1,58 @@
-  static final String[] _VMF_PROPERTYNAMES = {
+  static final String[] _VMF_PROPERTY_NAMES = {
 #foreach($prop in $type.implementation.properties)    "$prop.name"#if($foreach.hasNext),#end$newline#end
   };
 
-  static final int[] _VMF_PROPERTYTYPES = {
+  static final int[] _VMF_PROPERTY_TYPES = {
 #foreach($prop in $type.implementation.properties)
     ${StringUtil.alignRight($prop.typeId, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName
 #end
   };
 
-  static final int[] _VMF_PROPERTIESWITHMODELTYPESINDICES = {
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
 #if($prop.type)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_ELEMENT_TYPES_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.genericType)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.type||$prop.genericType)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
   @Override
   public String[] _vmf_getPropertyNames() {
-    return _VMF_PROPERTYNAMES;
+    return _VMF_PROPERTY_NAMES;
   }
 
   @Override
   public int[] _vmf_getPropertyTypes() {
-    return _VMF_PROPERTYTYPES;
+    return _VMF_PROPERTY_TYPES;
   }
 
   @Override
   public int[] _vmf_getIndicesOfPropertiesWithModelTypes() {
-    return _VMF_PROPERTIESWITHMODELTYPESINDICES;
+    return _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES;
   }
 
   @Override
-  public Object getPropertyValueById(int propertyId) {
+  public int[] _vmf_getIndicesOfPropertiesWithModelElementTypes() {
+    return _VMF_PROPERTIES_WITH_MODEL_ELEMENT_TYPES_INDICES;
+  }
+
+  @Override
+  public int[] _vmf_getIndicesOfPropertiesWithModelTypeOrElementTypes() {
+    return _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES;
+  }
+
+  @Override
+  public Object _vmf_getPropertyValueById(int propertyId) {
 
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
