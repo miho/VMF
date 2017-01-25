@@ -36,6 +36,8 @@ class VMFEngineProperties {
         ctx.put("VMF_IMPL_CLASS_EXT", VMF_IMPL_CLASS_EXT);
         ctx.put("VMF_VMFUTIL_PKG_EXT", VMF_VMFUTIL_PKG_EXT);
         ctx.put("VCOLL_PKG", VCOLL_PKG);
+
+        ctx.put("newline", "\n");
     }
 }
 
