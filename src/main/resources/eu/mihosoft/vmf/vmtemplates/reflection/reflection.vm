@@ -4,13 +4,13 @@
 
   static final int[] _VMF_PROPERTYTYPES = {
 #foreach($prop in $type.implementation.properties)
-    $prop.typeId#if($foreach.hasNext),#else #end // type $prop.typeName
+    ${StringUtil.alignRight($prop.typeId, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName
 #end
   };
 
   static final int[] _VMF_PROPERTIESWITHMODELTYPESINDICES = {
 #foreach($prop in $type.implementation.properties)
-#if($prop.type)    $foreach.index#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#if($prop.type)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 

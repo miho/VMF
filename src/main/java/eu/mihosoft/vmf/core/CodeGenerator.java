@@ -38,8 +38,12 @@ class VMFEngineProperties {
         ctx.put("VCOLL_PKG", VCOLL_PKG);
 
         ctx.put("newline", "\n");
+        ctx.put("StringUtil", StringUtil.class);
     }
+
 }
+
+
 
 public class CodeGenerator {
 
