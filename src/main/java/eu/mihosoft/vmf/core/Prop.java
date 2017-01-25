@@ -288,6 +288,16 @@ public class Prop {
         return this.type;
     }
 
+    public int getTypeId() {
+        if(getType() != null) {
+            return getType().getTypeId();
+        } else if(isCollectionType()) {
+            return -2;
+        } else {
+            return -1;
+        }
+    }
+
     static String propertyNameFromGetter(Method getterMethod) {
 
         String usedGetterPrefix;

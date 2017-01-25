@@ -1,0 +1,33 @@
+package ${packageName};
+
+// vmf imports
+import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+
+// property types imports
+#foreach( $import in $type.imports )
+import $import;
+#end
+
+// interface
+
+/**
+ * A representation of the model object {@code $type.fullTypeName}.
+ */
+public interface VObjectInternal  {
+
+  /**
+   * Returns the type id of this class.
+   */
+   int _vmf_getTypeId();
+
+  /**
+   * Returns the names of the properties defined in this type/object.
+   */
+   public String[] _vmf_getPropertyNames();
+
+  /**
+   * Returns the types of the properties defined in this type/object.
+   */
+   public int[] _vmf_getPropertyTypes();
+
+}

@@ -1,0 +1,11 @@
+  private static final String[] _vmf_propertyNames = {#foreach($prop in $type.implementation.properties)"$prop.name"#if($foreach.hasNext), #end#end };
+  private static final int[] _vmf_propertyTypes = {#foreach($prop in $type.implementation.properties)$prop.typeId#if($foreach.hasNext), #end#end };
+
+
+  public String[] _vmf_getPropertyNames() {
+    return _vmf_propertyNames;
+  }
+
+  public int[] _vmf_getPropertyTypes() {
+    return _vmf_propertyTypes;
+  }

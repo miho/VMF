@@ -16,7 +16,7 @@ import $import;
 /**
  * An immutable representation of the model object {@code $type.fullTypeName}.
  */
-class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName {
+class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName, VObjectInternal {
 
   private final $type.typeName mutableObject;
 
@@ -109,7 +109,19 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return this.mutableObject;
   }
 
+
+  // --------------------------------------------------------------------
+  // --- Reflection methods
+  // --------------------------------------------------------------------
+
   // type id for improved reflection performance
   public static final int _VMF_TYPE_ID = $type.readOnlyImplementation.typeId;
+  
+  @Override
+  public int _vmf_getTypeId() {
+    return _VMF_TYPE_ID;
+  }
+
+#parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
 
 }

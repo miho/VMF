@@ -25,7 +25,7 @@
         // element type is a model type
         for($prop.genericType.typeName e : other.${prop.name}) {
           // TODO do a bulk operation instead
-          this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)((VMFInternalInterface)e)._vmf_deepCopy(identityMap));
+          this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap));
         }
 #else
         // element type is an external type (TODO implement cloning strategy)
@@ -57,7 +57,7 @@
 //    }
 #if($prop.type)
       // property type is a model type
-      this.set${prop.nameWithUpperCase}(($prop.typeName)((VMFInternalInterface)other.${prop.name})._vmf_deepCopy(identityMap));
+      this.set${prop.nameWithUpperCase}(($prop.typeName)((VCloneableInternal)other.${prop.name})._vmf_deepCopy(identityMap));
 #else
       // property type is an external type (TODO implement cloning strategy)
       this.set${prop.nameWithUpperCase}(other.${prop.name});

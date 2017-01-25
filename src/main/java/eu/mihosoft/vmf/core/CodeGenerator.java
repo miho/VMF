@@ -113,9 +113,24 @@ public class CodeGenerator {
 
         }
 
-        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VMFInternalInterface")) {
+//        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VMFModelWalker" + VMFEngineProperties.VMF_IMPL_CLASS_EXT)) {
+//            Writer out = res.open();
+//            generateVMFModelWalker(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT, model);
+//        }
+//
+//        try (Resource res = set.open(packageName + "." + ".ModelWalker")) {
+//            Writer out = res.open();
+//            generateVMFModelWalkerInterface(out, packageName, model);
+//        }
+
+        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
             Writer out = res.open();
-            generateVMFInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
+            generateVMFVObjectInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
+        }
+
+        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal")) {
+            Writer out = res.open();
+            generateVMFCloneableInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
         }
 
         try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
@@ -139,11 +154,34 @@ public class CodeGenerator {
         }
     }
 
-    private void generateVMFInternalInterface(Writer out, String packageName) throws IOException {
+    private void generateVMFModelWalker(Writer out, String packageName, Model m) throws IOException {
         VelocityContext context = new VelocityContext();
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
-        mergeTemplate("vmf-internal-interface", context, out);
+        context.put("model", m);
+        mergeTemplate("vmf-model-walker-implementation", context, out);
+    }
+
+    private void generateVMFModelWalkerInterface(Writer out, String packageName, Model m) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        context.put("model", m);
+        mergeTemplate("vmf-model-walker-interface", context, out);
+    }
+
+    private void generateVMFVObjectInternalInterface(Writer out, String packageName) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        mergeTemplate("vmf-vobject-internal", context, out);
+    }
+
+    private void generateVMFCloneableInterface(Writer out, String packageName) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        mergeTemplate("vmf-vcloneable-internal", context, out);
     }
 
     private void generateObservableObjectUtil(Writer out, String packageName) throws IOException {

@@ -1,0 +1,18 @@
+package ${packageName};
+
+// vmf imports
+import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+
+
+public interface ModelVisitor<T> {
+
+  default T visit(VObject root) {
+    //
+  }
+
+#foreach($type in $model.types)
+
+  T visit${type.typeName}($type.typeName object);
+#end ## for-each type
+
+}

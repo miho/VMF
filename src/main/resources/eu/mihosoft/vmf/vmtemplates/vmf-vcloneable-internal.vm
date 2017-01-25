@@ -13,7 +13,7 @@ import $import;
 /**
  * A representation of the model object {@code $type.fullTypeName}.
  */
-interface VMFInternalInterface  {
+public interface VCloneableInternal  {
 
   /**
    * Performs a deep copy (takes care of references and cycles).

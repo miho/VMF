@@ -19,7 +19,7 @@ import $import;
 /**
  * An implementation of the model object {@code $type.fullTypeName}.
  */
-class $type.implementation.typeName implements ${type.typeName}, VMFInternalInterface {
+class $type.implementation.typeName implements ${type.typeName}, VObjectInternal, VCloneableInternal {
 
 
 // declare member vars
@@ -84,7 +84,20 @@ class $type.implementation.typeName implements ${type.typeName}, VMFInternalInte
       }
   }
 
+
+  // --------------------------------------------------------------------
+  // --- Reflection methods
+  // --------------------------------------------------------------------
+
   // type id for improved reflection performance
   public static final int _VMF_TYPE_ID = $type.typeId;
+
+  @Override
+  public int _vmf_getTypeId() {
+    return _VMF_TYPE_ID;
+  }
+
+
+#parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
 
 }
