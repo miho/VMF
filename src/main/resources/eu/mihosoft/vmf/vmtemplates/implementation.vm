@@ -84,4 +84,7 @@ class $type.implementation.typeName implements ${type.typeName}, VMFInternalInte
       }
   }
 
+  // type id for improved reflection performance
+  public static final int _VMF_TYPE_ID = $type.typeId;
+
 }

@@ -33,11 +33,13 @@ public class Model {
                 0,modelPkgName.length()-".vmfmodel".length());
 
         Set<String> packages = new HashSet<String>();
+        int typeId = 0;
         for (Class<?> clzz : interfaces) {
             if (!clzz.isInterface())
                 throw new IllegalArgumentException(
                         "Model may only contain interfaces.");
-            initType(clzz);
+            initType(clzz, typeId);
+            typeId+=2;
             packages.add(clzz.getPackage().getName());
 
         }
@@ -67,9 +69,9 @@ public class Model {
         return packageName;
     }
 
-    public ModelType initType(Class<?> clazz) {
+    public ModelType initType(Class<?> clazz, int typeId) {
 
-        ModelType t = ModelType.newInstance(this, clazz);
+        ModelType t = ModelType.newInstance(this, clazz, typeId);
         types.put(convertModelTypeToDestination(clazz), t);
 
         return t;

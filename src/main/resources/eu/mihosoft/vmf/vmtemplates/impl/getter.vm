@@ -8,6 +8,13 @@
 
       this.${prop.name}.addChangeListener((evt)-> {
             evt.added().elements().forEach((e)->{
+
+                // remove element from previous collection
+                // TODO use bulk operations if possible
+                if(e.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+                  e.get${prop.containmentInfo.opposite.nameWithUpperCase}().get${prop.nameWithUpperCase}().remove(e);
+                }
+
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "this")
                 #set($codeIndentValue = "                ")

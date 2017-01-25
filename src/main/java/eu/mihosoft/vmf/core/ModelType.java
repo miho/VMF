@@ -33,12 +33,15 @@ public class ModelType {
 
     private final List<ModelType> implementz = new ArrayList<>();
 
-    private ModelType(Model model, Class<?> clazz) {
+    private final int typeId;
+
+    private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
 
         this.packageName = model.getPackageName();
 
         this.typeName = clazz.getSimpleName();
+        this.typeId = typeId;
 
         initProperties(clazz);
 
@@ -52,8 +55,8 @@ public class ModelType {
         this.implementsList.addAll(generateImplementsList(model, clazz));
     }
 
-    public static ModelType newInstance(Model model, Class<?> clazz) {
-        return new ModelType(model, clazz);
+    public static ModelType newInstance(Model model, Class<?> clazz, int typeId) {
+        return new ModelType(model, clazz, typeId);
     }
 
     private void initProperties(Class<?> clazz) {
@@ -119,6 +122,10 @@ public class ModelType {
                 filter(pkg -> !pkg.isEmpty()).filter(pkg -> !"java.lang".equals(pkg)).
                 filter(pkg -> !getModel().getPackageName().equals(pkg)).map(imp -> imp + ".*").distinct().
                 collect(Collectors.toList()));
+    }
+
+    public int getTypeId() {
+        return typeId;
     }
 
     public Model getModel() {
