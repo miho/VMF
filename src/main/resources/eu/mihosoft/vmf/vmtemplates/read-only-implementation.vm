@@ -116,7 +116,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
   // type id for improved reflection performance
   public static final int _VMF_TYPE_ID = $type.readOnlyImplementation.typeId;
-  
+
   @Override
   public int _vmf_getTypeId() {
     return _VMF_TYPE_ID;
