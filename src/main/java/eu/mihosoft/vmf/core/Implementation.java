@@ -34,6 +34,8 @@ public class Implementation {
         this.properties.addAll(implProperties.stream().filter(p->!properties.contains(p)).
                 distinct().collect(Collectors.toList()));
 
+        Collections.sort(properties, (p1,p2)->p1.getName().compareTo(p2.getName()));
+
         this.propertiesWithoutCollectionsBasedContainment.addAll(
                 ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties));
 

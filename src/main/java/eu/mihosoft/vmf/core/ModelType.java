@@ -80,6 +80,8 @@ public class ModelType {
             properties.add(p);
         }
 
+        Collections.sort(properties, (p1,p2)->p1.getName().compareTo(p2.getName()));
+
     }
 
     void initContainments() {

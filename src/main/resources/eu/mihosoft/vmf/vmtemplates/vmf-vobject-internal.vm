@@ -13,7 +13,7 @@ import $import;
 /**
  * A representation of the model object {@code $type.fullTypeName}.
  */
-public interface VObjectInternal  {
+public interface VObjectInternal extends VObject {
 
   /**
    * Returns the type id of this class.
