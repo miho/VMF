@@ -20,9 +20,9 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
   private final $type.typeName mutableObject;
 
-// Read-only view for collection properties
-// - properties with collection type (model & non-model collections)
-// - we don't allow/provide setters for collection properties
+  // Read-only view for collection properties
+  // - properties with collection type (model & non-model collections)
+  // - we don't allow/provide setters for collection properties
 #foreach( $prop in $type.implementation.properties )
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
