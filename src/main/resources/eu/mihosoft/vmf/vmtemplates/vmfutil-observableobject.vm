@@ -1,8 +1,0 @@
-package ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT};
-
-import java.beans.PropertyChangeListener;
-
-public interface ObservableObject {
-    void addPropertyChangeListener(PropertyChangeListener l);
-    void removePropertyChangeListener(PropertyChangeListener l);
-}

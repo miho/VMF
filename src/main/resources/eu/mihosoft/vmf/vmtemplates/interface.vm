@@ -1,7 +1,7 @@
 package ${type.packageName};
 
 // vmf imports
-import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 
 // property types imports
 #foreach( $import in $type.imports )
@@ -54,7 +54,7 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
    * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
    * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
    */
-  public default ${type.readOnlyInterface.typeName} asReadOnly() {
+  default ${type.readOnlyInterface.typeName} asReadOnly() {
     try {
       Class<?> cls = Class.forName("${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}");
       java.lang.reflect.Constructor constructor = cls.getConstructor(${type.typeName}.class);
@@ -79,7 +79,15 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
     return null;
   }
 
-  public $type.typeName clone() /*throws CloneNotSupportedException*/;
+  @Override
+  $type.typeName clone() /*throws CloneNotSupportedException*/;
+
+  /**
+   * @return vmf API
+   */
+  default VMF vmf() {
+    throw new UnsupportedOperationException("FIXME: unsupported method invoked. This should not happen :(");
+  }
 
 
 }

@@ -20,21 +20,21 @@ import java.util.Properties;
 class VMFEngineProperties {
 
     public static final String VMF_TEMPLATE_PATH = "/eu/mihosoft/vmf/vmtemplates/";
-    public static final String VMF_CORE_API_PKG = "eu.mihosoft.vmf.runtime.core";
+    public static final String VMF_RUNTIME_API_PKG = "eu.mihosoft.vmf.runtime";
 
     public static final String VCOLL_PKG = "eu.mihosoft.vcollections";
 
     public static final String VMF_IMPL_PKG_EXT = "impl";
     public static final String VMF_IMPL_CLASS_EXT = "Impl";
-    public static final String VMF_VMFUTIL_PKG_EXT = "vmfutil";
-
+    public static final String VMF_CORE_PKG_EXT = "core";
+    
     public static void installProperties(VelocityContext ctx) {
         ctx.put("VMF_TEMPLATE_PATH", VMF_TEMPLATE_PATH);
-        ctx.put("VMF_CORE_API_PKG", VMF_CORE_API_PKG);
+        ctx.put("VMF_RUNTIME_API_PKG", VMF_RUNTIME_API_PKG);
 
         ctx.put("VMF_IMPL_PKG_EXT", VMF_IMPL_PKG_EXT);
         ctx.put("VMF_IMPL_CLASS_EXT", VMF_IMPL_CLASS_EXT);
-        ctx.put("VMF_VMFUTIL_PKG_EXT", VMF_VMFUTIL_PKG_EXT);
+        ctx.put("VMF_CORE_PKG_EXT", VMF_CORE_PKG_EXT);
         ctx.put("VCOLL_PKG", VCOLL_PKG);
 
         ctx.put("newline", "\n");
@@ -96,10 +96,6 @@ public class CodeGenerator {
                 generateTypeInterface(out, t);
             }
 
-//            try (Resource res = set.open(t.getPackageName() + ".Writable" + t.getTypeName())) {
-//                Writer out = res.open();
-//                generateWritableTypeInterface(out, t);
-//            }
             try (Resource res = set.open(t.getPackageName() + "." + t.getReadOnlyInterface().getTypeName())) {
                 Writer out = res.open();
                 generateReadOnlyTypeInterface(out, t);
@@ -139,25 +135,25 @@ public class CodeGenerator {
             generateVMFCloneableInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
         }
 
-        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
-            Writer out = res.open();
-            generateVContainmentUtil(out, packageName);
-        }
-
-        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VObject")) {
-            Writer out = res.open();
-            generateVObjectUtil(out, packageName);
-        }
-
-        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
-            Writer out = res.open();
-            generateObservableObjectUtil(out, packageName);
-        }
-
-        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VCollectionUtil")) {
-            Writer out = res.open();
-            generateVCollectionUtil(out, packageName);
-        }
+//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
+//            Writer out = res.open();
+//            generateVContainmentUtil(out, packageName);
+//        }
+//
+//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VObject")) {
+//            Writer out = res.open();
+//            generateVObjectUtil(out, packageName);
+//        }
+//
+//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
+//            Writer out = res.open();
+//            generateObservableObjectUtil(out, packageName);
+//        }
+//
+//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VCollectionUtil")) {
+//            Writer out = res.open();
+//            generateVCollectionUtil(out, packageName);
+//        }
     }
 
     private void generateVMFModelWalker(Writer out, String packageName, Model m) throws IOException {

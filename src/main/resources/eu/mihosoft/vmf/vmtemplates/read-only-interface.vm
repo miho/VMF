@@ -1,7 +1,7 @@
 package ${type.packageName};
 
 // vmf imports
-import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 import ${VCOLL_PKG}.*;
 
 // property types imports
@@ -79,5 +79,18 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
 #end ## if collection
 
 #end ## for each
+
+  /**
+   * @return vmf API
+   */
+  default VMF vmf() {
+    throw new UnsupportedOperationException("FIXME: unsupported method invoked. This should not happen :(");
+  }
+
+  /**
+   * Returns a modifiable deep clone of this object.
+   * @return a modifiable deep clone of this object
+   */
+  public $type.typeName clone();
 
 }
