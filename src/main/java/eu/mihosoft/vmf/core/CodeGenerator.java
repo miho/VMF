@@ -120,10 +120,15 @@ public class CodeGenerator {
 //            generateVMFModelWalker(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT, model);
 //        }
 //
-//        try (Resource res = set.open(packageName + "." + ".ModelWalker")) {
-//            Writer out = res.open();
-//            generateVMFModelWalkerInterface(out, packageName, model);
-//        }
+
+        String[] packageComponents = packageName.split("\\.");
+        String modelSwitchName = packageComponents[packageComponents.length-1];
+        
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".ModelSwitch"+modelSwitchName)) {
+            Writer out = res.open();
+            generateVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
+        }
 
         try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
             Writer out = res.open();
@@ -164,12 +169,13 @@ public class CodeGenerator {
         mergeTemplate("vmf-model-walker-implementation", context, out);
     }
 
-    private void generateVMFModelWalkerInterface(Writer out, String packageName, Model m) throws IOException {
+    private void generateVMFModelSwitchInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
         VelocityContext context = new VelocityContext();
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         context.put("model", m);
-        mergeTemplate("vmf-model-walker-interface", context, out);
+        context.put("modelSwitchName", modelSwitchName);        
+        mergeTemplate("vmf-model-switch-interface", context, out);
     }
 
     private void generateVMFVObjectInternalInterface(Writer out, String packageName) throws IOException {

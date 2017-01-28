@@ -11,9 +11,9 @@ import $import;
 // interface
 
 /**
- * A representation of the model object {@code $type.fullTypeName}.
+ * Internal interface. Don't rely on this API.
  */
-public interface VObjectInternal extends VObject {
+interface VObjectInternal extends VObject {
 
   /**
    * Returns the type id of this class.
