@@ -14,6 +14,8 @@
   * <!-- vmf-begin-model-doc -->
   * <!-- vmf-end-model-doc -->
   *
+  * @param $prop.name the value to set
+  *
   * @see ${type.readOnlyInterface.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}($prop.typeName)
   */
   public $prop.setterDeclaration;

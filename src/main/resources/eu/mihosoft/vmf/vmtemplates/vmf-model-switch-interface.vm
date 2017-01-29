@@ -6,11 +6,11 @@ import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 
 public interface ModelSwitch${modelSwitchName}<T> {
 
-  default T visit(VObject o) {return null;}
+  default T case(VObject o) {return null;}
 
 #foreach($type in $model.types)
 
-  default T visit${type.typeName}($type.typeName object) {return null;};
+  default T case${type.typeName}($type.typeName object) {return null;};
 #end ## for-each type
 
 }
