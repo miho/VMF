@@ -10,11 +10,6 @@
   ${type.implementation.typeName} (
     ${type.implementation.typeName} other,
     boolean deepCopy, java.util.IdentityHashMap<Object,Object> identityMap
-## #foreach ($prop in $type.implementation.properties)
-## #if(!$prop.container)
-## $prop.typeName $prop.name#if($foreach.hasNext), #end
-## #end ## if containment typs
-## #end ## for-each property
   ) {
     identityMap.put(other,this);
 #foreach ($prop in $type.implementation.properties)
@@ -28,7 +23,7 @@
           // TODO do a bulk operation instead
           this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap));
         }
-#else
+#else ## if prop genericType
         // element type is an external type (TODO implement cloning strategy)
         this.get${prop.nameWithUpperCase}().addAll(other.${prop.name});
 #end ## if prop genericType
@@ -48,14 +43,7 @@
       });
     }
 #end ## if contained
-#else
-//    if(deepCopy) {
-//      if(other.${prop.name}!=null) {
-//        this.set${prop.nameWithUpperCase}((${prop.typeName})other.${prop.name});
-//      }
-//    } else {
-//      this.set${prop.nameWithUpperCase}(other.${prop.name});
-//    }
+#else ## if collection
 #if($prop.type)
       // property type is a model type
       if(deepCopy) {
@@ -65,12 +53,12 @@
       } else {
         this.$prop.name = other.$prop.name;
       }
-#else
+#else ## if prop type
       // property type is an external type (TODO implement cloning strategy)
       this.set${prop.nameWithUpperCase}(other.${prop.name});
-#end ## if prop genericType
+#end ## if prop type
 #end ## if collection
-#end ## if containment typs
+#end ## if container type
 #end ## for-each property
    } // end copy constructor
 
