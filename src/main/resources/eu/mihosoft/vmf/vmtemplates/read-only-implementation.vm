@@ -18,7 +18,7 @@ import $import;
  * An immutable representation of the model object {@code $type.fullTypeName}.
  */
 @SuppressWarnings("deprecation")
-class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName, VObjectInternal {
+class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName, VObjectInternal, VCloneableInternal {
 
   private final $type.typeName mutableObject;
 
@@ -117,6 +117,62 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return this;
   }
 
+  // --------------------------------------------------------------------
+  // --- Cloning
+  // --------------------------------------------------------------------
+
+  @Override
+  public ${type.typeName} clone() {
+    return this.mutableObject.clone();
+  }
+
+  @Override
+  public ${type.typeName} _vmf_deepCopy(
+    java.util.IdentityHashMap<Object,Object> identityMap) {
+    return (${type.typeName})
+      ((VCloneableInternal)this.mutableObject)._vmf_deepCopy(
+        new java.util.IdentityHashMap<>());
+  }
+
+  @Override
+  public ${type.readOnlyInterface.typeName} _vmf_shallowCopy(
+    java.util.IdentityHashMap<Object,Object> identityMap) {
+    return (${type.readOnlyInterface.typeName})
+      ((VCloneableInternal)this.mutableObject)._vmf_shallowCopy(
+        new java.util.IdentityHashMap<>()).asReadOnly();
+  }
+
+  // --------------------------------------------------------------------
+  // --- Public VMF API
+  // --------------------------------------------------------------------
+
+  @Override
+  public VMF vmf() {
+    return new VMF() {
+      public Content content() {
+        return new Content() {
+          public java.util.Iterator<VObject> iterator() {
+            return VIterator.of(${type.readOnlyImplementation.typeName}.this);
+          }
+          public java.util.stream.Stream<VObject> stream() {
+            return VIterator.of(${type.readOnlyImplementation.typeName}.this).asStream();
+          }
+
+          @Override
+          public ${type.typeName} deepCopy() {
+            return ${type.readOnlyImplementation.typeName}.this.clone();
+          }
+
+          @Override
+          public ${type.readOnlyInterface.typeName} shallowCopy() {
+            return ${type.readOnlyImplementation.typeName}.
+              this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+          }
+        };
+      }
+    };
+  }
+
 
   // --------------------------------------------------------------------
   // --- Reflection methods
@@ -131,12 +187,6 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   }
 
 #parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
-
-  @Override
-  public ${type.typeName} clone() {
-    return this.mutableObject.clone();
-  }
-
 
   @Override
   public boolean _vmf_isReadOnly() {

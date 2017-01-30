@@ -82,33 +82,4 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
   @Override
   $type.typeName clone() /*throws CloneNotSupportedException*/;
 
-
-  @Override
-  default VMF vmf() {
-    return new VMF() {
-      public Content content() {
-        return new Content() {
-          public java.util.Iterator<VObject> iterator() {
-            return VIterator.of(${type.typeName}.this);
-          }
-          public java.util.stream.Stream<VObject> stream() {
-            return VIterator.of(${type.typeName}.this).asStream();
-          }
-
-          @Override
-          public ${type.typeName} deepCopy() {
-            return ${type.typeName}.this.clone();
-          }
-
-          @Override
-          public ${type.typeName} shallowCopy() {
-          throw new UnsupportedOperationException(
-                "FIXME: unsupported method invoked. This should not happen :(");
-          }
-        };
-      }
-    };
-  }
-
-
 }

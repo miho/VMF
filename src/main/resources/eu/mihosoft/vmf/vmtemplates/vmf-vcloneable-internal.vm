@@ -18,6 +18,11 @@ interface VCloneableInternal  {
   /**
    * Performs a deep copy (takes care of references and cycles).
    */
-  Object _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap);
+  VObject _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap);
+
+  /**
+   * Performs a shallow copy (takes care of references and cycles).
+   */
+  VObject _vmf_shallowCopy(java.util.IdentityHashMap<Object,Object> identityMap);
 
 }

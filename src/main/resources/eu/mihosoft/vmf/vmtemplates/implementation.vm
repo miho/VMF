@@ -86,6 +86,37 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
       }
   }
 
+  // --------------------------------------------------------------------
+  // --- Public VMF API
+  // --------------------------------------------------------------------
+
+  @Override
+  public VMF vmf() {
+    return new VMF() {
+      public Content content() {
+        return new Content() {
+          public java.util.Iterator<VObject> iterator() {
+            return VIterator.of(${type.implementation.typeName}.this);
+          }
+          public java.util.stream.Stream<VObject> stream() {
+            return VIterator.of(${type.implementation.typeName}.this).asStream();
+          }
+
+          @Override
+          public ${type.typeName} deepCopy() {
+            return ${type.implementation.typeName}.this.clone();
+          }
+
+          @Override
+          public ${type.typeName} shallowCopy() {
+            return ${type.implementation.typeName}.
+              this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+          }
+        };
+      }
+    };
+  }
+
 
   // --------------------------------------------------------------------
   // --- Reflection methods
