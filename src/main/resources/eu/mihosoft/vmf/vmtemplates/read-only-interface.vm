@@ -81,21 +81,41 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
 #end ## for each
 
   /**
-   * @return vmf API
-   */
-  default VMF vmf() {
-    throw new UnsupportedOperationException("FIXME: unsupported method invoked. This should not happen :(");
-  }
-
-  /**
    * Returns a modifiable deep clone of this object.
    * @return a modifiable deep clone of this object
    */
-  public $type.typeName clone();
+  public ${type.typeName} clone();
 
   @Override
-  default $type.readOnlyInterface.typeName asReadOnly() {
+  default ${type.readOnlyInterface.typeName} asReadOnly() {
     return this;
+  }
+
+  @Override
+  default VMF vmf() {
+    return new VMF() {
+      public Content content() {
+        return new Content() {
+          public java.util.Iterator<VObject> iterator() {
+            return VIterator.of(${type.readOnlyInterface.typeName}.this);
+          }
+          public java.util.stream.Stream<VObject> stream() {
+            return VIterator.of(${type.readOnlyInterface.typeName}.this).asStream();
+          }
+
+          @Override
+          public ${type.typeName} deepCopy() {
+            return ${type.readOnlyInterface.typeName}.this.clone();
+          }
+
+          @Override
+          public ${type.typeName} shallowCopy() {
+          throw new UnsupportedOperationException(
+                "FIXME: unsupported method invoked. This should not happen :(");
+          }
+        };
+      }
+    };
   }
 
 }

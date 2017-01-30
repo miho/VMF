@@ -133,7 +133,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
 
   @Override
-  public $type.typeName clone() {
+  public ${type.typeName} clone() {
     return this.mutableObject.clone();
   }
 

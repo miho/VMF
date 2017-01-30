@@ -31,7 +31,7 @@
         $type.implementation.typeName other = ($type.implementation.typeName) o;
         return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
-          Objects.equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
+          _vmf_equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end ## for-each property
       }
@@ -42,6 +42,21 @@
       }
     }
   } // end equals()
+
+  private static boolean _vmf_equals(Object o1, Object o2) {
+    boolean oneIsNull = (o1 == null) != (o2 == null);
+    boolean collectionType = o1 instanceof VList || o2 instanceof VList;
+
+    // since we support lazy initialization for collections,
+    // uninitialized empty collection values are defined as equal to null
+    // otherwise we would have to initialize these values, which would then
+    // neutralize or even negate the positive effect of lazy initialization
+    if(oneIsNull && collectionType) {
+      return true;
+    } else {
+      return Objects.equals(o1,o2);
+    }
+  }
 
   @Override
   public int hashCode() {

@@ -54,7 +54,6 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
    * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
    * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
    */
-  @Override
   default ${type.readOnlyInterface.typeName} asReadOnly() {
     try {
       Class<?> cls = Class.forName("${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}");
@@ -83,11 +82,32 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
   @Override
   $type.typeName clone() /*throws CloneNotSupportedException*/;
 
-  /**
-   * @return vmf API
-   */
+
+  @Override
   default VMF vmf() {
-    throw new UnsupportedOperationException("FIXME: unsupported method invoked. This should not happen :(");
+    return new VMF() {
+      public Content content() {
+        return new Content() {
+          public java.util.Iterator<VObject> iterator() {
+            return VIterator.of(${type.typeName}.this);
+          }
+          public java.util.stream.Stream<VObject> stream() {
+            return VIterator.of(${type.typeName}.this).asStream();
+          }
+
+          @Override
+          public ${type.typeName} deepCopy() {
+            return ${type.typeName}.this.clone();
+          }
+
+          @Override
+          public ${type.typeName} shallowCopy() {
+          throw new UnsupportedOperationException(
+                "FIXME: unsupported method invoked. This should not happen :(");
+          }
+        };
+      }
+    };
   }
 
 
