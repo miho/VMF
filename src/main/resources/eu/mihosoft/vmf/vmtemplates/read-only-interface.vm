@@ -93,4 +93,9 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
    */
   public $type.typeName clone();
 
+  @Override
+  default $type.readOnlyInterface.typeName asReadOnly() {
+    return this;
+  }
+
 }

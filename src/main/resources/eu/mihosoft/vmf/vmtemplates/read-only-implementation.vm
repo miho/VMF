@@ -111,6 +111,11 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return this.mutableObject;
   }
 
+  @Override
+  public $type.readOnlyImplementation.typeName asReadOnly() {
+    return this;
+  }
+
 
   // --------------------------------------------------------------------
   // --- Reflection methods
@@ -129,6 +134,12 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   @Override
   public $type.typeName clone() {
     return this.mutableObject.clone();
+  }
+
+
+  @Override
+  public boolean _vmf_isReadOnly() {
+    return true;
   }
 
 }

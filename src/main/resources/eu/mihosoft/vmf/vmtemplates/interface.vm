@@ -54,6 +54,7 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
    * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
    * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
    */
+  @Override
   default ${type.readOnlyInterface.typeName} asReadOnly() {
     try {
       Class<?> cls = Class.forName("${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}");
