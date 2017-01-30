@@ -8,18 +8,34 @@
 #end
   };
 
+  /**
+   * - indices of model objects as properties
+   * - parents, i.e., containers are skipped
+   * - only indices of reference properties and contained elements, i.e.,
+   *   children are listed here
+   */
   static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
 #if($prop.type&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 
+  /**
+   * - indices of lists that contain model objects as elements
+   */
   static final int[] _VMF_PROPERTIES_WITH_MODEL_ELEMENT_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
 #if($prop.genericType)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 
+  /**
+   * - indices of model objects as properties and model objects as
+   *   elements of lists
+   * - parents, i.e., containers are skipped
+   * - only indices of reference properties and contained elements, i.e.,
+   *   children are listed here
+   */
   static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
 #if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
