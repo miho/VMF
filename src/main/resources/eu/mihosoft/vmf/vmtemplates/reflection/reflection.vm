@@ -10,7 +10,7 @@
 
   static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
-#if($prop.type)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#if($prop.type&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 
@@ -22,7 +22,7 @@
 
   static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
-#if($prop.type||$prop.genericType)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 

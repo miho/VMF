@@ -153,7 +153,7 @@ public class Prop {
 
 
             if (opposite.isPresent()) {
-                containmentInfo = ContainmentInfo.newInstance(
+                this.containmentInfo = ContainmentInfo.newInstance(
                         parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINER);
             } else {
                 throw new RuntimeException(
@@ -179,14 +179,14 @@ public class Prop {
 
 
             if (opposite.isPresent()) {
-                containmentInfo = ContainmentInfo.newInstance(
+                this.containmentInfo = ContainmentInfo.newInstance(
                         parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINED);
             } else {
                 throw new RuntimeException(
                         "Specified opposite property '" + oppositeOfGetContainedProperty + "' cannot be found");
             }
         } else {
-            containmentInfo = ContainmentInfo.newInstance(null, null, null, ContainmentType.NONE);
+            this.containmentInfo = ContainmentInfo.newInstance(null, null, null, ContainmentType.NONE);
         }
     }
 
