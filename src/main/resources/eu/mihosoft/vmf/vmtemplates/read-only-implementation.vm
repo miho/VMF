@@ -2,6 +2,7 @@ package ${type.readOnlyImplementation.packageName};
 
 // vmf imports
 import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeListener;
@@ -16,6 +17,7 @@ import $import;
 /**
  * An immutable representation of the model object {@code $type.fullTypeName}.
  */
+@SuppressWarnings("deprecation")
 class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName, VObjectInternal {
 
   private final $type.typeName mutableObject;

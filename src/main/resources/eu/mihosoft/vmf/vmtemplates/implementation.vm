@@ -2,6 +2,7 @@ package ${type.implementation.packageName};
 
 // vmf imports
 import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeSupport;
@@ -19,6 +20,7 @@ import $import;
 /**
  * An implementation of the model object {@code $type.fullTypeName}.
  */
+@SuppressWarnings("deprecation")
 class $type.implementation.typeName implements ${type.typeName}, VObjectInternal, VCloneableInternal {
 
 

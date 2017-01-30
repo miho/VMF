@@ -5,7 +5,7 @@ import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 
 
-public interface SwitchFor${modelSwitchName}Model<T> {
+public interface ReadOnlySwitchFor${modelSwitchName}Model<T> {
 
   @SuppressWarnings("deprecation")
   default T doSwitch(VObject o) {
@@ -14,10 +14,10 @@ public interface SwitchFor${modelSwitchName}Model<T> {
 #foreach($type in $model.types)
       #set($modifiableIdx = $foreach.index*2 + 0)
       #set($readOnlyIdx = $foreach.index*2 + 1)
-      case $modifiableIdx:
+      case $readOnlyIdx:
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
-        result = case${type.typeName}(($type.typeName) o);
+        result = case${type.readOnlyInterface.typeName}((${type.readOnlyInterface.typeName}) o);
         return result == null?defaultValue(o):result;
 #end ## for-each type
       default:
@@ -35,7 +35,7 @@ public interface SwitchFor${modelSwitchName}Model<T> {
 
 #foreach($type in $model.types)
 
-  default T case${type.typeName}($type.typeName object) {return null;};
+  default T case${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {return null;};
 #end ## for-each type
 
 }

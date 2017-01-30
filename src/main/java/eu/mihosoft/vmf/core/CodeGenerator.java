@@ -125,15 +125,21 @@ public class CodeGenerator {
         String modelSwitchName = packageComponents[packageComponents.length-1];
         
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".ModelSwitch"+modelSwitchName)) {
+        try (Resource res = set.open(packageName + "." + ".SwitchFor"+modelSwitchName + "Model")) {
             Writer out = res.open();
             generateVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
         }
-
-        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
+        
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".ReadOnlySwitchFor"+modelSwitchName + "Model")) {
             Writer out = res.open();
-            generateVMFVObjectInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
+            generateReadOnlyVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
         }
+
+//        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
+//            Writer out = res.open();
+//            generateVMFVObjectInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
+//        }
 
         try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal")) {
             Writer out = res.open();
@@ -177,13 +183,22 @@ public class CodeGenerator {
         context.put("modelSwitchName", modelSwitchName);        
         mergeTemplate("vmf-model-switch-interface", context, out);
     }
-
-    private void generateVMFVObjectInternalInterface(Writer out, String packageName) throws IOException {
+    
+    private void generateReadOnlyVMFModelSwitchInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
         VelocityContext context = new VelocityContext();
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
-        mergeTemplate("vmf-vobject-internal", context, out);
+        context.put("model", m);
+        context.put("modelSwitchName", modelSwitchName);        
+        mergeTemplate("vmf-model-switch-read-only-interface", context, out);
     }
+
+//    private void generateVMFVObjectInternalInterface(Writer out, String packageName) throws IOException {
+//        VelocityContext context = new VelocityContext();
+//        VMFEngineProperties.installProperties(context);
+//        context.put("packageName", packageName);
+//        mergeTemplate("vmf-vobject-internal", context, out);
+//    }
 
     private void generateVMFCloneableInterface(Writer out, String packageName) throws IOException {
         VelocityContext context = new VelocityContext();
