@@ -122,7 +122,12 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   // --------------------------------------------------------------------
 
   @Override
-  public ${type.typeName} clone() {
+  public ${type.readOnlyInterface.typeName} clone() {
+    return this.mutableObject.clone().asReadOnly();
+  }
+
+  @Override
+  public ${type.typeName} asModifiable() {
     return this.mutableObject.clone();
   }
 
@@ -159,7 +164,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
           }
 
           @Override
-          public ${type.typeName} deepCopy() {
+          public ${type.readOnlyInterface.typeName} deepCopy() {
             return ${type.readOnlyImplementation.typeName}.this.clone();
           }
 
