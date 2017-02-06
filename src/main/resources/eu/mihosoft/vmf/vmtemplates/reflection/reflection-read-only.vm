@@ -22,3 +22,8 @@
   public Object getPropertyValueById(int propertyId) {
     return this.mutableObject.getPropertyValueById(propertyId);
   }
+
+  @Override
+  public int[] _vmf_getChildrenIndices() {
+    return _VMF_CHILDREN_INDICES;
+  }
