@@ -1,6 +1,4 @@
 #foreach( $prop in ${type.implementation.propertiesWithoutCollectionsBasedContainment} )
-
-
 ## we don't support public setters for containment opposits with collection type
 ## therefore we don't use override in this case, since the interface does not
 ## declare such a method
@@ -10,12 +8,8 @@
 #set($overridePropertySetter = false)
 #end ## end if collectionType
 #end ## end if containmentProperty
-
-
-
 ## we don't support setters for collection types and properties with collection opposites
 #if(${prop.propType}!="COLLECTION" && ${prop.containmentInfo.opposite.propType}!="COLLECTION")
-
 #if($overridePropertySetter)
   @Override
 #end ## overridePropertySetter
@@ -109,7 +103,5 @@
     _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.$prop.name);
   }
 #end ## end if containment property and no collection
-
 #end ## end if containment property
-
 #end ## end for-each

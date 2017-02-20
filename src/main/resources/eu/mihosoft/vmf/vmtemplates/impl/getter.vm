@@ -35,7 +35,6 @@
 
     // return VContainmentUtil.asContainmentList(this.$prop.name, "${prop.containmentInfo.opposite.name}");
 #else
-
 #if($prop.propType == "COLLECTION")
     if(this.$prop.name==null) {
       this.$prop.name = VList.newInstance(new java.util.ArrayList<>());
@@ -45,5 +44,4 @@
 
 #end
   }
-
 #end
