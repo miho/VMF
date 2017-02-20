@@ -98,3 +98,31 @@
 
     return null;
   }
+
+  @Override
+  public void _vmf_setPropertyValueById(int propertyId, Object value) {
+
+    switch(propertyId) {
+#foreach($prop in $type.implementation.properties)
+#if(!$prop.genericType)
+#if(($prop.type)&&$prop.containmentInfo.containmentType!="CONTAINER")
+      case $foreach.index:
+        set${prop.nameWithUpperCase}((${prop.typeName})value);
+        break;
+#end## end if !container
+#end## end if !genericType
+#end## for-each property
+    } // end switch
+  }
+
+  @Override
+  public int _vmf_getPropertyIdByName(String propertyName) {
+    switch(propertyName) {
+#foreach($prop in $type.implementation.properties)
+      case "$prop.name":
+        return $foreach.index;
+#end## for-each property
+      default:
+        return -1;
+    } // end switch
+  }

@@ -21,12 +21,12 @@ import $import;
  * An implementation of the model object {@code $type.fullTypeName}.
  */
 @SuppressWarnings("deprecation")
-class $type.implementation.typeName implements ${type.typeName}, VObjectInternal, VCloneableInternal {
+class $type.implementation.typeName implements ${type.typeName}, VObjectInternalModifiable, VCloneableInternal {
 
   // --------------------------------------------------------------------
   // --- declaration of member variables
   // --------------------------------------------------------------------
-  
+
 #parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
   private PropertyChangeSupport propertyChanges;
 
