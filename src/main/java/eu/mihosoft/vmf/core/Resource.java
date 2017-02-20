@@ -5,8 +5,11 @@ import java.io.PrintWriter;
 
 public interface Resource extends AutoCloseable {
 
-	PrintWriter open() throws IOException;
+    //
+    // thanks to Sam for designing this interface
+    //
+    PrintWriter open() throws IOException;
 
-	void close() throws IOException;
+    void close() throws IOException;
 
 }
