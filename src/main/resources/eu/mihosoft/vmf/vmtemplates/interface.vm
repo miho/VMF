@@ -22,8 +22,8 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
 #end ## for each
 
   /**
-   * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
-   * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
+   * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
+   * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
   static ${type.typeName} newInstance() {
     try {
@@ -51,8 +51,8 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
   }
 
   /**
-   * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
-   * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
+   * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
+   * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
   default ${type.readOnlyInterface.typeName} asReadOnly() {
     try {
