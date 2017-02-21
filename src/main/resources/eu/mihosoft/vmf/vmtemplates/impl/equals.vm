@@ -44,15 +44,19 @@
   } // end equals()
 
   private static boolean _vmf_equals(Object o1, Object o2) {
-    boolean oneIsNull = (o1 == null) != (o2 == null);
+    boolean oneAndOnlyOneIsNull = (o1 == null) != (o2 == null);
     boolean collectionType = o1 instanceof VList || o2 instanceof VList;
 
     // since we support lazy initialization for collections,
     // uninitialized empty collection values are defined as equal to null
     // otherwise we would have to initialize these values, which would then
     // neutralize or even negate the positive effect of lazy initialization
-    if(oneIsNull && collectionType) {
-      return true;
+    if(oneAndOnlyOneIsNull && collectionType) {
+      if(o1==null) {
+        return ((VList)o2).isEmpty();
+      } else {
+        return ((VList)o1).isEmpty();
+      }
     } else {
       return Objects.equals(o1,o2);
     }
