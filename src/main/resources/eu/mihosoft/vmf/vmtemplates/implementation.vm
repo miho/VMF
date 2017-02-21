@@ -102,31 +102,48 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   // --- Public VMF API
   // --------------------------------------------------------------------
 
+ private VMF vmf;
+
   @Override
   public VMF vmf() {
-    return new VMF() {
-      public Content content() {
-        return new Content() {
-          public java.util.Iterator<VObject> iterator() {
-            return VIterator.of(${type.implementation.typeName}.this);
-          }
-          public java.util.stream.Stream<VObject> stream() {
-            return VIterator.of(${type.implementation.typeName}.this).asStream();
+    if(vmf==null) {
+      vmf = new VMF() {
+        public Content content() {
+          return new Content() {
+            public java.util.Iterator<VObject> iterator() {
+              return VIterator.of(${type.implementation.typeName}.this);
+            }
+            public java.util.stream.Stream<VObject> stream() {
+              return VIterator.of(${type.implementation.typeName}.this).asStream();
+            }
+
+            @Override
+            public ${type.typeName} deepCopy() {
+              return ${type.implementation.typeName}.this.clone();
+            }
+
+            @Override
+            public ${type.typeName} shallowCopy() {
+              return ${type.implementation.typeName}.
+                this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+              }
+            };
           }
 
-          @Override
-          public ${type.typeName} deepCopy() {
-            return ${type.implementation.typeName}.this.clone();
-          }
+          private ChangesImpl changes;
 
-          @Override
-          public ${type.typeName} shallowCopy() {
-            return ${type.implementation.typeName}.
-              this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+          public Changes changes() {
+            if (changes==null) {
+              changes = new ChangesImpl();
+              changes.setModel(${type.implementation.typeName}.this);
+            }
+
+            return changes;
           }
         };
-      }
-    };
+      } // end if null
+
+      return vmf;
   }
 
 

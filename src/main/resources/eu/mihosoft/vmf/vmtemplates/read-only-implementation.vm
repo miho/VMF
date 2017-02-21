@@ -191,6 +191,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return _VMF_TYPE_ID;
   }
 
+#set($readOnlyVal=true)
 #parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
 
   @Override
