@@ -1,6 +1,5 @@
 package eu.mihosoft.vmf.core;
 
-
 import eu.mihosoft.vmf.VMF;
 import org.apache.commons.collections.ExtendedProperties;
 import org.apache.commons.lang.StringUtils;
@@ -19,26 +18,32 @@ import java.io.Writer;
 import java.util.Properties;
 
 class VMFEngineProperties {
+
     public static final String VMF_TEMPLATE_PATH = "/eu/mihosoft/vmf/vmtemplates/";
-    public static final String VMF_CORE_API_PKG = "eu.mihosoft.vmf.runtime.core";
+    public static final String VMF_RUNTIME_API_PKG = "eu.mihosoft.vmf.runtime";
 
     public static final String VCOLL_PKG = "eu.mihosoft.vcollections";
 
     public static final String VMF_IMPL_PKG_EXT = "impl";
     public static final String VMF_IMPL_CLASS_EXT = "Impl";
-    public static final String VMF_VMFUTIL_PKG_EXT = "vmfutil";
-
-
+    public static final String VMF_CORE_PKG_EXT = "core";
+    
     public static void installProperties(VelocityContext ctx) {
         ctx.put("VMF_TEMPLATE_PATH", VMF_TEMPLATE_PATH);
-        ctx.put("VMF_CORE_API_PKG", VMF_CORE_API_PKG);
+        ctx.put("VMF_RUNTIME_API_PKG", VMF_RUNTIME_API_PKG);
 
         ctx.put("VMF_IMPL_PKG_EXT", VMF_IMPL_PKG_EXT);
         ctx.put("VMF_IMPL_CLASS_EXT", VMF_IMPL_CLASS_EXT);
-        ctx.put("VMF_VMFUTIL_PKG_EXT", VMF_VMFUTIL_PKG_EXT);
+        ctx.put("VMF_CORE_PKG_EXT", VMF_CORE_PKG_EXT);
         ctx.put("VCOLL_PKG", VCOLL_PKG);
+
+        ctx.put("newline", "\n");
+        ctx.put("StringUtil", StringUtil.class);
     }
+
 }
+
+
 
 public class CodeGenerator {
 
@@ -70,7 +75,7 @@ public class CodeGenerator {
         VelocityEngine engine = new VelocityEngine();
 
         engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "vmf");
-        engine.setProperty("vmf.resource.loader.instance",new VMFResourceLoader());
+        engine.setProperty("vmf.resource.loader.instance", new VMFResourceLoader());
 
         return engine;
     }
@@ -91,12 +96,7 @@ public class CodeGenerator {
                 generateTypeInterface(out, t);
             }
 
-//            try (Resource res = set.open(t.getPackageName() + ".Writable" + t.getTypeName())) {
-//                Writer out = res.open();
-//                generateWritableTypeInterface(out, t);
-//            }
-
-            try (Resource res = set.open(t.getPackageName() + "." +  t.getReadOnlyInterface().getTypeName())) {
+            try (Resource res = set.open(t.getPackageName() + "." + t.getReadOnlyInterface().getTypeName())) {
                 Writer out = res.open();
                 generateReadOnlyTypeInterface(out, t);
             }
@@ -115,25 +115,96 @@ public class CodeGenerator {
 
         }
 
-        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
+//        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VMFModelWalker" + VMFEngineProperties.VMF_IMPL_CLASS_EXT)) {
+//            Writer out = res.open();
+//            generateVMFModelWalker(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT, model);
+//        }
+//
+
+        String[] packageComponents = packageName.split("\\.");
+        String modelSwitchName = packageComponents[packageComponents.length-1];
+        
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".SwitchFor"+modelSwitchName + "Model")) {
             Writer out = res.open();
-            generateVContainmentUtil(out, packageName);
+            generateVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
+        }
+        
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".ReadOnlySwitchFor"+modelSwitchName + "Model")) {
+            Writer out = res.open();
+            generateReadOnlyVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
         }
 
-        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VObject")) {
+//        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
+//            Writer out = res.open();
+//            generateVMFVObjectInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
+//        }
+
+        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal")) {
             Writer out = res.open();
-            generateVObjectUtil(out, packageName);
+            generateVMFCloneableInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
         }
 
-        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
-            Writer out = res.open();
-            generateObservableObjectUtil(out, packageName);
-        }
+//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
+//            Writer out = res.open();
+//            generateVContainmentUtil(out, packageName);
+//        }
+//
+//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VObject")) {
+//            Writer out = res.open();
+//            generateVObjectUtil(out, packageName);
+//        }
+//
+//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
+//            Writer out = res.open();
+//            generateObservableObjectUtil(out, packageName);
+//        }
+//
+//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VCollectionUtil")) {
+//            Writer out = res.open();
+//            generateVCollectionUtil(out, packageName);
+//        }
+    }
 
-        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VCollectionUtil")) {
-            Writer out = res.open();
-            generateVCollectionUtil(out, packageName);
-        }
+    private void generateVMFModelWalker(Writer out, String packageName, Model m) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        context.put("model", m);
+        mergeTemplate("vmf-model-walker-implementation", context, out);
+    }
+
+    private void generateVMFModelSwitchInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        context.put("model", m);
+        context.put("modelSwitchName", modelSwitchName);        
+        mergeTemplate("vmf-model-switch-interface", context, out);
+    }
+    
+    private void generateReadOnlyVMFModelSwitchInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        context.put("model", m);
+        context.put("modelSwitchName", modelSwitchName);        
+        mergeTemplate("vmf-model-switch-read-only-interface", context, out);
+    }
+
+//    private void generateVMFVObjectInternalInterface(Writer out, String packageName) throws IOException {
+//        VelocityContext context = new VelocityContext();
+//        VMFEngineProperties.installProperties(context);
+//        context.put("packageName", packageName);
+//        mergeTemplate("vmf-vobject-internal", context, out);
+//    }
+
+    private void generateVMFCloneableInterface(Writer out, String packageName) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        mergeTemplate("vmf-vcloneable-internal", context, out);
     }
 
     private void generateObservableObjectUtil(Writer out, String packageName) throws IOException {
@@ -216,23 +287,19 @@ public class CodeGenerator {
 //        context.put("model", model);
 //        mergeTemplate("commands", context, out);
 //    }
-
 }
 
 class VMFResourceLoader extends ClasspathResourceLoader {
 
     /**
-     * Get an InputStream so that the Runtime can build a
-     * template with it.
+     * Get an InputStream so that the Runtime can build a template with it.
      *
      * @param name name of template to get
      * @return InputStream containing the template
-     * @throws ResourceNotFoundException if template not found
-     *         in  classpath.
+     * @throws ResourceNotFoundException if template not found in classpath.
      */
-    public InputStream getResourceStream(String name )
-            throws ResourceNotFoundException
-    {
+    public InputStream getResourceStream(String name)
+            throws ResourceNotFoundException {
         InputStream input = VMF.class.getResourceAsStream(name);
 
         return input;

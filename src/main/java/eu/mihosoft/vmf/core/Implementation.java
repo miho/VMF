@@ -1,7 +1,6 @@
 package eu.mihosoft.vmf.core;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -13,7 +12,7 @@ public class Implementation {
     private final String packageName;
     private final List<Prop> properties = new ArrayList<>();
     private final ModelType type;
-    private final List<Prop> propertiesWithoutCollectionsBasedContainment;
+    private final List<Prop> propertiesWithoutCollectionsBasedContainment = new ArrayList<>();
     private final List<Prop> propertiesForEquals = new ArrayList<>();
     private final List<String> imports = new ArrayList<>();
 
@@ -25,17 +24,36 @@ public class Implementation {
 
         this.properties.addAll(type.getProperties());
 
-        this.properties.addAll(type.getImplementz().stream().flatMap(t->t.getProperties()
-                .stream()).filter(p->!properties.contains(p)).collect(Collectors.toList()));
+    }
 
-        this.propertiesWithoutCollectionsBasedContainment =
-                ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties);
+    void initPropertiesAndImports() {
+
+        Set<Prop> implProperties = new HashSet<>();
+        implProperties.addAll(computeImplementedProperties(type));
+
+        this.properties.addAll(implProperties.stream().filter(p->!properties.contains(p)).
+                distinct().collect(Collectors.toList()));
+
+        Collections.sort(properties, (p1,p2)->p1.getName().compareTo(p2.getName()));
+
+        this.propertiesWithoutCollectionsBasedContainment.addAll(
+                ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties));
 
         propertiesForEquals.addAll(properties.stream().
                 filter(p->!p.isIgnoredForEquals()).
-                filter(p->!p.isContainmentProperty()).collect(Collectors.toList()));
+                filter(p->!p.isContainer()).collect(Collectors.toList()));
 
         initImports(imports);
+    }
+
+    private static List<Prop> computeImplementedProperties(ModelType type) {
+        List<Prop> result = new ArrayList<>();
+        for(ModelType t: type.getImplementz()) {
+            result.addAll(t.getProperties());
+            result.addAll(computeImplementedProperties(t));
+        }
+
+        return result;
     }
 
 

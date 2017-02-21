@@ -1,7 +1,8 @@
 package ${type.implementation.packageName};
 
 // vmf imports
-import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeSupport;
@@ -19,21 +20,34 @@ import $import;
 /**
  * An implementation of the model object {@code $type.fullTypeName}.
  */
-class $type.implementation.typeName implements ${type.typeName} {
+@SuppressWarnings("deprecation")
+class $type.implementation.typeName implements ${type.typeName}, VObjectInternalModifiable, VCloneableInternal {
 
+  // --------------------------------------------------------------------
+  // --- declaration of member variables
+  // --------------------------------------------------------------------
 
-// declare member vars
 #parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
   private PropertyChangeSupport propertyChanges;
+
+  // --------------------------------------------------------------------
+  // --- public constructors
+  // --------------------------------------------------------------------
 
   public ${type.implementation.typeName}() {
     // ...
   }
 
-// public getter methods for accessing properties
+  // --------------------------------------------------------------------
+  // --- public getter methods for accessing properties
+  // --------------------------------------------------------------------
+
 #parse("${VMF_TEMPLATE_PATH}impl/getter.vm")
 
-// public setter methods for setting properties
+  // --------------------------------------------------------------------
+  // --- public setter methods for setting properties
+  // --------------------------------------------------------------------
+
 #parse("${VMF_TEMPLATE_PATH}impl/setter.vm")
 
   // --------------------------------------------------------------------
@@ -43,6 +57,8 @@ class $type.implementation.typeName implements ${type.typeName} {
 #parse("${VMF_TEMPLATE_PATH}impl/to-string.vm")
 
 #parse("${VMF_TEMPLATE_PATH}impl/equals.vm")
+
+#parse("${VMF_TEMPLATE_PATH}impl/clone.vm")
 
   // --------------------------------------------------------------------
   // --- Utility methods
@@ -81,5 +97,69 @@ class $type.implementation.typeName implements ${type.typeName} {
                   firePropertyChange(propertyName, oldValue, newValue);
       }
   }
+
+  // --------------------------------------------------------------------
+  // --- Public VMF API
+  // --------------------------------------------------------------------
+
+ private VMF vmf;
+
+  @Override
+  public VMF vmf() {
+    if(vmf==null) {
+      vmf = new VMF() {
+        public Content content() {
+          return new Content() {
+            public java.util.Iterator<VObject> iterator() {
+              return VIterator.of(${type.implementation.typeName}.this);
+            }
+            public java.util.stream.Stream<VObject> stream() {
+              return VIterator.of(${type.implementation.typeName}.this).asStream();
+            }
+
+            @Override
+            public ${type.typeName} deepCopy() {
+              return ${type.implementation.typeName}.this.clone();
+            }
+
+            @Override
+            public ${type.typeName} shallowCopy() {
+              return ${type.implementation.typeName}.
+                this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+              }
+            };
+          }
+
+          private ChangesImpl changes;
+
+          public Changes changes() {
+            if (changes==null) {
+              changes = new ChangesImpl();
+              changes.setModel(${type.implementation.typeName}.this);
+            }
+
+            return changes;
+          }
+        };
+      } // end if null
+
+      return vmf;
+  }
+
+
+  // --------------------------------------------------------------------
+  // --- Reflection methods
+  // --------------------------------------------------------------------
+
+  // type id for improved reflection performance
+  public static final int _VMF_TYPE_ID = $type.typeId;
+
+  @Override
+  public int _vmf_getTypeId() {
+    return _VMF_TYPE_ID;
+  }
+
+
+#parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
 
 }

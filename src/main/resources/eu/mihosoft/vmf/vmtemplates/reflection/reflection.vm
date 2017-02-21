@@ -1,0 +1,129 @@
+  static final String[] _VMF_PROPERTY_NAMES = {
+#foreach($prop in $type.implementation.properties)    "$prop.name"#if($foreach.hasNext),#end$newline#end
+  };
+
+  static final int[] _VMF_PROPERTY_TYPES = {
+#foreach($prop in $type.implementation.properties)
+    ${StringUtil.alignRight($prop.typeId, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName
+#end
+  };
+
+  /**
+   * - indices of model objects as properties
+   * - parents, i.e., containers are skipped
+   * - only indices of reference properties and contained elements, i.e.,
+   *   children are listed here
+   */
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.type&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  /**
+   * - indices of lists that contain model objects as elements
+   */
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_ELEMENT_TYPES_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.genericType)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  /**
+   * - indices of model objects as properties and model objects as
+   *   elements of lists
+   * - parents, i.e., containers are skipped
+   * - only indices of reference properties and contained elements, i.e.,
+   *   children are listed here
+   */
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  /**
+   * - indices of model children
+   * - parents, i.e., containers and pure references are skipped
+   * - only indices of contained elements, i.e.,
+   *   children are listed here
+   */
+  static final int[] _VMF_CHILDREN_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType=="CONTAINED")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  @Override
+  public String[] _vmf_getPropertyNames() {
+    return _VMF_PROPERTY_NAMES;
+  }
+
+  @Override
+  public int[] _vmf_getPropertyTypes() {
+    return _VMF_PROPERTY_TYPES;
+  }
+
+  @Override
+  public int[] _vmf_getIndicesOfPropertiesWithModelTypes() {
+    return _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES;
+  }
+
+  @Override
+  public int[] _vmf_getIndicesOfPropertiesWithModelElementTypes() {
+    return _VMF_PROPERTIES_WITH_MODEL_ELEMENT_TYPES_INDICES;
+  }
+
+  @Override
+  public int[] _vmf_getIndicesOfPropertiesWithModelTypeOrElementTypes() {
+    return _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES;
+  }
+
+  @Override
+  public int[] _vmf_getChildrenIndices() {
+    return _VMF_CHILDREN_INDICES;
+  }
+
+  @Override
+  public Object _vmf_getPropertyValueById(int propertyId) {
+
+    switch(propertyId) {
+#foreach($prop in $type.implementation.properties)
+      case $foreach.index:
+        // TODO check whether we can prevent lazy initialized properties from
+        //      being initialized just for iterating the object graph
+        return ${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end## for-each property
+    }
+
+    return null;
+  }
+
+  @Override
+  public int _vmf_getPropertyIdByName(String propertyName) {
+    switch(propertyName) {
+#foreach($prop in $type.implementation.properties)
+      case "$prop.name":
+        return $foreach.index;
+#end## for-each property
+      default:
+        return -1;
+    } // end switch
+  }
+
+#if(!$readOnlyVal)
+  @Override
+  public void _vmf_setPropertyValueById(int propertyId, Object value) {
+    switch(propertyId) {
+#foreach($prop in $type.implementation.properties)
+#if(!$prop.genericType)
+#if(${prop.propType}!="COLLECTION" && $prop.containmentInfo.containmentType!="CONTAINER")
+      case $foreach.index:
+        set${prop.nameWithUpperCase}((${prop.typeName})value);
+        break;
+#end## end if !container && !collection
+#end## end if !genericType
+#end## for-each property
+    } // end switch
+  }
+#end## if !readOnlyVal

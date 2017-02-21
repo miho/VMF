@@ -23,7 +23,8 @@ public class Interface {
         this.properties.addAll(type.getProperties());
 
         this.propertiesWithoutCollectionsBasedContainment =
-                ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties);
+                ModelType.propertiesWithoutCollectionsBasedContainment(
+                        this.type, this.properties);
     }
 
     public static Interface newInstance(ModelType type) {

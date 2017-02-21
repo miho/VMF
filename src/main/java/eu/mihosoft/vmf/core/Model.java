@@ -14,7 +14,7 @@ public class Model {
 
     private Model(Class<?>... interfaces) {
 
-        if(interfaces == null || interfaces.length == 0) {
+        if (interfaces == null || interfaces.length == 0) {
             throw new IllegalArgumentException(
                     "At least one interface is required for building a valid model.");
         }
@@ -24,53 +24,81 @@ public class Model {
 
         if (!modelPkgName.endsWith(".vmfmodel")) {
             throw new IllegalArgumentException(
-                    "Model interfaces should be in subpackage 'vmfmodel'." +
-                            " Found model interfaces in '"
-                            + modelPkgName + "'.");
+                    "Model interfaces should be in subpackage 'vmfmodel'."
+                    + " Found model interfaces in '"
+                    + modelPkgName + "'.");
         }
 
         this.packageName = modelPkgName.substring(
-                0,modelPkgName.length()-".vmfmodel".length());
+                0, modelPkgName.length() - ".vmfmodel".length());
 
         Set<String> packages = new HashSet<String>();
+        int typeId = 0;
         for (Class<?> clzz : interfaces) {
-            if (!clzz.isInterface())
+            if (!clzz.isInterface()) {
                 throw new IllegalArgumentException(
                         "Model may only contain interfaces.");
-            initType(clzz);
+            }
+            initType(clzz, typeId);
+            typeId += 2;
             packages.add(clzz.getPackage().getName());
 
         }
         if (packages.size() > 1) {
             throw new IllegalArgumentException(
                     "All interfaces must be from same package, but found "
-                            + packages);
+                    + packages);
         }
 
-        for(ModelType t : types.values()) {
+        // PASS 1
+        for (ModelType t : types.values()) {
             t.initContainments();
         }
 
-        for(ModelType t : types.values()) {
+        // PASS 2
+        for (ModelType t : types.values()) {
             t.initImplements();
         }
+
+        // PASS 3
+        for (ModelType t : types.values()) {
+            t.getImplementation().initPropertiesAndImports();
+        }
+
     }
 
     public String getPackageName() {
         return packageName;
     }
 
-    public ModelType initType(Class<?> clazz) {
+    public ModelType initType(Class<?> clazz, int typeId) {
 
-        ModelType t = ModelType.newInstance(this, clazz);
+        ModelType t = ModelType.newInstance(this, clazz, typeId);
         types.put(convertModelTypeToDestination(clazz), t);
 
         return t;
     }
 
-    public Collection<ModelType> getTypes() {
-        return Collections.unmodifiableCollection(types.values());
+    public List<ModelType> getTypes() {
+        List<ModelType> typeList = new ArrayList<>(types.values());
+
+        Collections.sort(typeList,
+                (ModelType t1, ModelType t2)
+                -> t1.getFullTypeName().compareTo(t2.getFullTypeName()));
+
+        return Collections.unmodifiableList(typeList);
     }
+    
+//    public Collection<String> getTypesAndReadOnlyTypes() {
+//        List<ModelType> modifiableTypes = getTypes();
+//        
+//        List<ModelType> allTypes = new ArrayList<ModelType>();
+//        
+//        for(ModelType t : modifiableTypes) {
+//            allTypes.add(t);
+//            allTypes.add(t.)
+//        }
+//    }
 
 //    public Optional<ModelType> resolveType(Class<?> clazz) {
 //        if (types.containsKey(clazz.getName()))
@@ -82,7 +110,6 @@ public class Model {
 //                return Optional.empty();
 //        }
 //    }
-
     public Optional<ModelType> resolveType(String clazzName) {
         return Optional.ofNullable(types.get(clazzName));
     }
@@ -90,11 +117,13 @@ public class Model {
     /**
      * Resolves the specified opposite property of the given model type.
      *
-     * @param type         model type
-     * @param oppositeProp fully qualified name of the opposite property of the given type, e.g.,
-     *                     '<em>eu.mihosoft.tutorial.MyType.myProp</em>' or simplified, i.e., without package if the
-     *                     package matches the current model package, e.g., '<em>MyType.myProp</em>'
-     * @return resolved opposite property or {@code Optional<Prop>.empty()} if the specified property does not exist
+     * @param type model type
+     * @param oppositeProp fully qualified name of the opposite property of the
+     * given type, e.g., '<em>eu.mihosoft.tutorial.MyType.myProp</em>' or
+     * simplified, i.e., without package if the package matches the current
+     * model package, e.g., '<em>MyType.myProp</em>'
+     * @return resolved opposite property or {@code Optional<Prop>.empty()} if
+     * the specified property does not exist
      */
     public Optional<Prop> resolveOppositeOf(ModelType type, String oppositeProp) {
 
@@ -112,8 +141,8 @@ public class Model {
         }
 
         // we specified property without package name. we assume it is in the current package
-        if(typeNameParts.length==2) {
-            typeNameParts = (getPackageName()+"."+oppositeProp).split("\\.");
+        if (typeNameParts.length == 2) {
+            typeNameParts = (getPackageName() + "." + oppositeProp).split("\\.");
         }
 
         String typeName = "";
@@ -121,8 +150,8 @@ public class Model {
         for (int i = 0; i < typeNameParts.length - 1; i++) {
             typeName += typeNameParts[i];
 
-            if(i < typeNameParts.length - 2) {
-                typeName+=".";
+            if (i < typeNameParts.length - 2) {
+                typeName += ".";
             }
         }
 
@@ -139,18 +168,20 @@ public class Model {
 
     public boolean isModelType(String type) {
         for (Class<?> clazz : interfaces) {
-            if (convertModelPackageToDestination(clazz.getName()).equals(type))
+            if (convertModelPackageToDestination(clazz.getName()).equals(type)) {
                 return true;
+            }
             for (Class<?> ifc : clazz.getInterfaces()) {
-                if (convertModelPackageToDestination(ifc.getName()).equals(type))
+                if (convertModelPackageToDestination(ifc.getName()).equals(type)) {
                     return true;
+                }
             }
         }
         return false;
     }
 
     public String convertModelPackageToDestination(String srcPkg) {
-        if(Objects.equals(getPackageName()+".vmfmodel",srcPkg)) {
+        if (Objects.equals(getPackageName() + ".vmfmodel", srcPkg)) {
             return getPackageName();
         } else {
             return srcPkg;
@@ -160,12 +191,12 @@ public class Model {
     public String convertModelTypeToDestination(Class<?> srcType) {
         String srcPackage = "";
 
-        if (srcType.getPackage()!=null) {
+        if (srcType.getPackage() != null) {
             srcPackage = srcType.getPackage().getName();
         }
 
-        if(Objects.equals(getPackageName()+".vmfmodel",srcPackage)) {
-            return getPackageName()+"."+srcType.getSimpleName();
+        if (Objects.equals(getPackageName() + ".vmfmodel", srcPackage)) {
+            return getPackageName() + "." + srcType.getSimpleName();
         } else {
             return srcType.getName();
         }

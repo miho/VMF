@@ -1,0 +1,41 @@
+package ${packageName};
+
+// vmf imports
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
+
+
+public interface SwitchFor${modelSwitchName}Model<T> {
+
+  @SuppressWarnings("deprecation")
+  default T doSwitch(VObject o) {
+    T result = null;
+    switch(((VObjectInternal)o)._vmf_getTypeId()) {
+#foreach($type in $model.types)
+      #set($modifiableIdx = $foreach.index*2 + 0)
+      #set($readOnlyIdx = $foreach.index*2 + 1)
+      case $modifiableIdx:
+        // TODO check whether we can prevent lazy initialized properties from
+        //      being initialized just for iterating the object graph
+        result = case${type.typeName}(($type.typeName) o);
+        return result == null?defaultValue(o):result;
+#end ## for-each type
+      default:
+        return defaultValue(o);
+    }
+  } // end doSwitch()
+
+  /**
+   * Default value that will be return if the matching case method returns {code null}.
+   * @return default value
+   */
+  default T defaultValue(VObject o) {
+    return null;
+  }
+
+#foreach($type in $model.types)
+
+  default T case${type.typeName}($type.typeName object) {return null;};
+#end ## for-each type
+
+}

@@ -1,6 +1,4 @@
 #foreach( $prop in ${type.implementation.propertiesWithoutCollectionsBasedContainment} )
-
-
 ## we don't support public setters for containment opposits with collection type
 ## therefore we don't use override in this case, since the interface does not
 ## declare such a method
@@ -10,15 +8,11 @@
 #set($overridePropertySetter = false)
 #end ## end if collectionType
 #end ## end if containmentProperty
-
-
-
-## we don't support setters for collection types
-#if(${prop.propType}!="COLLECTION")
-
+## we don't support setters for collection types and properties with collection opposites
+#if(${prop.propType}!="COLLECTION" && ${prop.containmentInfo.opposite.propType}!="COLLECTION")
 #if($overridePropertySetter)
   @Override
-#end
+#end ## overridePropertySetter
   public $prop.setterDeclaration {
 
     // return early if identical value has been set
@@ -37,11 +31,11 @@
 #if(${prop.propType}=="COLLECTION")
     // no collection based containment code necessary
     // FIXME this comment should not be visible in the generated code
-#else
+#else ## if collection
     // if previous container is present then release containment relation
     if(oldValue!=null) {
       // (($prop.typeName$VMF_IMPL_CLASS_EXT)oldValue)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(null);
-
+#set($disableFireEventValue=false)
 #set($propertyToModifyValue = "oldValue")
 #set($oppositeValue = "null")
 #set($codeIndentValue = "      ")
@@ -52,39 +46,50 @@
     if($prop.name!=null) {
       // (($prop.typeName$VMF_IMPL_CLASS_EXT)$prop.name)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(this);
 
+#set($disableFireEventValue=false)
 #set($propertyToModifyValue = "this."+${prop.name})
 #set($oppositeValue = "this")
 #set($codeIndentValue = "      ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
     }
-#end
-#else
+#end ## if collection
+#else ## if container
 #if(${prop.propType}=="COLLECTION")
     // no collection based containment code necessary
     // FIXME this comment should not be visible in the generated code
-#else
+#else ## if collection
     // if previous container is present then release containment relation
     if(oldValue!=null) {
       //(($prop.typeName$VMF_IMPL_CLASS_EXT)oldValue)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(null);
 
+#set($disableFireEventValue=false)
 #set($propertyToModifyValue = "oldValue")
 #set($oppositeValue = "null")
 #set($codeIndentValue = "      ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+
     }
 
     // if new container is present then update containment relation
     if($prop.name!=null) {
       //(($prop.typeName$VMF_IMPL_CLASS_EXT)$prop.name)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(this);
 
+      // remove '${prop.name}' object that shall be set from its previous parent
+      // if it has one. for collections we perform this operation in the getter
+      // method which registers a change listener that does all the work.
+      if(${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+        ${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}().set${prop.nameWithUpperCase}(null);
+      }
+
+#set($disableFireEventValue=false)
 #set($propertyToModifyValue = "this."+${prop.name})
 #set($oppositeValue = "this")
 #set($codeIndentValue = "      ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
     }
-#end
-#end
-#end
+#end ## if collection
+#end ## if container
+#end ## containment property
   }
 
 #if($prop.containmentProperty && ${prop.propType}!="COLLECTION")
@@ -97,8 +102,6 @@
     // fire property change event
     _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.$prop.name);
   }
-#end
-
-#end ## end if collection
-
+#end ## end if containment property and no collection
+#end ## end if containment property
 #end ## end for-each

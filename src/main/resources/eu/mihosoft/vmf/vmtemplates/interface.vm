@@ -1,7 +1,7 @@
 package ${type.packageName};
 
 // vmf imports
-import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 
 // property types imports
 #foreach( $import in $type.imports )
@@ -13,7 +13,7 @@ import $import;
 /**
  * A representation of the model object {@code $type.fullTypeName}.
  */
-public interface $type.typeName extends VObject$type.implementsString {
+public interface $type.typeName extends VObject$type.implementsString, Cloneable {
 #foreach( $prop in ${type.interface.properties} )
 
 #parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
@@ -22,8 +22,8 @@ public interface $type.typeName extends VObject$type.implementsString {
 #end ## for each
 
   /**
-   * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
-   * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
+   * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
+   * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
   static ${type.typeName} newInstance() {
     try {
@@ -51,10 +51,10 @@ public interface $type.typeName extends VObject$type.implementsString {
   }
 
   /**
-   * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
-   * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>'}
+   * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
+   * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
-  public default ${type.readOnlyInterface.typeName} asReadOnly() {
+  default ${type.readOnlyInterface.typeName} asReadOnly() {
     try {
       Class<?> cls = Class.forName("${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}");
       java.lang.reflect.Constructor constructor = cls.getConstructor(${type.typeName}.class);
@@ -79,5 +79,7 @@ public interface $type.typeName extends VObject$type.implementsString {
     return null;
   }
 
+  @Override
+  $type.typeName clone() /*throws CloneNotSupportedException*/;
 
 }

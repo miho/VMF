@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.util.Collection;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -36,6 +37,9 @@ public class Prop {
     // indicates whether this property should be ignored for equals() code generation
     private final boolean ignoredForEquals;
 
+    // getter prefix (get or is)
+    private final String getterPrefix;
+
     //type of the property, e.g., primitive or Collection
     private PropType propType;
     private ModelType type;
@@ -55,6 +59,7 @@ public class Prop {
             propType = PropType.PRIMITIVE;
             typeName = propClass.getSimpleName();
             packageName = "";
+
         } else if (Collection.class.isAssignableFrom(propClass)) {
             propType = PropType.COLLECTION;
 
@@ -74,7 +79,7 @@ public class Prop {
                 } else {
                     genericPackageName = parent.getModel().
                             convertModelPackageToDestination(
-                            containedClazz.getPackage().getName());
+                                    containedClazz.getPackage().getName());
                 }
 
                 genericTypeName = containedClazz.getSimpleName();
@@ -88,8 +93,8 @@ public class Prop {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
             typeName = "VList<" + ModelType.primitiveToBoxedType(
-                                    parent.getModel().
-                                            convertModelTypeToDestination(containedClazz)) + ">";
+                    parent.getModel().
+                            convertModelTypeToDestination(containedClazz)) + ">";
             System.out.println("TYPENAME: " + typeName);
 
             packageName = "eu.mihosoft.vcollections";
@@ -102,7 +107,7 @@ public class Prop {
                         convertModelPackageToDestination(containedClazz.getPackage().getName());
             }
 
-            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
+//            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
 
             genericTypeName = containedClazz.getSimpleName();
         } else {
@@ -113,9 +118,9 @@ public class Prop {
                     convertModelPackageToDestination(propClass.getPackage().getName());
         }
 
+        getterPrefix = computeGetterPrefix(getterMethod);
 
         // check whether prop is required
-
         required = getterMethod.getAnnotation(Required.class) != null;
         ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
     }
@@ -125,34 +130,63 @@ public class Prop {
         System.out.println("init containment for " + getName());
 
         // containment
-
         Container container = getterMethod.getAnnotation(Container.class);
         Contains contained = getterMethod.getAnnotation(Contains.class);
 
         if (container != null) {
+
+            String oppositeOfGetContainerProperty = container.opposite();
+
             // System.out.println("Container: " + container.opposite());
-            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), container.opposite());
+            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
+
+            // if opposite can't be found, try with full name
+            if(!opposite.isPresent()) {
+                if(isCollectionType()) {
+                    oppositeOfGetContainerProperty = getGenericTypeName() + "." + oppositeOfGetContainerProperty;
+                } else {
+                    oppositeOfGetContainerProperty = getTypeName() + "." + oppositeOfGetContainerProperty;
+                }
+
+                opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
+            }
+
 
             if (opposite.isPresent()) {
-                containmentInfo = ContainmentInfo.newInstance(
+                this.containmentInfo = ContainmentInfo.newInstance(
                         parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINER);
             } else {
                 throw new RuntimeException(
-                        "Specified opposite property '" + container.opposite() + "' cannot be found");
+                        "Specified opposite property '" + oppositeOfGetContainerProperty + "' cannot be found");
             }
         } else if (contained != null) {
             // System.out.println("Contained: " + contained.opposite());
-            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), contained.opposite());
+
+            String oppositeOfGetContainedProperty = contained.opposite();
+
+            // System.out.println("Container: " + container.opposite());
+            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
+
+            // if opposite can't be found, try with full name
+            if(!opposite.isPresent()) {
+                if(isCollectionType()) {
+                    oppositeOfGetContainedProperty = getGenericTypeName() + "." + oppositeOfGetContainedProperty;
+                } else {
+                    oppositeOfGetContainedProperty = getTypeName() + "." + oppositeOfGetContainedProperty;
+                }
+                opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
+            }
+
 
             if (opposite.isPresent()) {
-                containmentInfo = ContainmentInfo.newInstance(
+                this.containmentInfo = ContainmentInfo.newInstance(
                         parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINED);
             } else {
                 throw new RuntimeException(
-                        "Specified opposite property '" + contained.opposite() + "' cannot be found");
+                        "Specified opposite property '" + oppositeOfGetContainedProperty + "' cannot be found");
             }
         } else {
-            containmentInfo = ContainmentInfo.newInstance(null, null, null, ContainmentType.NONE);
+            this.containmentInfo = ContainmentInfo.newInstance(null, null, null, ContainmentType.NONE);
         }
     }
 
@@ -188,12 +222,16 @@ public class Prop {
         return required;
     }
 
+    public String getGetterPrefix() {
+        return getterPrefix;
+    }
+
     public String getGetterDeclaration() {
-        return getTypeName() + " get" + getNameWithUpperCase()+ "()";
+        return getTypeName() + " " + getGetterPrefix() + getNameWithUpperCase() + "()";
     }
 
     public String getSetterDeclaration() {
-        return "void set" + getNameWithUpperCase()+ "(" + getTypeName() + " " + getName() + ")";
+        return "void set" + getNameWithUpperCase() + "(" + getTypeName() + " " + getName() + ")";
     }
 
     public boolean isContainmentProperty() {
@@ -221,7 +259,7 @@ public class Prop {
     }
 
     public String getGenericTypeName() {
-        if(isCollectionType()) {
+        if (isCollectionType()) {
             return genericTypeName;
         }
 
@@ -229,7 +267,7 @@ public class Prop {
     }
 
     public String getGenericPackageName() {
-        if(isCollectionType()) {
+        if (isCollectionType()) {
             return genericPackageName;
         }
 
@@ -238,34 +276,68 @@ public class Prop {
 
     public ModelType getGenericType() {
         return getParent().getModel().resolveType(
-                getGenericPackageName()+"."+getGenericTypeName()).
+                getGenericPackageName() + "." + getGenericTypeName()).
                 orElse(null);
     }
 
     public ModelType getType() {
-        if(this.type==null){
-            this.type = getParent().getModel().resolveType(getPackageName()+"."+getTypeName()).orElse(null);
+        if (this.type == null) {
+            this.type = getParent().getModel().resolveType(getPackageName() + "." + getTypeName()).orElse(null);
         }
 
         return this.type;
     }
 
+    public int getTypeId() {
+        if(getType() != null) {
+            return getType().getTypeId();
+        } else if(isCollectionType()) {
+            return -2;
+        } else {
+            return -1;
+        }
+    }
 
     static String propertyNameFromGetter(Method getterMethod) {
-        String name = getterMethod.getName().substring("get".length());
+
+        String usedGetterPrefix;
+
+        if (getterMethod.getName().startsWith("is")) {
+
+            if (!"is".equals(computeGetterPrefix(getterMethod))) {
+                throw new RuntimeException("Method '"
+                        + getterMethod.getDeclaringClass().getName()
+                        + "#" + getterMethod.getName()
+                        + "' uses wrong prefix.");
+            }
+
+            usedGetterPrefix = "is";
+        } else {
+            usedGetterPrefix = "get";
+        }
+
+        String name = getterMethod.getName().substring(usedGetterPrefix.length());
         name = name.substring(0, 1).toLowerCase() + name.substring(1);
         return name;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
 
         Prop prop = (Prop) o;
 
-        if (!name.equals(prop.name)) return false;
-        if (!packageName.equals(prop.packageName)) return false;
+        if (!name.equals(prop.name)) {
+            return false;
+        }
+        if (!packageName.equals(prop.packageName)) {
+            return false;
+        }
         return typeName.equals(prop.typeName);
     }
 
@@ -275,5 +347,17 @@ public class Prop {
         result = 31 * result + packageName.hashCode();
         result = 31 * result + typeName.hashCode();
         return result;
+    }
+
+    static String computeGetterPrefix(Method getterMethod) {
+        String getterPrefix;
+        // check whether boolean is used, getter uses isXXX convention in this case
+        if (Objects.equals(getterMethod.getReturnType(), boolean.class)) {
+            getterPrefix = "is";
+        } else {
+            getterPrefix = "get";
+        }
+
+        return getterPrefix;
     }
 }

@@ -3,7 +3,7 @@
 /**
  * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
  *
- * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+ * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
  *
  * <!-- vmf-begin-model-doc -->
  * <!-- vmf-end-model-doc -->
@@ -17,7 +17,7 @@
   /**
    * Returns the value of the '<em>${prop.name}</em>' containment list.
    *
-   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
    * <!-- vmf-end-model-doc -->
@@ -28,7 +28,7 @@
   /**
    * Returns the value of the '<em><b>${prop.name}</b></em>' containment reference.
    *
-   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
    * <!-- vmf-end-model-doc -->
@@ -48,4 +48,4 @@
    * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end ## if container / contained
-public $prop.typeName get${prop.nameWithUpperCase}();
+public $prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}();

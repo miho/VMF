@@ -8,9 +8,17 @@
 
       this.${prop.name}.addChangeListener((evt)-> {
             evt.added().elements().forEach((e)->{
+
+                // remove element from previous collection
+                // TODO use bulk operations if possible
+                if(e.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+                  e.get${prop.containmentInfo.opposite.nameWithUpperCase}().get${prop.nameWithUpperCase}().remove(e);
+                }
+
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "this")
                 #set($codeIndentValue = "                ")
+                #set($disableFireEventValue=true)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
             });
 
@@ -18,6 +26,7 @@
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "null")
                 #set($codeIndentValue = "                ")
+                #set($disableFireEventValue=true)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
             });
         });
@@ -28,7 +37,6 @@
 
     // return VContainmentUtil.asContainmentList(this.$prop.name, "${prop.containmentInfo.opposite.name}");
 #else
-
 #if($prop.propType == "COLLECTION")
     if(this.$prop.name==null) {
       this.$prop.name = VList.newInstance(new java.util.ArrayList<>());
@@ -38,5 +46,4 @@
 
 #end
   }
-
 #end

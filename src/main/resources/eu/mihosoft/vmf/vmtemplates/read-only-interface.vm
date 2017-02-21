@@ -1,7 +1,7 @@
 package ${type.packageName};
 
 // vmf imports
-import ${VMF_CORE_API_PKG}.${VMF_VMFUTIL_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 import ${VCOLL_PKG}.*;
 
 // property types imports
@@ -22,7 +22,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
 /**
  * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
  *
- * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+ * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
  *
  * <!-- vmf-begin-model-doc -->
  * <!-- vmf-end-model-doc -->
@@ -36,7 +36,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   /**
    * Returns the value of the '<em>${prop.name}</em>' containment list.
    *
-   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
    * <!-- vmf-end-model-doc -->
@@ -47,7 +47,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   /**
    * Returns the value of the '<em><b>${prop.name}</b></em>' containment reference.
    *
-   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#get${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
    * <!-- vmf-end-model-doc -->
@@ -70,14 +70,31 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
   // generic model type
-  public VList<${prop.genericType.readOnlyInterface.fullTypeName}> get${prop.nameWithUpperCase}();
+  public VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #else
-  public VList<${prop.genericPackageName}.${prop.genericTypeName}> get${prop.nameWithUpperCase}();
+  public VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #end ## if genericType
 #else
-  public #if($prop.type)$prop.type.readOnlyInterface.typeName#else$prop.typeName#end get${prop.nameWithUpperCase}();
+  public #if($prop.type)$prop.type.readOnlyInterface.typeName#else$prop.typeName#end ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #end ## if collection
 
 #end ## for each
+
+  /**
+   * Returns a deep clone of this object.
+   * @return a deep clone of this object
+   */
+  public ${type.readOnlyInterface.typeName} clone();
+
+  @Override
+  default ${type.readOnlyInterface.typeName} asReadOnly() {
+    return this;
+  }
+
+  /**
+   * Returns a modifiable deep clone of this object.
+   * @return a modifiable deep clone of this object
+   */
+  ${type.typeName} asModifiable();
 
 }

@@ -6,29 +6,30 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 public class FileResource implements Resource {
-	
-	final File file;
-	FileWriter fileWriter;
-	
-	public FileResource(File file)
-	{
-		this.file = file;
-	}
-	
-	public File getFile()
-	{
-		return this.file;
-	}
 
-	@Override
-	public PrintWriter open() throws IOException {
+    //
+    // thanks to Sam for designing this interface
+    //
+    final File file;
+    FileWriter fileWriter;
 
-		return new PrintWriter(fileWriter = new FileWriter(file));
-	}
+    public FileResource(File file) {
+        this.file = file;
+    }
 
-	@Override
-	public void close() throws IOException{
-		fileWriter.close();
-	}
+    public File getFile() {
+        return this.file;
+    }
+
+    @Override
+    public PrintWriter open() throws IOException {
+
+        return new PrintWriter(fileWriter = new FileWriter(file));
+    }
+
+    @Override
+    public void close() throws IOException {
+        fileWriter.close();
+    }
 
 }

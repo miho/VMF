@@ -1,43 +1,96 @@
-// start Clonable implementation
 
-public $type.typeName shallowClone() {
-    $type.typeName cl = new ${type.typeName}();
-#foreach ($prop in $type.properties)
-    cl.$prop.name = this.$prop.name;
-#end
-    return cl;
-}
+  // --------------------------- BEGIN CLONING -----------------------------
 
-public $type.typeName deepClone() {
-    $type.typeName cl = new ${type.typeName}();
-#foreach ($prop in $type.properties)
-#if ($prop.modelType)
-    cl.$prop.name = ($prop.declaration) ((Clonable)this.${prop.name}).deepClone();
-#else
-#if ($prop.propType=="COLLECTION" && $prop.contained)
-    cl.$prop.name = new ContainedList<${type.typeName}, ${prop.containedType}>("${prop.name}", cl);
-    for (${prop.containedType} elem : this.${prop.name})
-    {
-       cl.${prop.name}.add( (${prop.containedType}) ((Clonable)elem).deepClone() );
-    }
-#elseif ($prop.collection)
-    cl.$prop.name = new ObservableList<${prop.collectionType}>("${prop.name}", cl.pcs);
-    if (Clonable.class.isAssignableFrom(${prop.collectionType}.class))
-    {
-        for(${prop.collectionType} elem : this.${prop.name})
-        {
-            cl.${prop.name}.add((${prop.collectionType}) Clonable.class.cast(elem).deepClone());
+  /**
+   * Package private copy constructor.
+   * It creates a deep or shallow copy of the specified other object.
+   * @param other other object
+   * @param deepCopy defines whether to perform a deep copy
+   */
+  ${type.implementation.typeName} (
+    ${type.implementation.typeName} other,
+    boolean deepCopy, java.util.IdentityHashMap<Object,Object> identityMap
+  ) {
+    identityMap.put(other,this);
+#foreach ($prop in $type.implementation.properties)
+#if(!$prop.container)
+#if($prop.propType=="COLLECTION")
+    if(deepCopy) {
+      if(other.${prop.name}!=null) {
+#if($prop.genericType)
+        // element type is a model type
+        for($prop.genericType.typeName e : other.${prop.name}) {
+          // TODO do a bulk operation instead
+          this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap));
         }
-    } else
-    {
-        cl.${prop.name}.addAll(this.${prop.name});
+#else ## if prop genericType
+        // element type is an external type (TODO implement cloning strategy)
+        this.get${prop.nameWithUpperCase}().addAll(other.${prop.name});
+#end ## if prop genericType
+      } else {
+        // nothing to copy
+      }
+    } else {
+      this.$prop.name = other.$prop.name;
     }
-#else
-    cl.$prop.name = this.$prop.nameCc;
-#end
-#end
-#end
-    return cl;
-}
+#if($prop.contained)
+    if(this.${prop.name}!=null) {
+      this.${prop.name}.forEach((e) -> {
+          #set($propertyToModifyValue = "e")
+          #set($oppositeValue = "this")
+          #set($codeIndentValue = "        ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+      });
+    }
+#end ## if contained
+#else ## if collection
+#if($prop.type)
+      // property type is a model type
+      if(deepCopy) {
+        if(other.${prop.name}!=null) {
+          this.set${prop.nameWithUpperCase}(($prop.typeName)((VCloneableInternal)other.${prop.name})._vmf_deepCopy(identityMap));
+        }
+      } else {
+        this.$prop.name = other.$prop.name;
+      }
+#else ## if prop type
+      // property type is an external type (TODO implement cloning strategy)
+      this.set${prop.nameWithUpperCase}(other.${prop.name});
+#end ## if prop type
+#end ## if collection
+#end ## if container type
+#end ## for-each property
+   } // end copy constructor
 
-// end Clonable implementation
+   @Override
+   public ${type.implementation.typeName} _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap) {
+      if(identityMap.containsKey(this)) {
+        return (${type.implementation.typeName})identityMap.get(this);
+      } else {
+        ${type.implementation.typeName} clonedVal = new ${type.implementation.typeName}(this, true, identityMap);
+        return clonedVal;
+      }
+   }
+
+   @Override
+   public ${type.implementation.typeName} _vmf_shallowCopy(java.util.IdentityHashMap<Object,Object> identityMap) {
+      if(identityMap.containsKey(this)) {
+        return (${type.implementation.typeName})identityMap.get(this);
+      } else {
+        ${type.implementation.typeName} clonedVal = new ${type.implementation.typeName}(this, false, identityMap);
+        return clonedVal;
+      }
+   }
+
+  @Override
+  public ${type.implementation.typeName} clone() /*throws CloneNotSupportedException*/ {
+    // http://stackoverflow.com/questions/12886036/deep-copying-a-graph-structure
+    // http://softwareengineering.stackexchange.com/questions/228848/how-does-java-handle-cyclic-data-references-when-serializing-an-object
+    // https://gist.github.com/kanrourou/47223bdaf481505d4c7e
+    // http://www.programcreek.com/2012/12/leetcode-clone-graph-java/
+    java.util.IdentityHashMap<Object,Object> identityMap =
+      new java.util.IdentityHashMap<>();
+    return _vmf_deepCopy(identityMap);
+  }
+
+  // ---------------------------- END CLONING ------------------------------

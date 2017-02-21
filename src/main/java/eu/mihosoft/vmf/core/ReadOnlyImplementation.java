@@ -47,4 +47,8 @@ public class ReadOnlyImplementation {
     public ModelType getType() {
         return type;
     }
+
+    public int getTypeId() {
+        return getType().getTypeId()+1;
+    }
 }

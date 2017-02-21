@@ -1,7 +1,11 @@
 package eu.mihosoft.vmf.core;
 
 public interface ResourceSet {
-	
-	Resource open(String url);
+
+    //
+    // thanks to Sam for designing this interface
+    //
+    
+    Resource open(String url);
 
 }

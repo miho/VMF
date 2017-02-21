@@ -1,6 +1,5 @@
 package eu.mihosoft.vmf.core;
 
-
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Predicate;
@@ -34,19 +33,19 @@ public class ModelType {
 
     private final List<ModelType> implementz = new ArrayList<>();
 
+    private final int typeId;
 
-    private ModelType(Model model, Class<?> clazz) {
+    private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
 
         this.packageName = model.getPackageName();
 
         this.typeName = clazz.getSimpleName();
+        this.typeId = typeId;
 
         initProperties(clazz);
 
         initImports(imports);
-
-
 
         this.ext3ndsString = generateExtendsString(getModel(), clazz);
         this.implementzString = generateImplementsString(getModel(), clazz);
@@ -56,8 +55,8 @@ public class ModelType {
         this.implementsList.addAll(generateImplementsList(model, clazz));
     }
 
-    public static ModelType newInstance(Model model, Class<?> clazz) {
-        return new ModelType(model, clazz);
+    public static ModelType newInstance(Model model, Class<?> clazz, int typeId) {
+        return new ModelType(model, clazz, typeId);
     }
 
     private void initProperties(Class<?> clazz) {
@@ -68,7 +67,9 @@ public class ModelType {
 
         List<Method> list = new ArrayList<Method>();
         for (Method m : clazz.getDeclaredMethods()) {
-            if (m.getName().startsWith("get")) {
+            if (m.getName().startsWith("get")
+                    || (m.getName().startsWith("is")
+                    && Objects.equals(m.getReturnType(), boolean.class))) {
                 list.add(m);
             }
         }
@@ -79,6 +80,7 @@ public class ModelType {
             properties.add(p);
         }
 
+        Collections.sort(properties, (p1,p2)->p1.getName().compareTo(p2.getName()));
 
     }
 
@@ -103,8 +105,8 @@ public class ModelType {
             Optional<ModelType> type = model.resolveType(implClsName);
 
             if (!type.isPresent()) {
-                throw new RuntimeException("Model types can only extend other model types." +
-                        " Extending external type '" + implClsName + "' is not supported.");
+                throw new RuntimeException("Model types can only extend other model types."
+                        + " Extending external type '" + implClsName + "' is not supported.");
             }
 
             implementz.add(type.get());
@@ -122,6 +124,10 @@ public class ModelType {
                 filter(pkg -> !pkg.isEmpty()).filter(pkg -> !"java.lang".equals(pkg)).
                 filter(pkg -> !getModel().getPackageName().equals(pkg)).map(imp -> imp + ".*").distinct().
                 collect(Collectors.toList()));
+    }
+
+    public int getTypeId() {
+        return typeId;
     }
 
     public Model getModel() {
@@ -154,8 +160,11 @@ public class ModelType {
 
             if (ifsName.startsWith(model.getPackageName())) {
                 implementz.add(ifsName);
+            } else {
+                throw new RuntimeException("FIXME: in type '" + clazz.getName() + "' wrong pkg in impl: " + ifsName);
             }
         }
+
         return implementz;
     }
 
@@ -219,8 +228,9 @@ public class ModelType {
     public String getExtendsString() {
         if (ext3ndsString.isEmpty()) {
             return "";
-        } else
+        } else {
             return "extends " + ext3ndsString;
+        }
     }
 
     public String getImplementsString() {
@@ -249,13 +259,6 @@ public class ModelType {
             return ", " + readOnlyImplementzString;
         }
     }
-
-    static String propertyNameFromGetter(Method getterMethod) {
-        String name = getterMethod.getName().substring("get".length());
-        name = name.substring(0, 1).toLowerCase() + name.substring(1);
-        return name;
-    }
-
 
     public String getPackageName() {
         return packageName;
@@ -291,7 +294,7 @@ public class ModelType {
             primitiveToBoxedTypeNames.put("short", Short.class.getSimpleName());
         }
 
-        return primitiveToBoxedTypeNames.containsKey(typeName)?primitiveToBoxedTypeNames.get(typeName):typeName;
+        return primitiveToBoxedTypeNames.containsKey(typeName) ? primitiveToBoxedTypeNames.get(typeName) : typeName;
     }
 
     public Interface getInterface() {
