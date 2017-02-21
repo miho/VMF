@@ -18,6 +18,7 @@
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "this")
                 #set($codeIndentValue = "                ")
+                #set($disableFireEventValue=true)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
             });
 
@@ -25,6 +26,7 @@
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "null")
                 #set($codeIndentValue = "                ")
+                #set($disableFireEventValue=true)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
             });
         });
