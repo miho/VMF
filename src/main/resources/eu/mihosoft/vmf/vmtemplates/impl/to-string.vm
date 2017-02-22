@@ -16,7 +16,7 @@
 #foreach ($prop in $type.implementation.properties)
 #if ($prop.containmentInfo.containmentType != "CONTAINER" )
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
-        ", " + this.${prop.name} +
+        ", " + (this.${prop.name}==null?"[]":this.${prop.name}) +
 #else
         ", \"$prop.name\": \"" + this.$prop.name + "\"" +
 #end ## if contained and collection
