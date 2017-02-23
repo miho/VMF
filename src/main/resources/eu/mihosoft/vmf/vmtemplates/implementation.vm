@@ -146,6 +146,18 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
       return vmf;
   }
 
+  private ${type.readOnlyInterface.typeName} readOnlyInstance;
+
+  @Override
+  public ${type.readOnlyInterface.typeName} asReadOnly() {
+
+    if(readOnlyInstance==null) {
+      readOnlyInstance = new ${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}(this);
+    }
+
+    return readOnlyInstance;
+  }
+
 
   // --------------------------------------------------------------------
   // --- Reflection methods
@@ -161,5 +173,4 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
 
 #parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
-
 }

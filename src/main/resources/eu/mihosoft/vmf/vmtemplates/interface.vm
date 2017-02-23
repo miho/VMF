@@ -13,7 +13,7 @@ import $import;
 /**
  * A representation of the model object {@code $type.fullTypeName}.
  */
-public interface $type.typeName extends VObject$type.implementsString, Cloneable {
+public interface $type.typeName extends VObject$type.implementsString, Cloneable, Mutable {
 #foreach( $prop in ${type.interface.properties} )
 
 #parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
@@ -54,30 +54,7 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
    * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
-  default ${type.readOnlyInterface.typeName} asReadOnly() {
-    try {
-      Class<?> cls = Class.forName("${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}");
-      java.lang.reflect.Constructor constructor = cls.getConstructor(${type.typeName}.class);
-      constructor.setAccessible(true);
-      return (${type.readOnlyInterface.packageName}.${type.readOnlyInterface.typeName}) constructor.newInstance(this);
-    } catch (ClassNotFoundException ex) {
-      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-    } catch (InstantiationException ex) {
-      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-    } catch (IllegalAccessException ex) {
-      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-    }  catch (NoSuchMethodException ex) {
-      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-    } catch (SecurityException ex) {
-      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-    } catch (IllegalArgumentException ex) {
-      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-    } catch (java.lang.reflect.InvocationTargetException ex) {
-      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-    }
-
-    return null;
-  }
+  ${type.readOnlyInterface.typeName} asReadOnly();
 
   @Override
   $type.typeName clone() /*throws CloneNotSupportedException*/;

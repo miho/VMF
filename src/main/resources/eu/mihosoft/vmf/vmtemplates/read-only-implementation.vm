@@ -15,7 +15,7 @@ import $import;
 // interface
 
 /**
- * An immutable representation of the model object {@code $type.fullTypeName}.
+ * An read-only representation of the model object {@code $type.fullTypeName}.
  */
 @SuppressWarnings("deprecation")
 class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName, VObjectInternal, VCloneableInternal {
@@ -84,12 +84,12 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
   @Override
   public void addPropertyChangeListener(PropertyChangeListener l) {
-    this.mutableObject.addPropertyChangeListener(l);
+    ((VObjectInternal)this.mutableObject).addPropertyChangeListener(l);
   }
 
   @Override
   public void removePropertyChangeListener(PropertyChangeListener l) {
-    this.mutableObject.removePropertyChangeListener(l);
+    ((VObjectInternal)this.mutableObject).removePropertyChangeListener(l);
   }
 
   @Override

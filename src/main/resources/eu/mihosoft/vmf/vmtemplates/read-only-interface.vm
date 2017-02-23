@@ -12,9 +12,9 @@ import $import;
 // interface
 
 /**
- * An immutable representation of the model object {@code $type.fullTypeName}.
+ * An read-only representation of the model object {@code $type.fullTypeName}.
  */
-public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyImplementsString {
+public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyImplementsString, ReadOnly {
 #foreach( $prop in $type.properties )
 
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")

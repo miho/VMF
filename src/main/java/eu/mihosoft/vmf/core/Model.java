@@ -40,7 +40,7 @@ public class Model {
                         "Model may only contain interfaces.");
             }
             initType(clzz, typeId);
-            typeId += 2;
+            typeId += 2 /*type stride (number of types of types, i.e., type categories such as read-only and default)*/;
             packages.add(clzz.getPackage().getName());
 
         }

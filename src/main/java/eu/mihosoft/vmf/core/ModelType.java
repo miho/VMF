@@ -30,6 +30,7 @@ public class ModelType {
     private final List<String> implementsList = new ArrayList<>();
     private final String writableImplementzString;
     private final String readOnlyImplementzString;
+    private final String immutableImplementzString;
 
     private final List<ModelType> implementz = new ArrayList<>();
 
@@ -51,6 +52,7 @@ public class ModelType {
         this.implementzString = generateImplementsString(getModel(), clazz);
         this.writableImplementzString = generateWritableImplementsString(getModel(), clazz);
         this.readOnlyImplementzString = generateReadOnlyImplementsString(getModel(), clazz);
+        this.immutableImplementzString = generateImmutableImplementsString(getModel(), clazz);
 
         this.implementsList.addAll(generateImplementsList(model, clazz));
     }
@@ -210,6 +212,21 @@ public class ModelType {
         return String.join(",", ext3nds);
     }
 
+
+    private static String generateImmutableImplementsString(Model model, Class<?> clazz) {
+        List<String> ext3nds = new ArrayList<String>();
+        for (Class<?> ifs : clazz.getInterfaces()) {
+
+            String ifsName = model.convertModelTypeToDestination(ifs);
+
+            if (ifsName.startsWith(model.getPackageName())) {
+                ext3nds.add("Immutable" + ifs.getSimpleName());
+            }
+        }
+
+        return String.join(",", ext3nds);
+    }
+
     private static String generateExtendsString(Model model, Class<?> clazz) {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
@@ -257,6 +274,15 @@ public class ModelType {
             return "";
         } else {
             return ", " + readOnlyImplementzString;
+        }
+    }
+
+    public String getImmutableImplementsString() {
+
+        if (immutableImplementzString.isEmpty()) {
+            return "";
+        } else {
+            return ", " + immutableImplementzString;
         }
     }
 

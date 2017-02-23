@@ -193,6 +193,15 @@ public class CodeGenerator {
         mergeTemplate("vmf-model-switch-read-only-interface", context, out);
     }
 
+    private void generateImmutableVMFModelSwitchInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        context.put("model", m);
+        context.put("modelSwitchName", modelSwitchName);
+        mergeTemplate("vmf-model-switch-immutable-interface", context, out);
+    }
+
 //    private void generateVMFVObjectInternalInterface(Writer out, String packageName) throws IOException {
 //        VelocityContext context = new VelocityContext();
 //        VMFEngineProperties.installProperties(context);
@@ -256,6 +265,13 @@ public class CodeGenerator {
         mergeTemplate("read-only-interface", context, out);
     }
 
+    public void generateImmutableTypeInterface(Writer out, ModelType t) throws IOException {
+        VelocityContext context = new VelocityContext();
+        context.put("type", t);
+        VMFEngineProperties.installProperties(context);
+        mergeTemplate("immutable-interface", context, out);
+    }
+
     public void generateTypeImplementation(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
@@ -268,6 +284,13 @@ public class CodeGenerator {
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("read-only-implementation", context, out);
+    }
+
+    public void generateImmutableTypeImplementation(Writer out, ModelType t) throws IOException {
+        VelocityContext context = new VelocityContext();
+        context.put("type", t);
+        VMFEngineProperties.installProperties(context);
+        mergeTemplate("immutable-implementation", context, out);
     }
 
 //    public void generateFactory(Writer out, Model model) throws Exception {
