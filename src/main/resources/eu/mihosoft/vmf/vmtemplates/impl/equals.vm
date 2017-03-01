@@ -72,15 +72,13 @@
           // hashCode() calls before we do the actual test. This would eliminate
           // the effect of the thread-local map
           if (_vmf_fHashCodeChecker.get().containsKey(System.identityHashCode(this))) {
-            System.out.println("visited:     " + System.identityHashCode(this) + " : " + this);
-            return _vmf_fHashCodeChecker.get().get(System.identityHashCode(this));
+            return 0; // already visited
           } else {
+            _vmf_fHashCodeChecker.get().put(System.identityHashCode(this), null);
             int value = _vmf_deepHashCode(
 #foreach ($prop in $type.implementation.propertiesForEquals)
             this.$prop.name#if($foreach.hasNext),#end
 #end        );
-            System.out.println("not visited: " + System.identityHashCode(this) + " : " + this);
-            _vmf_fHashCodeChecker.get().put(System.identityHashCode(this), value);
             entry = true;
             return value;
           }
@@ -150,20 +148,10 @@
       }
   }
 
-  private final ThreadLocal<java.util.HashMap<EqualsPair, ?>> _vmf_fEqualsChecker
-          = new ThreadLocal<java.util.HashMap<EqualsPair, ?>>() {
-      @Override
-      protected java.util.HashMap<EqualsPair, ?> initialValue() {
-          return new java.util.HashMap<>();
-      }
-  };
+  private final ThreadLocal<java.util.Map<EqualsPair, ?>> _vmf_fEqualsChecker
+          = ThreadLocal.withInitial(() -> new java.util.HashMap<>());
 
   private final ThreadLocal<java.util.Map<Integer, Integer>> _vmf_fHashCodeChecker
-          = new ThreadLocal<java.util.Map<Integer, Integer>>() {
-      @Override
-      protected java.util.Map<Integer, Integer> initialValue() {
-          return new java.util.HashMap<>();
-      }
-  };
+          = ThreadLocal.withInitial(() -> new java.util.HashMap<>());
 
   // ---------------------------- END EQUALITY ------------------------------
