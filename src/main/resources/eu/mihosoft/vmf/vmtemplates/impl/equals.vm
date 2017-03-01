@@ -4,7 +4,7 @@
   @Override
   public boolean equals(Object o) {
 
-  boolean entry = _vmf_fEqualsChecker.get().isEmpty();
+    boolean entry = _vmf_fEqualsChecker.get().isEmpty();
     try {
       // test if the object pair (this,o) has been checked before
       if (_vmf_fEqualsChecker.get().containsKey(new EqualsPair(this, o))) {
@@ -64,17 +64,41 @@
 
   @Override
   public int hashCode() {
-    return _vmf_deepHashCode(
+      boolean entry = _vmf_fHashCodeChecker.get().isEmpty();
+      try {
+          // test if "this class" has been seen before
+          //
+          // WARNING we use `System.identityHashCode(this)` to prevent recursive
+          // hashCode() calls before we do the actual test. This would eliminate
+          // the effect of the thread-local map
+          if (_vmf_fHashCodeChecker.get().containsKey(System.identityHashCode(this))) {
+            System.out.println("visited:     " + System.identityHashCode(this) + " : " + this);
+            return _vmf_fHashCodeChecker.get().get(System.identityHashCode(this));
+          } else {
+            int value = _vmf_deepHashCode(
 #foreach ($prop in $type.implementation.propertiesForEquals)
-      this.$prop.name#if($foreach.hasNext),#end
+            this.$prop.name#if($foreach.hasNext),#end
+#end        );
+            System.out.println("not visited: " + System.identityHashCode(this) + " : " + this);
+            _vmf_fHashCodeChecker.get().put(System.identityHashCode(this), value);
+            entry = true;
+            return value;
+          }
 
-#end    );
+      } finally {
+          if (entry) {
+              _vmf_fHashCodeChecker.get().clear();
+          }
+      }
+
   } // end hashCode()
 
   // fixes 'array discovery problems' with the 'Objects.hash(...)' method
   // see http://stackoverflow.com/questions/30385018/how-to-use-java-7-objects-hash-with-arrays
   private int _vmf_deepHashCode(Object... fields) {
-    return Arrays.deepHashCode(fields);
+      // WARNING we are not allowed to pass arrays that contain itself
+      //         or are contained in nested arrays
+      return Arrays.deepHashCode(fields);
   } // end _vmf_deepHashCode()
 
   /**
@@ -130,6 +154,14 @@
           = new ThreadLocal<java.util.HashMap<EqualsPair, ?>>() {
       @Override
       protected java.util.HashMap<EqualsPair, ?> initialValue() {
+          return new java.util.HashMap<>();
+      }
+  };
+
+  private final ThreadLocal<java.util.Map<Integer, Integer>> _vmf_fHashCodeChecker
+          = new ThreadLocal<java.util.Map<Integer, Integer>>() {
+      @Override
+      protected java.util.Map<Integer, Integer> initialValue() {
           return new java.util.HashMap<>();
       }
   };

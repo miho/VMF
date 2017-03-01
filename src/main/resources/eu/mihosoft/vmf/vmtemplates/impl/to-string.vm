@@ -2,7 +2,7 @@
   @Override
   public String toString() {
 
-  boolean entry = _vmf_fToStringChecker.get().isEmpty();
+    boolean entry = _vmf_fToStringChecker.get().isEmpty();
     try {
         // test if "this" has been seen before
         // implementation based on http://stackoverflow.com/a/11300376/1493549

@@ -25,8 +25,8 @@ public class Model {
         if (!modelPkgName.endsWith(".vmfmodel")) {
             throw new IllegalArgumentException(
                     "Model interfaces should be in subpackage 'vmfmodel'."
-                    + " Found model interfaces in '"
-                    + modelPkgName + "'.");
+                            + " Found model interfaces in '"
+                            + modelPkgName + "'.");
         }
 
         this.packageName = modelPkgName.substring(
@@ -47,7 +47,7 @@ public class Model {
         if (packages.size() > 1) {
             throw new IllegalArgumentException(
                     "All interfaces must be from same package, but found "
-                    + packages);
+                            + packages);
         }
 
         // PASS 1
@@ -82,13 +82,16 @@ public class Model {
     public List<ModelType> getTypes() {
         List<ModelType> typeList = new ArrayList<>(types.values());
 
+//        Collections.sort(typeList,
+//                (ModelType t1, ModelType t2)
+//                -> t1.getFullTypeName().compareTo(t2.getFullTypeName()));
+
         Collections.sort(typeList,
-                (ModelType t1, ModelType t2)
-                -> t1.getFullTypeName().compareTo(t2.getFullTypeName()));
+                Comparator.comparing(ModelType::getFullTypeName));
 
         return Collections.unmodifiableList(typeList);
     }
-    
+
 //    public Collection<String> getTypesAndReadOnlyTypes() {
 //        List<ModelType> modifiableTypes = getTypes();
 //        
@@ -100,7 +103,7 @@ public class Model {
 //        }
 //    }
 
-//    public Optional<ModelType> resolveType(Class<?> clazz) {
+    //    public Optional<ModelType> resolveType(Class<?> clazz) {
 //        if (types.containsKey(clazz.getName()))
 //            return Optional.of(types.get(clazz.getName()));
 //        else {
@@ -117,11 +120,11 @@ public class Model {
     /**
      * Resolves the specified opposite property of the given model type.
      *
-     * @param type model type
+     * @param type         model type
      * @param oppositeProp fully qualified name of the opposite property of the
-     * given type, e.g., '<em>eu.mihosoft.tutorial.MyType.myProp</em>' or
-     * simplified, i.e., without package if the package matches the current
-     * model package, e.g., '<em>MyType.myProp</em>'
+     *                     given type, e.g., '<em>eu.mihosoft.tutorial.MyType.myProp</em>' or
+     *                     simplified, i.e., without package if the package matches the current
+     *                     model package, e.g., '<em>MyType.myProp</em>'
      * @return resolved opposite property or {@code Optional<Prop>.empty()} if
      * the specified property does not exist
      */
