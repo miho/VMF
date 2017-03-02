@@ -4,17 +4,17 @@
   @Override
   public boolean equals(Object o) {
 
-    boolean entry = _vmf_fEqualsChecker.get().isEmpty();
+    boolean entry = _vmf_getThreadLocalEquals().get().isEmpty();
     try {
       // test if the object pair (this,o) has been checked before
-      if (_vmf_fEqualsChecker.get().containsKey(new EqualsPair(this, o))) {
+      if (_vmf_getThreadLocalEquals().get().containsKey(new EqualsPair(this, o))) {
         // This pair has been seen before. That's why we return true now.
         // If this pair wasn't equal, we wouldn't need to do a second
         // comparison. Returning 'true' is equivalent to ignoring this
         // particular test in the calling 'equals()' method.
         return true;
       } else {
-        _vmf_fEqualsChecker.get().put(new EqualsPair(this, o), null);
+        _vmf_getThreadLocalEquals().get().put(new EqualsPair(this, o), null);
         entry = true;
       }
 
@@ -38,7 +38,8 @@
       else return false;
     } finally {
       if (entry) {
-          _vmf_fEqualsChecker.get().clear();
+          _vmf_getThreadLocalEquals().get().clear();
+          _vmf_fEqualsChecker = null;
       }
     }
   } // end equals()
@@ -64,17 +65,17 @@
 
   @Override
   public int hashCode() {
-      boolean entry = _vmf_fHashCodeChecker.get().isEmpty();
+      boolean entry = _vmf_getThreadLocalHashCode().get().isEmpty();
       try {
           // test if "this class" has been seen before
           //
           // WARNING we use `System.identityHashCode(this)` to prevent recursive
           // hashCode() calls before we do the actual test. This would eliminate
           // the effect of the thread-local map
-          if (_vmf_fHashCodeChecker.get().containsKey(System.identityHashCode(this))) {
+          if (_vmf_getThreadLocalHashCode().get().containsKey(System.identityHashCode(this))) {
             return 0; // already visited
           } else {
-            _vmf_fHashCodeChecker.get().put(System.identityHashCode(this), null);
+            _vmf_getThreadLocalHashCode().get().put(System.identityHashCode(this), null);
             int value = _vmf_deepHashCode(
 #foreach ($prop in $type.implementation.propertiesForEquals)
             this.$prop.name#if($foreach.hasNext),#end
@@ -85,7 +86,8 @@
 
       } finally {
           if (entry) {
-              _vmf_fHashCodeChecker.get().clear();
+              _vmf_getThreadLocalHashCode().get().clear();
+              _vmf_fHashCodeChecker = null;
           }
       }
 
@@ -147,11 +149,28 @@
         return true;
       }
   }
+  
+  private ThreadLocal<java.util.Map<EqualsPair, ?>> _vmf_getThreadLocalEquals() {
+    if (_vmf_fEqualsChecker==null) {
+      _vmf_fEqualsChecker = ThreadLocal.withInitial(
+        () -> new java.util.HashMap<>());
+    }
+    
+    return _vmf_fEqualsChecker;
+  }
+  
+  private ThreadLocal<java.util.Map<Integer, ?>> _vmf_getThreadLocalHashCode() {
+    if (_vmf_fHashCodeChecker==null) {
+      _vmf_fHashCodeChecker = ThreadLocal.withInitial(
+        () -> new java.util.HashMap<>());
+    }
+    
+    return _vmf_fHashCodeChecker;
+  }
 
-  private final ThreadLocal<java.util.Map<EqualsPair, ?>> _vmf_fEqualsChecker
-          = ThreadLocal.withInitial(() -> new java.util.HashMap<>());
+  private ThreadLocal<java.util.Map<EqualsPair, ?>> _vmf_fEqualsChecker;
+          
 
-  private final ThreadLocal<java.util.Map<Integer, Integer>> _vmf_fHashCodeChecker
-          = ThreadLocal.withInitial(() -> new java.util.HashMap<>());
+  private ThreadLocal<java.util.Map<Integer, ?>> _vmf_fHashCodeChecker;
 
   // ---------------------------- END EQUALITY ------------------------------
