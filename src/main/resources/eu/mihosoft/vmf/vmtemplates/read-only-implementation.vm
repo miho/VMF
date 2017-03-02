@@ -163,6 +163,13 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
             return VIterator.of(${type.readOnlyImplementation.typeName}.this).asStream();
           }
 
+          public java.util.Iterator<VObject> iterator(VIterator.IterationStrategy strategy) {
+            return VIterator.of(${type.readOnlyImplementation.typeName}.this, strategy);
+          }
+          public java.util.stream.Stream<VObject> stream(VIterator.IterationStrategy strategy) {
+            return VIterator.of(${type.readOnlyImplementation.typeName}.this, strategy).asStream();
+          }
+
           @Override
           public ${type.readOnlyInterface.typeName} deepCopy() {
             return ${type.readOnlyImplementation.typeName}.this.clone();
