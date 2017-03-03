@@ -12,7 +12,7 @@
           _vmf_getThreadLocalToString().get().put(this, null);
           entry = true;
         }
-        return "{ \"@Type\":\"$type.typeName\"" +
+        return "{ "+ "\"@VMFId\":\"" + this._vmf_id + "\"" +  ", \"@Type\":\"$type.typeName\"" + 
 #foreach ($prop in $type.implementation.properties)
 #if ($prop.containmentInfo.containmentType != "CONTAINER" )
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
@@ -30,13 +30,13 @@
         }
     }
   }
-  
+
   private ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_getThreadLocalToString() {
     if (_vmf_fToStringChecker==null) {
       _vmf_fToStringChecker = ThreadLocal.withInitial(
         () -> new java.util.IdentityHashMap<>());
     }
-    
+
     return _vmf_fToStringChecker;
   }
 

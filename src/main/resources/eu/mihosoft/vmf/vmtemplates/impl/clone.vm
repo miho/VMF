@@ -12,6 +12,8 @@
     boolean deepCopy, java.util.IdentityHashMap<Object,Object> identityMap
   ) {
     identityMap.put(other,this);
+    // set object id (clone will use identical id)
+    this._vmf_id = other._vmf_id;
 #foreach ($prop in $type.implementation.properties)
 #if(!$prop.container)
 #if($prop.propType=="COLLECTION")

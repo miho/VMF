@@ -29,13 +29,15 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
 #parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
   private PropertyChangeSupport propertyChanges;
+  // object id
+  private long _vmf_id;
 
   // --------------------------------------------------------------------
   // --- public constructors
   // --------------------------------------------------------------------
 
   public ${type.implementation.typeName}() {
-    // ...
+    this._vmf_id = VObjectInternal.newId();
   }
 
   // --------------------------------------------------------------------
@@ -147,7 +149,11 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
             return changes;
           }
-        };
+
+          public long id() {
+            return ${type.implementation.typeName}.this._vmf_id;
+          }
+        }; // end vmf
       } // end if null
 
       return vmf;
@@ -180,4 +186,17 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
 
 #parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
+
+  // --------------------------------------------------------------------
+  // --- Id related methods
+  // --------------------------------------------------------------------
+  @Override
+  public long _vmf_getId() {
+    return this._vmf_id;
+  }
+
+  @Override
+  public void _vmf_setId(long id) {
+    this._vmf_id = id;
+  }
 }

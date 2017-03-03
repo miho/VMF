@@ -182,7 +182,12 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
           }
         };
       }
-    };
+
+      public long id() {
+        return ((VObjectInternalModifiable)${type.readOnlyImplementation.typeName}.this.mutableObject)._vmf_getId();
+      }
+
+    }; // end vmf
   }
 
 
@@ -204,6 +209,14 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   @Override
   public boolean _vmf_isReadOnly() {
     return true;
+  }
+
+  // --------------------------------------------------------------------
+  // --- Id related methods
+  // --------------------------------------------------------------------
+  @Override
+  public long _vmf_getId() {
+    return ((VObjectInternalModifiable)this.mutableObject)._vmf_getId();
   }
 
 }
