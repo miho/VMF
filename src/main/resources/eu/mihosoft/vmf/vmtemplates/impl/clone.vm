@@ -27,7 +27,12 @@
         // element type is a model type
         for($prop.genericType.typeName e : other.${prop.name}) {
           // TODO do a bulk operation instead
-          this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap));
+          VObjectInternal eClone = (VObjectInternal)($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap);
+          // disable unique id update for cloned element during clone op
+          eClone._vmf_disableUniqueIdUpdate();
+          this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)eClone);
+          // enable unique id update for cloned element during clone op
+          eClone._vmf_enableUniqueIdUpdate();
         }
 #else ## if prop genericType
         // element type is an external type (TODO implement cloning strategy)
