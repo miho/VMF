@@ -20,6 +20,8 @@
                 #set($codeIndentValue = "                ")
                 #set($disableFireEventValue=true)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             });
 
             evt.removed().elements().forEach((e)->{

@@ -31,6 +31,10 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   private PropertyChangeSupport propertyChanges;
   // object id
   private long _vmf_id;
+  // referenced by
+  private final List<VObject> referencedBy = new ArrayList<>();
+  // references
+  private final List<VObject> references = new ArrayList<>();
 
   // --------------------------------------------------------------------
   // --- public constructors
@@ -199,4 +203,8 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   public void _vmf_setId(long id) {
     this._vmf_id = id;
   }
+
+  List<VObject> _vmf_referencedBy() { return this.referencedBy;}
+
+  List<VObject> _vmf_references() { return this.references;}
 }
