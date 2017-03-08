@@ -203,6 +203,14 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   @Override
   public void _vmf_setId(long id) {
     this._vmf_id = id;
+
+    // if the id that has been set is larger than the current id
+    // then update currentId to the new value
+    // (prevents collisions and frequent recalculations)
+    long prevId = VObjectInternal.currentId.get();
+    if(prevId <= id) {
+      VObjectInternal.currentId.set(id);
+    }
   }
 
   @Override
