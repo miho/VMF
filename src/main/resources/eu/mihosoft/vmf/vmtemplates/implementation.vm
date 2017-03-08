@@ -32,9 +32,10 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   // object id
   private long _vmf_id;
   // referenced by
-  private final List<VObject> referencedBy = new ArrayList<>();
+  private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
   // references
-  private final List<VObject> references = new ArrayList<>();
+  private final java.util.List<VObject> references = new java.util.ArrayList<>();
+  boolean uniqueIdUpdateEnabled = true;
 
   // --------------------------------------------------------------------
   // --- public constructors
@@ -204,7 +205,22 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
     this._vmf_id = id;
   }
 
-  List<VObject> _vmf_referencedBy() { return this.referencedBy;}
+  @Override
+  public java.util.List<VObject> _vmf_referencedBy() { return this.referencedBy;}
+  @Override
+  public java.util.List<VObject> _vmf_references() { return this.references;}
 
-  List<VObject> _vmf_references() { return this.references;}
+  @Override
+  public void _vmf_enableUniqueIdUpdate() {
+    this.uniqueIdUpdateEnabled = true;
+  }
+  @Override
+  public void _vmf_disableUniqueIdUpdate() {
+    this.uniqueIdUpdateEnabled = false;
+  }
+
+  @Override
+  public boolean _vmf_isUniqueIdUpdateEnabled() {
+    return this.uniqueIdUpdateEnabled;
+  }
 }

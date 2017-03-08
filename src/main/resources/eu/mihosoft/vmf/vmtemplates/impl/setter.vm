@@ -91,10 +91,18 @@
 #end ## if container
 #end ## containment property
 
-    #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "this."+${prop.name})
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "oldValue")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+#if($prop.type||$prop.genericType)
+    if(${prop.name}!=null) {
+      ((VObjectInternal)${prop.name})._vmf_findUniqueId();
+    }
+#end## if is model type
   } // setterDeclaration (setter method)
-
 #if($prop.containmentProperty && ${prop.propType}!="COLLECTION")
   // internal API
   void _vmf_set${prop.nameWithUpperCase}NoContainment($prop.typeName $prop.name) {

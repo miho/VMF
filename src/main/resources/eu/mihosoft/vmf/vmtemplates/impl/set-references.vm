@@ -1,0 +1,18 @@
+## Used Variables:
+##
+## objectToAddReferenceOnValue
+## referenceToAddValue
+## referenceToRemoveValue
+## objectToRemoveReferenceOnValue
+## codeIndentValue
+#if($prop.type||$prop.genericType)
+#if(${referenceToAddValue})
+${codeIndentValue}((VObjectInternal)${objectToAddReferenceOnValue})._vmf_references().add(${referenceToAddValue});
+${codeIndentValue}((VObjectInternal)${referenceToAddValue})._vmf_referencedBy().add(${objectToAddReferenceOnValue});
+#end##end if $referenceToAdd!=null
+
+#if(${referenceToRemoveValue})
+${codeIndentValue}((VObjectInternal)${objectToRemoveReferenceOnValue})._vmf_references().add(${referenceToRemoveValue});
+${codeIndentValue}((VObjectInternal)${referenceToRemoveValue})._vmf_referencedBy().add(${objectToRemoveReferenceOnValue});
+#end##end if $referenceToRemoveValue!=null
+#end## if is modelType

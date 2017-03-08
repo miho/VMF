@@ -14,6 +14,10 @@
     identityMap.put(other,this);
     // set object id (clone will use identical id)
     this._vmf_id = other._vmf_id;
+
+    // disable unique id update
+    this._vmf_disableUniqueIdUpdate();
+
 #foreach ($prop in $type.implementation.properties)
 #if(!$prop.container)
 #if($prop.propType=="COLLECTION")
@@ -62,6 +66,8 @@
 #end ## if collection
 #end ## if container type
 #end ## for-each property
+      // enable unique id update
+      this._vmf_enableUniqueIdUpdate();
    } // end copy constructor
 
    @Override

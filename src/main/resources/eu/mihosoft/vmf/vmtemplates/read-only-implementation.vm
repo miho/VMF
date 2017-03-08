@@ -219,4 +219,26 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return ((VObjectInternalModifiable)this.mutableObject)._vmf_getId();
   }
 
+  public java.util.List<VObject> _vmf_referencedBy() { return  ((VObjectInternalModifiable)this.mutableObject)._vmf_referencedBy();}
+
+  public java.util.List<VObject> _vmf_references() { return  ((VObjectInternalModifiable)this.mutableObject)._vmf_references();}
+
+  public void _vmf_findUniqueId() {
+    ((VObjectInternalModifiable)this.mutableObject)._vmf_findUniqueId();
+  }
+
+  @Override
+  public void _vmf_enableUniqueIdUpdate() {
+     ((VObjectInternalModifiable)this.mutableObject)._vmf_enableUniqueIdUpdate();
+  }
+  @Override
+  public void _vmf_disableUniqueIdUpdate() {
+     ((VObjectInternalModifiable)this.mutableObject)._vmf_disableUniqueIdUpdate();
+  }
+
+  @Override
+  public boolean _vmf_isUniqueIdUpdateEnabled() {
+     return ((VObjectInternalModifiable)this.mutableObject)._vmf_isUniqueIdUpdateEnabled();
+  }
+
 }
