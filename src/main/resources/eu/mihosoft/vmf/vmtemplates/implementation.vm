@@ -30,7 +30,8 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 #parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
   private PropertyChangeSupport propertyChanges;
   // object id
-  private long _vmf_id;
+  private long _vmf_id = -1;
+  private long _vmf_prevId = -1;
   // referenced by
   private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
   // references
@@ -201,8 +202,32 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   }
 
   @Override
+  public long _vmf_getPrevId() {
+    return this._vmf_prevId;
+  }
+
+  @Override
+  public void _vmf_resetPrevId() {
+    this._vmf_prevId = -1;
+  }
+
+  @Override
   public void _vmf_setId(long id) {
+
+    // return early if identical value has been set
+    if (this._vmf_id == id) {
+      return;
+    }
+
+    // set the new value
+    long oldValue = this._vmf_id;
+    this._vmf_prevId = oldValue;
     this._vmf_id = id;
+
+    if(this._vmf_prevId > -1) {
+      // fire property change event
+      _vmf_firePropertyChangeIfListenersArePresent("_vmf_id", oldValue, this._vmf_id);
+    }
 
     // if the id that has been set is larger than the current id
     // then update currentId to the new value
