@@ -78,6 +78,12 @@ public class VMF {
                 filter(cls->cls!=null).collect(Collectors.toList());
     }
 
+    /**
+     * Loads a class from a specified classloader.
+     * @param classLoader classloader that shall be used for classloading
+     * @param clsName the name of the class to load
+     * @return the reuested class or {@code null} if the requested class cannot be found
+     */
     private static Class<?> loadClass(ClassLoader classLoader,String clsName) {
         try {
             return classLoader.loadClass(clsName);
