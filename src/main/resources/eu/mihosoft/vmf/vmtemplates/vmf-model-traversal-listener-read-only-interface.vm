@@ -8,7 +8,7 @@ public interface ReadOnlyListenerFor${modelSwitchName}Model extends TraversalLis
 
   @SuppressWarnings("deprecation")
   @Override
-  void onEnter(VObject o) {
+  default void onEnter(VObject o) {
     switch(((VObjectInternal)o)._vmf_getTypeId()) {
 #foreach($type in $model.types)
       #set($modifiableIdx = $foreach.index*2 + 0)
@@ -24,7 +24,7 @@ public interface ReadOnlyListenerFor${modelSwitchName}Model extends TraversalLis
 
   @SuppressWarnings("deprecation")
   @Override
-  void onExit(VObject o) {
+  default void onExit(VObject o) {
     switch(((VObjectInternal)o)._vmf_getTypeId()) {
 #foreach($type in $model.types)
       #set($modifiableIdx = $foreach.index*2 + 0)

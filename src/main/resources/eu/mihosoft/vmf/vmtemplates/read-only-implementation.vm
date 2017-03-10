@@ -183,10 +183,6 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
         };
       }
 
-      public String id() {
-        return ((VObjectInternalModifiable)${type.readOnlyImplementation.typeName}.this.mutableObject).vmf().id();
-      }
-
     }; // end vmf
   }
 
