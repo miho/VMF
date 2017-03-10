@@ -97,11 +97,6 @@
 #set($referenceToRemoveValue = "oldValue")
 #set($codeIndentValue = "      ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-#if($prop.type||$prop.genericType)
-    if(${prop.name}!=null) {
-      ((VObjectInternal)${prop.name})._vmf_findUniqueId();
-    }
-#end## if is model type
   } // setterDeclaration (setter method)
 #if($prop.containmentProperty && ${prop.propType}!="COLLECTION")
   // internal API

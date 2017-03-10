@@ -12,11 +12,6 @@
     boolean deepCopy, java.util.IdentityHashMap<Object,Object> identityMap
   ) {
     identityMap.put(other,this);
-    // set object id (clone will use identical id)
-    this._vmf_id = other._vmf_id;
-
-    // disable unique id update
-    this._vmf_disableUniqueIdUpdate();
 
 #foreach ($prop in $type.implementation.properties)
 #if(!$prop.container)
@@ -28,11 +23,7 @@
         for($prop.genericType.typeName e : other.${prop.name}) {
           // TODO do a bulk operation instead
           VObjectInternal eClone = (VObjectInternal)($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap);
-          // disable unique id update for cloned element during clone op
-          eClone._vmf_disableUniqueIdUpdate();
           this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)eClone);
-          // enable unique id update for cloned element during clone op
-          eClone._vmf_enableUniqueIdUpdate();
         }
 #else ## if prop genericType
         // element type is an external type (TODO implement cloning strategy)
@@ -71,8 +62,6 @@
 #end ## if collection
 #end ## if container type
 #end ## for-each property
-      // enable unique id update
-      this._vmf_enableUniqueIdUpdate();
    } // end copy constructor
 
    @Override

@@ -12,7 +12,7 @@
           _vmf_getThreadLocalToString().get().put(this, null);
           entry = true;
         }
-        return "{ "+ "\"@VMFId\":\"" + this._vmf_id + "\"" +  ", \"@Type\":\"$type.typeName\"" + 
+        return "{\"@Type\":\"$type.typeName\"" + 
 #foreach ($prop in $type.implementation.properties)
 #if ($prop.containmentInfo.containmentType != "CONTAINER" )
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")

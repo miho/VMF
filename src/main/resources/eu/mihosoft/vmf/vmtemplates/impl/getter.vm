@@ -29,7 +29,6 @@
 #set($referenceToRemoveValue = false)
 #set($codeIndentValue = "                ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-                ((VObjectInternal)e)._vmf_findUniqueId();
             });
 
             evt.removed().elements().forEach((e)->{
@@ -69,7 +68,6 @@
 #set($referenceToRemoveValue = false)
                 #set($codeIndentValue = "                ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-              ((VObjectInternal)e)._vmf_findUniqueId();
             });
 
             evt.removed().elements().forEach((e)->{

@@ -183,8 +183,8 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
         };
       }
 
-      public long id() {
-        return ((VObjectInternalModifiable)${type.readOnlyImplementation.typeName}.this.mutableObject)._vmf_getId();
+      public String id() {
+        return ((VObjectInternalModifiable)${type.readOnlyImplementation.typeName}.this.mutableObject).vmf().id();
       }
 
     }; // end vmf
@@ -214,31 +214,14 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   // --------------------------------------------------------------------
   // --- Id related methods
   // --------------------------------------------------------------------
-  @Override
-  public long _vmf_getId() {
-    return ((VObjectInternalModifiable)this.mutableObject)._vmf_getId();
-  }
+
+  // id management is currently not part of VMF (TODO how should we support this)
+
+  // --------------------------------------------------------------------
+  // --- Reference methods
+  // --------------------------------------------------------------------
 
   public java.util.List<VObject> _vmf_referencedBy() { return  ((VObjectInternalModifiable)this.mutableObject)._vmf_referencedBy();}
 
   public java.util.List<VObject> _vmf_references() { return  ((VObjectInternalModifiable)this.mutableObject)._vmf_references();}
-
-  public void _vmf_findUniqueId() {
-    ((VObjectInternalModifiable)this.mutableObject)._vmf_findUniqueId();
-  }
-
-  @Override
-  public void _vmf_enableUniqueIdUpdate() {
-     ((VObjectInternalModifiable)this.mutableObject)._vmf_enableUniqueIdUpdate();
-  }
-  @Override
-  public void _vmf_disableUniqueIdUpdate() {
-     ((VObjectInternalModifiable)this.mutableObject)._vmf_disableUniqueIdUpdate();
-  }
-
-  @Override
-  public boolean _vmf_isUniqueIdUpdateEnabled() {
-     return ((VObjectInternalModifiable)this.mutableObject)._vmf_isUniqueIdUpdateEnabled();
-  }
-
 }

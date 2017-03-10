@@ -29,21 +29,18 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
 #parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
   private PropertyChangeSupport propertyChanges;
-  // object id
-  private long _vmf_id = -1;
-  private long _vmf_prevId = -1;
+
   // referenced by
   private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
   // references
   private final java.util.List<VObject> references = new java.util.ArrayList<>();
-  boolean uniqueIdUpdateEnabled = true;
 
   // --------------------------------------------------------------------
   // --- public constructors
   // --------------------------------------------------------------------
 
   public ${type.implementation.typeName}() {
-    this._vmf_id = VObjectInternal.newId();
+    // ...
   }
 
   // --------------------------------------------------------------------
@@ -155,10 +152,6 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
             return changes;
           }
-
-          public long id() {
-            return ${type.implementation.typeName}.this._vmf_id;
-          }
         }; // end vmf
       } // end if null
 
@@ -177,7 +170,6 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
     return readOnlyInstance;
   }
 
-
   // --------------------------------------------------------------------
   // --- Reflection methods
   // --------------------------------------------------------------------
@@ -190,70 +182,21 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
     return _VMF_TYPE_ID;
   }
 
-
 #parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
 
   // --------------------------------------------------------------------
   // --- Id related methods
   // --------------------------------------------------------------------
-  @Override
-  public long _vmf_getId() {
-    return this._vmf_id;
-  }
 
-  @Override
-  public long _vmf_getPrevId() {
-    return this._vmf_prevId;
-  }
+  // id management is currently not part of VMF (TODO how should we support this)
 
-  @Override
-  public void _vmf_resetPrevId() {
-    this._vmf_prevId = -1;
-  }
-
-  @Override
-  public void _vmf_setId(long id) {
-
-    // return early if identical value has been set
-    if (this._vmf_id == id) {
-      return;
-    }
-
-    // set the new value
-    long oldValue = this._vmf_id;
-    this._vmf_prevId = oldValue;
-    this._vmf_id = id;
-
-    if(this._vmf_prevId > -1) {
-      // fire property change event
-      _vmf_firePropertyChangeIfListenersArePresent("_vmf_id", oldValue, this._vmf_id);
-    }
-
-    // if the id that has been set is larger than the current id
-    // then update currentId to the new value
-    // (prevents collisions and frequent recalculations)
-    long prevId = VObjectInternal.currentId.get();
-    if(prevId <= id) {
-      VObjectInternal.currentId.set(id);
-    }
-  }
+  // --------------------------------------------------------------------
+  // --- Reference methods
+  // --------------------------------------------------------------------
 
   @Override
   public java.util.List<VObject> _vmf_referencedBy() { return this.referencedBy;}
   @Override
   public java.util.List<VObject> _vmf_references() { return this.references;}
 
-  @Override
-  public void _vmf_enableUniqueIdUpdate() {
-    this.uniqueIdUpdateEnabled = true;
-  }
-  @Override
-  public void _vmf_disableUniqueIdUpdate() {
-    this.uniqueIdUpdateEnabled = false;
-  }
-
-  @Override
-  public boolean _vmf_isUniqueIdUpdateEnabled() {
-    return this.uniqueIdUpdateEnabled;
-  }
 }
