@@ -1,0 +1,47 @@
+package ${packageName};
+
+// vmf imports
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
+
+public interface ListenerFor${modelSwitchName}Model extends TraversalListener {
+
+  @SuppressWarnings("deprecation")
+  @Override
+  void onEnter(VObject o) {
+    switch(((VObjectInternal)o)._vmf_getTypeId()) {
+#foreach($type in $model.types)
+      #set($modifiableIdx = $foreach.index*2 + 0)
+      #set($readOnlyIdx = $foreach.index*2 + 1)
+      case $modifiableIdx:
+        // TODO check whether we can prevent lazy initialized properties from
+        //      being initialized just for iterating the object graph
+        onEnter${type.typeName}(($type.typeName) o);
+        break;
+#end## for-each type
+    }
+  } // end onEnter()
+
+  @SuppressWarnings("deprecation")
+  @Override
+  void onExit(VObject o) {
+    switch(((VObjectInternal)o)._vmf_getTypeId()) {
+#foreach($type in $model.types)
+      #set($modifiableIdx = $foreach.index*2 + 0)
+      #set($readOnlyIdx = $foreach.index*2 + 1)
+      case $modifiableIdx:
+        // TODO check whether we can prevent lazy initialized properties from
+        //      being initialized just for iterating the object graph
+        onExit${type.typeName}(($type.typeName) o);
+        break;
+#end## for-each type
+    }
+  } // end onEnter()
+
+#foreach($type in $model.types)
+
+  default void onEnter${type.typeName}($type.typeName object) {};
+  default void onExit${type.typeName}($type.typeName object) {};
+#end## for-each type
+
+}

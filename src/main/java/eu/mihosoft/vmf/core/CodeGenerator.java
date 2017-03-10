@@ -136,6 +136,20 @@ public class CodeGenerator {
             generateReadOnlyVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
         }
 
+
+
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".ListenerFor"+modelSwitchName + "Model")) {
+            Writer out = res.open();
+            generateVMFModelListenerInterface(out, packageName, modelSwitchName, model);
+        }
+
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".ReadOnlyListenerFor"+modelSwitchName + "Model")) {
+            Writer out = res.open();
+            generateReadOnlyVMFModelListenerInterface(out, packageName, modelSwitchName, model);
+        }
+
 //        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
 //            Writer out = res.open();
 //            generateVMFVObjectInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
@@ -191,6 +205,24 @@ public class CodeGenerator {
         context.put("model", m);
         context.put("modelSwitchName", modelSwitchName);        
         mergeTemplate("vmf-model-switch-read-only-interface", context, out);
+    }
+
+    private void generateVMFModelListenerInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        context.put("model", m);
+        context.put("modelSwitchName", modelSwitchName);
+        mergeTemplate("vmf-model-traversal-listener-interface", context, out);
+    }
+
+    private void generateReadOnlyVMFModelListenerInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        context.put("model", m);
+        context.put("modelSwitchName", modelSwitchName);
+        mergeTemplate("vmf-model-traversal-listener-read-only-interface", context, out);
     }
 
     private void generateImmutableVMFModelSwitchInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {

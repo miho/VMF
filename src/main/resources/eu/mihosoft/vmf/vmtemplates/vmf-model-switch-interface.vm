@@ -19,14 +19,14 @@ public interface SwitchFor${modelSwitchName}Model<T> {
         //      being initialized just for iterating the object graph
         result = case${type.typeName}(($type.typeName) o);
         return result == null?defaultValue(o):result;
-#end ## for-each type
+#end## for-each type
       default:
         return defaultValue(o);
     }
   } // end doSwitch()
 
   /**
-   * Default value that will be return if the matching case method returns {code null}.
+   * Default value that will be return if the matching case method returns {@code null}.
    * @return default value
    */
   default T defaultValue(VObject o) {
@@ -36,6 +36,6 @@ public interface SwitchFor${modelSwitchName}Model<T> {
 #foreach($type in $model.types)
 
   default T case${type.typeName}($type.typeName object) {return null;};
-#end ## for-each type
+#end## for-each type
 
 }
