@@ -29,10 +29,10 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
 
 #parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
 
-// referenced by
-private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
-// references
-private final java.util.List<VObject> references = new java.util.ArrayList<>();
+  // referenced by
+  private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
+  // references
+  private final java.util.List<VObject> references = new java.util.ArrayList<>();
 
   // --------------------------------------------------------------------
   // --- private constructor
@@ -112,7 +112,34 @@ private final java.util.List<VObject> references = new java.util.ArrayList<>();
   // --- Utility methods
   // --------------------------------------------------------------------
 
-  // ?
+  @Override
+  public void addPropertyChangeListener(PropertyChangeListener l) {
+      // don't do anything. immutable types don't publish change events
+  }
+  @Override
+  public void removePropertyChangeListener(PropertyChangeListener l) {
+      // don't do anything. immutable types don't publish change events
+  }
+
+  private boolean _vmf_hasListeners() {
+      return false;
+  }
+
+  private void _vmf_firePropertyChangeIfListenersArePresent() {
+     // don't do anything. immutable types don't publish change events
+  }
+
+  @Override
+  public ${type.typeName} _vmf_deepCopy(
+    java.util.IdentityHashMap<Object,Object> identityMap) {
+    return this;
+  }
+
+  @Override
+  public ${type.typeName} _vmf_shallowCopy(
+    java.util.IdentityHashMap<Object,Object> identityMap) {
+    return this;
+  }
 
   // --------------------------------------------------------------------
   // --- Public VMF API
@@ -203,24 +230,5 @@ private final java.util.List<VObject> references = new java.util.ArrayList<>();
   public java.util.List<VObject> _vmf_referencedBy() { return this.referencedBy;}
   @Override
   public java.util.List<VObject> _vmf_references() { return this.references;}
-
-  public void addPropertyChangeListener(PropertyChangeListener l) {
-    throw new UnsupportedOperationException("ERROR: unsupported method invoked. This should not happen :(");
-  }
-  public void removePropertyChangeListener(PropertyChangeListener l) {
-    throw new UnsupportedOperationException("ERROR: unsupported method invoked. This should not happen :(");
-  }
-
-  @Override
-  public ${type.typeName} _vmf_deepCopy(
-    java.util.IdentityHashMap<Object,Object> identityMap) {
-    return this;
-  }
-
-  @Override
-  public ${type.typeName} _vmf_shallowCopy(
-    java.util.IdentityHashMap<Object,Object> identityMap) {
-    return this;
-  }
 
 }

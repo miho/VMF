@@ -67,6 +67,15 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #end ## if generic type
 
 #elseif(${prop.type})
+#if($prop.type.immutable)
+  // property type is a model-type
+  public $prop.type.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+    if(this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}()!=null) {
+      return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}();
+    } else {
+      return null;
+    }
+#else## if prop type is immutable
   // property type is a model-type
   public $prop.type.readOnlyInterface.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}() {
     if(this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}()!=null) {
@@ -74,6 +83,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     } else {
       return null;
     }
+#end## if prop type is immutable
 #else
   public $prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}() {
     return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}();

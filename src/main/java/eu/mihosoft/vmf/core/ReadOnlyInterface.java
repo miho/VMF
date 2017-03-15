@@ -43,7 +43,11 @@ public class ReadOnlyInterface {
         return type;
     }
 
-    public String getTypeName() { return "ReadOnly" + type.getTypeName();}
+    public String getTypeName() {
+        // ReadOnly type is only generated if the type is not immutable. Otherwise, the read-only type name
+        // is identical to the normal (mutable) type name
+        return (type.isImmutable()?"":"ReadOnly") + type.getTypeName();
+    }
 
     public String getFullTypeName() {
         return getPackageName()+"."+getTypeName();

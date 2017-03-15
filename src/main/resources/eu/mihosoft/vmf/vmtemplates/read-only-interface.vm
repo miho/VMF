@@ -75,7 +75,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   public VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #end ## if genericType
 #else
-  public #if($prop.type)$prop.type.readOnlyInterface.typeName#else$prop.typeName#end ${prop.getterPrefix}${prop.nameWithUpperCase}();
+  public #if($prop.type)#if($prop.type.immutable)$prop.type.typeName#else$prop.type.readOnlyInterface.typeName#end#else$prop.typeName#end ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #end ## if collection
 
 #end ## for each
