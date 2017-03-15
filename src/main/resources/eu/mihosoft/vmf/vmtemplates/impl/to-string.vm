@@ -6,10 +6,13 @@
     try {
         // test if "this" has been seen before
         // implementation based on http://stackoverflow.com/a/11300376/1493549
-        if (_vmf_getThreadLocalToString().get().containsKey(this)) {
+        boolean isImmutable = (this instanceof eu.mihosoft.vmf.runtime.core.Immutable);
+        if (!isImmutable && _vmf_getThreadLocalToString().get().containsKey(this)) {
           return "{skipping recursion}";
         } else {
-          _vmf_getThreadLocalToString().get().put(this, null);
+          if(!isImmutable) {
+            _vmf_getThreadLocalToString().get().put(this, null);
+          }
           entry = true;
         }
         return "{\"@Type\":\"$type.typeName\"" + 

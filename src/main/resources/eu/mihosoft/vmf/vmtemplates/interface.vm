@@ -19,7 +19,7 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
 #parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
 #parse("${VMF_TEMPLATE_PATH}interface/setter.vm")
 
-#end ## for each
+#end## for each
 
   /**
    * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'

@@ -7,14 +7,17 @@
     boolean entry = _vmf_getThreadLocalEquals().get().isEmpty();
     try {
       // test if the object pair (this,o) has been checked before
-      if (_vmf_getThreadLocalEquals().get().containsKey(new EqualsPair(this, o))) {
+      boolean isImmutable = (o instanceof eu.mihosoft.vmf.runtime.core.Immutable);
+      if (!isImmutable && _vmf_getThreadLocalEquals().get().containsKey(new EqualsPair(this, o))) {
         // This pair has been seen before. That's why we return true now.
         // If this pair wasn't equal, we wouldn't need to do a second
         // comparison. Returning 'true' is equivalent to ignoring this
         // particular test in the calling 'equals()' method.
         return true;
       } else {
-        _vmf_getThreadLocalEquals().get().put(new EqualsPair(this, o), null);
+        if(!isImmutable) {
+          _vmf_getThreadLocalEquals().get().put(new EqualsPair(this, o), null);
+        }
         entry = true;
       }
 
