@@ -34,6 +34,8 @@ public class ModelType {
 
     private final List<ModelType> implementz = new ArrayList<>();
 
+    private final boolean immutable;
+
     private final int typeId;
 
     private ModelType(Model model, Class<?> clazz, int typeId) {
@@ -43,6 +45,8 @@ public class ModelType {
 
         this.typeName = clazz.getSimpleName();
         this.typeId = typeId;
+
+        this.immutable = clazz.getAnnotation(Immutable.class) != null;
 
         initProperties(clazz);
 
@@ -220,7 +224,11 @@ public class ModelType {
             String ifsName = model.convertModelTypeToDestination(ifs);
 
             if (ifsName.startsWith(model.getPackageName())) {
-                ext3nds.add("Immutable" + ifs.getSimpleName());
+                if(ifs.getAnnotation(Immutable.class)!=null) {
+                    ext3nds.add("" + ifs.getSimpleName());
+                } else {
+                    ext3nds.add("ReadOnly" + ifs.getSimpleName());
+                }
             }
         }
 
@@ -304,6 +312,10 @@ public class ModelType {
 
     public Implementation getImplementation() {
         return implementation;
+    }
+
+    public boolean isImmutable() {
+        return immutable;
     }
 
     private static final Map<String, String> primitiveToBoxedTypeNames = new HashMap<>();

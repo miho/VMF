@@ -95,6 +95,8 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
    * Returns a modifiable deep clone of this object.
    * @return a modifiable deep clone of this object
    */
-  ${type.typeName} asModifiable();
+  default ${type.typeName} asModifiable() {
+      throw new UnsupportedOperationException("ERROR: unsupported method invoked. Immutable types can't be mutable.");
+  }
 
 }

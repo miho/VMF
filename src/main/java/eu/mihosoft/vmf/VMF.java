@@ -75,7 +75,14 @@ public class VMF {
                 .getNamesOfAllClasses();
 
         return clsNames.stream().map(clsName->loadClass(classLoader, clsName)).
-                filter(cls->cls!=null).collect(Collectors.toList());
+                filter(cls->cls!=null).filter(cls->{
+                    // annotations from other packages are allowed
+                    // we remove annotations from other packages from this list
+                    // other classes from other packages are not removed since we generate
+                    // an error message in this case
+                    return Objects.equals(cls.getPackage().getName(),packageName)||!cls.isAnnotation();
+                }).
+                collect(Collectors.toList());
     }
 
     /**

@@ -18,28 +18,27 @@ import $import;
 // implementation
 
 /**
- * An implementation of the model object {@code $type.fullTypeName}.
+ * An implementation of the immutable model object {@code $type.fullTypeName}.
  */
 @SuppressWarnings("deprecation")
-class $type.implementation.typeName implements ${type.typeName}, VObjectInternalModifiable, VCloneableInternal {
+public class $type.implementation.typeName implements $type.typeName, VObject, VObjectInternal, VCloneableInternal {
 
   // --------------------------------------------------------------------
   // --- declaration of member variables
   // --------------------------------------------------------------------
 
 #parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
-  private PropertyChangeSupport propertyChanges;
 
-  // referenced by
-  private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
-  // references
-  private final java.util.List<VObject> references = new java.util.ArrayList<>();
+// referenced by
+private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
+// references
+private final java.util.List<VObject> references = new java.util.ArrayList<>();
 
   // --------------------------------------------------------------------
-  // --- public constructors
+  // --- private constructor
   // --------------------------------------------------------------------
 
-  public ${type.implementation.typeName}() {
+  private ${type.implementation.typeName}() {
     // ...
   }
 
@@ -49,11 +48,6 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
 #parse("${VMF_TEMPLATE_PATH}impl/getter.vm")
 
-  // --------------------------------------------------------------------
-  // --- public setter methods for setting properties
-  // --------------------------------------------------------------------
-
-#parse("${VMF_TEMPLATE_PATH}impl/setter.vm")
 
   // --------------------------------------------------------------------
   // --- Object methods (equals(), toString() etc.)
@@ -63,45 +57,62 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
 #parse("${VMF_TEMPLATE_PATH}impl/equals.vm")
 
-#parse("${VMF_TEMPLATE_PATH}impl/clone.vm")
+  public $type.typeName clone() {
+    // we don't need to perform actual cloning since this is an
+    // immutable type
+    return this;
+  }
+
+  // --------------------------------------------------------------------
+  // --- Builder methods
+  // --------------------------------------------------------------------
+
+  public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Builder {
+
+#parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
+
+    public Builder${VMF_IMPL_CLASS_EXT}() {}
+
+#foreach( $prop in ${type.implementation.properties} )
+      public ${type.typeName}.Builder ${prop.name}(${prop.typeName} ${prop.name}) {
+#if($prop.propType == "COLLECTION")
+        // ensure that this collection property is actually immutable
+        this.${prop.name} = VList.newInstance(
+          java.util.Collections.
+          unmodifiableList(
+            new java.util.ArrayList<${prop.genericType}>(${prop.name})
+          )
+        );
+#else##if property is collection
+        this.${prop.name} = ${prop.name};
+#end##if property is collection
+        return this;
+      }
+#end##end foreach property
+
+    public $type.typeName build() {
+      ${type.implementation.typeName} result = new ${type.implementation.typeName}();
+#foreach( $prop in ${type.implementation.properties} )
+      result.${prop.name} = ${prop.name};
+#if($prop.type)
+      #set($objectToAddReferenceOnValue="result")
+      #set($referenceToAddValue = "result."+${prop.name})
+      #set($objectToRemoveReferenceOnValue = false)
+      #set($referenceToRemoveValue = false)
+      #set($codeIndentValue = "      ")
+      #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+#end## if property is model-type
+#end##end foreach property
+      return result;
+    }
+
+  } // end class Builder${VMF_IMPL_CLASS_EXT}
 
   // --------------------------------------------------------------------
   // --- Utility methods
   // --------------------------------------------------------------------
 
-  @Override
-  public void addPropertyChangeListener(PropertyChangeListener l) {
-      _vmf_getPropertyChanges().addPropertyChangeListener(l);
-  }
-  @Override
-  public void removePropertyChangeListener(PropertyChangeListener l) {
-      _vmf_getPropertyChanges().removePropertyChangeListener(l);
-
-      if(_vmf_getPropertyChanges().getPropertyChangeListeners().length==0) {
-          propertyChanges = null;
-      }
-  }
-
-  private PropertyChangeSupport _vmf_getPropertyChanges() {
-
-      if(propertyChanges==null) {
-          propertyChanges = new PropertyChangeSupport(this);
-      }
-
-      return propertyChanges;
-  }
-
-  private boolean _vmf_hasListeners() {
-      return propertyChanges!=null;
-  }
-
-  private void _vmf_firePropertyChangeIfListenersArePresent(
-    String propertyName, Object oldValue, Object newValue) {
-      if(_vmf_hasListeners()) {
-          _vmf_getPropertyChanges().
-                  firePropertyChange(propertyName, oldValue, newValue);
-      }
-  }
+  // ?
 
   // --------------------------------------------------------------------
   // --- Public VMF API
@@ -136,8 +147,8 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
             @Override
             public ${type.typeName} shallowCopy() {
-              return ${type.implementation.typeName}.
-                this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+              // we don't copy anything since this is an immutable type
+              return ${type.implementation.typeName}.this;
               }
             };
           }
@@ -158,16 +169,9 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
       return vmf;
   }
 
-  private ${type.readOnlyInterface.typeName} readOnlyInstance;
-
   @Override
-  public ${type.readOnlyInterface.typeName} asReadOnly() {
-
-    if(readOnlyInstance==null) {
-      readOnlyInstance = new ${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}(this);
-    }
-
-    return readOnlyInstance;
+  public ${type.typeName} asReadOnly() {
+    return this;
   }
 
   // --------------------------------------------------------------------
@@ -182,6 +186,7 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
     return _VMF_TYPE_ID;
   }
 
+#set($readOnlyVal=true)
 #parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
 
   // --------------------------------------------------------------------
@@ -198,5 +203,24 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   public java.util.List<VObject> _vmf_referencedBy() { return this.referencedBy;}
   @Override
   public java.util.List<VObject> _vmf_references() { return this.references;}
+
+  public void addPropertyChangeListener(PropertyChangeListener l) {
+    throw new UnsupportedOperationException("ERROR: unsupported method invoked. This should not happen :(");
+  }
+  public void removePropertyChangeListener(PropertyChangeListener l) {
+    throw new UnsupportedOperationException("ERROR: unsupported method invoked. This should not happen :(");
+  }
+
+  @Override
+  public ${type.typeName} _vmf_deepCopy(
+    java.util.IdentityHashMap<Object,Object> identityMap) {
+    return this;
+  }
+
+  @Override
+  public ${type.typeName} _vmf_shallowCopy(
+    java.util.IdentityHashMap<Object,Object> identityMap) {
+    return this;
+  }
 
 }

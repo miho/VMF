@@ -1,0 +1,48 @@
+package ${type.packageName};
+
+// vmf imports
+import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+
+// property types imports
+#foreach( $import in $type.imports )
+import $import;
+#end
+
+// interface
+
+/**
+ * A representation of the immutable model object {@code $type.fullTypeName}.
+ */
+public interface $type.typeName extends VObject$type.immutableImplementsString, Cloneable, Immutable {
+#foreach( $prop in ${type.interface.properties} )
+
+#parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
+
+#end ## for each
+
+
+// --------------------------------------------------------------------
+// --- Builder methods
+// --------------------------------------------------------------------
+
+  public static interface Builder {
+
+#foreach( $prop in ${type.implementation.properties} )
+    public Builder ${prop.name}(${prop.typeName} ${prop.name});
+#end##end foreach property
+
+  public $type.typeName build();
+
+  } // end class Builder
+
+
+  /**
+   * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
+   * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
+   */
+  ${type.typeName} asReadOnly();
+
+  @Override
+  $type.typeName clone() /*throws CloneNotSupportedException*/;
+
+}

@@ -21,10 +21,12 @@
       if (o==null) return false;
       else if (this==o) return true;
 
+#if(!$type.immutable)
       // if object is read-only wrapper then unwrap the actual object
       if(o instanceof $type.readOnlyImplementation.typeName) {
         o = (($type.readOnlyImplementation.typeName)o)._vmf_getMutableObject();
       }
+#end## if type is not immutable
 
       // perform the actual comparison for each property
       if (o instanceof $type.fullTypeName) {
@@ -149,27 +151,27 @@
         return true;
       }
   }
-  
+
   private ThreadLocal<java.util.Map<EqualsPair, ?>> _vmf_getThreadLocalEquals() {
     if (_vmf_fEqualsChecker==null) {
       _vmf_fEqualsChecker = ThreadLocal.withInitial(
         () -> new java.util.HashMap<>());
     }
-    
+
     return _vmf_fEqualsChecker;
   }
-  
+
   private ThreadLocal<java.util.Map<Integer, ?>> _vmf_getThreadLocalHashCode() {
     if (_vmf_fHashCodeChecker==null) {
       _vmf_fHashCodeChecker = ThreadLocal.withInitial(
         () -> new java.util.HashMap<>());
     }
-    
+
     return _vmf_fHashCodeChecker;
   }
 
   private ThreadLocal<java.util.Map<EqualsPair, ?>> _vmf_fEqualsChecker;
-          
+
 
   private ThreadLocal<java.util.Map<Integer, ?>> _vmf_fHashCodeChecker;
 

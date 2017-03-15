@@ -211,7 +211,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   // --- Id related methods
   // --------------------------------------------------------------------
 
-  // id management is currently not part of VMF (TODO how should we support this)
+  // id management is currently not part of VMF (TODO how should we support this?)
 
   // --------------------------------------------------------------------
   // --- Reference methods

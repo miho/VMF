@@ -91,26 +91,39 @@ public class CodeGenerator {
                 packageName = t.getPackageName();
             }
 
-            try (Resource res = set.open(t.getPackageName() + "." + t.getTypeName())) {
-                Writer out = res.open();
-                generateTypeInterface(out, t);
-            }
+            if(t.isImmutable()) {
+                try (Resource res = set.open(t.getPackageName() + "." + t.getTypeName())) {
+                    Writer out = res.open();
+                    generateImmutableTypeInterface(out, t);
+                }
+                try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                        + t.getImplementation().getTypeName())) {
+                    Writer out = res.open();
+                    generateImmutableTypeImplementation(out, t);
+                }
+            } else {
 
-            try (Resource res = set.open(t.getPackageName() + "." + t.getReadOnlyInterface().getTypeName())) {
-                Writer out = res.open();
-                generateReadOnlyTypeInterface(out, t);
-            }
+                try (Resource res = set.open(t.getPackageName() + "." + t.getTypeName())) {
+                    Writer out = res.open();
+                    generateTypeInterface(out, t);
+                }
 
-            try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                    + t.getImplementation().getTypeName())) {
-                Writer out = res.open();
-                generateTypeImplementation(out, t);
-            }
+                try (Resource res = set.open(t.getPackageName() + "." + t.getReadOnlyInterface().getTypeName())) {
+                    Writer out = res.open();
+                    generateReadOnlyTypeInterface(out, t);
+                }
 
-            try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                    + t.getReadOnlyImplementation().getTypeName())) {
-                Writer out = res.open();
-                generateReadOnlyTypeImplementation(out, t);
+                try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                        + t.getImplementation().getTypeName())) {
+                    Writer out = res.open();
+                    generateTypeImplementation(out, t);
+                }
+
+                try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                        + t.getReadOnlyImplementation().getTypeName())) {
+                    Writer out = res.open();
+                    generateReadOnlyTypeImplementation(out, t);
+                }
             }
 
         }
@@ -297,13 +310,6 @@ public class CodeGenerator {
         mergeTemplate("read-only-interface", context, out);
     }
 
-    public void generateImmutableTypeInterface(Writer out, ModelType t) throws IOException {
-        VelocityContext context = new VelocityContext();
-        context.put("type", t);
-        VMFEngineProperties.installProperties(context);
-        mergeTemplate("immutable-interface", context, out);
-    }
-
     public void generateTypeImplementation(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
@@ -316,6 +322,13 @@ public class CodeGenerator {
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("read-only-implementation", context, out);
+    }
+
+    public void generateImmutableTypeInterface(Writer out, ModelType t) throws IOException {
+        VelocityContext context = new VelocityContext();
+        context.put("type", t);
+        VMFEngineProperties.installProperties(context);
+        mergeTemplate("immutable-interface", context, out);
     }
 
     public void generateImmutableTypeImplementation(Writer out, ModelType t) throws IOException {
