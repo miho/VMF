@@ -63,11 +63,23 @@ public class Prop {
         } else if (Collection.class.isAssignableFrom(propClass)) {
             propType = PropType.COLLECTION;
 
-            ParameterizedType retType = (ParameterizedType) getterMethod
-                    .getGenericReturnType();
+            ParameterizedType retType = null;
 
-            Class<?> containedClazz = (Class<?>) (retType
-                    .getActualTypeArguments()[0]);
+            if (getterMethod.getGenericReturnType() != null) {
+                if(getterMethod.getGenericReturnType() instanceof ParameterizedType) {
+                    retType = (ParameterizedType) getterMethod
+                            .getGenericReturnType();
+                }
+            }
+
+            Class<?> containedClazz;
+
+            if (retType != null) {
+                containedClazz = (Class<?>) (retType
+                        .getActualTypeArguments()[0]);
+            } else {
+                containedClazz = Object.class;
+            }
 
             if (!List.class.isAssignableFrom(propClass)) {
                 throw new IllegalArgumentException(
@@ -141,8 +153,8 @@ public class Prop {
             Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
 
             // if opposite can't be found, try with full name
-            if(!opposite.isPresent()) {
-                if(isCollectionType()) {
+            if (!opposite.isPresent()) {
+                if (isCollectionType()) {
                     oppositeOfGetContainerProperty = getGenericTypeName() + "." + oppositeOfGetContainerProperty;
                 } else {
                     oppositeOfGetContainerProperty = getTypeName() + "." + oppositeOfGetContainerProperty;
@@ -168,8 +180,8 @@ public class Prop {
             Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
 
             // if opposite can't be found, try with full name
-            if(!opposite.isPresent()) {
-                if(isCollectionType()) {
+            if (!opposite.isPresent()) {
+                if (isCollectionType()) {
                     oppositeOfGetContainedProperty = getGenericTypeName() + "." + oppositeOfGetContainedProperty;
                 } else {
                     oppositeOfGetContainedProperty = getTypeName() + "." + oppositeOfGetContainedProperty;
@@ -289,9 +301,9 @@ public class Prop {
     }
 
     public int getTypeId() {
-        if(getType() != null) {
+        if (getType() != null) {
             return getType().getTypeId();
-        } else if(isCollectionType()) {
+        } else if (isCollectionType()) {
             return -2;
         } else {
             return -1;

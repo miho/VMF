@@ -65,6 +65,37 @@ public class Model {
             t.getImplementation().initPropertiesAndImports();
         }
 
+        // PASS 4
+        for (ModelType t : types.values()) {
+            if (!t.isImmutable()) {
+                for (ModelType iType : t.getImplementz()) {
+                    if (iType.isImmutable()) {
+                        throw new RuntimeException("Mutable type '" + t.getFullTypeName()
+                                + "' cannot extend immutable type '"
+                                + iType.getFullTypeName() + "'.");
+                    }
+                }
+            } else {
+                for (Prop p : t.getProperties()) {
+                    if (p.getType() != null) {
+                        if (!p.getType().isImmutable()) {
+                            throw new RuntimeException("Immutable type '" + t.getFullTypeName()
+                                    + "' cannot have properties of mutable type '"
+                                    + p.getType().getFullTypeName() + "'.");
+                        }
+                    } else if (p.isCollectionType()) {
+                        if(p.getGenericType()!=null) {
+                            if (!p.getGenericType().isImmutable()) {
+                                throw new RuntimeException("Immutable type '" + t.getFullTypeName()
+                                        + "' cannot have collection properties with mutable element type '"
+                                        + p.getGenericType().getFullTypeName() + "'.");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
     }
 
     public String getPackageName() {

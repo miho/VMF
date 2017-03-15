@@ -85,7 +85,11 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
         this.${prop.name} = VList.newInstance(
           java.util.Collections.
           unmodifiableList(
+#if(${prop.genericType})
             new java.util.ArrayList<${prop.genericType.typeName}>(${prop.name})
+#else##if genericType is modelType
+            new java.util.ArrayList<${prop.genericPackageName}.${prop.genericTypeName}>(${prop.name})
+#end##if genericType is modelType
           )
         );
 #else##if property is collection
