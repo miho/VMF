@@ -8,7 +8,31 @@
 #set($overridePropertySetter = false)
 #end ## end if collectionType
 #end ## end if containmentProperty
-## we don't support setters for collection types and properties with collection opposites
+## for properties with collection opposites we just need to add this to the
+## opposite collection which will handle the containment just fine
+#if(${prop.containmentInfo.opposite.propType}=="COLLECTION")
+  @Override
+  public $prop.setterDeclaration {
+
+    // opposite is a collection type. we just need to add this to the
+    // opposite collection which will handle the containment just fine
+
+    // nothing to do, values are identical
+    if(this.$prop.name == $prop.name) {
+      return;
+    }
+
+    // remove this from previous opposite
+    if(this.$prop.name!=null) {
+        this.$prop.name.${prop.containmentInfo.opposite.getterPrefix}${prop.containmentInfo.opposite.nameWithUpperCase}().remove(this);
+    }
+
+    // add this to new opposite
+    if($prop.name!=null) {
+        $prop.name.${prop.containmentInfo.opposite.getterPrefix}${prop.containmentInfo.opposite.nameWithUpperCase}().add(this);
+    }
+  }
+#end## if opposite is collection type
 #if(${prop.propType}!="COLLECTION" && ${prop.containmentInfo.opposite.propType}!="COLLECTION")
 #if($overridePropertySetter)
   @Override
