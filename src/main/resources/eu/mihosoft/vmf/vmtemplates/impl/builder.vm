@@ -1,0 +1,56 @@
+// --------------------------------------------------------------------
+// --- Builder methods
+// --------------------------------------------------------------------
+
+public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Builder {
+
+#foreach( $prop in ${type.implementation.properties})
+#if($type.immutable || $prop.propType != "COLLECTION")
+  private $prop.typeName $prop.name;
+#end## if type is immutable or property is no collection
+#end
+
+  public Builder${VMF_IMPL_CLASS_EXT}() {}
+
+#foreach( $prop in ${type.implementation.properties} )
+#if($type.immutable || $prop.propType != "COLLECTION")
+    public ${type.typeName}.Builder ${prop.name}(${prop.typeName} ${prop.name}) {
+#if($prop.propType == "COLLECTION")
+      // ensure that this collection property is actually immutable
+      this.${prop.name} = VList.newInstance(
+        java.util.Collections.
+        unmodifiableList(
+#if(${prop.genericType})
+          new java.util.ArrayList<${prop.genericType.typeName}>(${prop.name})
+#else## if genericType is modelType
+          new java.util.ArrayList<${prop.genericPackageName}.${prop.genericTypeName}>(${prop.name})
+#end## if genericType is modelType
+        )
+      );
+#else## if property is collection
+      this.${prop.name} = ${prop.name};
+#end## if property is collection
+      return this;
+    }
+#end## if type is immutable or property is no collection
+#end## foreach property
+
+  public $type.typeName build() {
+    ${type.implementation.typeName} result = new ${type.implementation.typeName}();
+#foreach( $prop in ${type.implementation.properties} )
+#if($type.immutable || $prop.propType != "COLLECTION")
+    result.${prop.name} = ${prop.name};
+#if($prop.type)
+    #set($objectToAddReferenceOnValue="result")
+    #set($referenceToAddValue = "result."+${prop.name})
+    #set($objectToRemoveReferenceOnValue = false)
+    #set($referenceToRemoveValue = false)
+    #set($codeIndentValue = "      ")
+    #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+#end## if property is model-type
+#end## if type is immutable or property is no collection
+#end## foreach property
+    return result;
+  }
+
+} // end class Builder${VMF_IMPL_CLASS_EXT}

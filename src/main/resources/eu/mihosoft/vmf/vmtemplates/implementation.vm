@@ -65,6 +65,8 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
 #parse("${VMF_TEMPLATE_PATH}impl/clone.vm")
 
+#parse("${VMF_TEMPLATE_PATH}impl/builder.vm")
+
   // --------------------------------------------------------------------
   // --- Utility methods
   // --------------------------------------------------------------------

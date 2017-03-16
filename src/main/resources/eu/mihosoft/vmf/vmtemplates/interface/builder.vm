@@ -1,0 +1,44 @@
+// --------------------------------------------------------------------
+// --- Builder methods
+// --------------------------------------------------------------------
+
+  public static interface Builder {
+
+#foreach( $prop in ${type.implementation.properties} )
+#if($type.immutable || $prop.propType != "COLLECTION")
+    public Builder ${prop.name}(${prop.typeName} ${prop.name});
+#end## if type is immutable or property is no collection
+#end##end foreach property
+
+    public $type.typeName build();
+
+  } // end class Builder
+
+  /**
+   * Returns a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
+   * @return a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
+   */
+  static Builder newBuilder() {
+    try {#set ( $dollar_sign = "$")
+      Class<?> cls = Class.forName("${type.implementation.packageName}.${type.implementation.typeName}${dollar_sign}Builder${VMF_IMPL_CLASS_EXT}");
+      java.lang.reflect.Constructor constructor = cls.getConstructor();
+      constructor.setAccessible(true);
+      return (Builder) constructor.newInstance();
+    } catch (ClassNotFoundException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (InstantiationException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (IllegalAccessException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    }  catch (NoSuchMethodException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (SecurityException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (IllegalArgumentException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    } catch (java.lang.reflect.InvocationTargetException ex) {
+      java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+    }
+
+    return null;
+  } // end newBuilder()
