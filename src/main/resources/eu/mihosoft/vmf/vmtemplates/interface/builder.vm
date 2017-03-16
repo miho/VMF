@@ -12,7 +12,7 @@
 
     /**
      * Defines whether to append collections rather than replacing them in the
-     * APPLY_FROM and APPLY_TO methods.
+     * {@link #[[#]]#applyFrom($type.typeName)} and {@link #[[#]]#applyTo($type.typeName)} methods.
      * @param value that indicates whether to append collections
      * @return this builder
      */
@@ -28,6 +28,7 @@
      * Applies all properties from the specified object to this builder.
      * @param o object to apply properties from
      * @return this builder
+     * @see #[[#]]#applyTo($type.typeName)
      */
     public Builder applyFrom($type.typeName o);
 
@@ -36,6 +37,7 @@
      * Applies all properties from this builder to the specified object.
      * @param o object to apply properties to
      * @return this builder
+     * @see #[[#]]#applyFrom($type.typeName)
      */
     public Builder applyTo($type.typeName o);
 #end## if type is not immutable
