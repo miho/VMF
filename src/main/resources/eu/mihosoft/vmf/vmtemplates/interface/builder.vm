@@ -6,6 +6,11 @@
 
 #foreach( $prop in ${type.implementation.properties} )
 ###if($type.immutable || $prop.propType != "COLLECTION")
+    /**
+     * Sets the '<em><b>${prop.name}</b></em>' property of this builder.
+     * @param ${prop.name} value to set
+     * @return this builder
+     */
     public Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name});
 ###end## if type is immutable or property is no collection
 #end##end foreach property
