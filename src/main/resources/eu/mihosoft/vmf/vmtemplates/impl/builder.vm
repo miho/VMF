@@ -5,18 +5,20 @@
 public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Builder {
 
 #foreach( $prop in ${type.implementation.properties})
-#if($type.immutable || $prop.propType != "COLLECTION")
+###if($type.immutable || $prop.propType != "COLLECTION")
   private $prop.typeName $prop.name;
-#end## if type is immutable or property is no collection
+###end## if type is immutable or property is no collection
 #end
+
+  private boolean appendCollections = true;
 
   public Builder${VMF_IMPL_CLASS_EXT}() {}
 
 #foreach( $prop in ${type.implementation.properties} )
-#if($type.immutable || $prop.propType != "COLLECTION")
-    public ${type.typeName}.Builder ${prop.name}(${prop.typeName} ${prop.name}) {
+###if($type.immutable || $prop.propType != "COLLECTION")
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name}) {
 #if($prop.propType == "COLLECTION")
-      // ensure that this collection property is actually immutable
+      // ensure that this collection property is really immutable
       this.${prop.name} = VList.newInstance(
         java.util.Collections.
         unmodifiableList(
@@ -32,8 +34,13 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #end## if property is collection
       return this;
     }
-#end## if type is immutable or property is no collection
+###end## if type is immutable or property is no collection
 #end## foreach property
+
+  public Builder appendCollections(boolean value) {
+    this.appendCollections = value;
+    return this;
+  }
 
   public $type.typeName build() {
     ${type.implementation.typeName} result = new ${type.implementation.typeName}();
@@ -53,4 +60,49 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     return result;
   }
 
+  public Builder applyFrom(${type.typeName} o) {
+#foreach( $prop in ${type.implementation.properties} )
+###if($type.immutable || $prop.propType != "COLLECTION")
+#if($prop.propType == "COLLECTION")
+#if(${prop.genericType})
+#set($genericCollArg = "${prop.genericType.typeName}")
+#else## if genericType is modelType
+#set($genericCollArg = "${prop.genericPackageName}.${prop.genericTypeName}")
+#end## if genericType is modelType
+      if(!this.appendCollections||this.${prop.name}==null) {
+        // ensure that this collection property is really immutable
+        this.${prop.name} = VList.newInstance(
+          java.util.Collections.
+          unmodifiableList(
+              new java.util.ArrayList<$genericCollArg>(o.${prop.getterPrefix}${prop.nameWithUpperCase}())
+          )
+        );
+      } else {
+        this.${prop.name}.addAll(o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+      }
+#else## if property is collection
+      this.${prop.name} = o.${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end## if property is collection
+###end## if type is immutable or property is no collection
+#end## foreach property
+
+    return this;
+  }
+#if(!$type.immutable)
+  public Builder applyTo(${type.typeName} o) {
+#foreach( $prop in ${type.implementation.properties} )
+#if($prop.propType == "COLLECTION")
+      if(!this.appendCollections) {
+        o.${prop.getterPrefix}${prop.nameWithUpperCase}().clear();
+      }
+      o.${prop.getterPrefix}${prop.nameWithUpperCase}().addAll(${prop.name});
+#else## if property is collection
+#if(!$prop.containmentProperty)
+      o.set${prop.nameWithUpperCase}(${prop.name});
+#end## if property is not containment property
+#end## if property is collection
+#end## foreach property
+    return this;
+  }
+#end## if type is not immutable
 } // end class Builder${VMF_IMPL_CLASS_EXT}

@@ -5,12 +5,40 @@
   public static interface Builder {
 
 #foreach( $prop in ${type.implementation.properties} )
-#if($type.immutable || $prop.propType != "COLLECTION")
-    public Builder ${prop.name}(${prop.typeName} ${prop.name});
-#end## if type is immutable or property is no collection
+###if($type.immutable || $prop.propType != "COLLECTION")
+    public Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name});
+###end## if type is immutable or property is no collection
 #end##end foreach property
 
+    /**
+     * Defines whether to append collections rather than replacing them in the
+     * APPLY_FROM and APPLY_TO methods.
+     * @param value that indicates whether to append collections
+     * @return this builder
+     */
+    public Builder appendCollections(boolean value);
+
+    /**
+     * Builds a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
+     * @return a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
+     */
     public $type.typeName build();
+
+    /**
+     * Applies all properties from the specified object to this builder.
+     * @param o object to apply properties from
+     * @return this builder
+     */
+    public Builder applyFrom($type.typeName o);
+
+#if(!$type.immutable)
+    /**
+     * Applies all properties from this builder to the specified object.
+     * @param o object to apply properties to
+     * @return this builder
+     */
+    public Builder applyTo($type.typeName o);
+#end## if type is not immutable
 
   } // end class Builder
 
