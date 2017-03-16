@@ -35,6 +35,10 @@ public interface $type.typeName extends VObject$type.immutableImplementsString, 
 
   } // end class Builder
 
+  /**
+   * Returns a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
+   * @return a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
+   */
   static Builder newBuilder() {
     try {#set ( $dollar_sign = "$")
       Class<?> cls = Class.forName("${type.implementation.packageName}.${type.implementation.typeName}${dollar_sign}Builder${VMF_IMPL_CLASS_EXT}");

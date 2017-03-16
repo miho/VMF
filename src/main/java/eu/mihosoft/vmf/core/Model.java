@@ -75,6 +75,19 @@ public class Model {
                                 + iType.getFullTypeName() + "'.");
                     }
                 }
+                for (Prop p: t.getProperties()) {
+                    if(p.getType()!=null && p.getType().isImmutable()) {
+                        if (p.isContainer()) {
+                            throw new RuntimeException("Immutable type '" + t.getFullTypeName()
+                                    + "' cannot be contained in type '"
+                                    + p.getType().getFullTypeName() + "' (parameter: '" + p.getName()+"').");
+                        } else if (p.isContained()) {
+                            throw new RuntimeException("Immutable type '" + t.getFullTypeName()
+                                    + "' cannot be container of type '"
+                                    + p.getType().getFullTypeName() + "' (parameter: '" + p.getName()+"').");
+                        }
+                    }
+                }
             } else {
                 for (Prop p : t.getProperties()) {
                     if (p.getType() != null) {
@@ -84,7 +97,7 @@ public class Model {
                                     + p.getType().getFullTypeName() + "'.");
                         }
                     } else if (p.isCollectionType()) {
-                        if(p.getGenericType()!=null) {
+                        if (p.getGenericType() != null) {
                             if (!p.getGenericType().isImmutable()) {
                                 throw new RuntimeException("Immutable type '" + t.getFullTypeName()
                                         + "' cannot have collection properties with mutable element type '"
@@ -92,9 +105,20 @@ public class Model {
                             }
                         }
                     }
+
+                    if (p.isContainer()) {
+                        throw new RuntimeException("Immutable type '" + t.getFullTypeName()
+                                + "' cannot be contained in type '"
+                                + p.getType().getFullTypeName() + "' (parameter: '" + p.getName()+"').");
+                    } else if (p.isContained()) {
+                        throw new RuntimeException("Immutable type '" + t.getFullTypeName()
+                                + "' cannot be container of type '"
+                                + p.getType().getFullTypeName() + "' (parameter: '" + p.getName()+"').");
+                    }
                 }
             }
-        }
+
+        } // end pass 4
 
     }
 
