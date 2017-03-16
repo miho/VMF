@@ -113,16 +113,18 @@ public class CodeGenerator {
                     generateReadOnlyTypeInterface(out, t);
                 }
 
-                try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                        + t.getImplementation().getTypeName())) {
-                    Writer out = res.open();
-                    generateTypeImplementation(out, t);
-                }
+                if(!t.isInterfaceOnly()) {
+                    try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                            + t.getImplementation().getTypeName())) {
+                        Writer out = res.open();
+                        generateTypeImplementation(out, t);
+                    }
 
-                try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                        + t.getReadOnlyImplementation().getTypeName())) {
-                    Writer out = res.open();
-                    generateReadOnlyTypeImplementation(out, t);
+                    try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                            + t.getReadOnlyImplementation().getTypeName())) {
+                        Writer out = res.open();
+                        generateReadOnlyTypeImplementation(out, t);
+                    }
                 }
             }
 

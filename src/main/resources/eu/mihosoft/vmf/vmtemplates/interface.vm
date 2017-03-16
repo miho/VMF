@@ -21,6 +21,7 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
 
 #end## for each
 
+#if(!$type.interfaceOnly)
   /**
    * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
@@ -49,6 +50,7 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
 
     return null;
   }
+#end##if type interface only
 
   /**
    * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'

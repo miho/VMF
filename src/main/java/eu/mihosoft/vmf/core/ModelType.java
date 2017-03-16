@@ -35,6 +35,7 @@ public class ModelType {
     private final List<ModelType> implementz = new ArrayList<>();
 
     private final boolean immutable;
+    private final boolean interfaceOnly;
 
     private final int typeId;
 
@@ -47,6 +48,7 @@ public class ModelType {
         this.typeId = typeId;
 
         this.immutable = clazz.getAnnotation(Immutable.class) != null;
+        this.interfaceOnly = clazz.getAnnotation(InterfaceOnly.class) != null;
 
         initProperties(clazz);
 
@@ -316,6 +318,10 @@ public class ModelType {
 
     public boolean isImmutable() {
         return immutable;
+    }
+
+    public boolean isInterfaceOnly() {
+        return interfaceOnly;
     }
 
     private static final Map<String, String> primitiveToBoxedTypeNames = new HashMap<>();
