@@ -35,7 +35,7 @@ public interface ReadOnlySwitchFor${modelSwitchName}Model<T> {
 
 #foreach($type in $model.types)
 
-  default T case${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {return null;};
+  default T case${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {return null;}
 #end ## for-each type
 
 }

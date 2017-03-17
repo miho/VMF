@@ -40,8 +40,8 @@ public interface ListenerFor${modelSwitchName}Model extends TraversalListener {
 
 #foreach($type in $model.types)
 
-  default void onEnter${type.typeName}($type.typeName object) {};
-  default void onExit${type.typeName}($type.typeName object) {};
+  default void onEnter${type.typeName}($type.typeName object) {}
+  default void onExit${type.typeName}($type.typeName object) {}
 #end## for-each type
 
 }

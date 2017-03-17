@@ -40,8 +40,8 @@ public interface ReadOnlyListenerFor${modelSwitchName}Model extends TraversalLis
 
 #foreach($type in $model.types)
 
-  default void onEnter${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {};
-  default void onExit${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {};
+  default void onEnter${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {}
+  default void onExit${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {}
 #end## for-each type
 
 }
