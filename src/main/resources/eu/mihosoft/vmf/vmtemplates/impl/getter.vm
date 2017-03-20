@@ -60,7 +60,7 @@
 #if($prop.type||$prop.genericType)
       this.${prop.name}.addChangeListener((evt)-> {
             evt.added().elements().forEach((e)->{
-
+              // nothing to do if e == null
               if(e==null) return;
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "e")
@@ -68,9 +68,10 @@
 #set($referenceToRemoveValue = false)
                 #set($codeIndentValue = "                ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-            });
+            }); // end of evt.added()
 
             evt.removed().elements().forEach((e)->{
+              // nothing to do if e == null
               if(e==null) return;
 #set($objectToAddReferenceOnValue=false)
 #set($referenceToAddValue = false)
@@ -78,14 +79,13 @@
 #set($referenceToRemoveValue = "e")
 #set($codeIndentValue = "                ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-            });
-        });
+            }); // end of evt.removed()
+        }); // end of change listener
 #end## if is model type
-
-    }
+    } // end of "lazy init" if(this.$prop.name==null)
 #end
     return this.$prop.name;
 
 #end
-  }
+  } // end of $prop.getterDeclaration
 #end
