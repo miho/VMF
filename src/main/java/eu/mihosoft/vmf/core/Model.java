@@ -61,11 +61,17 @@ public class Model {
         }
 
         // PASS 3
+        for(ModelType t : types.values()) {
+            t.initSyncInfos();
+            t.initPropIds();
+        }
+
+        // PASS 4
         for (ModelType t : types.values()) {
             t.getImplementation().initPropertiesAndImports();
         }
 
-        // PASS 4
+        // PASS 5
         for (ModelType t : types.values()) {
             if (!t.isImmutable()) {
                 for (ModelType iType : t.getImplementz()) {
@@ -223,6 +229,7 @@ public class Model {
 
         return Optional.empty();
     }
+
 
     public boolean isModelType(String type) {
         for (Class<?> clazz : interfaces) {

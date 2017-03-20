@@ -34,6 +34,8 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
   // references
   private final java.util.List<VObject> references = new java.util.ArrayList<>();
+  // sync info
+  private final boolean[] _vmf_syncDisabled = new boolean[${type.properties.size()}];
 
   // --------------------------------------------------------------------
   // --- public constructors
@@ -103,6 +105,18 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
           _vmf_getPropertyChanges().
                   firePropertyChange(propertyName, oldValue, newValue);
       }
+  }
+
+  private void _vmf_disableSync() {
+    for(int i = 0; i < _vmf_syncDisabled.length;i++) {
+      _vmf_syncDisabled[i] = true;
+    }
+  }
+
+  private void _vmf_enableSync() {
+    for(int i = 0; i < _vmf_syncDisabled.length;i++) {
+      _vmf_syncDisabled[i] = false;
+    }
   }
 
   // --------------------------------------------------------------------

@@ -1,5 +1,6 @@
 package eu.mihosoft.vmf.core;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Predicate;
@@ -88,8 +89,16 @@ public class ModelType {
             properties.add(p);
         }
 
-        Collections.sort(properties, (p1,p2)->p1.getName().compareTo(p2.getName()));
+        Collections.sort(properties, (p1, p2) -> p1.getName().compareTo(p2.getName()));
 
+
+    }
+
+    void initSyncInfos() {
+        // resolve containment relations
+        for (Prop p : properties) {
+            p.initSyncInfo();
+        }
     }
 
     void initContainments() {
@@ -160,6 +169,13 @@ public class ModelType {
         return Optional.empty();
     }
 
+    public boolean extendsType(ModelType type) {
+
+        if(type.getFullTypeName().equals(this.getFullTypeName())) return true;
+
+        return getImplementz().stream().filter(t -> t.getFullTypeName().equals(type.getFullTypeName())).count() > 0;
+    }
+
     private static List<String> generateImplementsList(Model model, Class<?> clazz) {
         List<String> implementz = new ArrayList<>();
         for (Class<?> ifs : clazz.getInterfaces()) {
@@ -226,7 +242,7 @@ public class ModelType {
             String ifsName = model.convertModelTypeToDestination(ifs);
 
             if (ifsName.startsWith(model.getPackageName())) {
-                if(ifs.getAnnotation(Immutable.class)!=null) {
+                if (ifs.getAnnotation(Immutable.class) != null) {
                     ext3nds.add("" + ifs.getSimpleName());
                 } else {
                     ext3nds.add("ReadOnly" + ifs.getSimpleName());
@@ -370,6 +386,14 @@ public class ModelType {
         return properties.stream().
                 filter(p -> isContainmentProp.and(isCollectionType).negate().test(p)).
                 //filter(oppositeIsCollectionType.negate()).
-                collect(Collectors.toList());
+                        collect(Collectors.toList());
+    }
+
+    public void initPropIds() {
+        int i = 0;
+        for(Prop p : getImplementation().getProperties()) {
+            p.setPropId(i);
+            i++;
+        }
     }
 }

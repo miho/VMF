@@ -31,6 +31,9 @@ public class Prop {
     // containment info (container or contained property)
     private ContainmentInfo containmentInfo;
 
+    // sync info
+    private SyncInfo syncInfo;
+
     //indicates whether this property is required (validation & constructors)
     private final boolean required;
 
@@ -47,6 +50,8 @@ public class Prop {
     private String genericPackageName;
     private String genericTypeName;
     private CollectionType collectionType;
+
+    private int propId;
 
     private Prop(ModelType parent, Method getterMethod) {
         this.getterMethod = getterMethod;
@@ -137,6 +142,14 @@ public class Prop {
         ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
     }
 
+    void setPropId(int propId) {
+        this.propId = propId;
+    }
+
+    public int getPropId() {
+        return this.propId;
+    }
+
     void initContainment() {
 
         System.out.println("init containment for " + getName());
@@ -202,6 +215,42 @@ public class Prop {
         }
     }
 
+    void initSyncInfo() {
+
+        System.out.println("init sync info for " + getName());
+
+        // containment
+        SyncWith syncInfo = getterMethod.getAnnotation(SyncWith.class);
+
+        if (syncInfo != null) {
+
+            String oppositeOfSyncProperty = syncInfo.opposite();
+
+            // System.out.println("Container: " + container.opposite());
+            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfSyncProperty);
+
+            // if opposite can't be found, try with full name
+            if (!opposite.isPresent()) {
+                if (isCollectionType()) {
+                    oppositeOfSyncProperty = getGenericTypeName() + "." + oppositeOfSyncProperty;
+                } else {
+                    oppositeOfSyncProperty = getTypeName() + "." + oppositeOfSyncProperty;
+                }
+
+                opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfSyncProperty);
+            }
+
+
+            if (opposite.isPresent()) {
+                this.syncInfo = SyncInfo.newInstance(
+                        parent, opposite.get().getParent(), opposite.get());
+            } else {
+                throw new RuntimeException(
+                        "Specified opposite property '" + oppositeOfSyncProperty + "' cannot be found");
+            }
+        }
+    }
+
     public static Prop newInstance(ModelType parent, Method getterMethod) {
         return new Prop(parent, getterMethod);
     }
@@ -228,6 +277,10 @@ public class Prop {
 
     public ContainmentInfo getContainmentInfo() {
         return containmentInfo;
+    }
+
+    public SyncInfo getSyncInfo() {
+        return syncInfo;
     }
 
     public boolean isRequired() {
@@ -372,4 +425,41 @@ public class Prop {
 
         return getterPrefix;
     }
+
+// CURRENTLY this method is unused, since we do use property information from parent types which check annotations
+//           we leave this code here (just in case...).
+//    /**
+//     * Returns the method's (or it's equivalents in super types) annotation for the specified type.
+//     *
+//     * @param m method
+//     * @param a annotation type
+//     * @param <A> annotation class
+//     * @return annotation for the specified type if such an annotation is present; {@code null} otherwise
+//     */
+//    private static <A extends Annotation> A getAnnotationOfMethodOrSuperTypeMethod(Method m, Class<A> a) {
+//
+//        A annotation = m.getAnnotation(a);
+//
+//        System.out.println("M: " + m.getName() + ", " + m.getDeclaringClass().getName() + ", " + annotation);
+//
+//        if (annotation != null) {
+//            return annotation;
+//        }
+//
+//        for (Class<?> ifc : m.getDeclaringClass().getInterfaces()) {
+//
+//            try {
+//                Method newM = ifc.getMethod(m.getName(), m.getParameterTypes());
+//                annotation = getAnnotationOfMethodOrSuperTypeMethod(newM, a);
+//                if (annotation!=null) {
+//                   return annotation;
+//                }
+//            } catch (NoSuchMethodException e) {
+//                // we skip methods that are not found
+//            }
+//
+//        }
+//
+//        return null;
+//    }
 }

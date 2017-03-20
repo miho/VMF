@@ -12,6 +12,8 @@
     boolean deepCopy, java.util.IdentityHashMap<Object,Object> identityMap
   ) {
     identityMap.put(other,this);
+    
+    _vmf_disableSync();
 
 #foreach ($prop in $type.implementation.properties)
 #if(!$prop.container)
@@ -62,6 +64,8 @@
 #end ## if collection
 #end ## if container type
 #end ## for-each property
+
+      _vmf_enableSync();
    } // end copy constructor
 
    @Override

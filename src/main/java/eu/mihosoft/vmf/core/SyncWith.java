@@ -3,10 +3,10 @@ package eu.mihosoft.vmf.core;
 import java.lang.annotation.*;
 
 /**
- * Created by miho on 02.01.2017.
+ * Created by miho on 20.03.17.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
-public @interface Container {
+public @interface SyncWith {
     String opposite();
 }

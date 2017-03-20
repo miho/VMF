@@ -90,6 +90,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   }
 #if(!$type.immutable)
   public Builder applyTo(${type.typeName} o) {
+    ${type.implementation.typeName} oInternal = (${type.implementation.typeName}) o;
+    oInternal._vmf_disableSync();
+
 #foreach( $prop in ${type.implementation.properties} )
 #if($prop.propType == "COLLECTION")
       if(!this.appendCollections) {
@@ -102,6 +105,8 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #end## if property is not containment property
 #end## if property is collection
 #end## foreach property
+
+    oInternal._vmf_enableSync();
     return this;
   }
 #end## if type is not immutable

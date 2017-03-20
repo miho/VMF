@@ -1,0 +1,104 @@
+
+// TYPE:     $prop.type
+// SYNCINFO: $prop.syncInfo
+#if($prop.syncInfo)
+// OPPOSITE: ${prop.syncInfo.other.typeName}
+// EXTENDS:  $type.extendsType(${prop.syncInfo.other})
+#else
+// OPPOSITE: null
+// EXTENDS:  null
+#end
+
+#if($prop.syncInfo && $type.extendsType(${prop.syncInfo.other}))
+
+            if(!_vmf_syncDisabled[$prop.propId]) {
+
+              // -------------- Sync (added elements) --------------
+
+              // disable sync in opposite to prevent rebounce
+              this._vmf_syncDisabled[${prop.syncInfo.opposite.propId}] = true;
+
+              java.util.List<Integer> indicesInOpposite = new java.util.ArrayList<>();
+
+              VList<${prop.syncInfo.opposite.genericTypeName}> oppositeList =
+                 this.${prop.syncInfo.opposite.getterPrefix}${prop.syncInfo.opposite.nameWithUpperCase}();
+              VList<${prop.genericTypeName}> ourList =
+                 this.${prop.getterPrefix}${prop.nameWithUpperCase}();
+
+              java.util.List<${prop.syncInfo.opposite.genericTypeName}> elementsToSync =
+                new java.util.ArrayList<>();
+
+              for(int i = 0; i < evt.added().indices().length;i++) {
+
+                // if element is not compatible we skip it
+                if(!(evt.added().elements().get(i) instanceof $prop.syncInfo.opposite.genericTypeName)) {
+                  continue;
+                }
+
+                int index = evt.added().indices()[i];
+
+                int typeCount = 0;
+                for(int j = index; j > -1 && !ourList.isEmpty(); j--) {
+                  if(ourList.get(j) instanceof $prop.syncInfo.opposite.genericTypeName) {
+                    typeCount++;
+                  }
+                }
+
+                typeCount = Math.max(0, typeCount-1);
+
+                indicesInOpposite.add(typeCount);
+                elementsToSync.add(($prop.syncInfo.opposite.genericTypeName)evt.added().elements().get(i));
+              } // end for each index
+
+              ## for(int i = 0; i < indicesInOpposite.size; i++) {
+              ##   int index = indicesInOpposite[i];
+              ##   if(index >= oppositeList.size()) {
+              ##
+              ##   }
+              ## } // end for each index
+
+              oppositeList.addAll(indicesInOpposite.stream().mapToInt(i -> i).toArray(), elementsToSync);
+
+            } // end if sync is not disabled
+
+            if(!_vmf_syncDisabled[$prop.propId]) {
+
+              // -------------- Sync (removed elements) --------------
+
+              // disable sync in opposite to prevent rebounce
+              this._vmf_syncDisabled[${prop.syncInfo.opposite.propId}] = true;
+
+              java.util.List<Integer> indicesInOpposite = new java.util.ArrayList<>();
+
+              VList<${prop.syncInfo.opposite.genericTypeName}> oppositeList =
+                 this.${prop.syncInfo.opposite.getterPrefix}${prop.syncInfo.opposite.nameWithUpperCase}();
+              VList<${prop.genericTypeName}> ourList =
+                 this.${prop.getterPrefix}${prop.nameWithUpperCase}();
+
+              for(int i = 0; i < evt.removed().indices().length;i++) {
+
+                // if element is not compatible we skip it
+                if(!(evt.removed().elements().get(i) instanceof $prop.syncInfo.opposite.genericTypeName)) {
+                  continue;
+                }
+
+                int index = evt.removed().indices()[i];
+
+                int typeCount = 0;
+                for(int j = index; j > -1 && !ourList.isEmpty(); j--) {
+                  if(ourList.get(j) instanceof $prop.syncInfo.opposite.genericTypeName) {
+                    typeCount++;
+                  }
+                }
+
+                typeCount = Math.max(0, typeCount-1);
+
+                indicesInOpposite.add(typeCount);
+              }
+
+              oppositeList.removeAll(indicesInOpposite.stream().mapToInt(i -> i).toArray());
+
+              // we are done, enable sync in opposite
+              this._vmf_syncDisabled[${prop.syncInfo.opposite.propId}] = false;
+            } // end if sync is not disabled
+#end##if syncInfo
