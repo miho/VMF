@@ -1,0 +1,8 @@
+// --------------------------------------------------------------------
+// --- declaration of delegation methods
+// --------------------------------------------------------------------
+
+#foreach( $delegate in ${type.delegations})
+  $delegate.methodDeclaration;
+
+#end## for each delegate

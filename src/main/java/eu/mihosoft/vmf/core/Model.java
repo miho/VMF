@@ -68,7 +68,7 @@ public class Model {
 
         // PASS 4
         for (ModelType t : types.values()) {
-            t.getImplementation().initPropertiesAndImports();
+            t.getImplementation().initPropertiesImportsAndDelegates();
         }
 
         // PASS 5

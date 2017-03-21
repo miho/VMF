@@ -26,6 +26,8 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
 
 #parse("${VMF_TEMPLATE_PATH}interface/builder.vm")
 
+#parse("${VMF_TEMPLATE_PATH}interface/delegation-methods.vm")
+
   /**
    * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'

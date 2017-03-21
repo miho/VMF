@@ -1,0 +1,7 @@
+// --------------------------------------------------------------------
+// --- declaration of delegation variables
+// --------------------------------------------------------------------
+
+#foreach( $delegationTypeName in ${type.implementation.delegationTypeNames})
+  private $delegationTypeName _vmf_delegate$foreach.index;
+#end

@@ -347,7 +347,9 @@ public class Prop {
 
     public ModelType getType() {
         if (this.type == null) {
-            this.type = getParent().getModel().resolveType(getPackageName() + "." + getTypeName()).orElse(null);
+            this.type = getParent().getModel().
+                    resolveType(getPackageName() + "." + getTypeName()).
+                    orElse(null);
         }
 
         return this.type;

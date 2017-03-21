@@ -40,6 +40,8 @@ public class ModelType {
 
     private final int typeId;
 
+    private final List<DelegationInfo> delegations = new ArrayList<>();
+
     private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
 
@@ -50,6 +52,8 @@ public class ModelType {
 
         this.immutable = clazz.getAnnotation(Immutable.class) != null;
         this.interfaceOnly = clazz.getAnnotation(InterfaceOnly.class) != null;
+
+        initDelegations(clazz);
 
         initProperties(clazz);
 
@@ -90,8 +94,37 @@ public class ModelType {
         }
 
         Collections.sort(properties, (p1, p2) -> p1.getName().compareTo(p2.getName()));
+    }
 
+    private void initDelegations(Class<?> clazz) {
 
+        if (!delegations.isEmpty()) {
+            throw new RuntimeException("Already initialized.");
+        }
+
+        List<Method> list = new ArrayList<Method>();
+        for (Method m : clazz.getDeclaredMethods()) {
+            if (!m.getName().startsWith("get")
+                    && !m.getName().startsWith("is")
+                    &&  !m.getName().startsWith("vmf")) {
+                list.add(m);
+            }
+        }
+
+        Collections.sort(list, (p1, p2) -> p1.getName().compareTo(p2.getName()));
+
+        for(Method m : list) {
+            DelegationInfo d = DelegationInfo.newInstance(m);
+
+            if(d!=null) {
+                delegations.add(d);
+            } else {
+                throw new RuntimeException(
+                        "Custom method '"
+                                +m.getDeclaringClass().getName()+"."+m.getName()
+                                +"(...)' does not define delegation class.");
+            }
+        }
     }
 
     void initSyncInfos() {
@@ -322,6 +355,10 @@ public class ModelType {
 
     public List<String> getImports() {
         return imports;
+    }
+
+    public List<DelegationInfo> getDelegations() {
+        return delegations;
     }
 
     public List<ModelType> getImplementz() {

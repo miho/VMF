@@ -15,6 +15,7 @@ public class Implementation {
     private final List<Prop> propertiesWithoutCollectionsBasedContainment = new ArrayList<>();
     private final List<Prop> propertiesForEquals = new ArrayList<>();
     private final List<String> imports = new ArrayList<>();
+    private final List<DelegationInfo> delegations = new ArrayList<>();
 
     private Implementation(ModelType type) {
         this.type = type;
@@ -26,13 +27,18 @@ public class Implementation {
 
     }
 
-    void initPropertiesAndImports() {
+    void initPropertiesImportsAndDelegates() {
 
         Set<Prop> implProperties = new HashSet<>();
         implProperties.addAll(computeImplementedProperties(type));
 
         this.properties.addAll(implProperties.stream().filter(p->!properties.contains(p)).
                 distinct().collect(Collectors.toList()));
+
+        List<DelegationInfo> delegations = new ArrayList<>(type.getDelegations());
+        delegations.addAll(computeImplementedDelegations(type));
+
+        this.delegations.addAll(delegations.stream().distinct().collect(Collectors.toList()));
 
         Collections.sort(properties, (p1,p2)->p1.getName().compareTo(p2.getName()));
 
@@ -54,6 +60,24 @@ public class Implementation {
         }
 
         return result;
+    }
+
+    private static List<DelegationInfo> computeImplementedDelegations(ModelType type) {
+        List<DelegationInfo> result = new ArrayList<>();
+        for(ModelType t: type.getImplementz()) {
+            result.addAll(t.getDelegations());
+            result.addAll(computeImplementedDelegations(t));
+        }
+
+        return result;
+    }
+
+    public List<DelegationInfo> getDelegations() {
+        return delegations;
+    }
+
+    public List<String> getDelegationById() {
+        return delegations.stream().map(d->d.getFullTypeName()).distinct().collect(Collectors.toList());
     }
 
 
