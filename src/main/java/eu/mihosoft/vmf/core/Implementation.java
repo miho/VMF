@@ -1,6 +1,9 @@
 package eu.mihosoft.vmf.core;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -76,8 +79,14 @@ public class Implementation {
         return delegations;
     }
 
-    public List<String> getDelegationById() {
-        return delegations.stream().map(d->d.getFullTypeName()).distinct().collect(Collectors.toList());
+
+    private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
+        Map<Object,Boolean> seen = new ConcurrentHashMap<>();
+        return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
+    }
+
+    public List<DelegationInfo> getDelegationsOneForEachType() {
+        return delegations.stream().filter(distinctByKey(d->d.getFullTypeName())).collect(Collectors.toList());
     }
 
 

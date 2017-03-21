@@ -12,5 +12,4 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 public @interface DelegateTo {
     String className();
-    String id() default "";
 }

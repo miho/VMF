@@ -5,11 +5,11 @@
 #foreach( $delegate in ${type.implementation.delegations})
   $delegate.methodDeclaration {
 
-    if(_vmf_delegate$foreach.index==null) {
-      _vmf_delegate$foreach.index = new ${delegate.fullTypeName}(this);
+    if($delegate.varName==null) {
+      $delegate.varName = new ${delegate.fullTypeName}(this);
     }
 
-    #if(!${delegate.isVoid()})return#end _vmf_delegate${foreach.index}.${delegate.methodName}(#foreach($p in ${delegate.paramNames})$p#if($foreach.hasNext), #end#end);
+    #if(!${delegate.isVoid()})return#end $delegate.varName.${delegate.methodName}(#foreach($p in ${delegate.paramNames})$p#if($foreach.hasNext), #end#end);
   }
 
 #end## for each delegate

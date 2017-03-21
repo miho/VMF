@@ -15,19 +15,27 @@ public class DelegationInfo {
     private final String methodName;
     private final List<String> paramTypes;
     private final List<String> paramNames;
-    private final String id;
 
-    private DelegationInfo(String id, String fullTypeName, String methodName, String returnType, List<String> paramTypes, List<String> paramNames) {
-        this.id = id;
+    private static final List<String> delegationTypes = new ArrayList<>();
+
+    private final String varName;
+
+    private DelegationInfo(String fullTypeName, String methodName, String returnType, List<String> paramTypes, List<String> paramNames) {
         this.fullTypeName = fullTypeName;
         this.methodName = methodName;
         this.returnType = returnType;
         this.paramTypes = Collections.unmodifiableList(paramTypes);
         this.paramNames = Collections.unmodifiableList(paramNames);
+
+        if(!delegationTypes.contains(fullTypeName)) {
+            delegationTypes.add(fullTypeName);
+        }
+
+        varName = "_vmf_delegate"+delegationTypes.indexOf(fullTypeName);
     }
 
-    public static DelegationInfo newInstance(String id, String className, String methodName, String returnType, List<String> paramTypes, List<String> paramNames) {
-        return new DelegationInfo(id, className, methodName, returnType, paramTypes, paramNames);
+    public static DelegationInfo newInstance(String className, String methodName, String returnType, List<String> paramTypes, List<String> paramNames) {
+        return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames);
     }
 
     public static DelegationInfo newInstance(Method m) {
@@ -45,7 +53,7 @@ public class DelegationInfo {
             paramNames.add(p.getName());
         }
 
-        return newInstance("".equals(delegation.id())?null:delegation.id(),
+        return newInstance(
                 delegation.className(),
                 m.getName(),
                 m.getReturnType().getName(), paramTypes, paramNames);
@@ -71,9 +79,6 @@ public class DelegationInfo {
         return returnType;
     }
 
-    public String getId() {
-        return id;
-    }
 
     public String getMethodDeclaration() {
         String method = "public " + getReturnType() + " " + getMethodName()+"(";
@@ -89,5 +94,9 @@ public class DelegationInfo {
 
     public boolean isVoid() {
         return returnType.equals(void.class.getName());
+    }
+
+    public String getVarName() {
+        return varName;
     }
 }
