@@ -114,7 +114,7 @@ public class ModelType {
         Collections.sort(list, (p1, p2) -> p1.getName().compareTo(p2.getName()));
 
         for(Method m : list) {
-            DelegationInfo d = DelegationInfo.newInstance(m);
+            DelegationInfo d = DelegationInfo.newInstance(model, m);
 
             if(d!=null) {
                 delegations.add(d);

@@ -38,7 +38,7 @@ public class DelegationInfo {
         return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames);
     }
 
-    public static DelegationInfo newInstance(Method m) {
+    public static DelegationInfo newInstance(Model model, Method m) {
         DelegateTo delegation = m.getAnnotation(DelegateTo.class);
 
         if(delegation==null) {
@@ -49,14 +49,15 @@ public class DelegationInfo {
         List<String> paramNames = new ArrayList<>(m.getParameters().length);
 
         for(Parameter p : m.getParameters()) {
-            paramTypes.add(p.getType().getName());
+            paramTypes.add(TypeUtil.getTypeAsString(model,p.getType()));
             paramNames.add(p.getName());
         }
 
         return newInstance(
                 delegation.className(),
                 m.getName(),
-                m.getReturnType().getName(), paramTypes, paramNames);
+                TypeUtil.getTypeAsString(model,m.getReturnType()),
+                paramTypes, paramNames);
     }
 
     public List<String> getParamTypes() {
