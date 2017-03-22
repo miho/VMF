@@ -46,8 +46,6 @@
 #set($codeIndentValue = "                ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.removed()
-
-            #parse("${VMF_TEMPLATE_PATH}impl/sync.vm")
             
         }); // end of change listener
 
@@ -83,8 +81,6 @@
 #set($codeIndentValue = "                ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.removed()
-
-#parse("${VMF_TEMPLATE_PATH}impl/sync.vm")
 
         }); // end of change listener
 #end## if is model type

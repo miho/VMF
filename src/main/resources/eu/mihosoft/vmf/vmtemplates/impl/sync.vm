@@ -1,4 +1,4 @@
-
+// DEPRECATED: since 22.03.2017
 // TYPE:     $prop.type
 // SYNCINFO: $prop.syncInfo
 #if($prop.syncInfo)
