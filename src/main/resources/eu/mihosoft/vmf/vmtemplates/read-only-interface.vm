@@ -91,6 +91,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
     return this;
   }
 
+#if(!${type.isInterfaceOnly()})
   /**
    * Returns a modifiable deep clone of this object.
    * @return a modifiable deep clone of this object
@@ -98,5 +99,6 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   default ${type.typeName} asModifiable() {
       throw new UnsupportedOperationException("ERROR: unsupported method invoked. Immutable types can't be mutable.");
   }
+#end## if type is not interface-only type
 
 }
