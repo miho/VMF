@@ -3,6 +3,7 @@
 // --------------------------------------------------------------------
 
 #foreach( $delegate in ${type.delegations})
+#if($delegate.methodName != "clone")
   $delegate.methodDeclaration;
-
+#end## #if($delegate.methodName != "clone")
 #end## for each delegate

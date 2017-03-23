@@ -376,6 +376,19 @@ public class ModelType {
                 filter(d->"int".equals(d.getReturnType())).count() > 0;
     }
 
+    public boolean isToStringMethodDelegated() {
+        return getImplementation().getDelegations().stream().
+                filter(d->"toString".equals(d.getMethodName())).
+                filter(d->d.getParamTypes().isEmpty()).
+                filter(d->"java.lang.String".equals(d.getReturnType())).count() > 0;
+    }
+
+    public boolean isCloneMethodDelegated() {
+        return getImplementation().getDelegations().stream().
+                filter(d->"clone".equals(d.getMethodName())).
+                filter(d->d.getParamTypes().isEmpty()).count() > 0;
+    }
+
     public List<ModelType> getImplementz() {
         return implementz;
     }

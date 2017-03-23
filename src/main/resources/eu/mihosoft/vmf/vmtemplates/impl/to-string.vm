@@ -1,4 +1,7 @@
-
+  // --------------------------- BEGIN TO_STRING -----------------------------
+#if(${type.isToStringMethodDelegated()})
+  // -> toString() method is delegated
+#else## #if(${type.isToStringMethodDelegated()})
   @Override
   public String toString() {
 
@@ -45,4 +48,6 @@
 
   private ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_fToStringChecker;
 
- // end toString()
+  // end toString()
+#end## #if(${type.isToStringMethodDelegated()})
+  // ---------------------------- END TO_STRING ------------------------------

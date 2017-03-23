@@ -1,6 +1,6 @@
   // --------------------------- BEGIN EQUALITY -----------------------------
 #if(${type.isEqualsMethodDelegated()})
-  // -> equals and hashCode methods are delegated
+  // -> equals(Object o) and hashCode() methods are delegated
 #else## #if(${type.isEqualsMethodDelegated()})
   @Override
   public boolean equals(Object o) {

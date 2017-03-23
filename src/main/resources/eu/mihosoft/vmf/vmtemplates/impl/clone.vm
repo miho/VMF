@@ -1,6 +1,5 @@
 
   // --------------------------- BEGIN CLONING -----------------------------
-
   /**
    * Package private copy constructor.
    * It creates a deep or shallow copy of the specified other object.
@@ -84,7 +83,9 @@
         return clonedVal;
       }
    }
-
+#if(${type.isCloneMethodDelegated()})
+  // -> clone() method is delegated
+#else## #if(${type.isCloneMethodDelegated()})
   @Override
   public ${type.implementation.typeName} clone() /*throws CloneNotSupportedException*/ {
     // http://stackoverflow.com/questions/12886036/deep-copying-a-graph-structure
@@ -95,5 +96,5 @@
       new java.util.IdentityHashMap<>();
     return _vmf_deepCopy(identityMap);
   }
-
+#end## #if(${type.isCloneMethodDelegated()})
   // ---------------------------- END CLONING ------------------------------
