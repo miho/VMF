@@ -2,6 +2,7 @@ package ${type.packageName};
 
 // vmf imports
 import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+import ${VCOLL_PKG}.*;
 
 // property types imports
 #foreach( $import in $type.imports )
