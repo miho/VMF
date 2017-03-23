@@ -361,6 +361,21 @@ public class ModelType {
         return delegations;
     }
 
+    public boolean isEqualsMethodDelegated() {
+        return getImplementation().getDelegations().stream().
+                filter(d->"equals".equals(d.getMethodName())).
+                filter(d->d.getParamTypes().size()==1).
+                filter(d->"java.lang.Object".equals(d.getParamTypes().get(0))).
+                filter(d->"boolean".equals(d.getReturnType())).count() > 0;
+    }
+
+    public boolean isHashCodeMethodDelegated() {
+        return getImplementation().getDelegations().stream().
+                filter(d->"hashCode".equals(d.getMethodName())).
+                filter(d->d.getParamTypes().isEmpty()).
+                filter(d->"int".equals(d.getReturnType())).count() > 0;
+    }
+
     public List<ModelType> getImplementz() {
         return implementz;
     }

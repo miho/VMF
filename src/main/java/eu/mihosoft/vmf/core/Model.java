@@ -73,6 +73,15 @@ public class Model {
 
         // PASS 5
         for (ModelType t : types.values()) {
+
+            if(t.isHashCodeMethodDelegated()!=t.isEqualsMethodDelegated()) {
+                if(t.isHashCodeMethodDelegated()) {
+                    throw new RuntimeException("If 'int hashCode()' is delegated, 'boolean equals(Object o)' must be delegated too.");
+                } else {
+                    throw new RuntimeException("If 'boolean equals(Object o)' is delegated, 'int hashCode()' must be delegated too.");
+                }
+            }
+
             if (!t.isImmutable()) {
                 for (ModelType iType : t.getImplementz()) {
                     if (iType.isImmutable()) {

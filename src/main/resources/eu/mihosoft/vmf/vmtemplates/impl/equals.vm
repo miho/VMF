@@ -1,6 +1,7 @@
-
   // --------------------------- BEGIN EQUALITY -----------------------------
-
+#if(${type.isEqualsMethodDelegated()})
+  // -> equals and hashCode methods are delegated
+#else## #if(${type.isEqualsMethodDelegated()})
   @Override
   public boolean equals(Object o) {
 
@@ -177,5 +178,5 @@
 
 
   private ThreadLocal<java.util.Map<Integer, ?>> _vmf_fHashCodeChecker;
-
+#end## #if(${type.isEqualsMethodDelegated()})
   // ---------------------------- END EQUALITY ------------------------------
