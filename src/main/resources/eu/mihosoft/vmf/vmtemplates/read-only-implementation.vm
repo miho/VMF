@@ -182,7 +182,9 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
           @Override
           public ${type.readOnlyInterface.typeName} deepCopy() {
-            return ${type.readOnlyImplementation.typeName}.this.clone();
+            return (${type.readOnlyImplementation.typeName})
+              ((VCloneableInternal)${type.readOnlyImplementation.typeName}.this.mutableObject)._vmf_deepCopy(
+                new java.util.IdentityHashMap<>()).asReadOnly();
           }
 
           @Override

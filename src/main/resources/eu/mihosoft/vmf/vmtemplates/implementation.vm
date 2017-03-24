@@ -138,7 +138,9 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
 
             @Override
             public ${type.typeName} deepCopy() {
-              return ${type.implementation.typeName}.this.clone();
+               java.util.IdentityHashMap<Object,Object> identityMap =
+               new java.util.IdentityHashMap<>();
+               return _vmf_deepCopy(identityMap);
             }
 
             @Override
@@ -171,7 +173,8 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   public ${type.readOnlyInterface.typeName} asReadOnly() {
 
     if(readOnlyInstance==null) {
-      readOnlyInstance = new ${type.readOnlyImplementation.packageName}.${type.readOnlyImplementation.typeName}(this);
+      readOnlyInstance = new ${type.readOnlyImplementation.packageName}.
+        ${type.readOnlyImplementation.typeName}(this);
     }
 
     return readOnlyInstance;

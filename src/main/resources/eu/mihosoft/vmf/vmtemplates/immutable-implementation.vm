@@ -131,7 +131,9 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
 
             @Override
             public ${type.typeName} deepCopy() {
-              return ${type.implementation.typeName}.this.clone();
+              java.util.IdentityHashMap<Object,Object> identityMap =
+              new java.util.IdentityHashMap<>();
+              return _vmf_deepCopy(identityMap);
             }
 
             @Override
