@@ -56,7 +56,7 @@ public class DelegationInfo {
         return newInstance(
                 delegation.className(),
                 m.getName(),
-                TypeUtil.getTypeAsString(model,m.getReturnType()),
+                TypeUtil.getReturnTypeAsString(model,m),
                 paramTypes, paramNames);
     }
 

@@ -20,10 +20,10 @@ public class Prop {
     private final String name;
 
     // package name, e.g., 'eu.mihosoft.vmf.tutorial'
-    private final String packageName;
+    private String packageName;
 
     // type name without package, e.g. 'MyType'
-    private final String typeName;
+    private String typeName;
 
     // parent type, i.e., property owner
     private final ModelType parent;
@@ -35,13 +35,13 @@ public class Prop {
     private SyncInfo syncInfo;
 
     //indicates whether this property is required (validation & constructors)
-    private final boolean required;
+    private boolean required;
 
     // indicates whether this property should be ignored for equals() code generation
-    private final boolean ignoredForEquals;
+    private boolean ignoredForEquals;
 
     // getter prefix (get or is)
-    private final String getterPrefix;
+    private String getterPrefix;
 
     //type of the property, e.g., primitive or Collection
     private PropType propType;
@@ -57,6 +57,11 @@ public class Prop {
         this.getterMethod = getterMethod;
         name = propertyNameFromGetter(getterMethod);
         this.parent = parent;
+
+        initType(parent.getModel(), getterMethod);
+    }
+
+    void initType(Model m, Method getterMethod) {
 
         Class<?> propClass = getterMethod.getReturnType();
 
@@ -94,7 +99,7 @@ public class Prop {
                 if (containedClazz.getPackage() == null) {
                     genericPackageName = "";
                 } else {
-                    genericPackageName = parent.getModel().
+                    genericPackageName = m.
                             convertModelPackageToDestination(
                                     containedClazz.getPackage().getName());
                 }
@@ -102,7 +107,7 @@ public class Prop {
                 genericTypeName = containedClazz.getSimpleName();
             }
 
-            typeName = "VList<" + parent.getModel().
+            typeName = "VList<" + m.
                     convertModelTypeToDestination(containedClazz) + ">";
             packageName = "eu.mihosoft.vcollections";
 
@@ -110,7 +115,7 @@ public class Prop {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
             typeName = "VList<" + ModelType.primitiveToBoxedType(
-                    parent.getModel().
+                    m.
                             convertModelTypeToDestination(containedClazz)) + ">";
             System.out.println("TYPENAME: " + typeName);
 
@@ -120,7 +125,7 @@ public class Prop {
             if (containedClazz.getPackage() == null) {
                 genericPackageName = "";
             } else {
-                genericPackageName = parent.getModel().
+                genericPackageName = m.
                         convertModelPackageToDestination(containedClazz.getPackage().getName());
             }
 

@@ -361,6 +361,12 @@ public class ModelType {
         return delegations;
     }
 
+    /**
+     * Indicates whether the {@link java.lang.Object#equals(Object)} is delegated to a custom
+     * implementation.
+     * @return {@code true} if the {@link java.lang.Object#equals(Object)} is delegated; {@code false}
+     * otherwise
+     */
     public boolean isEqualsMethodDelegated() {
         return getImplementation().getDelegations().stream().
                 filter(d->"equals".equals(d.getMethodName())).
@@ -369,6 +375,12 @@ public class ModelType {
                 filter(d->"boolean".equals(d.getReturnType())).count() > 0;
     }
 
+    /**
+     * Indicates whether the {@link Object#hashCode()} is delegated to a custom
+     * implementation.
+     * @return {@code true} if the {@link Object#hashCode()} is delegated; {@code false}
+     * otherwise
+     */
     public boolean isHashCodeMethodDelegated() {
         return getImplementation().getDelegations().stream().
                 filter(d->"hashCode".equals(d.getMethodName())).
@@ -376,6 +388,12 @@ public class ModelType {
                 filter(d->"int".equals(d.getReturnType())).count() > 0;
     }
 
+    /**
+     * Indicates whether the {@link Object#toString()} is delegated to a custom
+     * implementation.
+     * @return {@code true} if the {@link Object#toString()} is delegated; {@code false}
+     * otherwise
+     */
     public boolean isToStringMethodDelegated() {
         return getImplementation().getDelegations().stream().
                 filter(d->"toString".equals(d.getMethodName())).
@@ -383,6 +401,12 @@ public class ModelType {
                 filter(d->"java.lang.String".equals(d.getReturnType())).count() > 0;
     }
 
+    /**
+     * Indicates whether the {@link java.lang.Object#clone()} is delegated to a custom
+     * implementation.
+     * @return {@code true} if the {@link java.lang.Object#clone()} is delegated; {@code false}
+     * otherwise
+     */
     public boolean isCloneMethodDelegated() {
         return getImplementation().getDelegations().stream().
                 filter(d->"clone".equals(d.getMethodName())).
