@@ -141,28 +141,34 @@ public class TypeUtil {
                 }
             }
 
-            Class<?> containedClazz;
+            Class<?> containedClazz=null;
 
             if (retType != null) {
                 containedClazz = (Class<?>) (retType
                         .getActualTypeArguments()[0]);
-            } else {
-                containedClazz = Object.class;
             }
 
-            if (containedClazz.getPackage() == null) {
-                genericPackageName = "";
+            if(containedClazz==null) {
+                typeName = propClass.getSimpleName();
+
+                packageName = model.
+                        convertModelPackageToDestination(propClass.getPackage().getName());
             } else {
-                genericPackageName = model.
-                        convertModelPackageToDestination(
-                                containedClazz.getPackage().getName());
+
+                if (containedClazz.getPackage() == null) {
+                    genericPackageName = "";
+                } else {
+                    genericPackageName = model.
+                            convertModelPackageToDestination(
+                                    containedClazz.getPackage().getName());
+                }
+
+                genericTypeName = containedClazz.getSimpleName();
+
+                typeName = m.getReturnType().getSimpleName() + "<" + model.
+                        convertModelTypeToDestination(containedClazz) + ">";
+                packageName = model.convertModelPackageToDestination(m.getReturnType().getPackage().getName());
             }
-
-            genericTypeName = containedClazz.getSimpleName();
-
-            typeName = m.getReturnType().getSimpleName() + "<" + model.
-                    convertModelTypeToDestination(containedClazz) + ">";
-            packageName = model.convertModelPackageToDestination(m.getReturnType().getPackage().getName());
 
         } else {
             typeName = propClass.getSimpleName();

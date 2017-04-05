@@ -3,10 +3,8 @@ package eu.mihosoft.vmf.core;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Created by miho on 06.01.2017.
@@ -50,6 +48,7 @@ public class Prop {
     private String genericPackageName;
     private String genericTypeName;
     private CollectionType collectionType;
+    private boolean getterOnly;
 
     private int propId;
 
@@ -145,6 +144,8 @@ public class Prop {
         // check whether prop is required
         required = getterMethod.getAnnotation(Required.class) != null;
         ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
+
+        getterOnly = getterMethod.getAnnotation(GetterOnly.class) != null;
     }
 
     void setPropId(int propId) {
@@ -370,6 +371,10 @@ public class Prop {
         }
     }
 
+    public boolean isGetterOnly() {
+        return getterOnly;
+    }
+
     static String propertyNameFromGetter(Method getterMethod) {
 
         String usedGetterPrefix;
@@ -431,6 +436,59 @@ public class Prop {
         }
 
         return getterPrefix;
+    }
+
+    static List<Prop> filterDuplicateProps(List<Prop> properties) {
+        List<Prop> result = new ArrayList(properties);
+        List<String> distinctNames = result.stream().
+                map(p->p.getName()).distinct().collect(Collectors.toList());
+
+        List<Prop> distinctProperties = new ArrayList<>();
+
+        for(String pName : distinctNames) {
+            List<Prop> collidingProps = result.stream().
+                    filter(p-> Objects.equals(pName, p.getName())).collect(Collectors.toList());
+
+            if(collidingProps.size() < 2) {
+                continue;
+            }
+
+            Prop p = collidingProps.get(0);
+
+            for(Prop otherP : collidingProps) {
+
+                if(Objects.equals(p, otherP)) {
+                    continue;
+                }
+
+                if(otherP.getType().extendsType(p.getType())) {
+                    // p = p;
+                    System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
+                    p = otherP;
+                } else if(p.getType().extendsType(otherP.getType())) {
+                    System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                    // nothing to do since p is the most specific one already (p = p);
+                } else {
+                    // TODO raise an error or resolve unrelated types somehow differently
+                }
+            }
+
+            distinctProperties.add(p);
+        }
+
+        for(Prop dP : distinctProperties) {
+            for (Iterator<Prop> it = result.iterator(); it.hasNext(); ) {
+                Prop p = it.next();
+
+                if(Objects.equals(dP.getName(), p.getName())) {
+                    it.remove();
+                }
+            }
+        }
+
+        result.addAll(distinctProperties);
+
+        return result;
     }
 
 // CURRENTLY this method is unused, since we do use property information from parent types which check annotations

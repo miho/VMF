@@ -38,6 +38,10 @@ public class Implementation {
         this.properties.addAll(implProperties.stream().filter(p->!properties.contains(p)).
                 distinct().collect(Collectors.toList()));
 
+        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties);
+        this.properties.clear();
+        this.properties.addAll(distinctProperties);
+
         List<DelegationInfo> delegations = new ArrayList<>(type.getDelegations());
         delegations.addAll(computeImplementedDelegations(type));
 

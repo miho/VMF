@@ -1,5 +1,5 @@
 ## we don't support setters for collection types
-#if(${prop.propType}!="COLLECTION")
+#if(${prop.propType}!="COLLECTION" && !${prop.getterOnly})
  /**
   * Sets the value of the '<em>${prop.name}</em>' property.
   *

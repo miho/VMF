@@ -93,6 +93,10 @@ public class ModelType {
             properties.add(p);
         }
 
+        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties);
+        this.properties.clear();
+        this.properties.addAll(distinctProperties);
+
         Collections.sort(properties, (p1, p2) -> p1.getName().compareTo(p2.getName()));
     }
 

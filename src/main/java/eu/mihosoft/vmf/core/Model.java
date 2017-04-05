@@ -102,6 +102,11 @@ public class Model {
                                     + p.getType().getFullTypeName() + "' (parameter: '" + p.getName()+"').");
                         }
                     }
+
+                    if(!t.isInterfaceOnly() && p.isGetterOnly()) {
+                        throw new RuntimeException("Mutable type '" + t.getFullTypeName()
+                                + "' cannot declare getter-only parameter '" + p.getName()+"'. Type should be an immutable or an interface-only type.");
+                    }
                 }
             } else {
                 for (Prop p : t.getProperties()) {
