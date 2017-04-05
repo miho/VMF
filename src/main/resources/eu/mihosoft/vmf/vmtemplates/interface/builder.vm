@@ -5,14 +5,14 @@
   public static interface Builder {
 
 #foreach( $prop in ${type.implementation.properties} )
-###if($type.immutable || $prop.propType != "COLLECTION")
+#if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}!="CONTAINER")
     /**
      * Sets the '<em><b>${prop.name}</b></em>' property of this builder.
      * @param ${prop.name} value to set
      * @return this builder
      */
     public Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name});
-###end## if type is immutable or property is no collection
+#end## if type is no container or property is no containment type
 #end##end foreach property
 
     /**

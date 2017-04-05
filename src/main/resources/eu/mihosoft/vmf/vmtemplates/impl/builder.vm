@@ -15,7 +15,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public Builder${VMF_IMPL_CLASS_EXT}() {}
 
 #foreach( $prop in ${type.implementation.properties} )
-###if($type.immutable || $prop.propType != "COLLECTION")
+#if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}!="CONTAINER")
     public ${type.typeName}.Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name}) {
 #if($prop.propType == "COLLECTION")
       // ensure that this collection property is really immutable
@@ -34,7 +34,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #end## if property is collection
       return this;
     }
-###end## if type is immutable or property is no collection
+#end## if type is no container or property is no containment type
 #end## foreach property
 
   public Builder appendCollections(boolean value) {
