@@ -146,7 +146,7 @@ public class Model {
         return packageName;
     }
 
-    public ModelType initType(Class<?> clazz, int typeId) {
+    ModelType initType(Class<?> clazz, int typeId) {
 
         ModelType t = ModelType.newInstance(this, clazz, typeId);
         types.put(convertModelTypeToDestination(clazz), t);
@@ -259,7 +259,7 @@ public class Model {
         return false;
     }
 
-    public String convertModelPackageToDestination(String srcPkg) {
+    String convertModelPackageToDestination(String srcPkg) {
         if (Objects.equals(getPackageName() + ".vmfmodel", srcPkg)) {
             return getPackageName();
         } else {
@@ -267,7 +267,7 @@ public class Model {
         }
     }
 
-    public String convertModelTypeToDestination(Class<?> srcType) {
+    String convertModelTypeToDestination(Class<?> srcType) {
         String srcPackage = "";
 
         if (srcType.getPackage() != null) {

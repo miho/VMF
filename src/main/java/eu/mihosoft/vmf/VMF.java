@@ -29,6 +29,7 @@ public class VMF {
      * @param interfaces model interfaces (all interfaces must be in the same package,
      *                   package must end with '.vmfmodel')
      * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the specified model is empty
      */
     public static void generate(File outputDir, Class<?>... interfaces) throws IOException {
         new CodeGenerator().generate(new FileResourceSet(outputDir),interfaces);
@@ -42,6 +43,7 @@ public class VMF {
      * @param packageName package that contains the model interfaces
      *                    (all interfaces must be in the same package, package must end with '.vmfmodel')
      * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the specified model is empty
      */
     public static void generate(File outputDir, String packageName) throws IOException {
         Collection<Class<?>> interfaces = listClassesInPackage(
@@ -57,6 +59,7 @@ public class VMF {
      * @param packageName package that contains the model interfaces
      *                    (all interfaces must be in the same package, package must end with '.vmfmodel')
      * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the specified model is empty
      */
     public static void generate(File outputDir, ClassLoader classLoader, String packageName) throws IOException {
         Collection<Class<?>> interfaces = listClassesInPackage(classLoader, packageName);
@@ -68,6 +71,8 @@ public class VMF {
      * @param classLoader classloader used for searching the package content
      * @param packageName package name
      * @return all classes in the specified package
+     *
+     * @throws IllegalArgumentException if the specified model is empty
      */
     private static Collection<Class<?>> listClassesInPackage(ClassLoader classLoader, String packageName) {
         List<String> clsNames = new FastClasspathScanner(packageName).overrideClassLoaders(classLoader)
@@ -90,6 +95,8 @@ public class VMF {
      * @param classLoader classloader that shall be used for classloading
      * @param clsName the name of the class to load
      * @return the reuested class or {@code null} if the requested class cannot be found
+     *
+     * @throws IllegalArgumentException if the specified model is empty
      */
     private static Class<?> loadClass(ClassLoader classLoader,String clsName) {
         try {
