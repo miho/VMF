@@ -17,6 +17,9 @@ import java.io.InputStream;
 import java.io.Writer;
 import java.util.Properties;
 
+/**
+ * Default properties for the code generation engine.
+ */
 class VMFEngineProperties {
 
     public static final String VMF_TEMPLATE_PATH = "/eu/mihosoft/vmf/vmtemplates/";
@@ -43,8 +46,9 @@ class VMFEngineProperties {
 
 }
 
-
-
+/**
+ * Code generator that generates Java code for the specified model instance.
+ */
 public class CodeGenerator {
 
     private static final String TEMPLATE_PATH = "/eu/mihosoft/vmf/vmtemplates/";
@@ -54,6 +58,10 @@ public class CodeGenerator {
         this.engine = engine;
     }
 
+    /**
+     * Constructor. Creates a new generator instance and initializes the velocity engine
+     * used by the code generator.
+     */
     public CodeGenerator() {
         try {
             this.engine = createDefaultEngine();
@@ -62,16 +70,32 @@ public class CodeGenerator {
         }
     }
 
-    protected void mergeTemplate(String name, VelocityContext ctx, Writer out) throws IOException {
-        String path = resolveTemplatePath(name);
+    /**
+     * Generates template code for the specified template.
+     * @param templateName template to use for code generation
+     * @param ctx velocity context (contains model instance etc.)
+     * @param out writer to use for code generation
+     * @throws IOException if the code generation fails due to I/O related problems
+     */
+    protected void mergeTemplate(String templateName, VelocityContext ctx, Writer out) throws IOException {
+        String path = resolveTemplatePath(templateName);
         engine.mergeTemplate(path, "UTF-8", ctx, out);
     }
 
-    public static String resolveTemplatePath(String templateName) {
+    /**
+     * Returns the full template path for the specified template name.
+     * @param templateName n<me of the template
+     * @return the full template path for the specified template name, e.g., {@code "mytemplate" } translates into {@code "${TEMPLATE_PATH}mytemplate.vm"}
+     */
+    static String resolveTemplatePath(String templateName) {
         return TEMPLATE_PATH + templateName + ".vm";
     }
 
-    public static VelocityEngine createDefaultEngine() throws Exception {
+    /**
+     * Creates a velocity engine with all necessary defaults required by this code generator.
+     * @return new velocity engine
+     */
+    static VelocityEngine createDefaultEngine() throws Exception{
         VelocityEngine engine = new VelocityEngine();
 
         engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "vmf");
@@ -80,9 +104,76 @@ public class CodeGenerator {
         return engine;
     }
 
+    /**
+     * Generates code for the specified model definition.
+     * @param set resource-set that shall be used for code generation
+     * @param classes model definition interfaces
+     * @throws IOException if the code generation fails due to I/O related problems
+     */
     public void generate(ResourceSet set, Class<?>... classes) throws IOException {
         Model model = Model.newInstance(classes);
 
+        String packageName = generateModelTypeClasses(set, model);
+
+        generateModelTypeVMFApiClasses(set, model, packageName);
+    }
+
+    /**
+     * Generates model type api code, e.g., switches, listeners and cloneable interface for
+     * the specified model definition.
+     *
+     * @param set resource-set that shall be used by this generator
+     * @param model model to use as generator source
+     * @param packageName package name of the generated code
+     * @throws IOException if the code generation fails due to I/O related problems
+     */
+    private void generateModelTypeVMFApiClasses(ResourceSet set, Model model, String packageName) throws IOException {
+        String[] packageComponents = packageName.split("\\.");
+        String modelSwitchName = packageComponents[packageComponents.length-1];
+
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".SwitchFor"+modelSwitchName + "Model")) {
+            Writer out = res.open();
+            generateVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
+        }
+
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".ReadOnlySwitchFor"+modelSwitchName + "Model")) {
+            Writer out = res.open();
+            generateReadOnlyVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
+        }
+
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".ListenerFor"+modelSwitchName + "Model")) {
+            Writer out = res.open();
+            generateVMFModelListenerInterface(out, packageName, modelSwitchName, model);
+        }
+
+        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
+        try (Resource res = set.open(packageName + "." + ".ReadOnlyListenerFor"+modelSwitchName + "Model")) {
+            Writer out = res.open();
+            generateReadOnlyVMFModelListenerInterface(out, packageName, modelSwitchName, model);
+        }
+
+//        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
+//            Writer out = res.open();
+//            generateVMFVObjectInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
+//        }
+
+        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal")) {
+            Writer out = res.open();
+            generateVMFCloneableInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
+        }
+    }
+
+    /**
+     * Generates model type code for the specified model definition.
+     * @param set resource-set that shall be used by this generator
+     * @param model model to use as generator source
+     * @return package name of the model code
+     * @throws IOException if the code generation fails due to I/O related problems
+     */
+    private String generateModelTypeClasses(ResourceSet set, Model model) throws IOException {
         String packageName = null;
 
         for (ModelType t : model.getTypes()) {
@@ -127,73 +218,8 @@ public class CodeGenerator {
                     }
                 }
             }
-
         }
-
-//        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VMFModelWalker" + VMFEngineProperties.VMF_IMPL_CLASS_EXT)) {
-//            Writer out = res.open();
-//            generateVMFModelWalker(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT, model);
-//        }
-//
-
-        String[] packageComponents = packageName.split("\\.");
-        String modelSwitchName = packageComponents[packageComponents.length-1];
-        
-        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".SwitchFor"+modelSwitchName + "Model")) {
-            Writer out = res.open();
-            generateVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
-        }
-        
-        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".ReadOnlySwitchFor"+modelSwitchName + "Model")) {
-            Writer out = res.open();
-            generateReadOnlyVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
-        }
-
-
-
-        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".ListenerFor"+modelSwitchName + "Model")) {
-            Writer out = res.open();
-            generateVMFModelListenerInterface(out, packageName, modelSwitchName, model);
-        }
-
-        modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".ReadOnlyListenerFor"+modelSwitchName + "Model")) {
-            Writer out = res.open();
-            generateReadOnlyVMFModelListenerInterface(out, packageName, modelSwitchName, model);
-        }
-
-//        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
-//            Writer out = res.open();
-//            generateVMFVObjectInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
-//        }
-
-        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal")) {
-            Writer out = res.open();
-            generateVMFCloneableInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
-        }
-
-//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VContainmentUtil")) {
-//            Writer out = res.open();
-//            generateVContainmentUtil(out, packageName);
-//        }
-//
-//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VObject")) {
-//            Writer out = res.open();
-//            generateVObjectUtil(out, packageName);
-//        }
-//
-//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".ObservableObject")) {
-//            Writer out = res.open();
-//            generateObservableObjectUtil(out, packageName);
-//        }
-//
-//        try (Resource res = set.open(VMFEngineProperties.VMF_CORE_API_PKG + "." + VMFEngineProperties.VMF_VMFUTIL_PKG_EXT + ".VCollectionUtil")) {
-//            Writer out = res.open();
-//            generateVCollectionUtil(out, packageName);
-//        }
+        return packageName;
     }
 
     private void generateVMFModelWalker(Writer out, String packageName, Model m) throws IOException {
@@ -291,49 +317,49 @@ public class CodeGenerator {
         mergeTemplate("vmfutil-vcollectionutil", context, out);
     }
 
-    public void generateTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateTypeInterface(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("interface", context, out);
     }
 
-    public void generateWritableTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateWritableTypeInterface(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("writable-interface", context, out);
     }
 
-    public void generateReadOnlyTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateReadOnlyTypeInterface(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("read-only-interface", context, out);
     }
 
-    public void generateTypeImplementation(Writer out, ModelType t) throws IOException {
+    private void generateTypeImplementation(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("implementation", context, out);
     }
 
-    public void generateReadOnlyTypeImplementation(Writer out, ModelType t) throws IOException {
+    private void generateReadOnlyTypeImplementation(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("read-only-implementation", context, out);
     }
 
-    public void generateImmutableTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateImmutableTypeInterface(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("immutable-interface", context, out);
     }
 
-    public void generateImmutableTypeImplementation(Writer out, ModelType t) throws IOException {
+    private void generateImmutableTypeImplementation(Writer out, ModelType t) throws IOException {
         VelocityContext context = new VelocityContext();
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
