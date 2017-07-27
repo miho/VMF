@@ -116,7 +116,7 @@ public class Prop {
             typeName = "VList<" + ModelType.primitiveToBoxedType(
                     m.
                             convertModelTypeToDestination(containedClazz)) + ">";
-            System.out.println("TYPENAME: " + typeName);
+            // System.out.println("TYPENAME: " + typeName);
 
             packageName = "eu.mihosoft.vcollections";
 
@@ -158,7 +158,7 @@ public class Prop {
 
     void initContainment() {
 
-        System.out.println("init containment for " + getName());
+        // System.out.println("init containment for " + getName());
 
         // containment
         Container container = getterMethod.getAnnotation(Container.class);
@@ -168,7 +168,6 @@ public class Prop {
 
             String oppositeOfGetContainerProperty = container.opposite();
 
-            // System.out.println("Container: " + container.opposite());
             Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
 
             // if opposite can't be found, try with full name
@@ -185,7 +184,7 @@ public class Prop {
 
             if (opposite.isPresent()) {
                 this.containmentInfo = ContainmentInfo.newInstance(
-                        parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINER);
+                        parent, this, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINER);
             } else {
                 throw new RuntimeException(
                         "Specified opposite property '" + oppositeOfGetContainerProperty + "' cannot be found");
@@ -211,24 +210,24 @@ public class Prop {
 
             if (opposite.isPresent()) {
                 this.containmentInfo = ContainmentInfo.newInstance(
-                        parent, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINED);
+                        parent, this, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINED);
             } else {
                 throw new RuntimeException(
                         "Specified opposite property '" + oppositeOfGetContainedProperty + "' cannot be found");
             }
         } else {
-            this.containmentInfo = ContainmentInfo.newInstance(null, null, null, ContainmentType.NONE);
+            this.containmentInfo = ContainmentInfo.newInstance(null, null,null, null, ContainmentType.NONE);
         }
     }
 
     void initSyncInfo() {
 
-        System.out.println("init sync info for " + getName());
-
         // containment
         SyncWith syncInfo = getterMethod.getAnnotation(SyncWith.class);
 
         if (syncInfo != null) {
+
+            System.out.println("init sync info for " + getName());
 
             String oppositeOfSyncProperty = syncInfo.opposite();
 

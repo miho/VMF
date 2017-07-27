@@ -118,7 +118,7 @@ public class TypeUtil {
             typeName = "VList<" + ModelType.primitiveToBoxedType(
                     model.
                             convertModelTypeToDestination(containedClazz)) + ">";
-            System.out.println("TYPENAME: " + typeName);
+            // System.out.println("TYPENAME: " + typeName);
 
             packageName = "eu.mihosoft.vcollections";
 

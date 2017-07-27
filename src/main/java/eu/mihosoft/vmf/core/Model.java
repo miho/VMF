@@ -205,12 +205,6 @@ public class Model {
      */
     public Optional<Prop> resolveOppositeOf(ModelType type, String oppositeProp) {
 
-        Optional<Prop> prop = type.resolveProp(oppositeProp);
-
-        if (prop.isPresent()) {
-            return prop;
-        }
-
         String[] typeNameParts = oppositeProp.split("\\.");
 
         // we tried to resolveType with this type already
