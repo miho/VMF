@@ -13,6 +13,10 @@ import $import;
 
 /**
  * A representation of the immutable model object {@code $type.fullTypeName}.
+ *
+ * <!-- vmf-begin-model-doc -->
+ * <!-- vmf-end-model-doc -->
+ *
  */
 public interface $type.typeName extends VObject$type.immutableImplementsString, Cloneable, Immutable {
 #foreach( $prop in ${type.interface.properties} )

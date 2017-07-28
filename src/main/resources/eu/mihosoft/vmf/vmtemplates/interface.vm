@@ -13,6 +13,10 @@ import $import;
 
 /**
  * A representation of the model object {@code $type.fullTypeName}.
+ *
+ * <!-- vmf-begin-model-doc -->
+ * <!-- vmf-end-model-doc -->
+ *
  */
 public interface $type.typeName extends VObject$type.implementsString, Cloneable, Mutable {
 #foreach( $prop in ${type.interface.properties} )

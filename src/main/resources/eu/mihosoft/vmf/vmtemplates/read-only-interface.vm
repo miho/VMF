@@ -13,6 +13,10 @@ import $import;
 
 /**
  * An read-only representation of the model object {@code $type.fullTypeName}.
+ *
+ * <!-- vmf-begin-model-doc -->
+ * <!-- vmf-end-model-doc -->
+ *
  */
 public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyImplementsString, ReadOnly {
 #foreach( $prop in $type.properties )
@@ -22,13 +26,13 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
 /**
  * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
  *
- * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+ * It is bidirectional and its opposite is '{@link ${opposite.parent.readOnlyInterface.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
  *
  * <!-- vmf-begin-model-doc -->
  * <!-- vmf-end-model-doc -->
  *
- * @return the value of the '<em><b>Master</b></em>' container reference.
- * @see WritableNode#setMaster(Node)
+ * @return the value of the '<em>${prop.name}</em>' container reference.
+ * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
  */
 #elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
 #if(${prop.propType}=="COLLECTION")
@@ -36,7 +40,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   /**
    * Returns the value of the '<em>${prop.name}</em>' containment list.
    *
-   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   * It is bidirectional and its opposite is '{@link ${prop.genericType.readOnlyInterface.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
    * <!-- vmf-end-model-doc -->
@@ -44,16 +48,17 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
    * @return the value of the '<em>${prop.name}</em>' containment list.
    */
 #else ## if collection
+#set($opposite = ${prop.containmentInfo.opposite})
   /**
    * Returns the value of the '<em><b>${prop.name}</b></em>' containment reference.
    *
-   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   * It is bidirectional and its opposite is '{@link ${prop.type.readOnlyInterface.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
-   * @see  Writable${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end ## if collection
 #else ## if container / contained
@@ -64,7 +69,8 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   * <!-- vmf-end-model-doc -->
   *
   * @return the value of the '<em>${prop.name}</em>' property.
-  * @see Writable${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+  * #if(${prop.propType}!="COLLECTION")@see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+#end
   */
 #end ## if container / contained
 #if($prop.propType == "COLLECTION")
@@ -96,9 +102,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
    * Returns a modifiable deep clone of this object.
    * @return a modifiable deep clone of this object
    */
-  default ${type.typeName} asModifiable() {
-      throw new UnsupportedOperationException("ERROR: unsupported method invoked. Immutable types can't be mutable.");
-  }
+  ${type.typeName} asModifiable();
 #end## if type is not interface-only type
 
 }

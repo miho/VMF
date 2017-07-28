@@ -7,8 +7,7 @@
   * <!-- vmf-end-model-doc -->
   *
   * @param $prop.name the value to set
-  *
-  * @see ${type.readOnlyInterface.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}($prop.typeName)
+  * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
   */
   public $prop.setterDeclaration;
 #end
