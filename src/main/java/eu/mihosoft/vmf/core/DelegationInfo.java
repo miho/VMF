@@ -8,6 +8,8 @@ import java.util.List;
 
 /**
  * Created by miho on 21.03.2017.
+ * 
+ * @author Michael Hoffer <info@michaelhoffer.de>
  */
 public class DelegationInfo {
     private final String fullTypeName;

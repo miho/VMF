@@ -1,24 +1,20 @@
 package eu.mihosoft.vmf.core;
 
 import eu.mihosoft.vmf.VMF;
-import org.apache.commons.collections.ExtendedProperties;
-import org.apache.commons.lang.StringUtils;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
-import org.apache.velocity.runtime.resource.loader.ResourceLoader;
-import org.apache.velocity.util.ClassUtils;
-import org.apache.velocity.util.ExceptionUtils;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
-import java.util.Properties;
 
 /**
  * Default properties for the code generation engine.
+ * 
+ * @author Michael Hoffer <info@michaelhoffer.de>
  */
 class VMFEngineProperties {
 
@@ -48,6 +44,8 @@ class VMFEngineProperties {
 
 /**
  * Code generator that generates Java code for the specified model instance.
+ * 
+ * @author Michael Hoffer <info@michaelhoffer.de>
  */
 public class CodeGenerator {
 

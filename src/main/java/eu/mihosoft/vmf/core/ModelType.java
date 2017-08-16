@@ -8,6 +8,8 @@ import java.util.stream.Collectors;
 
 /**
  * Created by miho on 06.01.2017.
+ * 
+ * @author Michael Hoffer <info@michaelhoffer.de>
  */
 public class ModelType {
 
@@ -21,7 +23,6 @@ public class ModelType {
 
     private final Model model;
     private Interface iface;
-    private WritableInterface writableInterface;
     private ReadOnlyInterface readOnlyInterface;
     private ReadOnlyImplementation readOnlyImplementation;
     private Implementation implementation;
@@ -148,7 +149,6 @@ public class ModelType {
                 propertiesWithoutCollectionsBasedContainment(this, properties));
 
         this.iface = Interface.newInstance(this);
-        this.writableInterface = WritableInterface.newInstance(this);
         this.readOnlyInterface = ReadOnlyInterface.newInstance(this);
         this.readOnlyImplementation = ReadOnlyImplementation.newInstance(this);
     }
@@ -452,10 +452,6 @@ public class ModelType {
 
     public Interface getInterface() {
         return iface;
-    }
-
-    public WritableInterface getWritableInterface() {
-        return writableInterface;
     }
 
     public ReadOnlyInterface getReadOnlyInterface() {

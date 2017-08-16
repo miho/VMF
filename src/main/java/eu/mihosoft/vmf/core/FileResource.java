@@ -5,6 +5,11 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * 
+ * @author Sam
+ * @author Michael Hoffer (info@michaelhoffer.de)
+ */
 public class FileResource implements Resource {
 
     //

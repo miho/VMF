@@ -1,5 +1,10 @@
 package eu.mihosoft.vmf.core;
 
+
+/**
+ * @author Sam
+ * @author Michael Hoffer (info@michaelhoffer.de)
+ */
 public interface ResourceSet {
 
     //

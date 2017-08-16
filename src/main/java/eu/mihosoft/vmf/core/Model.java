@@ -2,10 +2,14 @@ package eu.mihosoft.vmf.core;
 
 import java.util.*;
 
+/**
+ * 
+ * @author Michael Hoffer (info@michaelhoffer.de)
+ */
 public class Model {
 
     private final String packageName;
-    private Map<String, ModelType> types = new HashMap<>();
+    private final Map<String, ModelType> types = new HashMap<>();
     private Class<?>[] interfaces;
 
     public static Model newInstance(Class<?>... interfaces) {
@@ -105,7 +109,8 @@ public class Model {
 
                     if(!t.isInterfaceOnly() && p.isGetterOnly()) {
                         throw new RuntimeException("Mutable type '" + t.getFullTypeName()
-                                + "' cannot declare getter-only parameter '" + p.getName()+"'. Type should be an immutable or an interface-only type.");
+                                + "' cannot declare getter-only parameter '" + p.getName()
+                                +"'. Type should be an immutable or an interface-only type.");
                     }
                 }
             } else {
@@ -157,37 +162,12 @@ public class Model {
     public List<ModelType> getTypes() {
         List<ModelType> typeList = new ArrayList<>(types.values());
 
-//        Collections.sort(typeList,
-//                (ModelType t1, ModelType t2)
-//                -> t1.getFullTypeName().compareTo(t2.getFullTypeName()));
-
         Collections.sort(typeList,
                 Comparator.comparing(ModelType::getFullTypeName));
 
         return Collections.unmodifiableList(typeList);
     }
 
-//    public Collection<String> getTypesAndReadOnlyTypes() {
-//        List<ModelType> modifiableTypes = getTypes();
-//        
-//        List<ModelType> allTypes = new ArrayList<ModelType>();
-//        
-//        for(ModelType t : modifiableTypes) {
-//            allTypes.add(t);
-//            allTypes.add(t.)
-//        }
-//    }
-
-    //    public Optional<ModelType> resolveType(Class<?> clazz) {
-//        if (types.containsKey(clazz.getName()))
-//            return Optional.of(types.get(clazz.getName()));
-//        else {
-//            if (Arrays.stream(interfaces).anyMatch(ifc -> clazz.equals(ifc)))
-//                return Optional.of(initType(clazz));
-//            else
-//                return Optional.empty();
-//        }
-//    }
     public Optional<ModelType> resolveType(String clazzName) {
         return Optional.ofNullable(types.get(clazzName));
     }

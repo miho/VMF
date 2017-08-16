@@ -2,13 +2,13 @@ package eu.mihosoft.vmf.core;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.List;
-import java.util.stream.Stream;
 
 /**
  * Created by miho on 21.03.2017.
+ * 
+ * @author Michael Hoffer <info@michaelhoffer.de>
  */
 public class TypeUtil {
     private TypeUtil() {

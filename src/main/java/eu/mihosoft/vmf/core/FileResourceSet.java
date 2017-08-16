@@ -2,6 +2,11 @@ package eu.mihosoft.vmf.core;
 
 import java.io.File;
 
+/**
+ * 
+ * @author Sam
+ * @author Michael Hoffer (info@michaelhoffer.de)
+ */
 public final class FileResourceSet implements ResourceSet {
 
     //

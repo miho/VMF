@@ -8,6 +8,8 @@ import java.util.stream.Collectors;
 
 /**
  * Created by miho on 06.01.2017.
+ * 
+ * @author Michael Hoffer <info@michaelhoffer.de>
  */
 public class Prop {
 

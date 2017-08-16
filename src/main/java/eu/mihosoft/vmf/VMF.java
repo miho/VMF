@@ -6,13 +6,9 @@ import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.util.*;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -107,81 +103,5 @@ public class VMF {
 
         return null;
     }
-
-//
-//    /**
-//     * Lists all classes in the specified package.
-//     * @param classLoader classloader used for searching the package content
-//     * @param packageName package name
-//     * @return all classes in the specified package
-//     */
-//    private static Collection<Class<?>> listClassesInPackage(ClassLoader classLoader, String packageName) {
-//        List<Class<?>> classes = new ArrayList<>();
-//        // Get a File object for the package
-//        File directory;
-//        String fullPath;
-//        String relPath = packageName.replace('.', '/');
-//        System.out.println("ClassDiscovery: Package: " + packageName + " becomes Path:" + relPath);
-//        URL resource = classLoader.getResource(relPath);
-//        System.out.println("ClassDiscovery: Resource = " + resource);
-//        if (resource == null) {
-//            throw new RuntimeException("No resource for " + relPath);
-//        }
-//        fullPath = resource.getFile();
-//        System.out.println("ClassDiscovery: FullPath = " + resource);
-//
-//        try {
-//            directory = new File(resource.toURI());
-//        } catch (URISyntaxException e) {
-//            throw new RuntimeException(packageName + " (" + resource + ") does not appear to be a valid URL / URI.  Strange, since we got it from the system...", e);
-//        } catch (IllegalArgumentException e) {
-//            directory = null;
-//        }
-//        System.out.println("ClassDiscovery: Directory = " + directory);
-//
-//        if (directory != null && directory.exists()) {
-//            // Get the list of the files contained in the package
-//            String[] files = directory.list();
-//            for (int i = 0; i < files.length; i++) {
-//                // we are only interested in .class files
-//                if (files[i].endsWith(".class")) {
-//                    // removes the .class extension
-//                    String className = packageName + '.' + files[i].substring(0, files[i].length() - 6);
-//                    System.out.println("ClassDiscovery: className = " + className);
-//                    try {
-//                        classes.add(classLoader.loadClass(className));
-//                    }
-//                    catch (ClassNotFoundException e) {
-//                        throw new RuntimeException("ClassNotFoundException loading " + className);
-//                    }
-//                }
-//            }
-//        }
-//        else {
-//            try {
-//                String jarPath = fullPath.replaceFirst("[.]jar[!].*", ".jar").replaceFirst("file:", "");
-//                JarFile jarFile = new JarFile(jarPath);
-//                Enumeration<JarEntry> entries = jarFile.entries();
-//                while(entries.hasMoreElements()) {
-//                    JarEntry entry = entries.nextElement();
-//                    String entryName = entry.getName();
-//                    if(entryName.startsWith(relPath) && entryName.length() > (relPath.length() + "/".length())) {
-//                        System.out.println("ClassDiscovery: JarEntry: " + entryName);
-//                        String className = entryName.replace('/', '.').replace('\\', '.').replace(".class", "");
-//                        System.out.println("ClassDiscovery: className = " + className);
-//                        try {
-//                            classes.add(classLoader.loadClass(className));
-//                        }
-//                        catch (ClassNotFoundException e) {
-//                            throw new RuntimeException("ClassNotFoundException loading " + className);
-//                        }
-//                    }
-//                }
-//            } catch (IOException e) {
-//                throw new RuntimeException(packageName + " (" + directory + ") does not appear to be a valid package", e);
-//            }
-//        }
-//        return classes;
-//    }
 
 }
