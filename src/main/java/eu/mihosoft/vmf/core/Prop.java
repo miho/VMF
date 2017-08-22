@@ -105,7 +105,7 @@ public class Prop {
                                     containedClazz.getPackage().getName());
                 }
 
-                genericTypeName = containedClazz.getSimpleName();
+                genericTypeName = containedClazz.getName();
             }
 
             typeName = "VList<" + m.
@@ -132,10 +132,10 @@ public class Prop {
 
 //            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
 
-            genericTypeName = containedClazz.getSimpleName();
+            genericTypeName = containedClazz.getName();
         } else {
             propType = PropType.CLASS;
-            typeName = propClass.getSimpleName();
+            typeName = propClass.getName();
 
             this.packageName = getParent().getModel().
                     convertModelPackageToDestination(propClass.getPackage().getName());
@@ -462,15 +462,17 @@ public class Prop {
                     continue;
                 }
 
-                if(otherP.getType().extendsType(p.getType())) {
-                    // p = p;
-                    System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
-                    p = otherP;
-                } else if(p.getType().extendsType(otherP.getType())) {
-                    System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
-                    // nothing to do since p is the most specific one already (p = p);
+                if(Objects.equals(p.getTypeName(), otherP.getTypeName())) {
+                    continue;
                 } else {
-                    // TODO raise an error or resolve unrelated types somehow differently
+
+                    throw new RuntimeException("" +
+                            "Inherited properties are not allowed to change type.\n\n" +
+                            "Property:\n" +
+                            " -> " + p.getParent().getFullTypeName()+"."+p.getName() + "\n"+
+                            "Involved types:\n" +
+                            " -> " +  p.getTypeName() + "\n" +
+                            " -> " + otherP.getTypeName());
                 }
             }
 
