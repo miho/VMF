@@ -9,5 +9,5 @@
   * @param $prop.name the value to set
   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
   */
-  public $prop.setterDeclaration;
+  $prop.setterDeclaration;
 #end

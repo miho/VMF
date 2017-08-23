@@ -22,7 +22,9 @@ public class Prop {
     // package name, e.g., 'eu.mihosoft.vmf.tutorial'
     private String packageName;
 
-    // type name without package, e.g. 'MyType'
+    // type name without package, e.g. 'MyType' instead of 'mypackage.MyType' in case of
+    // model types, full typename with package for external types that don't belong to
+    // the package
     private String typeName;
 
     // parent type, i.e., property owner
@@ -135,7 +137,12 @@ public class Prop {
             genericTypeName = containedClazz.getSimpleName();
         } else {
             propType = PropType.CLASS;
-            typeName = propClass.getSimpleName();
+
+            if(getParent().getModel().isModelType(propClass.getName())) {
+                typeName = propClass.getSimpleName();
+            } else {
+                typeName = propClass.getName();
+            }
 
             this.packageName = getParent().getModel().
                     convertModelPackageToDestination(propClass.getPackage().getName());
@@ -143,9 +150,13 @@ public class Prop {
 
         getterPrefix = computeGetterPrefix(getterMethod);
 
-        // check whether prop is required
         required = getterMethod.getAnnotation(Required.class) != null;
         ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
+
+        if("block".equals(name)) {
+            System.out.println("here:" + getterMethod.getAnnotation(GetterOnly.class));
+            System.out.println(getterMethod.getDeclaringClass().getName());
+        }
 
         getterOnly = getterMethod.getAnnotation(GetterOnly.class) != null;
     }
@@ -183,7 +194,6 @@ public class Prop {
                 opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
             }
 
-
             if (opposite.isPresent()) {
                 this.containmentInfo = ContainmentInfo.newInstance(
                         parent, this, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINER);
@@ -208,7 +218,6 @@ public class Prop {
                 }
                 opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
             }
-
 
             if (opposite.isPresent()) {
                 this.containmentInfo = ContainmentInfo.newInstance(
@@ -260,6 +269,10 @@ public class Prop {
 
     public static Prop newInstance(ModelType parent, Method getterMethod) {
         return new Prop(parent, getterMethod);
+    }
+
+    public boolean isModelType() {
+        return getParent().getModel().isModelType(getPackageName()+"."+getTypeName());
     }
 
     public String getTypeName() {
@@ -462,17 +475,73 @@ public class Prop {
                     continue;
                 }
 
-                if(Objects.equals(p.getTypeName(), otherP.getTypeName())) {
-                    continue;
+                boolean modelType = p.getType()!=null && otherP.getType()!=null;
+
+                if(modelType && otherP.getType().extendsType(p.getType())) {
+                    System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
+                    p = otherP; // otherP is more specific than p
+                } else if(modelType && p.getType().extendsType(otherP.getType())) {
+                    System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                    // nothing to do since p is the most specific one already (p = p);
                 } else {
 
-                    throw new RuntimeException("" +
-                            "Inherited properties are not allowed to change type.\n\n" +
-                            "Property:\n" +
-                            " -> " + p.getParent().getFullTypeName()+"."+p.getName() + "\n"+
-                            "Involved types:\n" +
-                            " -> " +  p.getTypeName() + "\n" +
-                            " -> " + otherP.getTypeName());
+                    // we try to get type information from external types:
+
+
+                    // TODO raise an error or resolve unrelated types somehow differently
+                    throw new RuntimeException("ERROR! TODO improve error message...");
+                }
+            }
+
+            distinctProperties.add(p);
+        }
+
+        for(Prop dP : distinctProperties) {
+            for (Iterator<Prop> it = result.iterator(); it.hasNext(); ) {
+                Prop p = it.next();
+
+                if(Objects.equals(dP.getName(), p.getName())) {
+                    it.remove();
+                }
+            }
+        }
+
+        result.addAll(distinctProperties);
+
+        return result;
+    }
+
+    static List<Prop> filterDuplicatePropsExp(List<Prop> properties) {
+        List<Prop> result = new ArrayList(properties);
+        List<String> distinctNames = result.stream().
+                map(p->p.getName()).distinct().collect(Collectors.toList());
+
+        List<Prop> distinctProperties = new ArrayList<>();
+
+        for(String pName : distinctNames) {
+            List<Prop> collidingProps = result.stream().
+                    filter(p-> Objects.equals(pName, p.getName())).collect(Collectors.toList());
+
+            if(collidingProps.size() < 2) {
+                continue;
+            }
+
+            Prop p = collidingProps.get(0);
+
+            for(Prop otherP : collidingProps) {
+
+                if(Objects.equals(p, otherP)) {
+                    continue;
+                }
+
+                if(Objects.equals(p.getTypeName(), otherP.getTypeName())) {
+                    continue;
+                } else if(!p.isGetterOnly()&&!otherP.isGetterOnly()) {
+
+                    System.err.println("getterp1: " + p.isGetterOnly());
+                    System.err.println("getterp2: " + otherP.isGetterOnly());
+
+
                 }
             }
 

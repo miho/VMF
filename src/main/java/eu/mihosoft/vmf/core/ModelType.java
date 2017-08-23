@@ -58,7 +58,7 @@ public class ModelType {
 
         initProperties(clazz);
 
-        initImports(imports);
+        // initImports(imports);
 
         this.ext3ndsString = generateExtendsString(getModel(), clazz);
         this.implementzString = generateImplementsString(getModel(), clazz);
@@ -169,16 +169,16 @@ public class ModelType {
         this.implementation = Implementation.newInstance(this);
     }
 
-    private void initImports(List<String> imports) {
-        if (!imports.isEmpty()) {
-            throw new RuntimeException("Already initialized.");
-        }
-
-        imports.addAll(properties.stream().map(p -> p.getPackageName()).
-                filter(pkg -> !pkg.isEmpty()).filter(pkg -> !"java.lang".equals(pkg)).
-                filter(pkg -> !getModel().getPackageName().equals(pkg)).map(imp -> imp + ".*").distinct().
-                collect(Collectors.toList()));
-    }
+//    private void initImports(List<String> imports) {
+//        if (!imports.isEmpty()) {
+//            throw new RuntimeException("Already initialized.");
+//        }
+//
+//        imports.addAll(properties.stream().map(p -> p.getPackageName()).
+//                filter(pkg -> !pkg.isEmpty()).filter(pkg -> !"java.lang".equals(pkg)).
+//                filter(pkg -> !getModel().getPackageName().equals(pkg)).map(imp -> imp + ".*").distinct().
+//                collect(Collectors.toList()));
+//    }
 
     public int getTypeId() {
         return typeId;
