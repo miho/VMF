@@ -105,7 +105,7 @@ public class Prop {
                                     containedClazz.getPackage().getName());
                 }
 
-                genericTypeName = containedClazz.getName();
+                genericTypeName = containedClazz.getSimpleName();
             }
 
             typeName = "VList<" + m.
@@ -132,10 +132,10 @@ public class Prop {
 
 //            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
 
-            genericTypeName = containedClazz.getName();
+            genericTypeName = containedClazz.getSimpleName();
         } else {
             propType = PropType.CLASS;
-            typeName = propClass.getName();
+            typeName = propClass.getSimpleName();
 
             this.packageName = getParent().getModel().
                     convertModelPackageToDestination(propClass.getPackage().getName());
