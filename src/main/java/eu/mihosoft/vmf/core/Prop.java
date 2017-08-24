@@ -483,10 +483,11 @@ public class Prop {
                 } else if(modelType && p.getType().extendsType(otherP.getType())) {
                     System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
                     // nothing to do since p is the most specific one already (p = p);
+                } else if(!modelType && Objects.equals(p.getTypeName(), otherP.getTypeName())) {
+                    // types are identical. nothing to do
                 } else {
 
                     // we try to get type information from external types:
-
 
                     // TODO raise an error or resolve unrelated types somehow differently
                     throw new RuntimeException("ERROR! TODO improve error message...");
