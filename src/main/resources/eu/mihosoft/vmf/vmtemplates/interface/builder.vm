@@ -15,6 +15,13 @@
 #end## if type is no container or property is no containment type
 #end##end foreach property
 
+  /**
+   * Builds a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
+   * @return a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
+   */
+  public $type.typeName build();
+
+#if(!$type.immutable)
     /**
      * Defines whether to append collections rather than replacing them in the
      * {@link #[[#]]#applyFrom($type.typeName)} and {@link #[[#]]#applyTo($type.typeName)} methods.
@@ -24,12 +31,6 @@
     public Builder appendCollections(boolean value);
 
     /**
-     * Builds a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
-     * @return a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
-     */
-    public $type.typeName build();
-
-    /**
      * Applies all properties from the specified object to this builder.
      * @param o object to apply properties from
      * @return this builder
@@ -37,7 +38,6 @@
      */
     public Builder applyFrom($type.typeName o);
 
-#if(!$type.immutable)
     /**
      * Applies all properties from this builder to the specified object.
      * @param o object to apply properties to

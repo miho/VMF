@@ -28,11 +28,16 @@ public interface $type.typeName extends VObject$type.immutableImplementsString, 
 #parse("${VMF_TEMPLATE_PATH}interface/builder.vm")
 
   /**
-   * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
+   * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'. Since this model object is immutable
+   this method does not perform any conversion and returns this object in unmodified form.
    * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
   ${type.typeName} asReadOnly();
 
+  /**
+   * Returns a deep clone of this object.
+   * @return a deep clone of this object
+   */
   @Override
   $type.typeName clone() /*throws CloneNotSupportedException*/;
 

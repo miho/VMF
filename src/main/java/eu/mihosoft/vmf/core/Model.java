@@ -1,5 +1,6 @@
 package eu.mihosoft.vmf.core;
 
+import javax.swing.text.html.Option;
 import java.util.*;
 
 /**
@@ -170,6 +171,15 @@ public class Model {
 
     public Optional<ModelType> resolveType(String clazzName) {
         return Optional.ofNullable(types.get(clazzName));
+    }
+
+    public Optional<Class<?>> resolveExternalType(String fullClassName) {
+        // TODO introduce classloader for external types
+        try {
+            return Optional.of(getClass().getClassLoader().loadClass(fullClassName));
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        }
     }
 
     /**

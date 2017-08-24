@@ -54,7 +54,9 @@
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em>${prop.name}</em>' property.
+#if(!$type.immutable)
    * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+#end## if type is not immutable
    */
 #end ## if container / contained
-public $prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}();
+$prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}();

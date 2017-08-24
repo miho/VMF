@@ -485,12 +485,25 @@ public class Prop {
                     // nothing to do since p is the most specific one already (p = p);
                 } else if(!modelType && Objects.equals(p.getTypeName(), otherP.getTypeName())) {
                     // types are identical. nothing to do
-                } else {
+                } else if(!modelType){
 
                     // we try to get type information from external types:
+                    Optional<Class<?>> pType = p.getParent().getModel().resolveExternalType(p.getTypeName());
+                    Optional<Class<?>> otherPType = otherP.getParent().getModel().resolveExternalType(otherP.getTypeName());
 
-                    // TODO raise an error or resolve unrelated types somehow differently
-                    throw new RuntimeException("ERROR! TODO improve error message...");
+                    if(!pType.isPresent() || !otherPType.isPresent()) {
+                        if(!pType.isPresent()) {
+                            throw new RuntimeException("Cannot resolve external type '" + p.getTypeName() + "'");
+                        } else {
+                            throw new RuntimeException("Cannot resolve external type '" + otherP.getTypeName() + "'");
+                        }
+                    } else if (pType.get().isAssignableFrom(otherPType.get())) {
+                        System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
+                        p = otherP; // otherP is more specific than p
+                    } else if (otherPType.get().isAssignableFrom(pType.get())) {
+                        System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                        // nothing to do since p is the most specific one already
+                    }
                 }
             }
 

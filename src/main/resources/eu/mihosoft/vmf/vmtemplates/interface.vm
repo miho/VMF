@@ -68,6 +68,10 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
    */
   ${type.readOnlyInterface.typeName} asReadOnly();
 
+  /**
+   * Returns a deep clone of this object.
+   * @return a deep clone of this object
+   */
   @Override
   $type.typeName clone() /*throws CloneNotSupportedException*/;
 

@@ -86,10 +86,11 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
 
 #end ## for each
 
-  /**
-   * Returns a deep clone of this object.
-   * @return a deep clone of this object
-   */
+ /**
+  * Returns a deep clone of this object.
+  * @return a deep clone of this object
+  */
+  @Override
   public ${type.readOnlyInterface.typeName} clone();
 
   @Override
