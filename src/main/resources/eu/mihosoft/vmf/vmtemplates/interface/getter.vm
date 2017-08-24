@@ -3,12 +3,12 @@
 /**
  * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
  *
- * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+ * It is bidirectional and its opposite is '{@link ${prop.typeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
  *
  * <!-- vmf-begin-model-doc -->
  * <!-- vmf-end-model-doc -->
  *
- * @return the value of the '<em><b>Master</b></em>' container reference.
+ * @return the value of the '<em><b>${prop.name}</b></em>' container reference.
  * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
  */
 #elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
@@ -17,7 +17,7 @@
   /**
    * Returns the value of the '<em>${prop.name}</em>' containment list.
    *
-   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   * It is bidirectional and its opposite is '{@link ${prop.genericTypeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
    * <!-- vmf-end-model-doc -->
@@ -28,16 +28,25 @@
   /**
    * Returns the value of the '<em><b>${prop.name}</b></em>' containment reference.
    *
-   * It is bidirectional and its opposite is '{@link ${opposite.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
-   * @see  ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end ## if collection
-#else ## if container / contained
+#elseif(${prop.propType}=="COLLECTION") ## if container / contained
+  /**
+   * Returns the value of the '<em>${prop.name}</em>' property.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em>${prop.name}</em>' property.
+   */
+#else ## if collection
   /**
    * Returns the value of the '<em>${prop.name}</em>' property.
    *
@@ -48,4 +57,4 @@
    * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end ## if container / contained
-$prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}();
+public $prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}();
