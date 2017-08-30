@@ -32,7 +32,12 @@ public interface ResourceSet {
     //
     // thanks to Sam for designing this interface
     //
-    
+
+    /**
+     * Opens a resource in this resource set.
+     * @param url the URL to open.
+     * @return resource
+     */
     Resource open(String url);
 
 }

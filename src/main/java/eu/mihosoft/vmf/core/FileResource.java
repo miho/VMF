@@ -37,13 +37,17 @@ public class FileResource implements Resource {
     //
     // thanks to Sam for designing this interface
     //
-    final File file;
-    FileWriter fileWriter;
+    private final File file;
+    private FileWriter fileWriter;
 
-    public FileResource(File file) {
+    FileResource(File file) {
         this.file = file;
     }
 
+    /**
+     * Returns the file object associated with this resource set.
+     * @return file object
+     */
     public File getFile() {
         return this.file;
     }

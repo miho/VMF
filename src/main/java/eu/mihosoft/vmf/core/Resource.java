@@ -35,6 +35,12 @@ public interface Resource extends AutoCloseable {
     //
     // thanks to Sam for designing this interface
     //
+
+    /**
+     * Opens this resource.
+     * @return print writer for writing to this resource.
+     * @throws IOException if an I/O related problem prevents this operation
+     */
     PrintWriter open() throws IOException;
 
     @Override

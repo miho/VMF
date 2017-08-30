@@ -104,7 +104,7 @@ public class CodeGenerator {
 
     /**
      * Returns the full template path for the specified template name.
-     * @param templateName n<me of the template
+     * @param templateName name of the template
      * @return the full template path for the specified template name, e.g., {@code "mytemplate" } translates into {@code "${TEMPLATE_PATH}mytemplate.vm"}
      */
     static String resolveTemplatePath(String templateName) {
@@ -175,11 +175,6 @@ public class CodeGenerator {
             generateReadOnlyVMFModelListenerInterface(out, packageName, modelSwitchName, model);
         }
 
-//        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VObjectInternal")) {
-//            Writer out = res.open();
-//            generateVMFVObjectInternalInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
-//        }
-
         try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal")) {
             Writer out = res.open();
             generateVMFCloneableInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
@@ -242,14 +237,6 @@ public class CodeGenerator {
         return packageName;
     }
 
-    private void generateVMFModelWalker(Writer out, String packageName, Model m) throws IOException {
-        VelocityContext context = new VelocityContext();
-        VMFEngineProperties.installProperties(context);
-        context.put("packageName", packageName);
-        context.put("model", m);
-        mergeTemplate("vmf-model-walker-implementation", context, out);
-    }
-
     private void generateVMFModelSwitchInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
         VelocityContext context = new VelocityContext();
         VMFEngineProperties.installProperties(context);
@@ -294,13 +281,6 @@ public class CodeGenerator {
         context.put("modelSwitchName", modelSwitchName);
         mergeTemplate("vmf-model-switch-immutable-interface", context, out);
     }
-
-//    private void generateVMFVObjectInternalInterface(Writer out, String packageName) throws IOException {
-//        VelocityContext context = new VelocityContext();
-//        VMFEngineProperties.installProperties(context);
-//        context.put("packageName", packageName);
-//        mergeTemplate("vmf-vobject-internal", context, out);
-//    }
 
     private void generateVMFCloneableInterface(Writer out, String packageName) throws IOException {
         VelocityContext context = new VelocityContext();
@@ -385,24 +365,6 @@ public class CodeGenerator {
         VMFEngineProperties.installProperties(context);
         mergeTemplate("immutable-implementation", context, out);
     }
-
-//    public void generateFactory(Writer out, Model model) throws Exception {
-//        VelocityContext context = new VelocityContext();
-//        context.put("model", model);
-//        mergeTemplate("factory", context, out);
-//    }
-//
-//    public void generateVisitor(Writer out, Model model) throws Exception {
-//        VelocityContext context = new VelocityContext();
-//        context.put("model", model);
-//        mergeTemplate("visitor", context, out);
-//    }
-//
-//    public void generateCommands(Writer out, Model model) throws Exception {
-//        VelocityContext context = new VelocityContext();
-//        context.put("model", model);
-//        mergeTemplate("commands", context, out);
-//    }
 }
 
 class VMFResourceLoader extends ClasspathResourceLoader {

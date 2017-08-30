@@ -25,18 +25,26 @@ package eu.mihosoft.vmf.core;
 import java.io.File;
 
 /**
- * 
+ * A file resource set used for Java code generation.
  * @author Sam
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
-public final class FileResourceSet implements ResourceSet {
+public final class JavaFileResourceSet implements ResourceSet {
 
     //
     // thanks to Sam for designing this interface
     //
+
+    /**
+     * root folder
+     */
     final File rootSrcFolder;
 
-    public FileResourceSet(File rootSrcFolder) {
+    /**
+     * Creates a new file resource set.
+     * @param rootSrcFolder root folder of this resource set
+     */
+    public JavaFileResourceSet(File rootSrcFolder) {
         if (rootSrcFolder.exists() && !rootSrcFolder.isDirectory()) {
             throw new IllegalArgumentException("Root src path not a directory.");
         }
@@ -50,7 +58,7 @@ public final class FileResourceSet implements ResourceSet {
         return new FileResource(file);
     }
 
-    public File computeFileNameFromJavaFQN(String fqn) {
+    private File computeFileNameFromJavaFQN(String fqn) {
         String path = fqn.substring(0, fqn.lastIndexOf('.')).replace('.',
                 File.separatorChar);
         String javaFile = fqn.substring(fqn.lastIndexOf('.') + 1) + ".java";
