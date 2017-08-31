@@ -51,6 +51,8 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
 
 #parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
 
+#parse("${VMF_TEMPLATE_PATH}impl/declare-delegates.vm")
+
   // referenced by
   private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
   // references
@@ -91,6 +93,8 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
   }
 
 #parse("${VMF_TEMPLATE_PATH}impl/builder.vm")
+
+#parse("${VMF_TEMPLATE_PATH}impl/delegation-methods.vm")
 
   // --------------------------------------------------------------------
   // --- Utility methods
