@@ -24,6 +24,7 @@ package eu.mihosoft.vmf;
 
 import eu.mihosoft.vmf.core.CodeGenerator;
 import eu.mihosoft.vmf.core.JavaFileResourceSet;
+import eu.mihosoft.vmf.core.ResourceSet;
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner;
 
 import java.io.File;
@@ -51,6 +52,19 @@ public class VMF {
      */
     public static void generate(File outputDir, Class<?>... interfaces) throws IOException {
         new CodeGenerator().generate(new JavaFileResourceSet(outputDir),interfaces);
+    }
+
+    /**
+     * Generates code for the specified model definition.
+     *
+     * @param resourceSet target resource set
+     * @param interfaces model interfaces (all interfaces must be in the same package,
+     *                   package must end with '.vmfmodel')
+     * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the specified model is empty
+     */
+    public static void generate(ResourceSet resourceSet, Class<?>... interfaces) throws IOException {
+        new CodeGenerator().generate(resourceSet, interfaces);
     }
 
     /**
