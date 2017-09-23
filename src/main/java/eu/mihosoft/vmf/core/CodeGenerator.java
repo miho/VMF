@@ -152,25 +152,25 @@ public class CodeGenerator {
         String modelSwitchName = packageComponents[packageComponents.length-1];
 
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".SwitchFor"+modelSwitchName + "Model")) {
+        try (Resource res = set.open(packageName + ".SwitchFor"+modelSwitchName + "Model")) {
             Writer out = res.open();
             generateVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
         }
 
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".ReadOnlySwitchFor"+modelSwitchName + "Model")) {
+        try (Resource res = set.open(packageName + ".ReadOnlySwitchFor"+modelSwitchName + "Model")) {
             Writer out = res.open();
             generateReadOnlyVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
         }
 
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".ListenerFor"+modelSwitchName + "Model")) {
+        try (Resource res = set.open(packageName + ".ListenerFor"+modelSwitchName + "Model")) {
             Writer out = res.open();
             generateVMFModelListenerInterface(out, packageName, modelSwitchName, model);
         }
 
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + "." + ".ReadOnlyListenerFor"+modelSwitchName + "Model")) {
+        try (Resource res = set.open(packageName + ".ReadOnlyListenerFor"+modelSwitchName + "Model")) {
             Writer out = res.open();
             generateReadOnlyVMFModelListenerInterface(out, packageName, modelSwitchName, model);
         }
