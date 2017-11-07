@@ -33,7 +33,7 @@ import java.lang.annotation.Target;
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.METHOD)
+@Target({ElementType.METHOD, ElementType.TYPE})
 public @interface DelegateTo {
     String className();
 }

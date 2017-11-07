@@ -64,6 +64,8 @@ public class ModelType {
     private final int typeId;
 
     private final List<DelegationInfo> delegations = new ArrayList<>();
+    private final List<DelegationInfo> methodDelegations = new ArrayList<>();
+    private final List<DelegationInfo> constructorDelegations = new ArrayList<>();
 
     private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
@@ -145,12 +147,20 @@ public class ModelType {
 
             if(d!=null) {
                 delegations.add(d);
+                methodDelegations.add(d);
             } else {
                 throw new RuntimeException(
                         "Custom method '"
                                 +m.getDeclaringClass().getName()+"."+m.getName()
                                 +"(...)' does not define delegation class.");
             }
+        }
+
+        // constructor delegations
+        DelegationInfo cD = DelegationInfo.newInstance(model, clazz);
+        if(cD!=null) {
+            delegations.add(cD);
+            constructorDelegations.add(cD);
         }
     }
 
@@ -385,6 +395,14 @@ public class ModelType {
 
     public List<DelegationInfo> getDelegations() {
         return delegations;
+    }
+
+    public List<DelegationInfo> getMethodDelegations() {
+        return methodDelegations;
+    }
+
+    public List<DelegationInfo> getConstructorDelegations() {
+        return constructorDelegations;
     }
 
     /**

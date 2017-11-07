@@ -65,7 +65,7 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
   // --------------------------------------------------------------------
 
   public ${type.implementation.typeName}() {
-    // ...
+#parse("${VMF_TEMPLATE_PATH}impl/constructor-delegates.vm")
   }
 
   // --------------------------------------------------------------------

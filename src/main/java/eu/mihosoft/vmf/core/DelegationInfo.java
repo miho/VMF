@@ -22,11 +22,13 @@
  */
 package eu.mihosoft.vmf.core;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Created by miho on 21.03.2017.
@@ -44,7 +46,9 @@ public class DelegationInfo {
 
     private final String varName;
 
-    private DelegationInfo(String fullTypeName, String methodName, String returnType, List<String> paramTypes, List<String> paramNames) {
+    private final boolean constructor;
+
+    private DelegationInfo(String fullTypeName, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor) {
         this.fullTypeName = fullTypeName;
         this.methodName = methodName;
         this.returnType = returnType;
@@ -56,10 +60,12 @@ public class DelegationInfo {
         }
 
         varName = "_vmf_delegate"+delegationTypes.indexOf(fullTypeName);
+
+        this.constructor = constructor;
     }
 
-    public static DelegationInfo newInstance(String className, String methodName, String returnType, List<String> paramTypes, List<String> paramNames) {
-        return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames);
+    public static DelegationInfo newInstance(String className, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor) {
+        return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames, constructor);
     }
 
     public static DelegationInfo newInstance(Model model, Method m) {
@@ -81,7 +87,26 @@ public class DelegationInfo {
                 delegation.className(),
                 m.getName(),
                 TypeUtil.getReturnTypeAsString(model,m),
-                paramTypes, paramNames);
+                paramTypes, paramNames, false);
+    }
+
+    public static DelegationInfo newInstance(Model model, Class<?> clazz) {
+
+        DelegateTo delegation = clazz.getAnnotation(DelegateTo.class);
+
+        if(delegation==null) {
+            return null;
+        }
+
+        List<String> paramTypes = new ArrayList<>();
+        List<String> paramNames = new ArrayList<>();
+
+
+        return newInstance(
+                delegation.className(),
+                "on"+clazz.getSimpleName()+"Instantiated",
+                TypeUtil.getTypeAsString(model,clazz),
+                paramTypes, paramNames, true);
     }
 
     public List<String> getParamTypes() {
@@ -106,7 +131,7 @@ public class DelegationInfo {
 
 
     public String getMethodDeclaration() {
-        String method = "public " + getReturnType() + " " + getMethodName()+"(";
+        String method = "public " + getReturnType() + getMethodName()+"(";
 
         for(int i = 0; i < paramTypes.size();i++) {
             method += (i>0?", ":"") + paramTypes.get(i) + " " + paramNames.get(i);
@@ -121,7 +146,12 @@ public class DelegationInfo {
         return returnType.equals(void.class.getName());
     }
 
+    public boolean isConstructor() {
+        return constructor;
+    }
+
     public String getVarName() {
         return varName;
     }
+
 }

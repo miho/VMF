@@ -43,6 +43,8 @@ public class Implementation {
     private final List<Prop> propertiesForEquals = new ArrayList<>();
     private final List<String> imports = new ArrayList<>();
     private final List<DelegationInfo> delegations = new ArrayList<>();
+    private final List<DelegationInfo> methodDelegations = new ArrayList<>();
+    private final List<DelegationInfo> constructorDelegations = new ArrayList<>();
 
     private Implementation(ModelType type) {
         this.type = type;
@@ -66,10 +68,22 @@ public class Implementation {
         this.properties.clear();
         this.properties.addAll(distinctProperties);
 
+
+        // All delegations
         List<DelegationInfo> delegations = new ArrayList<>(type.getDelegations());
         delegations.addAll(computeImplementedDelegations(type));
-
         this.delegations.addAll(delegations.stream().distinct().collect(Collectors.toList()));
+
+        // Method delegations
+        List<DelegationInfo> methodDelegations = new ArrayList<>(type.getMethodDelegations());
+        methodDelegations.addAll(computeImplementedMethodDelegations(type));
+        this.methodDelegations.addAll(methodDelegations.stream().distinct().collect(Collectors.toList()));
+
+        // Constructor delegations
+        List<DelegationInfo> constructorDelegations = new ArrayList<>(type.getConstructorDelegations());
+        constructorDelegations.addAll(computeImplementedConstructorDelegations(type));
+        this.constructorDelegations.addAll(constructorDelegations.stream().distinct().collect(Collectors.toList()));
+
 
         Collections.sort(properties, (p1,p2)->p1.getName().compareTo(p2.getName()));
 
@@ -103,18 +117,46 @@ public class Implementation {
         return result;
     }
 
+    private static List<DelegationInfo> computeImplementedMethodDelegations(ModelType type) {
+        List<DelegationInfo> result = new ArrayList<>();
+        for(ModelType t: type.getImplementz()) {
+            result.addAll(t.getMethodDelegations());
+            result.addAll(computeImplementedMethodDelegations(t));
+        }
+
+        return result;
+    }
+
+    private static List<DelegationInfo> computeImplementedConstructorDelegations(ModelType type) {
+        List<DelegationInfo> result = new ArrayList<>();
+        for(ModelType t: type.getImplementz()) {
+            result.addAll(t.getConstructorDelegations());
+            result.addAll(computeImplementedConstructorDelegations(t));
+        }
+
+        return result;
+    }
+
     public List<DelegationInfo> getDelegations() {
         return delegations;
+    }
+
+    public List<DelegationInfo> getDelegationsOneForEachType() {
+        return delegations.stream().filter(distinctByKey(d->d.getFullTypeName())).collect(Collectors.toList());
+    }
+
+    public List<DelegationInfo> getMethodDelegations() {
+        return methodDelegations;
+    }
+
+    public List<DelegationInfo> getConstructorDelegations() {
+        return constructorDelegations;
     }
 
 
     private static <T> Predicate<T> distinctByKey(Function<? super T, ?> keyExtractor) {
         Map<Object,Boolean> seen = new ConcurrentHashMap<>();
         return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
-    }
-
-    public List<DelegationInfo> getDelegationsOneForEachType() {
-        return delegations.stream().filter(distinctByKey(d->d.getFullTypeName())).collect(Collectors.toList());
     }
 
 

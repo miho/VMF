@@ -58,7 +58,8 @@ public class Prop {
     // sync info
     private SyncInfo syncInfo;
 
-    //indicates whether this property is required (validation & constructors)
+    // indicates whether this property is required (validation & constructors)
+    // TODO 07.11.2017: actually use required (since we don't have no-default constructors, usage is probably limited to builders & validation)
     private boolean required;
 
     // indicates whether this property should be ignored for equals() code generation
