@@ -461,6 +461,7 @@ public class ModelType {
 
         if (primitiveToBoxedTypeNames.isEmpty()) {
             primitiveToBoxedTypeNames.put("int", Integer.class.getSimpleName());
+            primitiveToBoxedTypeNames.put("long", Integer.class.getSimpleName());
             primitiveToBoxedTypeNames.put("float", Float.class.getSimpleName());
             primitiveToBoxedTypeNames.put("bool", Boolean.class.getSimpleName());
             primitiveToBoxedTypeNames.put("char", Character.class.getSimpleName());
