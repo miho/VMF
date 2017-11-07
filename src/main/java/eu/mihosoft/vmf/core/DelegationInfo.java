@@ -131,7 +131,7 @@ public class DelegationInfo {
 
 
     public String getMethodDeclaration() {
-        String method = "public " + getReturnType() + getMethodName()+"(";
+        String method = "public " + getReturnType() + " " + getMethodName()+"(";
 
         for(int i = 0; i < paramTypes.size();i++) {
             method += (i>0?", ":"") + paramTypes.get(i) + " " + paramNames.get(i);
