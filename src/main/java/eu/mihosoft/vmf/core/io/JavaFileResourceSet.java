@@ -20,7 +20,7 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.vmf.core;
+package eu.mihosoft.vmf.core.io;
 
 import java.io.File;
 
@@ -38,7 +38,7 @@ public final class JavaFileResourceSet implements ResourceSet {
     /**
      * root folder
      */
-    final File rootSrcFolder;
+    private final File rootSrcFolder;
 
     /**
      * Creates a new file resource set.

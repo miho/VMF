@@ -20,30 +20,24 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.vmf.core;
-
-import java.io.IOException;
-import java.io.PrintWriter;
+package eu.mihosoft.vmf.core.io;
 
 
 /**
  * @author Sam
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
-public interface Resource extends AutoCloseable {
+public interface ResourceSet {
 
     //
     // thanks to Sam for designing this interface
     //
 
     /**
-     * Opens this resource.
-     * @return print writer for writing to this resource.
-     * @throws IOException if an I/O related problem prevents this operation
+     * Opens a resource in this resource set.
+     * @param url the URL to open.
+     * @return resource
      */
-    PrintWriter open() throws IOException;
-
-    @Override
-    void close() throws IOException;
+    Resource open(String url);
 
 }

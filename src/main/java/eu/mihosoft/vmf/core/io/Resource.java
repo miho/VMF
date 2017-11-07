@@ -20,30 +20,30 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.vmf.core;
+package eu.mihosoft.vmf.core.io;
+
+import java.io.IOException;
+import java.io.PrintWriter;
+
 
 /**
- * Created by miho on 25.01.2017.
- *
- * This class is for internal use inside Velocity templates only.
- *
- * @author Michael Hoffer <info@michaelhoffer.de>
+ * @author Sam
+ * @author Michael Hoffer (info@michaelhoffer.de)
  */
-@Deprecated
-public class StringUtil {
-    public static String padRight(String s, int n) {
-        return String.format("%1$-" + n + "s", s);
-    }
+public interface Resource extends AutoCloseable {
 
-    public static String padRight(int s, int n) {
-        return String.format("%1$-" + n + "s", s);
-    }
+    //
+    // thanks to Sam for designing this interface
+    //
 
-    public static String alignRight(String s, int n) {
-        return String.format("%" + n + "s", s);
-    }
+    /**
+     * Opens this resource.
+     * @return print writer for writing to this resource.
+     * @throws IOException if an I/O related problem prevents this operation
+     */
+    PrintWriter open() throws IOException;
 
-    public static String alignRight(int s, int n) {
-        return String.format("%" + n + "s", s);
-    }
+    @Override
+    void close() throws IOException;
+
 }

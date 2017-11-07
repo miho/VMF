@@ -23,8 +23,8 @@
 package eu.mihosoft.vmf;
 
 import eu.mihosoft.vmf.core.CodeGenerator;
-import eu.mihosoft.vmf.core.JavaFileResourceSet;
-import eu.mihosoft.vmf.core.ResourceSet;
+import eu.mihosoft.vmf.core.io.JavaFileResourceSet;
+import eu.mihosoft.vmf.core.io.ResourceSet;
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner;
 
 import java.io.File;
@@ -80,6 +80,21 @@ public class VMF {
     public static void generate(File outputDir, String packageName) throws IOException {
         Collection<Class<?>> interfaces = listClassesInPackage(
                 Thread.currentThread().getContextClassLoader(), packageName);
+        generate(outputDir,interfaces.toArray(new Class[interfaces.size()]));
+    }
+
+    /**
+     * Generates code for the specified model definition.
+     *
+     * @param outputDir output resource set for the generated code, e.g., '<em>main/java/src-gen</em>'
+     * @param classLoader the classloader that shall be used to locate the model interfaces in the specified package
+     * @param packageName package that contains the model interfaces
+     *                    (all interfaces must be in the same package, package must end with '.vmfmodel')
+     * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the specified model is empty
+     */
+    public static void generate(ResourceSet outputDir, ClassLoader classLoader, String packageName) throws IOException {
+        Collection<Class<?>> interfaces = listClassesInPackage(classLoader, packageName);
         generate(outputDir,interfaces.toArray(new Class[interfaces.size()]));
     }
 

@@ -20,24 +20,41 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.vmf.core;
+package eu.mihosoft.vmf.core.io;
 
+import java.io.File;
 
 /**
+ * A file resource set used for Java code generation.
  * @author Sam
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
-public interface ResourceSet {
+public final class FileResourceSet implements ResourceSet {
 
     //
     // thanks to Sam for designing this interface
     //
 
     /**
-     * Opens a resource in this resource set.
-     * @param url the URL to open.
-     * @return resource
+     * root folder
      */
-    Resource open(String url);
+    private final File rootSrcFolder;
+
+    /**
+     * Creates a new file resource set.
+     * @param rootSrcFolder root folder of this resource set
+     */
+    public FileResourceSet(File rootSrcFolder) {
+        if (rootSrcFolder.exists() && !rootSrcFolder.isDirectory()) {
+            throw new IllegalArgumentException("Root src path not a directory.");
+        }
+        this.rootSrcFolder = rootSrcFolder;
+        this.rootSrcFolder.mkdirs();
+    }
+
+    @Override
+    public Resource open(String url) {
+        return new FileResource(new File(rootSrcFolder, url));
+    }
 
 }

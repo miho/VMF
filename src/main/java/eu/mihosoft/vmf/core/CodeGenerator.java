@@ -23,6 +23,8 @@
 package eu.mihosoft.vmf.core;
 
 import eu.mihosoft.vmf.VMF;
+import eu.mihosoft.vmf.core.io.Resource;
+import eu.mihosoft.vmf.core.io.ResourceSet;
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.exception.ResourceNotFoundException;
