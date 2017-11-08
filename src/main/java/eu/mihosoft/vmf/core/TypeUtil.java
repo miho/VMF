@@ -213,9 +213,6 @@ public class TypeUtil {
     public static String computeFileNameFromJavaFQN(String fqn) {
         String path = fqn.substring(0, fqn.lastIndexOf('.')).replace('.','/');
         String javaFile = fqn.substring(fqn.lastIndexOf('.') + 1) + ".java";
-        File file = new File(path, javaFile);
-
-        System.out.println("NAME: " + path+"/"+javaFile);
 
         return path+"/"+javaFile;
     }
