@@ -147,7 +147,7 @@ public class Prop {
             packageName = "eu.mihosoft.vcollections";
 
             collectionType = CollectionType.LIST;
-            if (containedClazz.getPackage() == null) {
+            if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
                 genericPackageName = "";
             } else {
                 genericPackageName = m.

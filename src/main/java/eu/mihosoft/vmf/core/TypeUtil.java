@@ -199,13 +199,25 @@ public class TypeUtil {
     }
 
     public static String getPackageName(Class<?> cls) {
+
+        // why don't we use getPackage().getName()?
+        // here's why: https://github.com/square/javapoet/issues/295
+        // with inmemorycompiler getPackage() returns null even though
+        // the class name indicates that the class is actually inside a package, e.g., 'abc.D'
+
         String className = cls.getName();
+
+        System.out.println("ClassName: " + className);
 
         if(!className.contains(".")) return "";
 
         String simpleClassName = cls.getSimpleName();
 
+        System.out.println("SimpleClassName: " + simpleClassName);
+
         String pkgName = className.substring(0,className.length()-simpleClassName.length()-1);
+
+        System.out.println("PackageNameName: " + pkgName);
 
         return pkgName;
     }
