@@ -154,30 +154,30 @@ public class CodeGenerator {
         String modelSwitchName = packageComponents[packageComponents.length-1];
 
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + ".SwitchFor"+modelSwitchName + "Model")) {
+        try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + ".SwitchFor"+modelSwitchName + "Model"))) {
             Writer out = res.open();
             generateVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
         }
 
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + ".ReadOnlySwitchFor"+modelSwitchName + "Model")) {
+        try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + ".ReadOnlySwitchFor"+modelSwitchName + "Model"))) {
             Writer out = res.open();
             generateReadOnlyVMFModelSwitchInterface(out, packageName, modelSwitchName, model);
         }
 
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + ".ListenerFor"+modelSwitchName + "Model")) {
+        try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + ".ListenerFor"+modelSwitchName + "Model"))) {
             Writer out = res.open();
             generateVMFModelListenerInterface(out, packageName, modelSwitchName, model);
         }
 
         modelSwitchName =  modelSwitchName.substring(0, 1).toUpperCase() + modelSwitchName.substring(1);
-        try (Resource res = set.open(packageName + ".ReadOnlyListenerFor"+modelSwitchName + "Model")) {
+        try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + ".ReadOnlyListenerFor"+modelSwitchName + "Model"))) {
             Writer out = res.open();
             generateReadOnlyVMFModelListenerInterface(out, packageName, modelSwitchName, model);
         }
 
-        try (Resource res = set.open(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal")) {
+        try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal"))) {
             Writer out = res.open();
             generateVMFCloneableInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
         }
@@ -200,36 +200,36 @@ public class CodeGenerator {
             }
 
             if(t.isImmutable()) {
-                try (Resource res = set.open(t.getPackageName() + "." + t.getTypeName())) {
+                try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + t.getTypeName()))) {
                     Writer out = res.open();
                     generateImmutableTypeInterface(out, t);
                 }
-                try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                        + t.getImplementation().getTypeName())) {
+                try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                        + t.getImplementation().getTypeName()))) {
                     Writer out = res.open();
                     generateImmutableTypeImplementation(out, t);
                 }
             } else {
 
-                try (Resource res = set.open(t.getPackageName() + "." + t.getTypeName())) {
+                try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + t.getTypeName()))) {
                     Writer out = res.open();
                     generateTypeInterface(out, t);
                 }
 
-                try (Resource res = set.open(t.getPackageName() + "." + t.getReadOnlyInterface().getTypeName())) {
+                try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + t.getReadOnlyInterface().getTypeName()))) {
                     Writer out = res.open();
                     generateReadOnlyTypeInterface(out, t);
                 }
 
                 if(!t.isInterfaceOnly()) {
-                    try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                            + t.getImplementation().getTypeName())) {
+                    try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                            + t.getImplementation().getTypeName()))) {
                         Writer out = res.open();
                         generateTypeImplementation(out, t);
                     }
 
-                    try (Resource res = set.open(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                            + t.getReadOnlyImplementation().getTypeName())) {
+                    try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                            + t.getReadOnlyImplementation().getTypeName()))) {
                         Writer out = res.open();
                         generateReadOnlyTypeImplementation(out, t);
                     }

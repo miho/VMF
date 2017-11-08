@@ -22,6 +22,7 @@
  */
 package eu.mihosoft.vmf.core;
 
+import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.util.Collection;
@@ -207,5 +208,15 @@ public class TypeUtil {
         String pkgName = className.substring(0,className.length()-simpleClassName.length()-1);
 
         return pkgName;
+    }
+
+    public static String computeFileNameFromJavaFQN(String fqn) {
+        String path = fqn.substring(0, fqn.lastIndexOf('.')).replace('.','/');
+        String javaFile = fqn.substring(fqn.lastIndexOf('.') + 1) + ".java";
+        File file = new File(path, javaFile);
+
+        System.out.println("NAME: " + path+"/"+javaFile);
+
+        return path+"/"+javaFile;
     }
 }
