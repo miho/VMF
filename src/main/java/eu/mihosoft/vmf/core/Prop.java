@@ -122,12 +122,11 @@ public class Prop {
                         "Currently only 'java.util.List<?>' is supported as Collection type.");
             } else {
                 collectionType = CollectionType.LIST;
-                if (containedClazz.getPackage() == null) {
+                if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
                     genericPackageName = "";
                 } else {
                     genericPackageName = m.
-                            convertModelPackageToDestination(
-                                    containedClazz.getPackage().getName());
+                            convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
                 }
 
                 genericTypeName = containedClazz.getSimpleName();
@@ -152,7 +151,7 @@ public class Prop {
                 genericPackageName = "";
             } else {
                 genericPackageName = m.
-                        convertModelPackageToDestination(containedClazz.getPackage().getName());
+                        convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
             }
 
 //            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
@@ -168,7 +167,7 @@ public class Prop {
             }
 
             this.packageName = getParent().getModel().
-                    convertModelPackageToDestination(propClass.getPackage().getName());
+                    convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
         }
 
         getterPrefix = computeGetterPrefix(getterMethod);

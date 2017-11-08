@@ -23,6 +23,7 @@
 package eu.mihosoft.vmf;
 
 import eu.mihosoft.vmf.core.CodeGenerator;
+import eu.mihosoft.vmf.core.TypeUtil;
 import eu.mihosoft.vmf.core.io.JavaFileResourceSet;
 import eu.mihosoft.vmf.core.io.ResourceSet;
 import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner;
@@ -134,7 +135,7 @@ public class VMF {
                     //
                     // Other classes originating from other packages are not removed since we generate an error message
                     // in this case to prevent illegal code generation.
-                    return Objects.equals(cls.getPackage().getName(),packageName)||!cls.isAnnotation();
+                    return Objects.equals(TypeUtil.getPackageName(cls),packageName)||!cls.isAnnotation();
                 }).
                 collect(Collectors.toList());
     }

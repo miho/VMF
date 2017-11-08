@@ -327,7 +327,7 @@ public class ModelType {
         for (Class<?> ifs : clazz.getInterfaces()) {
 
             String implClsName = model.convertModelPackageToDestination(
-                    ifs.getPackage().getName()) + "."
+                    TypeUtil.getPackageName(ifs)) + "."
                     + VMFEngineProperties.VMF_IMPL_PKG_EXT + "." + ifs.getSimpleName()
                     + VMFEngineProperties.VMF_IMPL_CLASS_EXT;
 

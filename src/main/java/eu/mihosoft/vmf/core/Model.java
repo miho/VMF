@@ -47,7 +47,7 @@ public class Model {
         }
 
         this.interfaces = interfaces;
-        String modelPkgName = interfaces[0].getPackage().getName();
+        String modelPkgName = TypeUtil.getPackageName(interfaces[0]);
 
         if (!modelPkgName.endsWith(".vmfmodel")) {
             throw new IllegalArgumentException(
@@ -68,7 +68,7 @@ public class Model {
             }
             initType(clzz, typeId);
             typeId += 2 /*type stride (number of types of types, i.e., type categories such as read-only and default)*/;
-            packages.add(clzz.getPackage().getName());
+            packages.add(TypeUtil.getPackageName(clzz));
 
         }
         if (packages.size() > 1) {
@@ -274,11 +274,7 @@ public class Model {
     }
 
     String convertModelTypeToDestination(Class<?> srcType) {
-        String srcPackage = "";
-
-        if (srcType.getPackage() != null) {
-            srcPackage = srcType.getPackage().getName();
-        }
+        String srcPackage =  TypeUtil.getPackageName(srcType);
 
         if (Objects.equals(getPackageName() + ".vmfmodel", srcPackage)) {
             return getPackageName() + "." + srcType.getSimpleName();

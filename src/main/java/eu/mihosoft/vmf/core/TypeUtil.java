@@ -66,7 +66,7 @@ public class TypeUtil {
         } else {
             typeName = cls.getSimpleName();
             packageName = model.
-                    convertModelPackageToDestination(cls.getPackage().getName());
+                    convertModelPackageToDestination(TypeUtil.getPackageName(cls));
         }
 
         if (!packageName.isEmpty()) {
@@ -120,13 +120,10 @@ public class TypeUtil {
                 throw new IllegalArgumentException(
                         "Currently only 'java.util.List<?>' is supported as Collection type.");
             } else {
-                if (containedClazz.getPackage() == null) {
-                    genericPackageName = "";
-                } else {
-                    genericPackageName = model.
+
+                genericPackageName = model.
                             convertModelPackageToDestination(
-                                    containedClazz.getPackage().getName());
-                }
+                                    TypeUtil.getPackageName(containedClazz));
 
                 genericTypeName = containedClazz.getSimpleName();
             }
@@ -144,12 +141,8 @@ public class TypeUtil {
 
             packageName = "eu.mihosoft.vcollections";
 
-            if (containedClazz.getPackage() == null) {
-                genericPackageName = "";
-            } else {
                 genericPackageName = model.
-                        convertModelPackageToDestination(containedClazz.getPackage().getName());
-            }
+                        convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
 
             genericTypeName = containedClazz.getSimpleName();
         } else if (m.getGenericReturnType() != null) {
@@ -174,29 +167,27 @@ public class TypeUtil {
                 typeName = propClass.getSimpleName();
 
                 packageName = model.
-                        convertModelPackageToDestination(propClass.getPackage().getName());
+                        convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
             } else {
 
-                if (containedClazz.getPackage() == null) {
-                    genericPackageName = "";
-                } else {
-                    genericPackageName = model.
+
+                genericPackageName = model.
                             convertModelPackageToDestination(
-                                    containedClazz.getPackage().getName());
-                }
+                                    TypeUtil.getPackageName(containedClazz));
+
 
                 genericTypeName = containedClazz.getSimpleName();
 
                 typeName = m.getReturnType().getSimpleName() + "<" + model.
                         convertModelTypeToDestination(containedClazz) + ">";
-                packageName = model.convertModelPackageToDestination(m.getReturnType().getPackage().getName());
+                packageName = model.convertModelPackageToDestination(TypeUtil.getPackageName(m.getReturnType()));
             }
 
         } else {
             typeName = propClass.getSimpleName();
 
             packageName = model.
-                    convertModelPackageToDestination(propClass.getPackage().getName());
+                    convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
         }
 
         if (!packageName.isEmpty()) {
@@ -204,5 +195,17 @@ public class TypeUtil {
         } else {
             return typeName;
         }
+    }
+
+    public static String getPackageName(Class<?> cls) {
+        String className = cls.getName();
+
+        if(!className.contains(".")) return "";
+
+        String simpleClassName = cls.getSimpleName();
+
+        String pkgName = className.substring(0,className.length()-simpleClassName.length()-1);
+
+        return pkgName;
     }
 }
