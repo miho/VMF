@@ -207,17 +207,11 @@ public class TypeUtil {
 
         String className = cls.getName();
 
-        System.out.println("ClassName: " + className);
-
         if(!className.contains(".")) return "";
 
         String simpleClassName = cls.getSimpleName();
 
-        System.out.println("SimpleClassName: " + simpleClassName);
-
         String pkgName = className.substring(0,className.length()-simpleClassName.length()-1);
-
-        System.out.println("PackageNameName: " + pkgName);
 
         return pkgName;
     }
