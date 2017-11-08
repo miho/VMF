@@ -55,6 +55,12 @@ public class FileResource implements Resource {
     @Override
     public PrintWriter open() throws IOException {
 
+        File folder = file.getParentFile();
+
+        if (folder != null && !folder.exists() && !folder.mkdirs()) {
+           throw new RuntimeException("Failed to create folder " + folder.getPath());
+        }
+
         return new PrintWriter(fileWriter = new FileWriter(file));
     }
 
