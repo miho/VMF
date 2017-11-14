@@ -198,6 +198,63 @@ public class TypeUtil {
         }
     }
 
+
+    /**
+     * Returns the short class name from the specified full class name, i.e.,
+     * class name without package/classpath. Class names specified using dot
+     * separation and slash separation are supported. <p>Example:</p>
+     * <pre>
+     * Short name: ClassOne
+     * Full name : a.b.c.ClassOne
+     * </pre>
+     *
+     * @param name full class name
+     * @return the short class name from the specified full class name using dot notation
+     */
+    public static String getShortNameFromFullClassName(String name) {
+        name = name.replace('/', '.');
+
+        String[] path = name.split("\\.");
+
+        if (path.length > 0) {
+            return path[path.length - 1];
+        }
+
+        return name;
+    }
+
+    /**
+     * Returns the package name from the specified full class name using slash
+     * notation. Class names specified using dot
+     * separation and slash separation are supported. <p>Example:</p>
+     * <pre>
+     * Full name : a.b.c.ClassOne
+     * Pkg  name : a.b.c
+     * </pre>
+     *
+     * @param name full class name
+     * @return the package name from the specified full class name using dot
+     * notation
+     */
+    public static String getPackageNameFromFullClassName(String name) {
+        name = name.replace('/', '.');
+
+        String[] path = name.split("\\.");
+
+        String result = "";
+
+        if (path.length > 0) {
+            for (int i = 0; i < path.length - 1; i++) {
+                if (i > 0) {
+                    result += ".";
+                }
+                result += path[i];
+            }
+        }
+
+        return result;
+    }
+
     public static String getPackageName(Class<?> cls) {
 
         // why don't we use getPackage().getName()?
