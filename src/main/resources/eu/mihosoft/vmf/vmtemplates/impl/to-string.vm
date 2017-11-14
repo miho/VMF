@@ -40,7 +40,7 @@
           }
           entry = true;
         }
-        return "{\"@Type\":\"$type.typeName\"" + 
+        return "{\"@type\":\"$type.typeName\"" +
 #foreach ($prop in $type.implementation.properties)
 #if ($prop.containmentInfo.containmentType != "CONTAINER" )
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
