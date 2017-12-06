@@ -22,7 +22,6 @@
  */
 package eu.mihosoft.vmf.core;
 
-import javax.swing.text.html.Option;
 import java.util.*;
 
 /**

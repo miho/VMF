@@ -48,11 +48,11 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
 
 #end## for each
 
+#parse("${VMF_TEMPLATE_PATH}interface/delegation-methods.vm")
+
 #if(!$type.interfaceOnly)
 
 #parse("${VMF_TEMPLATE_PATH}interface/builder.vm")
-
-#parse("${VMF_TEMPLATE_PATH}interface/delegation-methods.vm")
 
   /**
    * Creates a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
