@@ -34,7 +34,7 @@ import $import;
 // interface
 
 /**
- * A representation of the model object {@code $type.fullTypeName}.
+ *#if($type.interfaceOnly) An interface-only#else A#end representation of the model object {@code $type.fullTypeName}.
  *
  * <!-- vmf-begin-model-doc -->
  * <!-- vmf-end-model-doc -->
