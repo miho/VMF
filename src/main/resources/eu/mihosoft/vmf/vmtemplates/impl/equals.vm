@@ -54,16 +54,32 @@
       }
 #end## if type is not immutable
 
+      // -- try our interface/implementation --
+
       // perform the actual comparison for each property
-      if (o instanceof $type.fullTypeName) {
+      if (o instanceof ${type.implementation.typeName}) {
         $type.implementation.typeName other = ($type.implementation.typeName) o;
         return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
           _vmf_equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
 
-#end ## for-each property
+#end## for-each property
       }
-      else return false;
+
+      // -- try every implementation that implements our interface --
+#foreach ($t in $type.getModel().getAllTypesThatImplement($type))
+
+      // perform the actual comparison for each property
+      if (o instanceof ${t.implementation.typeName}) {
+        $t.implementation.typeName other = ($t.implementation.typeName) o;
+        return #if($t.implementation.propertiesForEquals.isEmpty())true;#end
+#foreach ($prop in $type.implementation.propertiesForEquals)
+          _vmf_equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
+
+#end## for-each property
+      }
+#end## for-each potential implementation
+      return false;
     } finally {
       if (entry) {
           _vmf_getThreadLocalEquals().get().clear();

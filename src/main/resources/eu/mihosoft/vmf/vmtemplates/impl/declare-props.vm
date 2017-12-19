@@ -21,5 +21,5 @@
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
 #foreach( $prop in ${type.implementation.properties})
-  private $prop.typeName $prop.name;
+  /*package private*/ $prop.typeName $prop.name;
 #end

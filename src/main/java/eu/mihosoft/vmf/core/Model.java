@@ -23,6 +23,7 @@
 package eu.mihosoft.vmf.core;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 
@@ -280,5 +281,14 @@ public class Model {
         } else {
             return srcType.getName();
         }
+    }
+
+    /**
+     * Returns all types that implement the specified type.
+     * @param mT type
+     * @return all types that implement the specified type
+     */
+    public List<ModelType> getAllTypesThatImplement(ModelType mT) {
+        return getTypes().stream().filter(t->t.getImplementz().contains(mT)).distinct().collect(Collectors.toList());
     }
 }
