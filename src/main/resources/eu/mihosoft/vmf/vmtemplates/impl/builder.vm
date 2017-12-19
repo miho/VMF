@@ -70,6 +70,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #if($type.immutable || $prop.propType != "COLLECTION")
     result.${prop.name} = ${prop.name};
 #if($prop.type)
+    // PROP: $prop.name
     #set($objectToAddReferenceOnValue="result")
     #set($referenceToAddValue = "result."+${prop.name})
     #set($objectToRemoveReferenceOnValue = false)
@@ -78,6 +79,11 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
 #end## if property is model-type
 #end## if type is immutable or property is no collection
+#if($prop.propType == "COLLECTION")
+    if(${prop.name} !=null) {
+      result.get${prop.nameWithUpperCase}().addAll(${prop.name});
+    }
+#end
 #end## foreach property
     return result;
   }
