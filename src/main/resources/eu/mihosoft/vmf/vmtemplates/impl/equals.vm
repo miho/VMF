@@ -79,6 +79,8 @@
 #end## for-each property
       }
 #end## for-each potential implementation
+
+      // no implementation matched. we end the comparison.
       return false;
     } finally {
       if (entry) {
