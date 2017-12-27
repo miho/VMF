@@ -57,4 +57,8 @@ public final class FileResourceSet implements ResourceSet {
         return new FileResource(new File(rootSrcFolder, url));
     }
 
+
+    public File getRootSrcFolder() {
+        return rootSrcFolder;
+    }
 }
