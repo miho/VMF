@@ -154,7 +154,7 @@
    * compute the hash.
    *
    * This class can be used in conjunction with a regular HashMap to get
-   * similar results to a IdentityHashMap, except that in this case identity
+   * similar results to an IdentityHashMap, except that in this case identity
    * pairs can be used. And we don't have to use a map implementation that is
    * deliberately broken by design.
    */
