@@ -175,11 +175,6 @@ public class Prop {
         required = getterMethod.getAnnotation(Required.class) != null;
         ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
 
-        if("block".equals(name)) {
-            System.out.println("here:" + getterMethod.getAnnotation(GetterOnly.class));
-            System.out.println(getterMethod.getDeclaringClass().getName());
-        }
-
         getterOnly = getterMethod.getAnnotation(GetterOnly.class) != null;
     }
 
