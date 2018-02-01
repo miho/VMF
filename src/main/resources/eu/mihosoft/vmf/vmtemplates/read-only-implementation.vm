@@ -201,6 +201,18 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
           public java.util.stream.Stream<VObject> stream(VIterator.IterationStrategy strategy) {
             return VIterator.of(${type.readOnlyImplementation.typeName}.this, strategy).asStream();
           }
+          public <T extends VObject> java.util.stream.Stream<T> stream(Class<T> type) {
+            return stream().filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+          }
+          public <T extends VObject> java.util.stream.Stream<T> stream(Class<T> type, VIterator.IterationStrategy strategy) {
+            return stream(strategy).filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+          }
+          public VList<VObject> referencedBy() {
+            return _vmf_referencedBy().asUnmodifiable();
+          }
+          public VList<VObject> references() {
+            return _vmf_references().asUnmodifiable();
+          }
 
           @Override
           public ${type.readOnlyInterface.typeName} deepCopy() {
@@ -251,7 +263,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   // --- Reference methods
   // --------------------------------------------------------------------
 
-  public java.util.List<VObject> _vmf_referencedBy() { return  ((VObjectInternalModifiable)this.mutableObject)._vmf_referencedBy();}
+  public VList<VObject> _vmf_referencedBy() { return  ((VObjectInternalModifiable)this.mutableObject)._vmf_referencedBy();}
 
-  public java.util.List<VObject> _vmf_references() { return  ((VObjectInternalModifiable)this.mutableObject)._vmf_references();}
+  public VList<VObject> _vmf_references() { return  ((VObjectInternalModifiable)this.mutableObject)._vmf_references();}
 }

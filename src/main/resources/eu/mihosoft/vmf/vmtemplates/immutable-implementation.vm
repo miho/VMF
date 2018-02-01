@@ -54,9 +54,9 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
 #parse("${VMF_TEMPLATE_PATH}impl/declare-delegates.vm")
 
   // referenced by
-  private final java.util.List<VObject> referencedBy = new java.util.ArrayList<>();
+  private final VList<VObject> referencedBy = VList.newInstance(new java.util.ArrayList<>());
   // references
-  private final java.util.List<VObject> references = new java.util.ArrayList<>();
+  private final VList<VObject> references = VList.newInstance(new java.util.ArrayList<>());
 
   // --------------------------------------------------------------------
   // --- private constructor
@@ -154,6 +154,18 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
             public java.util.stream.Stream<VObject> stream(VIterator.IterationStrategy strategy) {
               return VIterator.of(${type.implementation.typeName}.this, strategy).asStream();
             }
+            public <T extends VObject> java.util.stream.Stream<T> stream(Class<T> type) {
+              return stream().filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+            }
+            public <T extends VObject> java.util.stream.Stream<T> stream(Class<T> type, VIterator.IterationStrategy strategy) {
+              return stream(strategy).filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+            }
+            public VList<VObject> referencedBy() {
+              return _vmf_referencedBy().asUnmodifiable();
+            }
+            public VList<VObject> references() {
+              return _vmf_references().asUnmodifiable();
+            }
 
             @Override
             public ${type.typeName} deepCopy() {
@@ -217,8 +229,8 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
   // --------------------------------------------------------------------
 
   @Override
-  public java.util.List<VObject> _vmf_referencedBy() { return this.referencedBy;}
+  public VList<VObject> _vmf_referencedBy() { return this.referencedBy;}
   @Override
-  public java.util.List<VObject> _vmf_references() { return this.references;}
+  public VList<VObject> _vmf_references() { return this.references;}
 
 }
