@@ -157,6 +157,9 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
             public java.util.stream.Stream<VObject> stream(VIterator.IterationStrategy strategy) {
               return VIterator.of(${type.implementation.typeName}.this, strategy).asStream();
             }
+            public <T extends VObject> java.util.stream.Stream<T> stream(VObject obj, Class<T> type) {
+              return obj.vmf().content().stream().filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+            }
 
             @Override
             public ${type.typeName} deepCopy() {
