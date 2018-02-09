@@ -188,14 +188,14 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return new VMF() {
       public Content content() {
         return new Content() {
-          public java.util.Iterator<VObject> iterator() {
+          public VIterator iterator() {
             return VIterator.of(${type.readOnlyImplementation.typeName}.this);
           }
           public java.util.stream.Stream<VObject> stream() {
             return VIterator.of(${type.readOnlyImplementation.typeName}.this).asStream();
           }
 
-          public java.util.Iterator<VObject> iterator(VIterator.IterationStrategy strategy) {
+          public VIterator iterator(VIterator.IterationStrategy strategy) {
             return VIterator.of(${type.readOnlyImplementation.typeName}.this, strategy);
           }
           public java.util.stream.Stream<VObject> stream(VIterator.IterationStrategy strategy) {

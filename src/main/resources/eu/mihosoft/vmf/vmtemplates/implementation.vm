@@ -144,14 +144,14 @@ class $type.implementation.typeName implements ${type.typeName}, VObjectInternal
       vmf = new VMF() {
         public Content content() {
           return new Content() {
-            public java.util.Iterator<VObject> iterator() {
+            public VIterator iterator() {
               return VIterator.of(${type.implementation.typeName}.this);
             }
             public java.util.stream.Stream<VObject> stream() {
               return VIterator.of(${type.implementation.typeName}.this).asStream();
             }
 
-            public java.util.Iterator<VObject> iterator(VIterator.IterationStrategy strategy) {
+            public VIterator iterator(VIterator.IterationStrategy strategy) {
               return VIterator.of(${type.implementation.typeName}.this, strategy);
             }
             public java.util.stream.Stream<VObject> stream(VIterator.IterationStrategy strategy) {
