@@ -53,7 +53,6 @@ public class Implementation {
         this.typeName = type.getTypeName()+VMFEngineProperties.VMF_IMPL_CLASS_EXT;
 
         this.properties.addAll(type.getProperties());
-
     }
 
     void initPropertiesImportsAndDelegates() {
@@ -64,10 +63,9 @@ public class Implementation {
         this.properties.addAll(implProperties.stream().filter(p->!properties.contains(p)).
                 distinct().collect(Collectors.toList()));
 
-        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties);
+        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
         this.properties.clear();
         this.properties.addAll(distinctProperties);
-
 
         // All delegations
         List<DelegationInfo> delegations = new ArrayList<>(type.getDelegations());

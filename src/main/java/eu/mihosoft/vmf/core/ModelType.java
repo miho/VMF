@@ -118,7 +118,7 @@ public class ModelType {
             properties.add(p);
         }
 
-        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties);
+        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
         this.properties.clear();
         this.properties.addAll(distinctProperties);
 

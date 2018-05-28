@@ -59,6 +59,7 @@ public class Model {
         this.packageName = modelPkgName.substring(
                 0, modelPkgName.length() - ".vmfmodel".length());
 
+        // PASS 0
         Set<String> packages = new HashSet<String>();
         int typeId = 0;
         for (Class<?> clzz : interfaces) {

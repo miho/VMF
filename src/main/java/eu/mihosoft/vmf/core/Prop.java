@@ -469,7 +469,7 @@ public class Prop {
         return getterPrefix;
     }
 
-    static List<Prop> filterDuplicateProps(List<Prop> properties) {
+    static List<Prop> filterDuplicateProps(List<Prop> properties, boolean throwTypeNotResolvable) {
         List<Prop> result = new ArrayList(properties);
         List<String> distinctNames = result.stream().
                 map(p->p.getName()).distinct().collect(Collectors.toList());
@@ -502,7 +502,7 @@ public class Prop {
                     // nothing to do since p is the most specific one already (p = p);
                 } else if(!modelType && Objects.equals(p.getTypeName(), otherP.getTypeName())) {
                     // types are identical. nothing to do
-                } else if(!modelType){
+                } else if(!modelType) {
 
                     // we try to get type information from external types:
                     Optional<Class<?>> pType = p.getParent().getModel().resolveExternalType(p.getTypeName());
@@ -510,9 +510,21 @@ public class Prop {
 
                     if(!pType.isPresent() || !otherPType.isPresent()) {
                         if(!pType.isPresent()) {
-                            throw new RuntimeException("Cannot resolve external type '" + p.getTypeName() + "'");
+                            String msg = "Cannot resolve external type '" + p.getTypeName() + "'";
+                            System.err.println("TODO [28.05.2018]: " + msg);
+                            System.err.println("TODO [28.05.2018]: could be that the types are not yet initialized.");
+                            System.err.println("TODO [28.05.2018]: -> see PASS 0 & 4 in Model.java");
+                            if(throwTypeNotResolvable) {
+                                throw new RuntimeException(msg);
+                            }
                         } else {
-                            throw new RuntimeException("Cannot resolve external type '" + otherP.getTypeName() + "'");
+                            String msg = "Cannot resolve external type '" + otherP.getTypeName() + "'";
+                            System.err.println("TODO [28.05.2018]: " + msg);
+                            System.err.println("TODO [28.05.2018]: could be that the types are not yet initialized.");
+                            System.err.println("TODO [28.05.2018]: -> see PASS 0 & 4 in Model.java");
+                            if(throwTypeNotResolvable) {
+                                throw new RuntimeException(msg);
+                            }
                         }
                     } else if (pType.get().isAssignableFrom(otherPType.get())) {
                         System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
