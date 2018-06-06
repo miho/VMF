@@ -82,70 +82,63 @@ public interface $type.typeName extends VObject$type.implementsString, Cloneable
 }
 
 #if(!$type.interfaceOnly)
+/*
+ *  Creates instances of type {@code${type.implementation.packageName}.${type.implementation.typeName}}. Method handles
+ *  and class objects are lazily initialized and cached since repetitive and high frequent usage is likely.
+ *
+ *  This class is used to gain efficient avvess to private classes from the impl package.
+ */
 class __VMF__${type.typeName}_Creator {
 
     static Class<?> cls;
     static java.lang.reflect.Constructor constructor;
+    static java.lang.invoke.MethodHandles.Lookup lookup;
+    static java.lang.invoke.MethodHandle constructorMH;
 
     static ${type.typeName} newInstance() {
         try {
+
             if(cls==null) {
                 cls = Class.forName("${type.implementation.packageName}.${type.implementation.typeName}");
-            }
-            if(constructor==null) {
+
+                if(lookup==null) { lookup = java.lang.invoke.MethodHandles.lookup(); }
+
                 constructor = cls.getConstructor();
                 constructor.setAccessible(true);
-            }
-            return (${type.typeName}) constructor.newInstance();
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }  catch (NoSuchMethodException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (SecurityException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalArgumentException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (java.lang.reflect.InvocationTargetException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
 
-        return null;
+                constructorMH = lookup.unreflectConstructor(constructor);
+            }
+
+            return (${type.typeName}) constructorMH.invoke();
+
+        } catch (Throwable tr) {
+            throw new RuntimeException("Cannot instantiate \"${type.implementation.packageName}.${type.implementation.typeName}\"", tr);
+        }
     }
 
     static Class<?> builderCls;
     static java.lang.reflect.Constructor builderConstructor;
+    static java.lang.invoke.MethodHandle builderConstructorMH;
 
     static ${type.typeName}.Builder newBuilderInstance() {
         try {#set ( $dollar_sign = "$")
+
             if(builderCls==null) {
                 builderCls = Class.forName("${type.implementation.packageName}.${type.implementation.typeName}${dollar_sign}Builder${VMF_IMPL_CLASS_EXT}");
-            }
-            if(builderConstructor==null) {
+
+                if(lookup==null) { lookup = java.lang.invoke.MethodHandles.lookup(); }
+
                 builderConstructor = builderCls.getConstructor();
                 builderConstructor.setAccessible(true);
-            }
-            return (${type.typeName}.Builder) builderConstructor.newInstance();
-        } catch (ClassNotFoundException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (InstantiationException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }  catch (NoSuchMethodException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (SecurityException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (IllegalArgumentException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        } catch (java.lang.reflect.InvocationTargetException ex) {
-            java.util.logging.Logger.getLogger(${type.typeName}.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
 
-        return null;
+                builderConstructorMH = lookup.unreflectConstructor(builderConstructor);
+            }
+
+            return (${type.typeName}.Builder) builderConstructorMH.invoke();
+
+        } catch (Throwable tr) {
+            throw new RuntimeException("Cannot instantiate \"${type.implementation.packageName}.${type.implementation.typeName}\"", tr);
+        }
     }
 }
 
