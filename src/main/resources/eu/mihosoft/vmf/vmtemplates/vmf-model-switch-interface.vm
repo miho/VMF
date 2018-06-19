@@ -23,16 +23,18 @@
 package ${packageName};
 
 // vmf imports
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 
 
 public interface SwitchFor${modelSwitchName}Model<T> {
 
   @SuppressWarnings("deprecation")
-  default T doSwitch(VObject o) {
+  default T doSwitch(${VMFPKG}.VObject o) {
     T result = null;
-    switch(((VObjectInternal)o)._vmf_getTypeId()) {
+    switch(((${VMFPKG_INT}.VObjectInternal)o)._vmf_getTypeId()) {
 #foreach($type in $model.types)
       #set($modifiableIdx = $foreach.index*2 + 0)
       #set($readOnlyIdx = $foreach.index*2 + 1)
@@ -51,7 +53,7 @@ public interface SwitchFor${modelSwitchName}Model<T> {
    * Default value that will be return if the matching case method returns {@code null}.
    * @return default value
    */
-  default T defaultValue(VObject o) {
+  default T defaultValue(${VMFPKG}.VObject o) {
     return null;
   }
 

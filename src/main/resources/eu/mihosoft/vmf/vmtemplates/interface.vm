@@ -23,7 +23,9 @@
 package ${type.packageName};
 
 // vmf imports
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 import ${VCOLL_PKG}.*;
 
 // property types imports
@@ -40,7 +42,7 @@ import $import;
  * <!-- vmf-end-model-doc -->
  *
  */
-public interface $type.typeName extends VObject$type.implementsString, Cloneable, Mutable {
+public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString, Cloneable, ${VMFPKG}.Mutable {
 #foreach( $prop in ${type.interface.properties} )
 
 #parse("${VMF_TEMPLATE_PATH}interface/getter.vm")

@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 
 /**
  * Created by miho on 06.01.2017.
- * 
+ *
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 public class Prop {
@@ -48,6 +48,9 @@ public class Prop {
     // model types, full typename with package for external types that don't belong to
     // the package
     private String typeName;
+
+    // type name without package, e.g. 'MyType' instead of 'mypackage.MyType'
+    private String simpleTypeName;
 
     // parent type, i.e., property owner
     private final ModelType parent;
@@ -77,6 +80,8 @@ public class Prop {
     private CollectionType collectionType;
     private boolean getterOnly;
 
+    private String defaultValueAsString = "null";
+
     private int propId;
 
     private Prop(ModelType parent, Method getterMethod) {
@@ -94,6 +99,7 @@ public class Prop {
         if (propClass.isPrimitive()) {
             propType = PropType.PRIMITIVE;
             typeName = propClass.getSimpleName();
+            simpleTypeName = propClass.getSimpleName();
             packageName = "";
 
         } else if (Collection.class.isAssignableFrom(propClass)) {
@@ -102,7 +108,7 @@ public class Prop {
             ParameterizedType retType = null;
 
             if (getterMethod.getGenericReturnType() != null) {
-                if(getterMethod.getGenericReturnType() instanceof ParameterizedType) {
+                if (getterMethod.getGenericReturnType() instanceof ParameterizedType) {
                     retType = (ParameterizedType) getterMethod
                             .getGenericReturnType();
                 }
@@ -132,14 +138,19 @@ public class Prop {
                 genericTypeName = containedClazz.getSimpleName();
             }
 
-            typeName = "VList<" + m.
+            typeName = "eu.mihosoft.vcollections.VList<" + m.
+                    convertModelTypeToDestination(containedClazz) + ">";
+            simpleTypeName = "VList<" + m.
                     convertModelTypeToDestination(containedClazz) + ">";
             packageName = "eu.mihosoft.vcollections";
 
         } else if (propClass.isArray()) {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
-            typeName = "VList<" + ModelType.primitiveToBoxedType(
+            simpleTypeName = "VList<" + ModelType.primitiveToBoxedType(
+                    m.
+                            convertModelTypeToDestination(containedClazz)) + ">";
+            typeName = "eu.mihosoft.vcollections.VList<" + ModelType.primitiveToBoxedType(
                     m.
                             convertModelTypeToDestination(containedClazz)) + ">";
             // System.out.println("TYPENAME: " + typeName);
@@ -160,14 +171,18 @@ public class Prop {
         } else {
             propType = PropType.CLASS;
 
-            if(getParent().getModel().isModelType(propClass.getName())) {
-                typeName = propClass.getSimpleName();
-            } else {
-                typeName = propClass.getName();
-            }
+//            if (getParent().getModel().isModelType(propClass.getName())) {
+//                typeName = propClass.getSimpleName();
+//            } else {
+//                typeName = propClass.getName();
+//            }
+
+            simpleTypeName = propClass.getSimpleName();
 
             this.packageName = getParent().getModel().
                     convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
+
+            typeName = this.packageName + "." + propClass.getSimpleName();
         }
 
         getterPrefix = computeGetterPrefix(getterMethod);
@@ -176,6 +191,12 @@ public class Prop {
         ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
 
         getterOnly = getterMethod.getAnnotation(GetterOnly.class) != null;
+
+        DefaultValue defVal = getterMethod.getAnnotation(DefaultValue.class);
+
+        if (defVal != null) {
+            defaultValueAsString = defVal.value();
+        }
     }
 
     void setPropId(int propId) {
@@ -244,7 +265,7 @@ public class Prop {
                         "Specified opposite property '" + oppositeOfGetContainedProperty + "' cannot be found");
             }
         } else {
-            this.containmentInfo = ContainmentInfo.newInstance(null, null,null, null, ContainmentType.NONE);
+            this.containmentInfo = ContainmentInfo.newInstance(null, null, null, null, ContainmentType.NONE);
         }
     }
 
@@ -289,11 +310,15 @@ public class Prop {
     }
 
     public boolean isModelType() {
-        return getParent().getModel().isModelType(getPackageName()+"."+getTypeName());
+        return getParent().getModel().isModelType(getPackageName() + "." + getTypeName());
     }
 
     public String getTypeName() {
         return typeName;
+    }
+
+    public String getSimpleTypeName() {
+        return simpleTypeName;
     }
 
     public String getPackageName() {
@@ -385,7 +410,7 @@ public class Prop {
     public ModelType getType() {
         if (this.type == null) {
             this.type = getParent().getModel().
-                    resolveType(getPackageName() + "." + getTypeName()).
+                    resolveType(getTypeName()).
                     orElse(null);
         }
 
@@ -400,6 +425,14 @@ public class Prop {
         } else {
             return -1;
         }
+    }
+
+    public String getDefaultValueAsString() {
+        return this.defaultValueAsString == null || this.defaultValueAsString.isEmpty() ? "null" : this.defaultValueAsString;
+    }
+
+    public void setDefaultValueAsString(String defaultValueAsString) {
+        this.defaultValueAsString = defaultValueAsString;
     }
 
     public boolean isGetterOnly() {
@@ -472,49 +505,49 @@ public class Prop {
     static List<Prop> filterDuplicateProps(List<Prop> properties, boolean throwTypeNotResolvable) {
         List<Prop> result = new ArrayList(properties);
         List<String> distinctNames = result.stream().
-                map(p->p.getName()).distinct().collect(Collectors.toList());
+                map(p -> p.getName()).distinct().collect(Collectors.toList());
 
         List<Prop> distinctProperties = new ArrayList<>();
 
-        for(String pName : distinctNames) {
+        for (String pName : distinctNames) {
             List<Prop> collidingProps = result.stream().
-                    filter(p-> Objects.equals(pName, p.getName())).collect(Collectors.toList());
+                    filter(p -> Objects.equals(pName, p.getName())).collect(Collectors.toList());
 
-            if(collidingProps.size() < 2) {
+            if (collidingProps.size() < 2) {
                 continue;
             }
 
             Prop p = collidingProps.get(0);
 
-            for(Prop otherP : collidingProps) {
+            for (Prop otherP : collidingProps) {
 
-                if(Objects.equals(p, otherP)) {
+                if (Objects.equals(p, otherP)) {
                     continue;
                 }
 
-                boolean modelType = p.getType()!=null && otherP.getType()!=null;
+                boolean modelType = p.getType() != null && otherP.getType() != null;
 
-                if(modelType && otherP.getType().extendsType(p.getType())) {
+                if (modelType && otherP.getType().extendsType(p.getType())) {
                     System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
                     p = otherP; // otherP is more specific than p
-                } else if(modelType && p.getType().extendsType(otherP.getType())) {
+                } else if (modelType && p.getType().extendsType(otherP.getType())) {
                     System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
                     // nothing to do since p is the most specific one already (p = p);
-                } else if(!modelType && Objects.equals(p.getTypeName(), otherP.getTypeName())) {
+                } else if (!modelType && Objects.equals(p.getTypeName(), otherP.getTypeName())) {
                     // types are identical. nothing to do
-                } else if(!modelType) {
+                } else if (!modelType) {
 
                     // we try to get type information from external types:
                     Optional<Class<?>> pType = p.getParent().getModel().resolveExternalType(p.getTypeName());
                     Optional<Class<?>> otherPType = otherP.getParent().getModel().resolveExternalType(otherP.getTypeName());
 
-                    if(!pType.isPresent() || !otherPType.isPresent()) {
-                        if(!pType.isPresent()) {
+                    if (!pType.isPresent() || !otherPType.isPresent()) {
+                        if (!pType.isPresent()) {
                             String msg = "Cannot resolve external type '" + p.getTypeName() + "'";
                             System.err.println("TODO [28.05.2018]: " + msg);
                             System.err.println("TODO [28.05.2018]: could be that the types are not yet initialized.");
                             System.err.println("TODO [28.05.2018]: -> see PASS 0 & 4 in Model.java");
-                            if(throwTypeNotResolvable) {
+                            if (throwTypeNotResolvable) {
                                 throw new RuntimeException(msg);
                             }
                         } else {
@@ -522,7 +555,7 @@ public class Prop {
                             System.err.println("TODO [28.05.2018]: " + msg);
                             System.err.println("TODO [28.05.2018]: could be that the types are not yet initialized.");
                             System.err.println("TODO [28.05.2018]: -> see PASS 0 & 4 in Model.java");
-                            if(throwTypeNotResolvable) {
+                            if (throwTypeNotResolvable) {
                                 throw new RuntimeException(msg);
                             }
                         }
@@ -539,11 +572,11 @@ public class Prop {
             distinctProperties.add(p);
         }
 
-        for(Prop dP : distinctProperties) {
+        for (Prop dP : distinctProperties) {
             for (Iterator<Prop> it = result.iterator(); it.hasNext(); ) {
                 Prop p = it.next();
 
-                if(Objects.equals(dP.getName(), p.getName())) {
+                if (Objects.equals(dP.getName(), p.getName())) {
                     it.remove();
                 }
             }
@@ -557,29 +590,29 @@ public class Prop {
     static List<Prop> filterDuplicatePropsExp(List<Prop> properties) {
         List<Prop> result = new ArrayList(properties);
         List<String> distinctNames = result.stream().
-                map(p->p.getName()).distinct().collect(Collectors.toList());
+                map(p -> p.getName()).distinct().collect(Collectors.toList());
 
         List<Prop> distinctProperties = new ArrayList<>();
 
-        for(String pName : distinctNames) {
+        for (String pName : distinctNames) {
             List<Prop> collidingProps = result.stream().
-                    filter(p-> Objects.equals(pName, p.getName())).collect(Collectors.toList());
+                    filter(p -> Objects.equals(pName, p.getName())).collect(Collectors.toList());
 
-            if(collidingProps.size() < 2) {
+            if (collidingProps.size() < 2) {
                 continue;
             }
 
             Prop p = collidingProps.get(0);
 
-            for(Prop otherP : collidingProps) {
+            for (Prop otherP : collidingProps) {
 
-                if(Objects.equals(p, otherP)) {
+                if (Objects.equals(p, otherP)) {
                     continue;
                 }
 
-                if(Objects.equals(p.getTypeName(), otherP.getTypeName())) {
+                if (Objects.equals(p.getTypeName(), otherP.getTypeName())) {
                     continue;
-                } else if(!p.isGetterOnly()&&!otherP.isGetterOnly()) {
+                } else if (!p.isGetterOnly() && !otherP.isGetterOnly()) {
 
                     System.err.println("getterp1: " + p.isGetterOnly());
                     System.err.println("getterp2: " + otherP.isGetterOnly());
@@ -591,11 +624,11 @@ public class Prop {
             distinctProperties.add(p);
         }
 
-        for(Prop dP : distinctProperties) {
+        for (Prop dP : distinctProperties) {
             for (Iterator<Prop> it = result.iterator(); it.hasNext(); ) {
                 Prop p = it.next();
 
-                if(Objects.equals(dP.getName(), p.getName())) {
+                if (Objects.equals(dP.getName(), p.getName())) {
                     it.remove();
                 }
             }

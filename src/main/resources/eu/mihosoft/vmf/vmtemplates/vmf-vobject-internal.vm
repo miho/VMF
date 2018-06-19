@@ -23,7 +23,9 @@
 package ${packageName};
 
 // vmf imports
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 
 // property types imports
 #foreach( $import in $type.imports )
@@ -35,7 +37,7 @@ import $import;
 /**
  * Internal interface. Don't rely on this API.
  */
-interface VObjectInternal extends VObject {
+interface VObjectInternal extends ${VMFPKG}.VObject {
 
   /**
    * Returns the type id of this class.

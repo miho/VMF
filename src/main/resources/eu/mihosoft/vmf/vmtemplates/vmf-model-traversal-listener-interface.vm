@@ -23,15 +23,17 @@
 package ${packageName};
 
 // vmf imports
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 
-public interface ListenerFor${modelSwitchName}Model extends TraversalListener {
+public interface ListenerFor${modelSwitchName}Model extends ${VMFPKG}.TraversalListener {
 
   @SuppressWarnings("deprecation")
   @Override
-  default void onEnter(VObject o) {
-    switch(((VObjectInternal)o)._vmf_getTypeId()) {
+  default void onEnter(${VMFPKG}.VObject o) {
+    switch(((${VMFPKG_INT}.VObjectInternal)o)._vmf_getTypeId()) {
 #foreach($type in $model.types)
       #set($modifiableIdx = $foreach.index*2 + 0)
       #set($readOnlyIdx = $foreach.index*2 + 1)
@@ -46,8 +48,8 @@ public interface ListenerFor${modelSwitchName}Model extends TraversalListener {
 
   @SuppressWarnings("deprecation")
   @Override
-  default void onExit(VObject o) {
-    switch(((VObjectInternal)o)._vmf_getTypeId()) {
+  default void onExit(${VMFPKG}.VObject o) {
+    switch(((${VMFPKG_INT}.VObjectInternal)o)._vmf_getTypeId()) {
 #foreach($type in $model.types)
       #set($modifiableIdx = $foreach.index*2 + 0)
       #set($readOnlyIdx = $foreach.index*2 + 1)

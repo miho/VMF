@@ -35,6 +35,11 @@
   }
 
   @Override
+  public int[] _vmf_getPropertyTypeNames() {
+    return _VMF_PROPERTY_TYPE_NAMES;
+  }
+
+  @Override
   public int[] _vmf_getIndicesOfPropertiesWithModelTypes() {
     return this.mutableObject._vmf_propertiesWithModelTypesIndices;
   }

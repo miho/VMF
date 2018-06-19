@@ -23,8 +23,10 @@
 package ${type.implementation.packageName};
 
 // vmf imports
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeSupport;
@@ -43,7 +45,7 @@ import $import;
  * An implementation of the immutable model object {@code $type.fullTypeName}.
  */
 @SuppressWarnings("deprecation")
-public class $type.implementation.typeName implements $type.typeName, VObject, VObjectInternal, VCloneableInternal {
+public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.VObject, ${VMFPKG_INT}.VObjectInternal, VCloneableInternal {
 
   // --------------------------------------------------------------------
   // --- declaration of member variables
@@ -54,9 +56,9 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
 #parse("${VMF_TEMPLATE_PATH}impl/declare-delegates.vm")
 
   // referenced by
-  private final VList<VObject> referencedBy = VList.newInstance(new java.util.ArrayList<>());
+  private final VList<${VMFPKG}.VObject> referencedBy = VList.newInstance(new java.util.ArrayList<>());
   // references
-  private final VList<VObject> references = VList.newInstance(new java.util.ArrayList<>());
+  private final VList<${VMFPKG}.VObject> references = VList.newInstance(new java.util.ArrayList<>());
 
   // --------------------------------------------------------------------
   // --- private constructor
@@ -133,37 +135,37 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
   // --- Public VMF API
   // --------------------------------------------------------------------
 
- private VMF vmf;
+ private ${VMFPKG}.VMF vmf;
 
   @Override
-  public VMF vmf() {
+  public ${VMFPKG}.VMF vmf() {
     if(vmf==null) {
-      vmf = new VMF() {
-        public Content content() {
-          return new Content() {
-            public VIterator iterator() {
-              return VIterator.of(${type.implementation.typeName}.this);
+      vmf = new ${VMFPKG}.VMF() {
+        public ${VMFPKG}.Content content() {
+          return new ${VMFPKG}.Content() {
+            public ${VMFPKG}.VIterator iterator() {
+              return ${VMFPKG}.VIterator.of(${type.implementation.typeName}.this);
             }
-            public java.util.stream.Stream<VObject> stream() {
-              return VIterator.of(${type.implementation.typeName}.this).asStream();
+            public java.util.stream.Stream<${VMFPKG}.VObject> stream() {
+              return ${VMFPKG}.VIterator.of(${type.implementation.typeName}.this).asStream();
             }
 
-            public VIterator iterator(VIterator.IterationStrategy strategy) {
-              return VIterator.of(${type.implementation.typeName}.this, strategy);
+            public ${VMFPKG}.VIterator iterator(${VMFPKG}.VIterator.IterationStrategy strategy) {
+              return ${VMFPKG}.VIterator.of(${type.implementation.typeName}.this, strategy);
             }
-            public java.util.stream.Stream<VObject> stream(VIterator.IterationStrategy strategy) {
-              return VIterator.of(${type.implementation.typeName}.this, strategy).asStream();
+            public java.util.stream.Stream<${VMFPKG}.VObject> stream(${VMFPKG}.VIterator.IterationStrategy strategy) {
+              return ${VMFPKG}.VIterator.of(${type.implementation.typeName}.this, strategy).asStream();
             }
-            public <T extends VObject> java.util.stream.Stream<T> stream(Class<T> type) {
+            public <T extends ${VMFPKG}.VObject> java.util.stream.Stream<T> stream(Class<T> type) {
               return stream().filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
             }
-            public <T extends VObject> java.util.stream.Stream<T> stream(Class<T> type, VIterator.IterationStrategy strategy) {
+            public <T extends ${VMFPKG}.VObject> java.util.stream.Stream<T> stream(Class<T> type, ${VMFPKG}.VIterator.IterationStrategy strategy) {
               return stream(strategy).filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
             }
-            public VList<VObject> referencedBy() {
+            public VList<${VMFPKG}.VObject> referencedBy() {
               return _vmf_referencedBy().asUnmodifiable();
             }
-            public VList<VObject> references() {
+            public VList<${VMFPKG}.VObject> references() {
               return _vmf_references().asUnmodifiable();
             }
 
@@ -182,11 +184,11 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
             };
           }
 
-          private ChangesImpl changes;
+          private ${VMFPKG_INT}.ChangesImpl changes;
 
-          public Changes changes() {
+          public ${VMFPKG}.Changes changes() {
             if (changes==null) {
-              changes = new ChangesImpl();
+              changes = new ${VMFPKG_INT}.ChangesImpl();
               changes.setModel(${type.implementation.typeName}.this);
             }
 
@@ -229,8 +231,8 @@ public class $type.implementation.typeName implements $type.typeName, VObject, V
   // --------------------------------------------------------------------
 
   @Override
-  public VList<VObject> _vmf_referencedBy() { return this.referencedBy;}
+  public VList<${VMFPKG}.VObject> _vmf_referencedBy() { return this.referencedBy;}
   @Override
-  public VList<VObject> _vmf_references() { return this.references;}
+  public VList<${VMFPKG}.VObject> _vmf_references() { return this.references;}
 
 }

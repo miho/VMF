@@ -42,7 +42,7 @@
         // element type is a model type
         for($prop.genericType.typeName e : other.${prop.name}) {
           // TODO do a bulk operation instead
-          VObjectInternal eClone = (VObjectInternal)($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap);
+          ${VMFPKG_INT}.VObjectInternal eClone = (${VMFPKG_INT}.VObjectInternal)($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap);
           this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)eClone);
         }
 #else ## if prop genericType

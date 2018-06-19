@@ -23,7 +23,9 @@
 package ${packageName};
 
 // vmf imports
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 
 // property types imports
 #foreach( $import in $type.imports )
@@ -40,11 +42,11 @@ interface VCloneableInternal  {
   /**
    * Performs a deep copy (takes care of references and cycles).
    */
-  VObject _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap);
+  ${VMFPKG}.VObject _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap);
 
   /**
    * Performs a shallow copy (takes care of references and cycles).
    */
-  VObject _vmf_shallowCopy(java.util.IdentityHashMap<Object,Object> identityMap);
+  ${VMFPKG}.VObject _vmf_shallowCopy(java.util.IdentityHashMap<Object,Object> identityMap);
 
 }

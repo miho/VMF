@@ -23,7 +23,9 @@
 package ${type.packageName};
 
 // vmf imports
-import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 import ${VCOLL_PKG}.*;
 
 // property types imports
@@ -40,7 +42,7 @@ import $import;
  * <!-- vmf-end-model-doc -->
  *
  */
-public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyImplementsString, ReadOnly {
+public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type.readOnlyImplementsString, ${VMFPKG}.ReadOnly {
 #foreach( $prop in $type.properties )
 
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")
@@ -54,7 +56,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
  * <!-- vmf-end-model-doc -->
  *
  * @return the value of the '<em>${prop.name}</em>' container reference.
- * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+ * @see ${type.typeName}#\set${prop.nameWithUpperCase}($prop.typeName)
  */
 #elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
 #if(${prop.propType}=="COLLECTION")
@@ -80,7 +82,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
-   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.typeName}#\set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end ## if collection
 #else ## if container / contained
@@ -91,7 +93,7 @@ public interface $type.readOnlyInterface.typeName extends VObject$type.readOnlyI
   * <!-- vmf-end-model-doc -->
   *
   * @return the value of the '<em>${prop.name}</em>' property.
-  * #if(${prop.propType}!="COLLECTION")@see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+  * #if(${prop.propType}!="COLLECTION")@see ${type.typeName}#\set${prop.nameWithUpperCase}($prop.typeName)
 #end
   */
 #end ## if container / contained

@@ -30,15 +30,15 @@
 #if($prop.type||$prop.genericType)
 #if(${referenceToAddValue})
 ${codeIndentValue}if(${referenceToAddValue}!=null && ${objectToAddReferenceOnValue}!=null) {
-  ${codeIndentValue}((VObjectInternal)${objectToAddReferenceOnValue})._vmf_references().add(${referenceToAddValue});
-  ${codeIndentValue}((VObjectInternal)${referenceToAddValue})._vmf_referencedBy().add(${objectToAddReferenceOnValue});
+  ${codeIndentValue}((${VMFPKG_INT}.VObjectInternal)${objectToAddReferenceOnValue})._vmf_references().add(${referenceToAddValue});
+  ${codeIndentValue}((${VMFPKG_INT}.VObjectInternal)${referenceToAddValue})._vmf_referencedBy().add(${objectToAddReferenceOnValue});
 ${codeIndentValue}}
 #end##end if $referenceToAdd!=null
 
 #if(${referenceToRemoveValue})
 ${codeIndentValue}if(${referenceToRemoveValue}!=null && ${objectToRemoveReferenceOnValue}!=null) {
-  ${codeIndentValue}((VObjectInternal)${objectToRemoveReferenceOnValue})._vmf_references().add(${referenceToRemoveValue});
-  ${codeIndentValue}((VObjectInternal)${referenceToRemoveValue})._vmf_referencedBy().add(${objectToRemoveReferenceOnValue});
+  ${codeIndentValue}((${VMFPKG_INT}.VObjectInternal)${objectToRemoveReferenceOnValue})._vmf_references().add(${referenceToRemoveValue});
+  ${codeIndentValue}((${VMFPKG_INT}.VObjectInternal)${referenceToRemoveValue})._vmf_referencedBy().add(${objectToRemoveReferenceOnValue});
 ${codeIndentValue}}
 #end##end if $referenceToRemoveValue!=null
 #end## if is modelType

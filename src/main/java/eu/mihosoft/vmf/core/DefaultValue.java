@@ -22,13 +22,18 @@
  */
 package eu.mihosoft.vmf.core;
 
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
 /**
- * Created by miho on 06.01.2017.
+ * Created by miho on 18.06.2018.
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
-public enum PropType {
-    PRIMITIVE,
-    CLASS,
-    COLLECTION
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.METHOD, ElementType.TYPE})
+public @interface DefaultValue {
+    String value();
 }

@@ -24,11 +24,18 @@
 #foreach($prop in $type.implementation.properties)    "$prop.name"#if($foreach.hasNext),#end$newline#end
   };
 
+  static final String[] _VMF_PROPERTY_TYPE_NAMES = {
+#foreach($prop in $type.implementation.properties)
+    "$prop.typeName"#if($foreach.hasNext),#else #end // type id $prop.typeId
+#end
+  };
+
   static final int[] _VMF_PROPERTY_TYPES = {
 #foreach($prop in $type.implementation.properties)
     ${StringUtil.alignRight($prop.typeId, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName
 #end
   };
+
 
   /**
    * - indices of model objects as properties
@@ -84,6 +91,11 @@
   @Override
   public int[] _vmf_getPropertyTypes() {
     return _VMF_PROPERTY_TYPES;
+  }
+
+  @Override
+  public String[] _vmf_getPropertyTypeNames() {
+    return _VMF_PROPERTY_TYPE_NAMES;
   }
 
   @Override
@@ -149,3 +161,44 @@
     } // end switch
   }
 #end## if !readOnlyVal
+
+  @Override
+  public Object _vmf_getDefaultValueById(int propertyId) {
+
+    switch(propertyId) {
+#foreach($prop in $type.implementation.properties)
+      case $foreach.index:
+        Object __vmf_default_value_tmp$prop.nameWithUpperCase = _VMF_DEFAULT_VALES[$prop.getPropId()];
+        if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
+            return ${prop.getDefaultValueAsString()};
+        } else {
+            return __vmf_default_value_tmp$prop.nameWithUpperCase;
+        }
+#end## for-each property
+    }
+
+    return null;
+  }
+
+  @Override
+  public void _vmf_setDefaultValueById(int propertyId, Object defaultValue) {
+    _VMF_DEFAULT_VALES[propertyId] = defaultValue;
+  }
+
+  @Override
+  public boolean _vmf_isSetById(int propertyId) {
+    return !java.util.Objects.equals(_vmf_getDefaultValueById(propertyId), _vmf_getPropertyValueById(propertyId));
+  }
+
+#if(!$readOnlyVal)
+  @Override
+  public void _vmf_unsetById(int propertyId) {
+    _vmf_setPropertyValueById(propertyId, _vmf_getDefaultValueById(propertyId));
+  }
+#end## if !readOnlyVal
+
+  final Object[] _VMF_DEFAULT_VALES = {
+#foreach($prop in $type.implementation.properties)
+    null#if($foreach.hasNext),#else #end // type $prop.name
+#end
+  };
