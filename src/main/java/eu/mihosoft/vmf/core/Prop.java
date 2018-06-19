@@ -80,7 +80,7 @@ public class Prop {
     private CollectionType collectionType;
     private boolean getterOnly;
 
-    private String defaultValueAsString = "null";
+    private String defaultValueAsString;
 
     private int propId;
 

@@ -168,7 +168,7 @@
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
       case $foreach.index:
-        Object __vmf_default_value_tmp$prop.nameWithUpperCase = _VMF_DEFAULT_VALES[$prop.getPropId()];
+        Object __vmf_default_value_tmp$prop.nameWithUpperCase = _VMF_DEFAULT_VALUES[$prop.getPropId()];
         if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
             return ${prop.getDefaultValueAsString()};
         } else {
@@ -182,7 +182,7 @@
 
   @Override
   public void _vmf_setDefaultValueById(int propertyId, Object defaultValue) {
-    _VMF_DEFAULT_VALES[propertyId] = defaultValue;
+    _VMF_DEFAULT_VALUES[propertyId] = defaultValue;
   }
 
   @Override
@@ -197,7 +197,7 @@
   }
 #end## if !readOnlyVal
 
-  final Object[] _VMF_DEFAULT_VALES = {
+  final Object[] _VMF_DEFAULT_VALUES = {
 #foreach($prop in $type.implementation.properties)
     null#if($foreach.hasNext),#else #end // type $prop.name
 #end
