@@ -152,12 +152,19 @@
 #foreach($prop in $type.implementation.properties)
 #if(!$prop.genericType)
 #if(${prop.propType}!="COLLECTION" && $prop.containmentInfo.containmentType!="CONTAINER")
-      case $foreach.index:
+      case $foreach.index: // normal property (no collection and no containment)
         set${prop.nameWithUpperCase}((${prop.typeName})value);
+        break;
+#elseif(${prop.propType}=="COLLECTION")
+      case $foreach.index: // collection property
+        get${prop.nameWithUpperCase}().clear();
+        get${prop.nameWithUpperCase}().addAll((${prop.typeName})value);
         break;
 #end## end if !container && !collection
 #end## end if !genericType
 #end## for-each property
+      default:
+            throw new RuntimeException("Cannot set property with id="+propertyId +": property is not writable.");
     } // end switch
   }
 #end## if !readOnlyVal
@@ -169,20 +176,52 @@
 #foreach($prop in $type.implementation.properties)
       case $foreach.index:
         Object __vmf_default_value_tmp$prop.nameWithUpperCase = _VMF_DEFAULT_VALUES[$prop.getPropId()];
+#if(${prop.propType}=="PRIMITIVE")## if prop is primitive
+        if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
+            return
+#if(${prop.getDefaultValueAsString()}=="null")## if default is null
+            #if(${prop.typeName}=="boolean")false#else 0#end;
+#else## if default is null
+            ${prop.getDefaultValueAsString()};
+#end## if default is null
+        } else {
+            return __vmf_default_value_tmp$prop.nameWithUpperCase;
+        }    
+#else## if prop is primitive         
         if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
             return ${prop.getDefaultValueAsString()};
         } else {
             return __vmf_default_value_tmp$prop.nameWithUpperCase;
         }
+#end## if prop is primitive
+
 #end## for-each property
-    }
+    } // end switch
 
     return null;
   }
 
   @Override
   public void _vmf_setDefaultValueById(int propertyId, Object defaultValue) {
+
+#foreach($prop in $type.implementation.properties)
+#if(${prop.containmentProperty})
+    // property ${prop.name}
+    if(propertyId == $foreach.index) { 
+      throw new RuntimeException("Cannot set default value for property '${prop.name}' with id="+propertyId +": property is a containment property and not writable.");
+    }
+#end## if is containment
+#end##for each property    
+
+#if(!$readOnlyVal)
+    // if the value was previously unset then we need to update
+    // the value to the new default value
+    boolean isSetBeforeDefaultUpdate = _vmf_isSetById(propertyId);
     _VMF_DEFAULT_VALUES[propertyId] = defaultValue;
+    if(!isSetBeforeDefaultUpdate) {
+      _vmf_unsetById(propertyId);
+    }
+#end## if !readOnlyVal
   }
 
   @Override
@@ -198,7 +237,8 @@
 #end## if !readOnlyVal
 
   final Object[] _VMF_DEFAULT_VALUES = {
-#foreach($prop in $type.implementation.properties)
-    null#if($foreach.hasNext),#else #end // type $prop.name
-#end
+#foreach($prop in $type.implementation.properties) 
+    null#if($foreach.hasNext),#else #end // type ${prop.name} #if(${prop.containmentProperty})(containment type, no defaut value possible)#end
+  
+#end## for each property
   };

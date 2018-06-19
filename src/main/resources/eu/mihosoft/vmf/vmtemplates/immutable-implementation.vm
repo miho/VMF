@@ -194,6 +194,18 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
 
             return changes;
           }
+
+          private ${VMFPKG_INT}.ReflectImpl reflect;
+    
+          public ${VMFPKG}.Reflect reflect() {
+            if (reflect==null) {
+              reflect = new ${VMFPKG_INT}.ReflectImpl();
+              reflect.setModel(${type.implementation.typeName}.this);
+            }
+    
+            return reflect;
+          }
+
         }; // end vmf
       } // end if null
 

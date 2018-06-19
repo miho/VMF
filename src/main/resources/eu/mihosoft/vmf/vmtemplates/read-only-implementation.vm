@@ -231,6 +231,16 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
         };
       }
 
+      private ${VMFPKG_INT}.ReflectImpl reflect;
+
+      public ${VMFPKG}.Reflect reflect() {
+        if (reflect==null) {
+          reflect = new ${VMFPKG_INT}.ReflectImpl();
+          reflect.setModel(${type.readOnlyImplementation.typeName}.this);
+        }
+
+        return reflect;
+      }
     }; // end vmf
   }
 
