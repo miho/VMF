@@ -167,6 +167,25 @@ public class VMFTest {
     }
 
     @Test
+    public void vmfValidModelPackageTestFromCurrentThreadClassLoader() throws IOException {
+
+        boolean invalidModelPackageException = false;
+
+        try {
+            VMF.generate(tmpDir.toFile(),
+                    "eu.mihosoft.vmf.testmodels.vmfmodel"
+            );
+        } catch (IllegalArgumentException ex) {
+            invalidModelPackageException = true;
+            ex.printStackTrace(System.err);
+        }
+
+        Assert.assertFalse("VMF code generator must not throw exception if model package is valid.",
+                invalidModelPackageException);
+
+    }
+
+    @Test
     public void vmfClassesInPackageTest() throws IOException {
 
         boolean invalidModelPackageException = false;
