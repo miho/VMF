@@ -30,6 +30,8 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -129,7 +131,7 @@ public class VMFTest {
     }
 
     @Test
-    public void vmfValidModelPackageTest() throws IOException {
+    public void vmfValidModelPackageTestFromClass() throws IOException {
 
         boolean invalidModelPackageException = false;
 
@@ -143,12 +145,18 @@ public class VMFTest {
         Assert.assertFalse("VMF code generator must not throw exception if model package is valid.",
                 invalidModelPackageException);
 
-        invalidModelPackageException = false;
+    }
+
+    @Test
+    public void vmfValidModelPackageTestFromClassLoader() throws IOException {
+
+        boolean invalidModelPackageException = false;
 
         try {
             VMF.generate(tmpDir.toFile(),
-                    getClass().getClassLoader(),
-                    "eu.mihosoft.vmf.testmodels.vmfmodel");
+                new URLClassLoader(new URL[]{new URL("file://./build/classes/java/test/")}),
+                    "eu.mihosoft.vmf.testmodels.vmfmodel"
+            );
         } catch (IllegalArgumentException ex) {
             invalidModelPackageException = true;
             ex.printStackTrace(System.err);
@@ -156,18 +164,6 @@ public class VMFTest {
 
         Assert.assertFalse("VMF code generator must not throw exception if model package is valid.",
                 invalidModelPackageException);
-
-        try {
-            VMF.generate(tmpDir.toFile(),
-                    "eu.mihosoft.vmf.testmodels.vmfmodel");
-        } catch (IllegalArgumentException ex) {
-            invalidModelPackageException = true;
-            ex.printStackTrace(System.err);
-        }
-
-        Assert.assertFalse("VMF code generator must not throw exception if model package is valid.",
-                invalidModelPackageException);
-
     }
 
     @Test

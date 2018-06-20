@@ -1,0 +1,28 @@
+{
+    "run": {
+        "default": "",
+        "items": [
+            {
+                "name": "VMF",
+                "projectName": "VMF",
+                "workingDirectory": "/Users/miho/EigeneApps/VMF",
+                "args": [],
+                "vmargs": [],
+                "preLaunchTask": ""
+            }
+        ]
+    },
+    "debug": {
+        "default": "",
+        "items": [
+            {
+                "name": "VMF",
+                "projectName": "VMF",
+                "workingDirectory": "/Users/miho/EigeneApps/VMF",
+                "args": [],
+                "vmargs": [],
+                "preLaunchTask": ""
+            }
+        ]
+    }
+}
