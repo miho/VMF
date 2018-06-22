@@ -123,7 +123,7 @@ public class VMF {
      * @throws IllegalArgumentException if the specified model is empty
      */
     private static Collection<Class<?>> listClassesInPackage(ClassLoader classLoader, String packageName) {
-        List<String> clsNames = new FastClasspathScanner(packageName).overrideClassLoaders(classLoader)
+        List<String> clsNames = new FastClasspathScanner(packageName).addClassLoader(classLoader)
                 .scan()
                 .getNamesOfAllClasses();
 
