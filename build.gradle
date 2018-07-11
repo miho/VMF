@@ -48,8 +48,12 @@ license {
         groovy = 'SLASHSTAR_STYLE'
         fxml   = 'XML_STYLE'
     }
-    ext.yearSince1   = '2016'
+
     ext.yearCurrent  = new SimpleDateFormat("yyyy").format(new Date())
+    ext.yearSince1   = '2017'
     ext.author1 = 'Michael Hoffer <info@michaelhoffer.de>'
+    ext.yearSince2   = '2017'
+    ext.author2 = 'Goethe Center for Scientific Computing, University Frankfurt'
+
     exclude '**/*.svg'
 }
