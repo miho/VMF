@@ -17,9 +17,6 @@ It generates/supports:
 - immutable types and read-only wrappers
 - delegation
 
-## How
-
-Have a look at the sample project. TODO
 
 ## Building VMF
 
