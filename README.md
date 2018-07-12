@@ -1,6 +1,6 @@
 VMF
 =======
-
+[ ![Download](https://api.bintray.com/packages/miho/VMF/VMF/images/download.svg) ](https://bintray.com/miho/VMF/VMF/_latestVersion)
 
 VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. 
 
