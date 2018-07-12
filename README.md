@@ -29,7 +29,7 @@ It generates/supports:
 ### IDE
 
 Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
-by calling the `assemble` task.
+by calling the `publishToMavenLocal` task.
 
 ### Command Line
 
