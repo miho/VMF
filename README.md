@@ -1,8 +1,6 @@
-# README #
+VMF
+=======
 
-Lightweight Modeling Framework
-
-## Why?
 
 VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. 
 
