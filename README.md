@@ -9,7 +9,7 @@ It generates/supports:
 - getters and setters
 - default values
 - builder API
-- equals() and hasCode()
+- equals() and hashCode()
 - deep and shallow cloning
 - change notification
 - undo/redo
