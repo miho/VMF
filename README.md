@@ -8,6 +8,7 @@ It generates/supports:
 
 - getters and setters
 - default values
+- containment
 - builder API
 - equals() and hashCode()
 - deep and shallow cloning
