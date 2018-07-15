@@ -36,7 +36,7 @@ vmf {
     version = '0.1' // use desired VMF version
 }
 ```
-Now just add the model definitions to the VMF source folder, e.g., `src/vmf/`. The package name must end with `.vmfmodel`, for example:
+Now just add the model definitions to the VMF source folder, e.g., `src/vmf/java`. The package name must end with `.vmfmodel`, for example:
 
 ```java
 package eu.mihosoft.vmf.tutorial.vmfmodel;
