@@ -20,6 +20,8 @@ It generates/supports:
 
 ## Using VMF
 
+Checkout the tutorial projects: https://github.com/miho/VMF-Tutorials
+
 VMF comes with excellent Gradle support. Just add the plugin like so:
 
 ```gradle
