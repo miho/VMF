@@ -18,6 +18,47 @@ It generates/supports:
 - immutable types and read-only wrappers
 - delegation
 
+## Using VMF
+
+VMF comes with excellent Gradle support. Just add the plugin like so:
+
+```gradle
+plugins {
+  id "eu.mihosoft.vmf" version "0.1.1" // use latest version
+}
+```
+and configure VMF:
+
+```gradle
+vmf {
+    version = '0.1' // use desired VMF version
+}
+```
+Now just add the model definitions to the VMF source folder, e.g., `src/vmf/`. The package name must end with `.vmfmodel`, for example:
+
+```java
+package eu.mihosoft.vmf.tutorial.vmfmodel;
+
+import eu.mihosoft.vmf.core.Container;
+import eu.mihosoft.vmf.core.Contains;
+
+interface Parent {
+
+    @Contains(opposite = "parent")
+    MyChild[] getChildren();
+
+    String getName();
+}
+
+interface Child {
+    @Container(opposite="children")
+    MyParent getParent();
+    
+    int getValue();
+}
+```
+
+Just call the `vmfGenModelSources` task to generate the implementation.
 
 ## Building VMF
 
