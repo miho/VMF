@@ -1,4 +1,4 @@
-VMF
+VMF [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=social)](https://twitter.com/intent/tweet?text=VMF:%20The%20new%20modeling%20framework%20for%20Java!&url=https://github.com/miho/VMF&via=mihosoft&hashtags=vmf,java,mdd,developers)
 =======
 
 [ ![Download](https://api.bintray.com/packages/miho/VMF/VMF/images/download.svg) ](https://bintray.com/miho/VMF/VMF/_latestVersion)[![Join the chat at https://gitter.im/VMF_/Lobby](https://badges.gitter.im/VMF_/Lobby.svg)](https://gitter.im/VMF_/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
