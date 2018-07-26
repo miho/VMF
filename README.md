@@ -40,7 +40,7 @@ and configure VMF:
 
 ```gradle
 vmf {
-    version = '0.1' // use desired VMF version
+    version = '0.1.1' // use desired VMF version
 }
 ```
 Now just add the model definitions to the VMF source folder, e.g., `src/vmf/java`. The package name must end with `.vmfmodel`, for example:
