@@ -24,10 +24,10 @@ matrix:
  #     osx_image: xcode9.2
  #     install: brew tap caskroom/cask && brew cask info java && brew cask reinstall java
 
-cache:
-  ccache: true
-  directories:
-   - /Users/travis/build/miho/
+#cache:
+#  ccache: true
+#  directories:
+#   - /Users/travis/build/miho/
 
 before_script:
   - sh ./gradlew --version
