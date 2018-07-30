@@ -156,9 +156,11 @@ Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `p
     
 #### Windows (CMD)
 
-    gradlew publishToMavenLocal    
+    gradlew publishToMavenLocal
+    
+--    
 
-## Testing VMF-Text (Core, Runtime & Plugin)
+## Testing VMF (Core, Runtime & Plugin)
 
 To execute the test suite, navigate to the test project (i.e., `path/to/VMF/test-suite`) and enter the following command
 
