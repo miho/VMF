@@ -21,9 +21,8 @@ if (!hasProperty('mainClass')) {
     ext.mainClass = 'eu.mihosoft.vmf.tutorial01.Main'
 }
 
-task wrapper(type: Wrapper) {
-    gradleVersion = '4.8'
-    distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
+wrapper {
+    gradleVersion = '4.9'
 }
 
 repositories {

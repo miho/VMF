@@ -1,1 +1,3 @@
 rootProject.name = 'VMF-Runtime'
+
+enableFeaturePreview('STABLE_PUBLISHING')
