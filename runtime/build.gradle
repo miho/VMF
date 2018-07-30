@@ -1,0 +1,68 @@
+import java.text.SimpleDateFormat
+
+plugins {
+    id 'com.github.hierynomus.license' version '0.14.0'
+    id 'maven-publish'
+    id 'net.nemerosa.versioning' version '2.4.0'
+    id 'com.jfrog.bintray' version '1.8.1'
+    id 'com.github.ben-manes.versions' version '0.13.0'
+}
+
+apply plugin: 'java'
+apply from: 'gradle/publishing.gradle'
+
+task wrapper(type: Wrapper) {
+  gradleVersion = '4.8'
+  distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
+}
+
+sourceCompatibility = '1.8'
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:unchecked" << "-Werror"
+    options.compilerArgs << "-Xlint:deprecation" << "-Werror"
+}
+
+tasks.withType(Javadoc) {
+    options.addStringOption('Xdoclint:none', '-quiet')
+}
+
+if (!hasProperty('mainClass')) {
+    ext.mainClass = 'eu.mihosoft.vmf.runtime.Main'
+}
+
+repositories {
+    mavenCentral()
+    jcenter()
+}
+
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.10'
+    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.2.1'
+    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.2.1', classifier: 'sources'
+}
+
+license {
+    header = rootProject.file('config/HEADER')
+    strictCheck = true
+    ignoreFailures = true
+    mapping {
+        java   = 'SLASHSTAR_STYLE'
+        groovy = 'SLASHSTAR_STYLE'
+        fxml   = 'XML_STYLE'
+    }
+
+    ext.yearCurrent  = new SimpleDateFormat("yyyy").format(new Date())
+    ext.yearSince1   = '2017'
+    ext.author1 = 'Michael Hoffer <info@michaelhoffer.de>'
+    ext.yearSince2   = '2017'
+    ext.author2 = 'Goethe Center for Scientific Computing, University Frankfurt'
+
+    exclude '**/*.svg'
+}
+
+
+
+
+

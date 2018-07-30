@@ -1,0 +1,25 @@
+// -----------------------------------------------------------------------------
+// publishing information
+// -----------------------------------------------------------------------------
+ext.publishing.artifactId =  project.name.toLowerCase()
+ext.publishing.groupId    =  'eu.mihosoft.vmf'
+ext.publishing.versionId  =  '0.2-SNAPSHOT'
+
+ext.publishing.developerName         = 'Michael Hoffer'
+ext.publishing.developerAlias        = 'miho'
+ext.publishing.developerEmail        = 'info@michaelhoffer.de'
+ext.publishing.inceptionYear         = '2017'
+
+ext.publishing.bintray.repo          = 'VMF'
+ext.publishing.bintray.userOrg       = 'miho'
+ext.publishing.bintray.name          = project.name
+
+ext.publishing.desc                  = 'VMF (VRL Modeling Framework) is a lightweight modeling framework for generating Java code from data models.'
+ext.publishing.license               = 'Apache-2.0'
+ext.publishing.licenseUrl            = 'https://github.com/miho/VMF-Runtime/blob/master/LICENSE'
+ext.publishing.labels                = ['vmf', 'modeling', 'data model', 'vrl', 'modeling framework']
+ext.publishing.websiteUrl            = 'https://github.com/miho/VMF-Runtime'
+ext.publishing.issueTrackerUrl       = 'https://github.com/miho/VMF-Runtime/issues'
+ext.publishing.vcsUrl                = 'https://github.com/miho/VMF-Runtime.git'
+
+ext.publishing.pomName               =  ext.publishing.artifactId

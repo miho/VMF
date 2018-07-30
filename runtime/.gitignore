@@ -1,0 +1,15 @@
+/.gradle/
+/.nb-gradle/
+/.idea/
+/build/
+/bin/
+/out/
+/.classpath
+/.project
+/.settings
+/.vscode/
+
+/VMF-Runtime.iml
+
+.dropbox.attr
+
