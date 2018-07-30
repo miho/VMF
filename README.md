@@ -69,7 +69,8 @@ interface Child {
 
 Just call the `vmfGenModelSources` task to generate the implementation.
 
-## Building VMF
+
+## Building VMF (Core)
 
 ### Requirements
 
@@ -84,7 +85,7 @@ by calling the `publishToMavenLocal` task.
 
 ### Command Line
 
-Navigate to the [Gradle](http://www.gradle.org/) project (e.g., `path/to/VMF`) and enter the following command
+Navigate to the `VMF` core [Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/core`) and enter the following command
 
 #### Bash (Linux/macOS/Cygwin/other Unix shell)
 
@@ -93,8 +94,84 @@ Navigate to the [Gradle](http://www.gradle.org/) project (e.g., `path/to/VMF`) a
 #### Windows (CMD)
 
     gradlew publishToMavenLocal
+    
+## Building VMF (Runtime)
 
-## Testing VMF
+### IDE
 
-Use the test suite TODO
+Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
+by calling the `publishToMavenLocal` task.
 
+### Command Line
+
+Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/runtime`) and enter the following command
+
+#### Bash (Linux/macOS/Cygwin/other Unix shell)
+
+    bash gradlew publishToMavenLocal
+    
+#### Windows (CMD)
+
+    gradlew publishToMavenLocal    
+
+## Building VMF (Core)
+
+### Requirements
+
+- Java >= 1.8
+- Internet connection (dependencies are downloaded automatically)
+- IDE: [Gradle](http://www.gradle.org/) Plugin (not necessary for command line usage)
+
+### IDE
+
+Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
+by calling the `publishToMavenLocal` task.
+
+### Command Line
+
+Navigate to the `VMF` core [Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/core`) and enter the following command
+
+#### Bash (Linux/macOS/Cygwin/other Unix shell)
+
+    bash gradlew publishToMavenLocal
+    
+#### Windows (CMD)
+
+    gradlew publishToMavenLocal
+    
+## Building VMF Gradle Plugin
+
+### IDE
+
+Open the `VMF` [Gradle](http://www.gradle.org/) plugin project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
+by calling the `publishToMavenLocal` task.
+
+### Command Line
+
+Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/gradle-project`) and enter the following command
+
+#### Bash (Linux/macOS/Cygwin/other Unix shell)
+
+    bash gradlew publishToMavenLocal
+    
+#### Windows (CMD)
+
+    gradlew publishToMavenLocal    
+
+## Testing VMF-Text (Core, Runtime & Plugin)
+
+To execute the test suite, navigate to the test project (i.e., `path/to/VMF/test-suite`) and enter the following command
+
+#### Bash (Linux/macOS/Cygwin/other Unix shell)
+
+    bash gradlew test
+    
+#### Windows (CMD)
+
+    gradlew test
+
+This will use the latest snapshot vmf-text and gradle-plugin to execute the tests defined in the test-suite project.
+
+### Viewing the Report
+
+An HTML version of the test report is located in the build folder `test-suite/build/reports/tests/test/index.html`.
