@@ -156,9 +156,7 @@ Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `p
     
 #### Windows (CMD)
 
-    gradlew publishToMavenLocal
-    
---    
+    gradlew publishToMavenLocal 
 
 ## Testing VMF (Core, Runtime & Plugin)
 
