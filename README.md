@@ -80,7 +80,7 @@ Just call the `vmfGenModelSources` task to generate the implementation.
 
 ### IDE
 
-Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
+Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
@@ -99,7 +99,7 @@ Navigate to the `VMF` core [Gradle](http://www.gradle.org/) project (i.e., `path
 
 ### IDE
 
-Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
+Open the `VMF` runtime [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
@@ -113,31 +113,6 @@ Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `p
 #### Windows (CMD)
 
     gradlew publishToMavenLocal    
-
-## Building VMF (Core)
-
-### Requirements
-
-- Java >= 1.8
-- Internet connection (dependencies are downloaded automatically)
-- IDE: [Gradle](http://www.gradle.org/) Plugin (not necessary for command line usage)
-
-### IDE
-
-Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
-by calling the `publishToMavenLocal` task.
-
-### Command Line
-
-Navigate to the `VMF` core [Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/core`) and enter the following command
-
-#### Bash (Linux/macOS/Cygwin/other Unix shell)
-
-    bash gradlew publishToMavenLocal
-    
-#### Windows (CMD)
-
-    gradlew publishToMavenLocal
     
 ## Building VMF Gradle Plugin
 
