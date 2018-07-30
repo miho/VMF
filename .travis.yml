@@ -1,5 +1,8 @@
 sudo: false
 
+env:
+  - TERM=dumb
+  
 matrix:
     include:
     - os: linux
