@@ -17,6 +17,7 @@ apply from: 'gradle/publishing.gradle'
 repositories {
     jcenter()
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {

@@ -29,15 +29,20 @@ matrix:
 #  directories:
 #   - /Users/travis/build/miho/
 
-before_script:
-  - sh ./gradlew --version
-  - sh ./gradlew clean publishToMavenLocal
-  - git clone https://github.com/miho/VMF-Runtime
-  - cd VMF-Runtime && sh ./gradlew clean publishToMavenLocal
-  - cd ..
-  - git clone https://github.com/miho/VMF-Tests
+#before_script:
   
 script:
+    - export CWD=$(pwd)
+    - cd core
+    - sh ./gradlew clean publishToMavenLocal
+    - cd $CWD
+    - cd runtime
+    - sh ./gradlew clean publishToMavenLocal
+    - cd $CWD
+    - cd gradle-plugin
+    - sh ./gradlew clean publishToMavenLocal
+    - cd $CWD
+    - cd test-suite
     - sh ./gradlew clean test
-    - cd VMF-Tests && sh ./gradlew clean test
+    - cd $CWD
     
