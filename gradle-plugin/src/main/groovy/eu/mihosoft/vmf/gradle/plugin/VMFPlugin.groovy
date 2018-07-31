@@ -91,7 +91,7 @@ class VMFPlugin implements Plugin<Project> {
                         path = path.substring(project.sourceSets.vmf.java.srcDirs[0].absolutePath.size()+1)
 
                         // now we remove the java file name
-                        path = path.substring(0,path.lastIndexOf("/"))
+                        path = path.substring(0,path.lastIndexOf(File.separator))
 
                         vmfModelPaths.add(path)
                 }
