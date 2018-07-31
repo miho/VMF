@@ -146,7 +146,7 @@ To execute the test suite, navigate to the test project (i.e., `path/to/VMF/test
 
     gradlew test
 
-This will use the latest snapshot vmf-text and gradle-plugin to execute the tests defined in the test-suite project.
+This will use the latest snapshot vmf and gradle-plugin to execute the tests defined in the test-suite project.
 
 ### Viewing the Report
 
