@@ -115,7 +115,7 @@ Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `p
 
     gradlew publishToMavenLocal    
     
-## Building VMF Gradle Plugin
+## Building VMF (Gradle Plugin)
 
 ### IDE
 
