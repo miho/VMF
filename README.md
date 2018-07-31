@@ -30,7 +30,7 @@ A VMF model consists of annotated Java interfaces. We could call this "wannabe" 
 
 Checkout the tutorial projects: https://github.com/miho/VMF-Tutorials
 
-VMF comes with excellent Gradle support. Just add the plugin like so:
+VMF comes with excellent Gradle support. Just add the plugin like so (get the latest version [here](https://plugins.gradle.org/plugin/eu.mihosoft.vmf)):
 
 ```gradle
 plugins {
