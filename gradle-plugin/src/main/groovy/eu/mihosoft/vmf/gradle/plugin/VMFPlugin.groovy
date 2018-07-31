@@ -91,7 +91,12 @@ class VMFPlugin implements Plugin<Project> {
                         path = path.substring(project.sourceSets.vmf.java.srcDirs[0].absolutePath.size()+1)
 
                         // now we remove the java file name
-                        path = path.substring(0,path.lastIndexOf(File.separator))
+                        int lastIndexOfSeparator = path.lastIndexOf(File.separator);
+                        if(lastIndexOfSeparator > -1) {
+                            path = path.substring(0,lastIndexOfSeparator)
+                        } else {
+                            println("WARNING: cannot find separator in " + path);
+                        }
 
                         vmfModelPaths.add(path)
                 }
