@@ -98,6 +98,8 @@ class VMFPlugin implements Plugin<Project> {
                             println("WARNING: cannot find separator in " + path);
                         }
 
+                        path = path.replace(File.separator, ".");
+
                         vmfModelPaths.add(path)
                 }
 
