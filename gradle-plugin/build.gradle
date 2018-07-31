@@ -32,7 +32,7 @@ dependencies {
 // configured to publish your plugin to the plugin portal
 pluginBundle {
     group = ext.publishing.groupId
-    group = ext.publishing.versionId
+    version = ext.publishing.versionId
     website = 'https://github.com/miho/VMF-Gradle-Plugin'
     vcsUrl = 'https://github.com/miho/VMF-Gradle-Plugin'
     description = 'Gradle VMF plugin'
