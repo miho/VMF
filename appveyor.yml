@@ -29,8 +29,8 @@ environment:
 matrix:
   fast_finish: true
 
-cache:
-  - C:\projects\vmf-text\
+#cache:
+#  - C:\projects\vmf-text\
 
 build_script:
   - cd %APPVEYOR_BUILD_FOLDER%
@@ -40,4 +40,4 @@ build_script:
   - cd gradle-plugin
   - gradlew.bat clean publishToMavenLocal --stacktrace
   - cd test-suite
-  - gradlew.bat clean test
+  - gradlew.bat clean test 
