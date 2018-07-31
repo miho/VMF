@@ -37,7 +37,12 @@ build_script:
   - cd core
   - gradlew.bat clean publishToMavenLocal --stacktrace
   - cd %APPVEYOR_BUILD_FOLDER%
+  - cd runtime
+  - gradlew.bat clean publishToMavenLocal --stacktrace
+  - cd %APPVEYOR_BUILD_FOLDER%
   - cd gradle-plugin
   - gradlew.bat clean publishToMavenLocal --stacktrace
+  - cd %APPVEYOR_BUILD_FOLDER%
   - cd test-suite
   - gradlew.bat clean test 
+  - cd %APPVEYOR_BUILD_FOLDER%
