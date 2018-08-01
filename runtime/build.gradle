@@ -42,6 +42,12 @@ dependencies {
     compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.2.1', classifier: 'sources'
 }
 
+jar {
+    manifest {
+        attributes('Automatic-Module-Name': 'eu.mihosoft.vmf.runtime')
+    }
+}
+
 license {
     header = rootProject.file('config/HEADER')
     strictCheck = true

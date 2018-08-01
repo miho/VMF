@@ -37,6 +37,13 @@ dependencies {
 
 }
 
+
+jar {
+    manifest {
+        attributes('Automatic-Module-Name': 'eu.mihosoft.vmf')
+    }
+}
+
 license {
     header = rootProject.file('config/HEADER')
     strictCheck = true
