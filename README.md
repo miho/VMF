@@ -6,7 +6,7 @@ VMF [![Tweet](https://img.shields.io/twitter/url/http/shields.io.svg?style=socia
 [![Build status](https://ci.appveyor.com/api/projects/status/1c49038jtnkx3xid?svg=true)](https://ci.appveyor.com/project/miho/vmf)
 [![Join the chat at https://gitter.im/VMF_/Lobby](https://badges.gitter.im/VMF_/Lobby.svg)](https://gitter.im/VMF_/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
-VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes tons of boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 8, 9, 10 and 11. 
+VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 8, 9, 10 and 11. 
 
 It generates/supports:
 
