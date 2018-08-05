@@ -8,6 +8,10 @@ plugins {
     id 'com.github.ben-manes.versions' version '0.13.0'
 }
 
+ext.commonProps = new Properties()
+file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
+
+
 apply plugin: 'java'
 apply from: 'gradle/publishing.gradle'
 
@@ -62,3 +66,6 @@ license {
 
     exclude '**/*.svg'
 }
+
+
+
