@@ -45,6 +45,8 @@ import java.util.concurrent.atomic.AtomicLong;
 public class ChangesImpl implements Changes {
 
     private final VList<ChangeListener> changeListeners = VList.newInstance(new ArrayList<>());
+    private final VList<ChangeListener> nonRecursiveChangeListeners = VList.newInstance(new ArrayList<>());
+
 
     private final VList<Change> all = VList.newInstance(new ArrayList<>());
     private final VList<Change> unmodifiableAll
@@ -64,9 +66,12 @@ public class ChangesImpl implements Changes {
     private VObject model;
 
     private final List<Subscription> subscriptions = new ArrayList<>();
+    private final List<Subscription> nonRecursiveSubscriptions = new ArrayList<>();
     private final Map<Object, Subscription> listSubscriptions = new IdentityHashMap<>();
+    private final Map<Object, Subscription> nonRecursiveListSubscriptions = new IdentityHashMap<>();
 
     private final PropertyChangeListener objListener;
+    private final PropertyChangeListener nonRecursiveObjListener;
 
     private boolean modelVersioningEnabled;
     private Subscription modelVersioningSubscription;
@@ -109,6 +114,30 @@ public class ChangesImpl implements Changes {
                 registerChangeListener(model, objListener);
             }
         });
+
+        nonRecursiveObjListener = new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+
+                Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
+                        evt.getOldValue(), evt.getNewValue());
+
+                fireChangeForNonRecursive(c);
+            }
+        };
+
+        nonRecursiveChangeListeners.addChangeListener((evt) -> {
+            if (nonRecursiveChangeListeners.isEmpty() && !recording) {
+//                System.out.println("unregister");
+                unregisterChangeListenerNonRecursive(model, nonRecursiveObjListener);
+                nonRecursiveSubscriptions.forEach(s->s.unsubscribe());
+            } else if (!nonRecursiveChangeListeners.isEmpty()) {
+//                System.out.println("register");
+                registerChangeListenerNonRecursive(model, nonRecursiveObjListener);
+            }
+        });
+
+
     }
 
     private void fireChange(Change c) {
@@ -117,7 +146,18 @@ public class ChangesImpl implements Changes {
             cl.onChange(c);
         }
 
-        if (recording) {
+        if (recording && nonRecursiveChangeListeners.isEmpty() ) {
+            all.add(c);
+        }
+    }
+
+    private void fireChangeForNonRecursive(Change c) {
+
+        for (ChangeListener cl : nonRecursiveChangeListeners) {
+            cl.onChange(c);
+        }
+
+        if (recording && changeListeners.isEmpty()) {
             all.add(c);
         }
     }
@@ -169,6 +209,46 @@ public class ChangesImpl implements Changes {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private void registerChangeListenerNonRecursive(VObject vObj, PropertyChangeListener objListener) {
+        addNonRecursiveListListeners(vObj, objListener);
+
+        VObjectInternal obj = (VObjectInternal) vObj;
+        obj.addPropertyChangeListener(objListener);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void unregisterChangeListenerNonRecursive(VObject vObj, PropertyChangeListener objListener) {
+        removeNonRecursiveListListeners(vObj, objListener);
+
+        VObjectInternal obj = (VObjectInternal) vObj;
+        obj.removePropertyChangeListener(objListener);
+    }
+
+    @SuppressWarnings({"deprecation", "unchecked"})
+    private void addNonRecursiveListListeners(VObject object, PropertyChangeListener objListener) {
+        VObjectInternal internalModel = (VObjectInternal) object;
+        for (int i = 0; i < internalModel._vmf_getPropertyTypes().length; i++) {
+            int type = internalModel._vmf_getPropertyTypes()[i];
+            if (type == -2) {
+                String propName = internalModel._vmf_getPropertyNames()[i];
+
+                VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
+
+                Subscription subscription = list.addChangeListener(
+                        (evt) -> {
+                            Change c = new ListChangeImpl(object, propName, evt);
+
+                            fireChangeForNonRecursive(c);
+                        }
+                );
+
+                nonRecursiveSubscriptions.add(subscription);
+                nonRecursiveListSubscriptions.put(list, subscription);
+            }
+        }
+    }
+
     @SuppressWarnings({"deprecation", "unchecked"})
     private void addListListenersToPropertiesOf(VObject object, PropertyChangeListener objListener) {
         VObjectInternal internalModel = (VObjectInternal) object;
@@ -189,11 +269,13 @@ public class ChangesImpl implements Changes {
                                     e -> e instanceof VObjectInternal).
                             map(e -> (VObjectInternal) e).forEach(v
                             -> {
-                        v.removePropertyChangeListener(objListener);
-                        registerChangeListener(v, objListener);
-                        subscriptions.add(
-                                () -> v.removePropertyChangeListener(objListener));
-                    });
+
+                                v.removePropertyChangeListener(objListener);
+                                registerChangeListener(v, objListener);
+                                subscriptions.add(
+                                        () -> v.removePropertyChangeListener(objListener));
+                            });
+
                             evt.removed().elements().stream().
                             filter(e -> e instanceof VObject).
                             map(e -> (VObject) e).
@@ -219,6 +301,21 @@ public class ChangesImpl implements Changes {
 
                 if (listSubscriptions.containsKey(list)) {
                     listSubscriptions.get(list).unsubscribe();
+                }
+            }
+        }
+    }
+
+    @SuppressWarnings({"deprecation", "unchecked"})
+    private void removeNonRecursiveListListeners(VObject object, PropertyChangeListener objListener) {
+        VObjectInternal internalModel = (VObjectInternal) object;
+        for (int i = 0; i < internalModel._vmf_getPropertyTypes().length; i++) {
+            int type = internalModel._vmf_getPropertyTypes()[i];
+            if (type == -2) {
+                VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
+
+                if (nonRecursiveListSubscriptions.containsKey(list)) {
+                    nonRecursiveListSubscriptions.get(list).unsubscribe();
                 }
             }
         }
@@ -285,6 +382,7 @@ public class ChangesImpl implements Changes {
         if (currentTransactionStartIndex < all.size()) {
             publishTransaction();
         }
+
         subscriptions.forEach(s -> s.unsubscribe());
         subscriptions.clear();
 
@@ -317,6 +415,17 @@ public class ChangesImpl implements Changes {
         changeListeners.add(l);
 
         return () -> changeListeners.remove(l);
+    }
+
+    @Override
+    public Subscription addListener(ChangeListener l, boolean recursive) {
+
+        if(recursive) {
+            return addListener(l);
+        } else {
+            nonRecursiveChangeListeners.add(l);
+            return () -> nonRecursiveChangeListeners.remove(l);
+        }
     }
 
     @Override

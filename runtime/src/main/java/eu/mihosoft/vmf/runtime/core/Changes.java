@@ -41,12 +41,28 @@ public interface Changes {
     /**
      * Adds the specified change listener. Listeners will be notified about changes regardless
      * of whether change recording is enabled. This allows to react to and/or undo specific
-     * changes without the overhead of storing all previous events in a collection.
+     * changes without the overhead of storing all previous events in a collection. The listener registers
+     * with all objects of the current object graph.
      *
      * @param l the listener to add
      * @return a subscription which allows to unsubscribe the specified listener
      */
     Subscription addListener(ChangeListener l);
+
+    /**
+     * Adds the specified change listener. Listeners will be notified about changes regardless
+     * of whether change recording is enabled. This allows to react to and/or undo specific
+     * changes without the overhead of storing all previous events in a collection. Optionally the
+     * listener registers with all objects of the current object graph.
+     *
+     * @param l the listher to add
+     * @param recursive determines whether to add the listener recuirsively to all objects of the
+     *                  current object graph
+     * @return a subscription which allows to unsubscribe the specified listener
+     */
+    Subscription addListener(ChangeListener l, boolean recursive);
+
+
 
     /**
      * Starts recording changes. Previously recorded changes will be removed
