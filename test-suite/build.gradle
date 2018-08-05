@@ -6,14 +6,19 @@ buildscript {
         jcenter()
         mavenLocal()
     }
+
+    dependencies {
+        classpath 'eu.mihosoft.vmf:vmf-gradle-plugin:0.2-SNAPSHOT'
+    }
 }
 
 plugins {
     id 'com.github.hierynomus.license' version '0.14.0'
-    id 'eu.mihosoft.vmf' version '0.2-SNAPSHOT'
+//    id 'eu.mihosoft.vmf' version '0.2-SNAPSHOT'
 }
 
 apply plugin: 'java'
+apply plugin: 'eu.mihosoft.vmf'
 
 sourceCompatibility = '1.8'
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
