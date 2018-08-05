@@ -8,7 +8,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'eu.mihosoft.vmf:vmf-gradle-plugin:0.1.7'
+        classpath 'eu.mihosoft.vmf:vmf-gradle-plugin:0.2-SNAPSHOT'
     }
 }
 
