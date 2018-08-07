@@ -21,6 +21,9 @@ plugins {
 //    id 'eu.mihosoft.vmf' version '0.2-SNAPSHOT'
 }
 
+ext.commonProps = new Properties()
+file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
+
 apply plugin: 'java'
 apply plugin: 'eu.mihosoft.vmf'
 
@@ -42,6 +45,10 @@ repositories {
 }
 
 dependencies {
+
+    ext.commonProps = new Properties()
+    file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
+
     testCompile group: 'junit', name: 'junit', version: '4.10'
     
     compile group: 'eu.mihosoft.vmf', name: 'vmf', version: ext.commonProps.get("publication.version")
