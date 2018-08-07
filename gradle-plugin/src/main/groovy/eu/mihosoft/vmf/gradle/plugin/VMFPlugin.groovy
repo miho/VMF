@@ -6,7 +6,7 @@ import org.gradle.api.tasks.compile.JavaCompile
 
 class VMFPluginExtension {
     // vmf version
-    String version  = "0.2-SNAPSHOT"
+    String version  = "0.1.8"
 }
 
 class VMFPlugin implements Plugin<Project> {
