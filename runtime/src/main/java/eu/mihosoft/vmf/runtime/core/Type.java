@@ -27,16 +27,18 @@ import java.util.Objects;
 
 public final class Type {
 
-    private boolean modelType;
-    private String name;
+    private final boolean modelType;
+    private final boolean listType;
+    private final String name;
 
-    private Type(boolean modelType, String name) {
+    private Type(boolean modelType, boolean listType, String name) {
         this.modelType = modelType;
+        this.listType = listType;
         this.name = name;
     }
 
-    static Type newInstance(boolean modelType, String name) {
-        return new Type(modelType, name);
+    static Type newInstance(boolean modelType, boolean listType, String name) {
+        return new Type(modelType, listType, name);
     }
 
     public String getName() {
@@ -47,22 +49,26 @@ public final class Type {
         return this.modelType;
     }
 
+    public boolean isListType() {
+        return listType;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         Type type = (Type) o;
-        return modelType == type.modelType &&
+        return modelType == type.modelType && listType == type.listType &&
                 Objects.equals(name, type.name);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(modelType, name);
+        return Objects.hash(modelType, listType, name);
     }
 
     @Override
     public String toString() {
-        return "[ name=" + name + ", modelType=" + modelType + " ]";
+        return "[ name=" + name + ", modelType=" + modelType + ", listType=" + listType + " ]";
     }
 }

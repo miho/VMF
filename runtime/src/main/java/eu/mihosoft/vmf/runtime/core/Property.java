@@ -29,10 +29,10 @@ import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 @SuppressWarnings("deprecation")
 public final class Property {
 
-    private VObjectInternal parent;
-    private int propertyId;
-    private String name;
-    private Type type;
+    private final VObjectInternal parent;
+    private final int propertyId;
+    private final String name;
+    private final Type type;
 
     private Property(VObjectInternal parent, String name) {
         this.parent = parent;
@@ -40,8 +40,9 @@ public final class Property {
         this.propertyId = parent._vmf_getPropertyIdByName(name);
 
         boolean isModelType = parent._vmf_getPropertyTypes()[propertyId]!=-1;
+        boolean isListType  = parent._vmf_getPropertyTypes()[propertyId]==-2;
 
-        this.type = Type.newInstance(isModelType, parent._vmf_getPropertyTypeNames()[propertyId]);
+        this.type = Type.newInstance(isModelType, isListType, parent._vmf_getPropertyTypeNames()[propertyId]);
     }
 
     public static Property newInstance(VObjectInternal parent, String name) {
