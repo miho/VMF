@@ -193,6 +193,7 @@ public class Prop {
 
         required = getterMethod.getAnnotation(Required.class) != null;
         ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
+        ignoredForToString = getterMethod.getAnnotation(IgnoreToString.class) != null;
 
         getterOnly = getterMethod.getAnnotation(GetterOnly.class) != null;
 
