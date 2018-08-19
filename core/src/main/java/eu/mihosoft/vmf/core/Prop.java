@@ -69,6 +69,9 @@ public class Prop {
     // indicates whether this property should be ignored for equals() code generation
     private boolean ignoredForEquals;
 
+    // indicates whether this property should be ignored for toString() code generation
+    private boolean ignoredForToString;
+
     // getter prefix (get or is)
     private String getterPrefix;
 
@@ -372,6 +375,10 @@ public class Prop {
 
     public boolean isIgnoredForEquals() {
         return ignoredForEquals;
+    }
+
+    public boolean isIgnoredForToString() {
+        return ignoredForToString;
     }
 
     public boolean isContained() {

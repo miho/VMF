@@ -43,6 +43,7 @@
         }
         return "{\"@type\":\"$type.typeName\"" +
 #foreach ($prop in $type.implementation.properties)
+#if ($prop.isIgnoreForToString() != false )
 #if ($prop.containmentInfo.containmentType != "CONTAINER" )
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
         ", " + (this.${prop.name}==null?"[]":this.${prop.name}) +
@@ -50,6 +51,7 @@
         ", \"$prop.name\": \"" + this.$prop.name + "\"" +
 #end ## if contained and collection
 #end ## end if container type
+#end ## end if not ignore for toString
 #end ## for-each property
         "}";
     } finally {
