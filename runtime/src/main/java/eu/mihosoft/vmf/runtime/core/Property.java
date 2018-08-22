@@ -42,6 +42,19 @@ public final class Property {
         boolean isModelType = parent._vmf_getPropertyTypes()[propertyId]!=-1;
         boolean isListType  = parent._vmf_getPropertyTypes()[propertyId]==-2;
 
+        // if we are a list type we check whether this property id is listed as
+        // being part of 'properties with model element types' array
+        // -> if that's the case we define this property as being a model type
+        if (isListType) {
+            isModelType = false;
+            for (int pId : parent._vmf_getIndicesOfPropertiesWithModelElementTypes()) {
+                if(propertyId == pId) {
+                    isModelType = true;
+                    break;
+                }
+            }
+        }
+
         this.type = Type.newInstance(isModelType, isListType, parent._vmf_getPropertyTypeNames()[propertyId]);
     }
 
