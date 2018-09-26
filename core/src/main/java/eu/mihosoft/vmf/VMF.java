@@ -37,11 +37,17 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
+ * This class performs the code generation of a given VMF model.
+ * 
  * Created by miho on 03.01.2017.
  *
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 public class VMF {
+    
+    private VMF() {
+        //
+    }
 
     /**
      * Generates code for the specified model definition.
