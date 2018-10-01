@@ -83,8 +83,7 @@ public class Implementation {
         constructorDelegations.addAll(computeImplementedConstructorDelegations(type));
         this.constructorDelegations.addAll(constructorDelegations.stream().distinct().collect(Collectors.toList()));
 
-
-        Collections.sort(properties, (p1,p2)->p1.getName().compareTo(p2.getName()));
+        ModelType.sortProperties(properties, type.isCustomPropertyOrderPresent());
 
         this.propertiesWithoutCollectionsBasedContainment.addAll(
                 ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties));

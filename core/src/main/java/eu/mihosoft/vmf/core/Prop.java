@@ -23,7 +23,6 @@
  */
 package eu.mihosoft.vmf.core;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.util.*;
@@ -55,6 +54,9 @@ public class Prop {
 
     // parent type, i.e., property owner
     private final ModelType parent;
+
+    // property customOrderIndex (specified if custom order should be used)
+    private Integer customOrderIndex;
 
     // containment info (container or contained property)
     private ContainmentInfo containmentInfo;
@@ -99,6 +101,11 @@ public class Prop {
     void initType(Model m, Method getterMethod) {
 
         Class<?> propClass = getterMethod.getReturnType();
+
+        PropertyOrder propOrder = getterMethod.getAnnotation(PropertyOrder.class);
+        if(propOrder!=null) {
+            customOrderIndex = propOrder.index();
+        }
 
         if (propClass.isPrimitive()) {
             propType = PropType.PRIMITIVE;
@@ -202,6 +209,7 @@ public class Prop {
         if (defVal != null) {
             defaultValueAsString = defVal.value();
         }
+
     }
 
     void setPropId(int propId) {
@@ -648,7 +656,23 @@ public class Prop {
         return result;
     }
 
-// CURRENTLY this method is unused, since we do use property information from parent types which check annotations
+    /**
+     * Returns the requested customOrderIndex of this property.
+     * @return the requested customOrderIndex of this property
+     */
+    public Integer getCustomOrderIndex() {
+        return customOrderIndex;
+    }
+
+    /**
+     * Sets the requested customOrderIndex of this property.
+     * @param customOrderIndex customOrderIndex to set
+     */
+    public void setCustomOrderIndex(Integer customOrderIndex) {
+        this.customOrderIndex = customOrderIndex;
+    }
+
+    // CURRENTLY this method is unused, since we do use property information from parent types which check annotations
 //           we leave this code here (just in case...).
 //    /**
 //     * Returns the method's (or it's equivalents in super types) annotation for the specified type.

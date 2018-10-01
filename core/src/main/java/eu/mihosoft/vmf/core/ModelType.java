@@ -23,7 +23,6 @@
  */
 package eu.mihosoft.vmf.core;
 
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.function.Predicate;
@@ -41,6 +40,7 @@ public class ModelType {
 
     private final List<Prop> properties = new ArrayList<>();
     private final List<Prop> propertiesWithoutCollectionsBasedContainment = new ArrayList<>();
+    private boolean customPropertyOrderPresent;
 
     private final List<String> imports = new ArrayList<>();
 
@@ -113,17 +113,55 @@ public class ModelType {
             }
         }
 
+        boolean hasPropertyWithoutCustomOrder = false;
         for (Method m : list) {
             Prop p = Prop.newInstance(this, m);
 
             properties.add(p);
+
+            System.out.println();
+
+            if(p.getCustomOrderIndex()!=null) {
+                customPropertyOrderPresent = true;
+            } else {
+                hasPropertyWithoutCustomOrder = true;
+            }
+        }
+
+        if(customPropertyOrderPresent && hasPropertyWithoutCustomOrder) {
+            throw new RuntimeException("Model type '" + getTypeName() + "' has incomplete property order info " +
+                    "(either annotate all or none of the properties)");
         }
 
         List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
         this.properties.clear();
         this.properties.addAll(distinctProperties);
 
-        Collections.sort(properties, (p1, p2) -> p1.getName().compareTo(p2.getName()));
+        sortProperties(properties, customPropertyOrderPresent);
+    }
+
+    /**
+     * Indicates whether a custom property order is present.
+     * @return {@code true} if a custom property order is present; {@code false} otherwise
+     */
+    public boolean isCustomPropertyOrderPresent() {
+        return customPropertyOrderPresent;
+    }
+
+    /**
+     * Sorts properties based on custom order or alphabetically if no such order has been specified.
+     * @param properties properties to sort
+     * @param customPropertyOrder defines whether custom order is present
+     */
+    static void sortProperties(List<Prop> properties, boolean customPropertyOrder) {
+
+        System.out.println("CUSTOM ORDER: " + customPropertyOrder);
+
+        if(customPropertyOrder) {
+            Collections.sort(properties, (p1, p2) -> p1.getCustomOrderIndex().compareTo(p2.getCustomOrderIndex()));
+        } else {
+            Collections.sort(properties, (p1, p2) -> p1.getName().compareTo(p2.getName()));
+        }
     }
 
     private void initDelegations(Class<?> clazz) {
@@ -153,7 +191,7 @@ public class ModelType {
                 throw new RuntimeException(
                         "Custom method '"
                                 +m.getDeclaringClass().getName()+"."+m.getName()
-                                +"(...)' does not define delegation class.");
+                                +"(...)' does not define a delegation class.");
             }
         }
 

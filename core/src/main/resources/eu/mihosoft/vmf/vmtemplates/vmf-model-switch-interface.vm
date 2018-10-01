@@ -37,8 +37,8 @@ public interface SwitchFor${modelSwitchName}Model<T> {
     T result = null;
     switch(((${VMFPKG_INT}.VObjectInternal)o)._vmf_getTypeId()) {
 #foreach($type in $model.types)
-      #set($modifiableIdx = $foreach.index*2 + 0)
-      #set($readOnlyIdx = $foreach.index*2 + 1)
+      #set($modifiableIdx = $foreach.customOrderIndex*2 + 0)
+      #set($readOnlyIdx = $foreach.customOrderIndex*2 + 1)
       case $modifiableIdx:
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
