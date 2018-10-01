@@ -46,7 +46,7 @@
    */
   static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
-#if($prop.type&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.customOrderIndex, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#if($prop.type&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 
@@ -55,7 +55,7 @@
    */
   static final int[] _VMF_PROPERTIES_WITH_MODEL_ELEMENT_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
-#if($prop.genericType)    ${StringUtil.alignRight($foreach.customOrderIndex, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#if($prop.genericType)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 
@@ -68,7 +68,7 @@
    */
   static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES = {
 #foreach($prop in $type.implementation.properties)
-#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.customOrderIndex, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 
@@ -80,7 +80,7 @@
    */
   static final int[] _VMF_CHILDREN_INDICES = {
 #foreach($prop in $type.implementation.properties)
-#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType=="CONTAINED")    ${StringUtil.alignRight($foreach.customOrderIndex, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType=="CONTAINED")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
 #end
   };
 
@@ -124,7 +124,7 @@
 
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
-      case $foreach.customOrderIndex:
+      case $foreach.index:
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
         return ${prop.getterPrefix}${prop.nameWithUpperCase}();
@@ -139,7 +139,7 @@
     switch(propertyName) {
 #foreach($prop in $type.implementation.properties)
       case "$prop.name":
-        return $foreach.customOrderIndex;
+        return $foreach.index;
 #end## for-each property
       default:
         return -1;
@@ -153,11 +153,11 @@
 #foreach($prop in $type.implementation.properties)
 #if(!$prop.genericType)
 #if(${prop.propType}!="COLLECTION" && $prop.containmentInfo.containmentType!="CONTAINER")
-      case $foreach.customOrderIndex: // normal property (no collection and no containment)
+      case $foreach.index: // normal property (no collection and no containment)
         set${prop.nameWithUpperCase}((${prop.typeName})value);
         break;
 #elseif(${prop.propType}=="COLLECTION")
-      case $foreach.customOrderIndex: // collection property
+      case $foreach.index: // collection property
         get${prop.nameWithUpperCase}().clear();
         get${prop.nameWithUpperCase}().addAll((${prop.typeName})value);
         break;
@@ -175,7 +175,7 @@
 
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
-      case $foreach.customOrderIndex:
+      case $foreach.index:
         Object __vmf_default_value_tmp$prop.nameWithUpperCase = _VMF_DEFAULT_VALUES[$prop.getPropId()];
 #if(${prop.propType}=="PRIMITIVE")## if prop is primitive
         if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
@@ -208,7 +208,7 @@
 #foreach($prop in $type.implementation.properties)
 #if(${prop.containmentProperty})
     // property ${prop.name}
-    if(propertyId == $foreach.customOrderIndex) {
+    if(propertyId == $foreach.index) {
       throw new RuntimeException("Cannot set default value for property '${prop.name}' with id="+propertyId +": property is a containment property and not writable.");
     }
 #end## if is containment

@@ -58,10 +58,10 @@
                   continue;
                 }
 
-                int customOrderIndex = evt.added().indices()[i];
+                int index = evt.added().indices()[i];
 
                 int typeCount = 0;
-                for(int j = customOrderIndex; j > -1 && !ourList.isEmpty(); j--) {
+                for(int j = index; j > -1 && !ourList.isEmpty(); j--) {
                   if(ourList.get(j) instanceof $prop.syncInfo.opposite.genericTypeName) {
                     typeCount++;
                   }
@@ -71,14 +71,14 @@
 
                 indicesInOpposite.add(typeCount);
                 elementsToSync.add(($prop.syncInfo.opposite.genericTypeName)evt.added().elements().get(i));
-              } // end for each customOrderIndex
+              } // end for each index
 
               ## for(int i = 0; i < indicesInOpposite.size; i++) {
-              ##   int customOrderIndex = indicesInOpposite[i];
-              ##   if(customOrderIndex >= oppositeList.size()) {
+              ##   int index = indicesInOpposite[i];
+              ##   if(index >= oppositeList.size()) {
               ##
               ##   }
-              ## } // end for each customOrderIndex
+              ## } // end for each index
 
               oppositeList.addAll(indicesInOpposite.stream().mapToInt(i -> i).toArray(), elementsToSync);
 
@@ -105,10 +105,10 @@
                   continue;
                 }
 
-                int customOrderIndex = evt.removed().indices()[i];
+                int index = evt.removed().indices()[i];
 
                 int typeCount = 0;
-                for(int j = customOrderIndex; j > -1 && !ourList.isEmpty(); j--) {
+                for(int j = index; j > -1 && !ourList.isEmpty(); j--) {
                   if(ourList.get(j) instanceof $prop.syncInfo.opposite.genericTypeName) {
                     typeCount++;
                   }

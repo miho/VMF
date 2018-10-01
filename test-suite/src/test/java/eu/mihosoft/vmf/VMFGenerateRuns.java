@@ -25,6 +25,9 @@
 package eu.mihosoft.vmf;
 
 import eu.mihosoft.vmf.testing.VMFTestShell;
+import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.CompleteOrderInfo;
+import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.IncompleteOrderInfo;
+import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.InvalidOrderInfo;
 import eu.mihosoft.vmftests.delegationtest.vmfmodel.DelegationTestClass;
 import eu.mihosoft.vmftests.reflectiontest.vmfmodel.InheritedDefaultValue;
 import eu.mihosoft.vmftests.reflectiontest.vmfmodel.InheritedDefaultValueFromTwoParents;
@@ -39,6 +42,7 @@ import eu.mihosoft.vmftests.test1.vmfmodel.DaBean;
 import eu.mihosoft.vmftests.test2.vmfmodel.Child;
 import eu.mihosoft.vmftests.test2.vmfmodel.Named;
 import eu.mihosoft.vmftests.test2.vmfmodel.Parent;
+import org.junit.Assert;
 import org.junit.Test;
 
 public class VMFGenerateRuns extends VMFTestShell {
@@ -357,7 +361,35 @@ public class VMFGenerateRuns extends VMFTestShell {
             //System.err.println(code);
             throw tr;
         }
+    }
 
+    @Test
+    public void testCompleteOrderInfoIsValidTest() throws Throwable {
+        try {
+            setUp(CompleteOrderInfo.class);
+        } catch (Exception ex) {
+            Assert.fail("Must not throw an exception");
+        }
+    }
+
+    @Test
+    public void testIncompleteOrderInfoIsInvalidTest() throws Throwable {
+        try {
+            setUp(IncompleteOrderInfo.class);
+            Assert.fail("Should throw an exception");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testInvalidOrderInfoTest() throws Throwable {
+        try {
+            setUp(InvalidOrderInfo.class);
+            Assert.fail("Should throw an exception");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
 }

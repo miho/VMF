@@ -133,6 +133,18 @@ public class ModelType {
                     "(either annotate all or none of the properties)");
         }
 
+        if(customPropertyOrderPresent) {
+            // find potential duplicates
+            long numDuplicates = properties.stream().
+                    collect(Collectors.groupingBy(p -> p.getCustomOrderIndex(),
+                            Collectors.counting())).values().stream().filter(frequency -> frequency > 1).count();
+
+            if (numDuplicates > 0) {
+                throw new RuntimeException("Model type '" + getTypeName() + "' has invalid property order info " +
+                        "(indices must be unique)");
+            }
+        }
+
         List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
         this.properties.clear();
         this.properties.addAll(distinctProperties);
@@ -154,8 +166,6 @@ public class ModelType {
      * @param customPropertyOrder defines whether custom order is present
      */
     static void sortProperties(List<Prop> properties, boolean customPropertyOrder) {
-
-        System.out.println("CUSTOM ORDER: " + customPropertyOrder);
 
         if(customPropertyOrder) {
             Collections.sort(properties, (p1, p2) -> p1.getCustomOrderIndex().compareTo(p2.getCustomOrderIndex()));
