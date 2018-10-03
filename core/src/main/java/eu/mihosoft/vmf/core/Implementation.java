@@ -70,6 +70,7 @@ public class Implementation {
             // that's, why we use negative indices for those
             int index = -implProperties.size();
 
+            // find min index used by type properties
             int minIndex = type.getProperties().stream().
                     mapToInt(p->p.getCustomOrderIndex()).min().getAsInt();
 
@@ -85,9 +86,11 @@ public class Implementation {
             }
         }
 
+        // only add properties that are not already present in properties
         this.properties.addAll(implProperties.stream().filter(p->!properties.contains(p)).
                 distinct().collect(Collectors.toList()));
 
+        // filter out duplicates (considering overloaded properties)
         List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
         this.properties.clear();
         this.properties.addAll(distinctProperties);
@@ -107,6 +110,7 @@ public class Implementation {
         constructorDelegations.addAll(computeImplementedConstructorDelegations(type));
         this.constructorDelegations.addAll(constructorDelegations.stream().distinct().collect(Collectors.toList()));
 
+        // sort properties
         ModelType.sortProperties(properties, type.isCustomPropertyOrderPresent());
 
         this.propertiesWithoutCollectionsBasedContainment.addAll(
