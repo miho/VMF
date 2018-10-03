@@ -189,7 +189,7 @@ public class ModelType {
             }
         }
 
-        Collections.sort(list, (p1, p2) -> p1.getName().compareTo(p2.getName()));
+        Collections.sort(list, (m1, m2) -> m1.getName().compareTo(m2.getName()));
 
         for(Method m : list) {
             DelegationInfo d = DelegationInfo.newInstance(model, m);

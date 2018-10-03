@@ -58,8 +58,32 @@ public class Implementation {
 
     void initPropertiesImportsAndDelegates() {
 
-        Set<Prop> implProperties = new HashSet<>();
+        List<Prop> implProperties = new ArrayList<>();
         implProperties.addAll(computeImplementedProperties(type));
+
+        // distinct properties ( done via Object.equals() )
+        implProperties = implProperties.stream().distinct().collect(Collectors.toList());
+
+        if(type.isCustomPropertyOrderPresent()) {
+
+            // properties of super types go first
+            // that's, why we use negative indices for those
+            int index = -implProperties.size();
+
+            int minIndex = type.getProperties().stream().
+                    mapToInt(p->p.getCustomOrderIndex()).min().getAsInt();
+
+            // ensure that we are below min index
+            if(minIndex < 0) {
+                index = index + minIndex;
+            }
+
+            // assign property indices
+            for(Prop implProp : implProperties) {
+                implProp.setCustomOrderIndex(index);
+                index++;
+            }
+        }
 
         this.properties.addAll(implProperties.stream().filter(p->!properties.contains(p)).
                 distinct().collect(Collectors.toList()));
@@ -98,8 +122,8 @@ public class Implementation {
     private static List<Prop> computeImplementedProperties(ModelType type) {
         List<Prop> result = new ArrayList<>();
         for(ModelType t: type.getImplementz()) {
-            result.addAll(t.getProperties());
             result.addAll(computeImplementedProperties(t));
+            result.addAll(t.getProperties());
         }
 
         return result;
