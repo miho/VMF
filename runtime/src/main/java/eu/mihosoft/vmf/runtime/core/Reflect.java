@@ -25,6 +25,7 @@ package eu.mihosoft.vmf.runtime.core;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Reflection API of this object graph.
@@ -40,12 +41,23 @@ public interface Reflect {
     List<Annotation> annotations();
 
     /**
-     * Returns the annotation specified by key.
+     * Returns annotation specified by key.
      * @param key the key of the annotation to return
-     * @return the annotation specified by key
+     * @return the first annotation with the specified key
+     * @see #annotationsByKey(String)
      */
     default Optional<Annotation> annotationByKey(String key) {
         return annotations().stream().filter(a->key.equals(a.getKey())).findFirst();
+    }
+
+    /**
+     * Returns annotations specified by key.
+     * @param key the key of the annotation to return
+     * @return annotations specified by key
+     * @see #annotationByKey(String)
+     */
+    default List<Annotation> annotationsByKey(String key) {
+        return annotations().stream().filter(a->key.equals(a.getKey())).collect(Collectors.toList());
     }
 
     /**

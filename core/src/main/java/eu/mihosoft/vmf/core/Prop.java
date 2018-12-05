@@ -88,17 +88,10 @@ public class Prop {
 
     private String defaultValueAsString;
 
-    private final Map<String, AnnotationInfo> annotations = new HashMap<>();
+    private final List<AnnotationInfo> annotations = new ArrayList<>();
 
     public Collection<AnnotationInfo> getAnnotations() {
-
-        // TODO 05.12.2018 improve performance and prevent resorting (caching)
-
-        List<AnnotationInfo> annotationInfoList = new ArrayList<>(annotations.values());
-
-        Collections.sort(annotationInfoList, Comparator.comparing(AnnotationInfo::getKey));
-
-        return annotationInfoList;
+        return annotations;
     }
 
     private int propId;
@@ -227,8 +220,11 @@ public class Prop {
         Annotation[] annotationObjects = getterMethod.getDeclaredAnnotationsByType(Annotation.class);
 
         for(Annotation a : annotationObjects) {
-            annotations.put(a.key(),new AnnotationInfo(a.key(),a.value()));
+            annotations.add(new AnnotationInfo(a.key(),a.value()));
         }
+
+        // we require alphabetic order (by key)
+        Collections.sort(annotations, Comparator.comparing(AnnotationInfo::getKey));
 
     }
 

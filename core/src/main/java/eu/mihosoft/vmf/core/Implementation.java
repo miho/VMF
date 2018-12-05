@@ -115,6 +115,8 @@ public class Implementation {
         List<AnnotationInfo> allAnnotations = new ArrayList<>(type.getAnnotations());
         allAnnotations.addAll(computeInheritedAnnotations(type));
         this.annotations.addAll(allAnnotations);
+
+        // we require alphabetic order (by key)
         Collections.sort(this.annotations, Comparator.comparing(AnnotationInfo::getKey));
 
         // sort properties

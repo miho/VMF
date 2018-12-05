@@ -10,3 +10,11 @@ interface AnnotatedModel {
     @Annotation(key="prop key 2", value = "my prop value 2")
     String getName();
 }
+
+
+@Annotation(key = "key 1", value = "my value 1")
+@Annotation(key = "key 2", value = "my value 2")
+@Annotation(key = "key 2", value = "my value 3")
+interface MultipleAnnotationsPerKey {
+
+}
