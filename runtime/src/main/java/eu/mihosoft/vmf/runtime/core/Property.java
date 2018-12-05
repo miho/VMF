@@ -61,6 +61,7 @@ public final class Property {
         this.type = Type.newInstance(isModelType, isListType, parent._vmf_getPropertyTypeNames()[propertyId]);
     }
 
+    @Deprecated
     public static Property newInstance(VObjectInternal parent, String name) {
         return new Property(parent, name);
     }
@@ -70,6 +71,11 @@ public final class Property {
     }
 
     public void set(Object o) {
+
+        if(parent == null) {
+            throw new RuntimeException("Cannot set property without access to an instance.");
+        }
+
         if(parent instanceof VObjectInternalModifiable) {
             ((VObjectInternalModifiable)parent)._vmf_setPropertyValueById(propertyId, o);
         } else {
@@ -78,6 +84,11 @@ public final class Property {
     }
 
     public void unset() {
+
+        if(parent == null) {
+            throw new RuntimeException("Cannot set property without access to an instance.");
+        }
+
         if(parent instanceof VObjectInternalModifiable) {
             ((VObjectInternalModifiable)parent)._vmf_setPropertyValueById(propertyId, getDefault());
         } else {
@@ -86,11 +97,21 @@ public final class Property {
     }
 
     public Object get() {
+
+        if(parent == null) {
+            throw new RuntimeException("Cannot set property without access to an instance.");
+        }
+
         return parent._vmf_getPropertyValueById(propertyId);
     }
 
     @Deprecated()
     public void setDefault(Object value) {
+
+        if(parent == null) {
+            throw new RuntimeException("Cannot set property without access to an instance.");
+        }
+
         if(parent instanceof VObjectInternalModifiable) {
             ((VObjectInternalModifiable)parent)._vmf_setDefaultValueById(propertyId, value);
         } else {
@@ -99,6 +120,11 @@ public final class Property {
     }
 
     public Object getDefault() {
+
+        if(parent == null) {
+            throw new RuntimeException("Cannot set property without access to an instance.");
+        }
+
         return parent._vmf_getDefaultValueById(propertyId);
     }
 
