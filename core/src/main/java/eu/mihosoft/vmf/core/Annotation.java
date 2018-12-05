@@ -34,7 +34,7 @@ import java.lang.annotation.*;
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Repeatable(value = Annotations.class)
 public @interface Annotation {
-    String key();
+    String key() default "";
     String value();
 }
 

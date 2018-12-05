@@ -1,8 +1,7 @@
 package eu.mihosoft.annotations;
 
 import eu.mihosoft.vmf.runtime.core.Annotation;
-import eu.mihosoft.vmftest.annotations.AnnotatedModel;
-import eu.mihosoft.vmftest.annotations.MultipleAnnotationsPerKey;
+import eu.mihosoft.vmftest.annotations.*;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -52,6 +51,51 @@ public class AnnotationsTest {
         Assert.assertTrue("Size differs. got " + key1.size(), key1.size()==1);
         Assert.assertTrue("Size differs. got " + key2.size(), key2.size()==2);
 
+
+    }
+    @Test
+    public void annotationInheritanceTest() {
+
+
+        AnnotationInheritance1Parent annotatedObjectParent = AnnotationInheritance1Parent.newInstance();
+
+        List<Annotation> annotations = annotatedObjectParent.vmf().reflect().annotations();
+
+        Assert.assertEquals(2,annotations.size());
+        Assert.assertTrue("Not as expected, got: " + annotations.get(0), annotations.get(0).equals("key 1", "my parent value 1"));
+        Assert.assertTrue("Not as expected, got: " + annotations.get(1), annotations.get(1).equals("key 2", "my parent value 2"));
+
+        AnnotationInheritance1Child annotatedObjectChild = AnnotationInheritance1Child.newInstance();
+
+        annotations = annotatedObjectChild.vmf().reflect().annotations();
+
+        Assert.assertEquals(2,annotations.size());
+        Assert.assertTrue("Not as expected, got: " + annotations.get(0), annotations.get(0).equals("key 1", "my child value 1"));
+        Assert.assertTrue("Not as expected, got: " + annotations.get(1), annotations.get(1).equals("key 2", "my child value 2"));
+
+
+    }
+
+    @Test
+    public void annotationPropertyInheritanceTest() {
+
+        AnnotationInheritance2Parent annotatedObjectParent = AnnotationInheritance2Parent.newInstance();
+
+        List<Annotation> annotations = annotatedObjectParent.vmf().reflect().
+                propertyByName("name").map(p->p.annotations()).orElse(Collections.EMPTY_LIST);
+
+        Assert.assertEquals(2,annotations.size());
+        Assert.assertTrue("Not as expected, got: " + annotations.get(0), annotations.get(0).equals("key 1", "my parent value 1"));
+        Assert.assertTrue("Not as expected, got: " + annotations.get(1), annotations.get(1).equals("key 2", "my parent value 2"));
+
+        AnnotationInheritance2Child annotatedObjectChild = AnnotationInheritance2Child.newInstance();
+
+        annotations = annotatedObjectChild.vmf().reflect().
+                propertyByName("name").map(p->p.annotations()).orElse(Collections.EMPTY_LIST);
+
+        Assert.assertEquals(2,annotations.size());
+        Assert.assertTrue("Not as expected, got: " + annotations.get(0), annotations.get(0).equals("key 1", "my child value 1"));
+        Assert.assertTrue("Not as expected, got: " + annotations.get(1), annotations.get(1).equals("key 2", "my child value 2"));
 
 
     }

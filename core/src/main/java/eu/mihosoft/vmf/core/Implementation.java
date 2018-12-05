@@ -113,7 +113,7 @@ public class Implementation {
 
         // set all annotations (distinct)
         List<AnnotationInfo> allAnnotations = new ArrayList<>(type.getAnnotations());
-        allAnnotations.addAll(computeInheritedAnnotations(type));
+//        allAnnotations.addAll(computeInheritedAnnotations(type));
         this.annotations.addAll(allAnnotations);
 
         // we require alphabetic order (by key)
@@ -172,15 +172,15 @@ public class Implementation {
         return result;
     }
 
-    private static List<AnnotationInfo> computeInheritedAnnotations(ModelType type) {
-        List<AnnotationInfo> result = new ArrayList<>();
-        for(ModelType t: type.getImplementz()) {
-            result.addAll(computeInheritedAnnotations(t));
-            result.addAll(t.getAnnotations());
-        }
-
-        return result;
-    }
+//    private static List<AnnotationInfo> computeInheritedAnnotations(ModelType type) {
+//        List<AnnotationInfo> result = new ArrayList<>();
+//        for(ModelType t: type.getImplementz()) {
+//            result.addAll(computeInheritedAnnotations(t));
+//            result.addAll(t.getAnnotations());
+//        }
+//
+//        return result;
+//    }
 
     public List<DelegationInfo> getDelegations() {
         return delegations;

@@ -18,3 +18,30 @@ interface AnnotatedModel {
 interface MultipleAnnotationsPerKey {
 
 }
+
+
+@Annotation(key = "key 1", value = "my parent value 1")
+@Annotation(key = "key 2", value = "my parent value 2")
+interface AnnotationInheritance1Parent {
+
+}
+
+@Annotation(key = "key 1", value = "my child value 1")
+@Annotation(key = "key 2", value = "my child value 2")
+interface AnnotationInheritance1Child {
+
+}
+
+
+interface AnnotationInheritance2Parent {
+    @Annotation(key = "key 1", value = "my parent value 1")
+    @Annotation(key = "key 2", value = "my parent value 2")
+    String getName();
+}
+
+
+interface AnnotationInheritance2Child {
+    @Annotation(key = "key 1", value = "my child value 1")
+    @Annotation(key = "key 2", value = "my child value 2")
+    String getName();
+}
