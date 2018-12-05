@@ -91,7 +91,14 @@ public class Prop {
     private final Map<String, AnnotationInfo> annotations = new HashMap<>();
 
     public Collection<AnnotationInfo> getAnnotations() {
-        return annotations.values();
+
+        // TODO 05.12.2018 improve performance and prevent resorting (caching)
+
+        List<AnnotationInfo> annotationInfoList = new ArrayList<>(annotations.values());
+
+        Collections.sort(annotationInfoList, Comparator.comparing(AnnotationInfo::getKey));
+
+        return annotationInfoList;
     }
 
     private int propId;

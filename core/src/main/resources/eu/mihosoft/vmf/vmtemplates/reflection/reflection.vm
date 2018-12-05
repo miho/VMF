@@ -256,7 +256,7 @@
   final static ${VMFPKG}.Annotation[][] _VMF_PROPERTY_ANNOTATIONS = {
 #foreach($prop in $type.implementation.properties)
     {
-#foreach($annotation in $type.implementation.annotations) 
+#foreach($annotation in $prop.annotations) 
       new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext),#else #end
 
 #end## for each annotation
