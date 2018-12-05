@@ -114,7 +114,7 @@ public final class Property {
      * Returns the list of annotations of this object.
      * @return the list of annotations of this object
      */
-    List<Annotation> annotations() {
+    public List<Annotation> annotations() {
         return parent._vmf_getPropertyAnnotationsById(propertyId);
     }
 
