@@ -27,6 +27,7 @@
 package eu.mihosoft.vmf.runtime.core.internal;
 
 import eu.mihosoft.vcollections.VList;
+import eu.mihosoft.vmf.runtime.core.Annotation;
 import eu.mihosoft.vmf.runtime.core.ObservableObject;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
@@ -151,5 +152,13 @@ public interface VObjectInternal extends VObject, ObservableObject {
      */
     VList<VObject> _vmf_references();
 
+    /**
+     * @return annotations of the property specified by property id
+     */
+    List<Annotation> _vmf_getPropertyAnnotationsById(int propertyId);
 
+    /**
+     * @return annotations of this object
+     */
+    List<Annotation> _vmf_getAnnotations();
 }

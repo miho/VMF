@@ -34,6 +34,21 @@ import java.util.Optional;
 public interface Reflect {
 
     /**
+     * Returns the list of annotations of this object.
+     * @return the list of annotations of this object
+     */
+    List<Annotation> annotations();
+
+    /**
+     * Returns the annotation specified by key.
+     * @param key the key of the annotation to return
+     * @return the annotation specified by key
+     */
+    default Optional<Annotation> annotationByKey(String key) {
+        return annotations().stream().filter(a->key.equals(a.getKey())).findFirst();
+    }
+
+    /**
      * Returns the list of properties of this object.
      * @return the list of properties of this object
      */

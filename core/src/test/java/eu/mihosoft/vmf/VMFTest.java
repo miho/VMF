@@ -59,7 +59,7 @@ public class VMFTest {
             emptyModelException = true;
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if empty models are specified.",
+        Assert.assertTrue("VMF code generator must throw an exception if empty models are specified.",
                 emptyModelException);
 
         emptyModelException = false;
@@ -73,7 +73,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if empty models are specified.",
+        Assert.assertTrue("VMF code generator must throw an exception if empty models are specified.",
                 emptyModelException);
 
         try {
@@ -84,7 +84,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if empty models are specified.",
+        Assert.assertTrue("VMF code generator must throw an exception if empty models are specified.",
                 emptyModelException);
 
     }
@@ -101,7 +101,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if model package is invalid.",
+        Assert.assertTrue("VMF code generator must throw an exception if model package is invalid.",
                 invalidModelPackageException);
 
         invalidModelPackageException = false;
@@ -115,7 +115,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if model package is invalid.",
+        Assert.assertTrue("VMF code generator must throw an exception if model package is invalid.",
                 invalidModelPackageException);
 
         try {
@@ -126,7 +126,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if model package is invalid.",
+        Assert.assertTrue("VMF code generator must throw an exception if model package is invalid.",
                 invalidModelPackageException);
 
     }
@@ -143,7 +143,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertFalse("VMF code generator must not throw exception if model package is valid.",
+        Assert.assertFalse("VMF code generator must not throw an exception if model package is valid.",
                 invalidModelPackageException);
 
     }
@@ -163,7 +163,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertFalse("VMF code generator must not throw exception if model package is valid.",
+        Assert.assertFalse("VMF code generator must not throw an exception if model package is valid.",
                 invalidModelPackageException);
     }
 
@@ -181,7 +181,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertFalse("VMF code generator must not throw exception if model package is valid.",
+        Assert.assertFalse("VMF code generator must not throw an exception if model package is valid.",
                 invalidModelPackageException);
 
     }
@@ -198,7 +198,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if model package contains classes.",
+        Assert.assertTrue("VMF code generator must throw an exception if model package contains classes.",
                 invalidModelPackageException);
 
         invalidModelPackageException = false;
@@ -212,7 +212,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if model package contains classes.",
+        Assert.assertTrue("VMF code generator must throw an exception if model package contains classes.",
                 invalidModelPackageException);
 
         try {
@@ -223,7 +223,7 @@ public class VMFTest {
             ex.printStackTrace(System.err);
         }
 
-        Assert.assertTrue("VMF code generator must throw exception if model package contains classes.",
+        Assert.assertTrue("VMF code generator must throw an exception if model package contains classes.",
                 invalidModelPackageException);
     }
 

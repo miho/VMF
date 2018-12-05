@@ -68,6 +68,12 @@ public class ModelType {
     private final List<DelegationInfo> methodDelegations = new ArrayList<>();
     private final List<DelegationInfo> constructorDelegations = new ArrayList<>();
 
+    private final Map<String, AnnotationInfo> annotations = new HashMap<>();
+
+    public Collection<AnnotationInfo> getAnnotations() {
+        return annotations.values();
+    }
+
     private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
 
@@ -82,6 +88,8 @@ public class ModelType {
         initDelegations(clazz);
 
         initProperties(clazz);
+
+        initAnnotations(clazz);
 
         // initImports(imports);
 
@@ -150,6 +158,14 @@ public class ModelType {
         this.properties.addAll(distinctProperties);
 
         sortProperties(properties, customPropertyOrderPresent);
+    }
+
+    private void initAnnotations(Class<?> clazz) {
+        Annotation[] annotationObjects = clazz.getDeclaredAnnotationsByType(Annotation.class);
+
+        for(Annotation a : annotationObjects) {
+            annotations.put(a.key(),new AnnotationInfo(a.key(),a.value()));
+        }
     }
 
     /**

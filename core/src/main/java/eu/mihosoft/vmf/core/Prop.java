@@ -88,6 +88,12 @@ public class Prop {
 
     private String defaultValueAsString;
 
+    private final Map<String, AnnotationInfo> annotations = new HashMap<>();
+
+    public Collection<AnnotationInfo> getAnnotations() {
+        return annotations.values();
+    }
+
     private int propId;
 
     private Prop(ModelType parent, Method getterMethod) {
@@ -208,6 +214,13 @@ public class Prop {
 
         if (defVal != null) {
             defaultValueAsString = defVal.value();
+        }
+
+
+        Annotation[] annotationObjects = getterMethod.getDeclaredAnnotationsByType(Annotation.class);
+
+        for(Annotation a : annotationObjects) {
+            annotations.put(a.key(),new AnnotationInfo(a.key(),a.value()));
         }
 
     }

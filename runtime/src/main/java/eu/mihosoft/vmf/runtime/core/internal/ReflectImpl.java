@@ -23,6 +23,7 @@
  */
 package eu.mihosoft.vmf.runtime.core.internal;
 
+import eu.mihosoft.vmf.runtime.core.Annotation;
 import eu.mihosoft.vmf.runtime.core.Reflect;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
@@ -42,9 +43,21 @@ public class ReflectImpl implements Reflect {
 
     private VObject model;
     private List<Property> properties;
+    private List<Annotation> annotations;
 
     public void setModel(VObject model) {
         this.model = model;
+    }
+
+    @Override
+    public List<Annotation> annotations() {
+        if(annotations==null) {
+            VObjectInternal parent = (VObjectInternal) model;
+
+            annotations = new ArrayList<>(parent._vmf_getAnnotations());
+        }
+
+        return annotations;
     }
 
     @Override

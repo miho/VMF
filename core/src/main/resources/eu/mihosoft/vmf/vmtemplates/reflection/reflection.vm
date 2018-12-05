@@ -243,3 +243,34 @@
   
 #end## for each property
   };
+
+  // ------ ANNOTATIONS ------
+
+  final static ${VMFPKG}.Annotation[] _VMF_OBJECT_ANNOTATIONS = {
+#foreach($annotation in $type.implementation.annotations) 
+    new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext),#else #end
+
+#end## for each pannotationroperty
+  };
+
+  final static ${VMFPKG}.Annotation[][] _VMF_PROPERTY_ANNOTATIONS = {
+#foreach($prop in $type.implementation.properties)
+    {
+#foreach($annotation in $type.implementation.annotations) 
+      new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext),#else #end
+
+#end## for each annotation
+    }#if($foreach.hasNext),#else #end
+
+#end## for each property
+  };
+
+  @Override
+  public java.util.List<${VMFPKG}.Annotation> _vmf_getPropertyAnnotationsById(int propertyId) {
+    return java.util.Arrays.asList(_VMF_PROPERTY_ANNOTATIONS[propertyId]);
+  }
+
+  @Override
+  public java.util.List<${VMFPKG}.Annotation> _vmf_getAnnotations() {
+    return java.util.Arrays.asList(_VMF_OBJECT_ANNOTATIONS);
+  }

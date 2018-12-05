@@ -46,6 +46,7 @@ public class Implementation {
     private final List<DelegationInfo> delegations = new ArrayList<>();
     private final List<DelegationInfo> methodDelegations = new ArrayList<>();
     private final List<DelegationInfo> constructorDelegations = new ArrayList<>();
+    private final List<AnnotationInfo> annotations = new ArrayList<>();
 
     private Implementation(ModelType type) {
         this.type = type;
@@ -110,6 +111,11 @@ public class Implementation {
         constructorDelegations.addAll(computeImplementedConstructorDelegations(type));
         this.constructorDelegations.addAll(constructorDelegations.stream().distinct().collect(Collectors.toList()));
 
+        // set all annotations (distinct)
+        List<AnnotationInfo> allAnnotations = new ArrayList<>(type.getAnnotations());
+        allAnnotations.addAll(computeInheritedAnnotations(type));
+        this.annotations.addAll(allAnnotations);
+
         // sort properties
         ModelType.sortProperties(properties, type.isCustomPropertyOrderPresent());
 
@@ -163,6 +169,16 @@ public class Implementation {
         return result;
     }
 
+    private static List<AnnotationInfo> computeInheritedAnnotations(ModelType type) {
+        List<AnnotationInfo> result = new ArrayList<>();
+        for(ModelType t: type.getImplementz()) {
+            result.addAll(computeInheritedAnnotations(t));
+            result.addAll(t.getAnnotations());
+        }
+
+        return result;
+    }
+
     public List<DelegationInfo> getDelegations() {
         return delegations;
     }
@@ -185,6 +201,9 @@ public class Implementation {
         return t -> seen.putIfAbsent(keyExtractor.apply(t), Boolean.TRUE) == null;
     }
 
+    public List<AnnotationInfo> getAnnotations() {
+        return annotations;
+    }
 
     public static Implementation newInstance(ModelType type) {
         return new Implementation(type);

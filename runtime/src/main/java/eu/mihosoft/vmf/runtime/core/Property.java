@@ -26,6 +26,9 @@ package eu.mihosoft.vmf.runtime.core;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 
+import java.util.List;
+import java.util.Optional;
+
 @SuppressWarnings("deprecation")
 public final class Property {
 
@@ -107,5 +110,20 @@ public final class Property {
         return name;
     }
 
+    /**
+     * Returns the list of annotations of this object.
+     * @return the list of annotations of this object
+     */
+    List<Annotation> annotations() {
+        return parent._vmf_getPropertyAnnotationsById(propertyId);
+    }
 
+    /**
+     * Returns the annotation specified by key.
+     * @param key the key of the annotation to return
+     * @return the annotation specified by key
+     */
+    public Optional<Annotation> annotationByKey(String key) {
+        return annotations().stream().filter(a->key.equals(a.getKey())).findFirst();
+    }
 }
