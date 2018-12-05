@@ -15,10 +15,6 @@ matrix:
       install: true
     - os: linux
       language: java
-      jdk:  oraclejdk10
-      install: true
-    - os: linux
-      language: java
       jdk:  openjdk11
     - os: linux
       language: java
