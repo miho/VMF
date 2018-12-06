@@ -11,7 +11,7 @@ ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 wrapper {
-    gradleVersion = '4.10'
+    gradleVersion = '5.0'
 }
 
 apply plugin: 'groovy'
