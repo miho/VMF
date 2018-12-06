@@ -9,7 +9,7 @@ cmd /c "gradlew.bat" clean publishtoMavenLocal
 echo ----------------------------------------
 echo BUILDING RUNTIME...
 echo ----------------------------------------
-cd runtime
+cd ..\runtime
 cmd /c "gradlew.bat" clean publishtoMavenLocal
 
 echo ----------------------------------------
