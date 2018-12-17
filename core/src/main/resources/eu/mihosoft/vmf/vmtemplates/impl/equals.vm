@@ -106,7 +106,7 @@
         return ((${VCOLL_PKG}.VList)o1).isEmpty();
       }
     } else {
-      return Objects.equals(o1,o2);
+      return java.util.Objects.equals(o1,o2);
     }
   }
 
@@ -140,12 +140,12 @@
 
   } // end hashCode()
 
-  // fixes 'array discovery problems' with the 'Objects.hash(...)' method
+  // fixes 'array discovery problems' with the 'java.util.Objects.hash(...)' method
   // see http://stackoverflow.com/questions/30385018/how-to-use-java-7-objects-hash-with-arrays
   private int _vmf_deepHashCode(Object... fields) {
       // WARNING we are not allowed to pass arrays that contain itself
       //         or are contained in nested arrays
-      return Arrays.deepHashCode(fields);
+      return java.util.Arrays.deepHashCode(fields);
   } // end _vmf_deepHashCode()
 
   /**
@@ -171,7 +171,7 @@
 
       @Override
       public int hashCode() {
-          return Objects.hash(System.identityHashCode(first),
+          return java.util.Objects.hash(System.identityHashCode(first),
                   System.identityHashCode(second));
       }
 
