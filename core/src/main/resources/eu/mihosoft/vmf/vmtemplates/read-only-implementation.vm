@@ -34,7 +34,7 @@ import ${type.packageName}.*;
 
 // property types imports
 #foreach( $import in $type.implementation.imports )
-import $import;
+// import $import;
 #end
 
 // interface
@@ -76,7 +76,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     // since read-only types and normal types are incompatible by design, we specify the lambda
     // operation that converts an element into a read-only version of that element
     if(this.${prop.name} == null) {
-      this.${prop.name} = VMappedList.newUnmodifiableInstance(mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
+      this.${prop.name} = ${VCOLL_PKG}.VMappedList.newUnmodifiableInstance(mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
     }
 
     return this.${prop.name};
