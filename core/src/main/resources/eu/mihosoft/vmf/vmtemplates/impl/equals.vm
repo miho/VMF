@@ -62,7 +62,7 @@
         $type.implementation.typeName other = ($type.implementation.typeName) o;
         return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
-          _vmf_equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
+          _vmf_equals(this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end## for-each property
       }
@@ -75,7 +75,7 @@
         $t.implementation.typeName other = ($t.implementation.typeName) o;
         return #if($t.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
-          _vmf_equals(this.$prop.name, other.$prop.name)#if($foreach.hasNext) &&#else;#end
+          _vmf_equals(this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end## for-each property
       }
@@ -125,7 +125,7 @@
             _vmf_getThreadLocalHashCode().get().put(System.identityHashCode(this), null);
             int value = _vmf_deepHashCode(
 #foreach ($prop in $type.implementation.propertiesForEquals)
-            this.$prop.name#if($foreach.hasNext),#end
+            this.__vmf_prop_$prop.name#if($foreach.hasNext),#end
 #end        );
             entry = true;
             return value;

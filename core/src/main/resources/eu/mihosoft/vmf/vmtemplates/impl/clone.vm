@@ -38,27 +38,27 @@
 #if(!$prop.container)
 #if($prop.propType=="COLLECTION")
     if(deepCopy) {
-      if(other.${prop.name}!=null) {
+      if(other.__vmf_prop_${prop.name}!=null) {
 #if($prop.genericType)
         // element type is a model type
-        for($prop.genericType.typeName e : other.${prop.name}) {
+        for($prop.genericType.typeName e : other.__vmf_prop_${prop.name}) {
           // TODO do a bulk operation instead
           ${VMFPKG_INT}.VObjectInternal eClone = (${VMFPKG_INT}.VObjectInternal)($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap);
           this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)eClone);
         }
 #else ## if prop genericType
         // element type is an external type (TODO implement cloning strategy)
-        this.get${prop.nameWithUpperCase}().addAll(other.${prop.name});
+        this.get${prop.nameWithUpperCase}().addAll(other.__vmf_prop_${prop.name});
 #end ## if prop genericType
       } else {
         // nothing to copy
       }
     } else {
-      this.$prop.name = other.$prop.name;
+      this.__vmf_prop_$prop.name = other.__vmf_prop_$prop.name;
     }
 #if($prop.contained)
-    if(this.${prop.name}!=null) {
-      this.${prop.name}.forEach((e) -> {
+    if(this.__vmf_prop_${prop.name}!=null) {
+      this.__vmf_prop_${prop.name}.forEach((e) -> {
           #set($propertyToModifyValue = "e")
           #set($oppositeValue = "this")
           #set($codeIndentValue = "        ")
@@ -70,15 +70,15 @@
 #if($prop.type)
       // property type is a model type
       if(deepCopy) {
-        if(other.${prop.name}!=null) {
-          this.set${prop.nameWithUpperCase}(($prop.typeName)((VCloneableInternal)other.${prop.name})._vmf_deepCopy(identityMap));
+        if(other.__vmf_prop_${prop.name}!=null) {
+          this.set${prop.nameWithUpperCase}(($prop.typeName)((VCloneableInternal)other.__vmf_prop_${prop.name})._vmf_deepCopy(identityMap));
         }
       } else {
-        this.$prop.name = other.$prop.name;
+        this.__vmf_prop_$prop.name = other.__vmf_prop_$prop.name;
       }
 #else ## if prop type
       // property type is an external type (TODO implement cloning strategy)
-      this.set${prop.nameWithUpperCase}(other.${prop.name});
+      this.set${prop.nameWithUpperCase}(other.__vmf_prop_${prop.name});
 #end ## if prop type
 #end ## if collection
 #end ## if container type

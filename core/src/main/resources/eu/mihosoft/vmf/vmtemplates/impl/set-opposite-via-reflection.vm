@@ -24,7 +24,7 @@
 ## sets opposite field via reflection
 ${codeIndentValue}try {
 ${codeIndentValue}  java.lang.reflect.Field field =
-${codeIndentValue}    ${propertyToModifyValue}.getClass().getDeclaredField("${prop.containmentInfo.opposite.name}");
+${codeIndentValue}    ${propertyToModifyValue}.getClass().getDeclaredField("__vmf_prop_${prop.containmentInfo.opposite.name}");
 ${codeIndentValue}  field.setAccessible(true);
 ${codeIndentValue}  Object oldOpposite = field.get(${propertyToModifyValue});
 ${codeIndentValue}  field.set(${propertyToModifyValue}, $oppositeValue);

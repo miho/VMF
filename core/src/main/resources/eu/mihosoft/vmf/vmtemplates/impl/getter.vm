@@ -26,10 +26,10 @@
   public $prop.getterDeclaration {
 #if($prop.containmentProperty && $prop.propType == "COLLECTION")
 
-    if(this.$prop.name==null) {
-      this.$prop.name = VList.newInstance(new java.util.ArrayList<>());
+    if(this.__vmf_prop_$prop.name==null) {
+      this.__vmf_prop_$prop.name = VList.newInstance(new java.util.ArrayList<>());
 
-      this.${prop.name}.addChangeListener((evt)-> {
+      this.__vmf_prop_${prop.name}.addChangeListener((evt)-> {
             evt.added().elements().forEach((e)->{
 
                 if(e==null) return;
@@ -72,17 +72,17 @@
             
         }); // end of change listener
 
-    } // end of "lazy init" if(this.$prop.name==null)
+    } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)
 
-    return this.$prop.name;
+    return this.__vmf_prop_$prop.name;
 
-    // return VContainmentUtil.asContainmentList(this.$prop.name, "${prop.containmentInfo.opposite.name}");
+    // return VContainmentUtil.asContainmentList(this.__vmf_prop_$prop.name, "__vmf_prop_${prop.containmentInfo.opposite.name}");
 #else
 #if($prop.propType == "COLLECTION")
-    if(this.$prop.name==null) {
-      this.$prop.name = VList.newInstance(new java.util.ArrayList<>());
+    if(this.__vmf_prop_$prop.name==null) {
+      this.__vmf_prop_$prop.name = VList.newInstance(new java.util.ArrayList<>());
 #if($prop.type||$prop.genericType)
-      this.${prop.name}.addChangeListener((evt)-> {
+      this.__vmf_prop_${prop.name}.addChangeListener((evt)-> {
             evt.added().elements().forEach((e)->{
               // nothing to do if e == null
               if(e==null) return;
@@ -107,9 +107,9 @@
 
         }); // end of change listener
 #end## if is model type
-    } // end of "lazy init" if(this.$prop.name==null)
+    } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)
 #end
-    return this.$prop.name;
+    return this.__vmf_prop_$prop.name;
 
 #end
   } // end of $prop.getterDeclaration
