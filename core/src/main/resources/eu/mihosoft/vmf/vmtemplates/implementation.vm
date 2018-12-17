@@ -30,8 +30,8 @@ package ${type.implementation.packageName};
 //import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 //import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
-import java.beans.PropertyChangeSupport;
-import java.beans.PropertyChangeListener;
+//import java.beans.PropertyChangeSupport;
+//import java.beans.PropertyChangeListener;
 import java.util.Objects;
 import java.util.Arrays;
 
@@ -56,7 +56,7 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
 
 #parse("${VMF_TEMPLATE_PATH}impl/declare-delegates.vm")
 
-  private PropertyChangeSupport propertyChanges;
+  private java.beans.PropertyChangeSupport propertyChanges;
 
   // referenced by
   private final ${VCOLL_PKG}.VList<${VMFPKG}.VObject> referencedBy = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
@@ -115,11 +115,11 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
   // --------------------------------------------------------------------
 
   @Override
-  public void addPropertyChangeListener(PropertyChangeListener l) {
+  public void addPropertyChangeListener(java.beans.PropertyChangeListener l) {
       _vmf_getPropertyChanges().addPropertyChangeListener(l);
   }
   @Override
-  public void removePropertyChangeListener(PropertyChangeListener l) {
+  public void removePropertyChangeListener(java.beans.PropertyChangeListener l) {
       _vmf_getPropertyChanges().removePropertyChangeListener(l);
 
       if(_vmf_getPropertyChanges().getPropertyChangeListeners().length==0) {
@@ -127,10 +127,10 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
       }
   }
 
-  private PropertyChangeSupport _vmf_getPropertyChanges() {
+  private java.beans.PropertyChangeSupport _vmf_getPropertyChanges() {
 
       if(propertyChanges==null) {
-          propertyChanges = new PropertyChangeSupport(this);
+          propertyChanges = new java.beans.PropertyChangeSupport(this);
       }
 
       return propertyChanges;

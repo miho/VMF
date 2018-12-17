@@ -30,8 +30,8 @@ package ${type.implementation.packageName};
 // import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 //import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
-import java.beans.PropertyChangeSupport;
-import java.beans.PropertyChangeListener;
+//import java.beans.PropertyChangeSupport;
+//import java.beans.PropertyChangeListener;
 import java.util.Objects;
 import java.util.Arrays;
 

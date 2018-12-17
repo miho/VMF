@@ -30,7 +30,7 @@ package ${type.readOnlyImplementation.packageName};
 //import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 //import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
-import java.beans.PropertyChangeListener;
+//import java.beans.PropertyChangeListener;
 
 // property types imports
 #foreach( $import in $type.implementation.imports )
@@ -118,12 +118,12 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #end // end for each property
 
   @Override
-  public void addPropertyChangeListener(PropertyChangeListener l) {
+  public void addPropertyChangeListener(java.beans.PropertyChangeListener l) {
     ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).addPropertyChangeListener(l);
   }
 
   @Override
-  public void removePropertyChangeListener(PropertyChangeListener l) {
+  public void removePropertyChangeListener(java.beans.PropertyChangeListener l) {
     ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).removePropertyChangeListener(l);
   }
 
