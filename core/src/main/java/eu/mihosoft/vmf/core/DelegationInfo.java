@@ -60,7 +60,7 @@ public class DelegationInfo {
             delegationTypes.add(fullTypeName);
         }
 
-        varName = "_vmf_delegate"+delegationTypes.indexOf(fullTypeName);
+        varName = "__vmf_delegate_"+delegationTypes.indexOf(fullTypeName);
 
         this.constructor = constructor;
     }
