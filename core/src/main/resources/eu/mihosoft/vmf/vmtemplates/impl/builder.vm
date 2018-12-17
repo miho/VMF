@@ -42,7 +42,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     public ${type.typeName}.Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name}) {
 #if($prop.propType == "COLLECTION")
       // ensure that this collection property is really immutable
-      this.__vmf_prop_${prop.name} = VList.newInstance(
+      this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
         java.util.Collections.
         unmodifiableList(
 #if(${prop.genericType})
@@ -100,7 +100,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #end## if genericType is modelType
       if(!this.appendCollections||this.__vmf_prop_${prop.name}==null) {
         // ensure that this collection property is really immutable
-        this.__vmf_prop_${prop.name} = VList.newInstance(
+        this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
           java.util.Collections.
           unmodifiableList(
               new java.util.ArrayList<$genericCollArg>(o.${prop.getterPrefix}${prop.nameWithUpperCase}())

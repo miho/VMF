@@ -27,7 +27,7 @@ package ${type.packageName};
 #set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
 #set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
 //import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
-import ${VCOLL_PKG}.*;
+// TODO see issue #9 import ${VCOLL_PKG}.*; 
 
 // property types imports
 #foreach( $import in $type.imports )

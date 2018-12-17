@@ -28,7 +28,7 @@ package ${type.implementation.packageName};
 #set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
 //import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 //import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
-import ${VCOLL_PKG}.*;
+//import ${VCOLL_PKG}.*;
 import ${type.packageName}.*;
 import java.beans.PropertyChangeSupport;
 import java.beans.PropertyChangeListener;
@@ -59,9 +59,9 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
   private PropertyChangeSupport propertyChanges;
 
   // referenced by
-  private final VList<${VMFPKG}.VObject> referencedBy = VList.newInstance(new java.util.ArrayList<>());
+  private final ${VCOLL_PKG}.VList<${VMFPKG}.VObject> referencedBy = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
   // references
-  private final VList<${VMFPKG}.VObject> references = VList.newInstance(new java.util.ArrayList<>());
+  private final ${VCOLL_PKG}.VList<${VMFPKG}.VObject> references = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
 
   // --------------------------------------------------------------------
   // --- public constructors
@@ -179,10 +179,10 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
             public <T extends ${VMFPKG}.VObject> java.util.stream.Stream<T> stream(Class<T> type, ${VMFPKG}.VIterator.IterationStrategy strategy) {
               return stream(strategy).filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
             }
-            public VList<${VMFPKG}.VObject> referencedBy() {
+            public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> referencedBy() {
               return _vmf_referencedBy().asUnmodifiable();
             }
-            public VList<${VMFPKG}.VObject> references() {
+            public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> references() {
               return _vmf_references().asUnmodifiable();
             }
 
@@ -269,8 +269,8 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
   // --------------------------------------------------------------------
 
   @Override
-  public VList<${VMFPKG}.VObject> _vmf_referencedBy() { return this.referencedBy;}
+  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_referencedBy() { return this.referencedBy;}
   @Override
-  public VList<${VMFPKG}.VObject> _vmf_references() { return this.references;}
+  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_references() { return this.references;}
 
 }

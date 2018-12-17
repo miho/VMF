@@ -27,7 +27,7 @@
 #if($prop.containmentProperty && $prop.propType == "COLLECTION")
 
     if(this.__vmf_prop_$prop.name==null) {
-      this.__vmf_prop_$prop.name = VList.newInstance(new java.util.ArrayList<>());
+      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
 
       this.__vmf_prop_${prop.name}.addChangeListener((evt)-> {
             evt.added().elements().forEach((e)->{
@@ -80,7 +80,7 @@
 #else
 #if($prop.propType == "COLLECTION")
     if(this.__vmf_prop_$prop.name==null) {
-      this.__vmf_prop_$prop.name = VList.newInstance(new java.util.ArrayList<>());
+      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
 #if($prop.type||$prop.genericType)
       this.__vmf_prop_${prop.name}.addChangeListener((evt)-> {
             evt.added().elements().forEach((e)->{

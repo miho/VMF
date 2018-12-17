@@ -27,7 +27,7 @@ package ${type.packageName};
 #set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
 #set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
 // import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
-import ${VCOLL_PKG}.*;
+// import ${VCOLL_PKG}.*;
 
 // property types imports
 #foreach( $import in $type.imports )
@@ -101,9 +101,9 @@ public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
   // generic model type
-  public VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+  public ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #else
-  public VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+  public ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #end ## if genericType
 #else
   public #if($prop.type)#if($prop.type.immutable)$prop.type.typeName#else$prop.type.readOnlyInterface.typeName#end#else$prop.typeName#end ${prop.getterPrefix}${prop.nameWithUpperCase}();

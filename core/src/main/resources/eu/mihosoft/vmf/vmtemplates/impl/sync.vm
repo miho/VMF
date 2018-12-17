@@ -43,9 +43,9 @@
 
               java.util.List<Integer> indicesInOpposite = new java.util.ArrayList<>();
 
-              VList<${prop.syncInfo.opposite.genericTypeName}> oppositeList =
+              ${VCOLL_PKG}.VList<${prop.syncInfo.opposite.genericTypeName}> oppositeList =
                  this.${prop.syncInfo.opposite.getterPrefix}${prop.syncInfo.opposite.nameWithUpperCase}();
-              VList<${prop.genericTypeName}> ourList =
+              ${VCOLL_PKG}.VList<${prop.genericTypeName}> ourList =
                  this.${prop.getterPrefix}${prop.nameWithUpperCase}();
 
               java.util.List<${prop.syncInfo.opposite.genericTypeName}> elementsToSync =
@@ -93,9 +93,9 @@
 
               java.util.List<Integer> indicesInOpposite = new java.util.ArrayList<>();
 
-              VList<${prop.syncInfo.opposite.genericTypeName}> oppositeList =
+              ${VCOLL_PKG}.VList<${prop.syncInfo.opposite.genericTypeName}> oppositeList =
                  this.${prop.syncInfo.opposite.getterPrefix}${prop.syncInfo.opposite.nameWithUpperCase}();
-              VList<${prop.genericTypeName}> ourList =
+              ${VCOLL_PKG}.VList<${prop.genericTypeName}> ourList =
                  this.${prop.getterPrefix}${prop.nameWithUpperCase}();
 
               for(int i = 0; i < evt.removed().indices().length;i++) {
