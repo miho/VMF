@@ -48,6 +48,12 @@ public interface VObjectInternal extends VObject, ObservableObject {
     int _vmf_getTypeId();
 
     /**
+     * Returns the names of the super types of this class.
+     * @return the names of the super types of this class
+     */
+    String[] _vmf_getSuperTypeNames();
+
+    /**
      * Returns the names of the properties defined in this type/object.
      *
      */

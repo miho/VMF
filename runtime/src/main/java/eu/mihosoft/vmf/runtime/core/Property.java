@@ -26,7 +26,9 @@ package eu.mihosoft.vmf.runtime.core;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @SuppressWarnings("deprecation")
@@ -35,15 +37,48 @@ public final class Property {
     private final VObjectInternal parent;
     private final int propertyId;
     private final String name;
-    private final Type type;
+    private Type type;
+    private boolean staticOnly;
 
-    private Property(VObjectInternal parent, String name) {
+    private static Map<String, Class<?>> primitives = new HashMap<>();
+
+    {
+        primitives.put("boolean", boolean.class);
+        primitives.put("short", short.class);
+        primitives.put("int", int.class);
+        primitives.put("long", long.class);
+        primitives.put("float", float.class);
+        primitives.put("double", double.class);
+        primitives.put("char", char.class);
+        primitives.put("byte", byte.class);
+    }
+
+    static boolean isPrimitiveType(String clsName) {
+        return primitives.containsKey(clsName);
+    }
+
+    private Class<?> getClassObjectByName(String clsName) {
+        Class<?> result = primitives.get(clsName);
+
+        if (result == null) {
+            try {
+                result = parent.getClass().getClassLoader().loadClass(clsName);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return result;
+    }
+
+    private Property(VObjectInternal parent, String name, boolean staticOnly) {
         this.parent = parent;
         this.name = name;
+        this.staticOnly = staticOnly;
         this.propertyId = parent._vmf_getPropertyIdByName(name);
 
-        boolean isModelType = parent._vmf_getPropertyTypes()[propertyId]!=-1;
-        boolean isListType  = parent._vmf_getPropertyTypes()[propertyId]==-2;
+        boolean isModelType = parent._vmf_getPropertyTypes()[propertyId] != -1;
+        boolean isListType = parent._vmf_getPropertyTypes()[propertyId] == -2;
 
         // if we are a list type we check whether this property id is listed as
         // being part of 'properties with model element types' array
@@ -51,19 +86,33 @@ public final class Property {
         if (isListType) {
             isModelType = false;
             for (int pId : parent._vmf_getIndicesOfPropertiesWithModelElementTypes()) {
-                if(propertyId == pId) {
+                if (propertyId == pId) {
                     isModelType = true;
                     break;
                 }
             }
         }
 
-        this.type = Type.newInstance(isModelType, isListType, parent._vmf_getPropertyTypeNames()[propertyId]);
+        String typeName = parent._vmf_getPropertyTypeNames()[propertyId];
+        try {
+            if (isListType) {
+                this.type = Type.newInstance(isModelType, isListType, typeName,
+                        parent.getClass().getClassLoader().loadClass("eu.mihosoft.vcollections.VList"));
+            } else if (isPrimitiveType(typeName)) {
+                this.type = Type.newInstance(isModelType, isListType, typeName, getClassObjectByName(typeName));
+            } else {
+                this.type = Type.newInstance(isModelType, isListType, typeName,
+                        parent.getClass().getClassLoader().loadClass(typeName));
+            }
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+
     }
 
     @Deprecated
-    public static Property newInstance(VObjectInternal parent, String name) {
-        return new Property(parent, name);
+    public static Property newInstance(VObjectInternal parent, String name, boolean staticOnly) {
+        return new Property(parent, name, staticOnly);
     }
 
     public boolean isSet() {
@@ -72,12 +121,12 @@ public final class Property {
 
     public void set(Object o) {
 
-        if(parent == null) {
+        if (parent == null || staticOnly) {
             throw new RuntimeException("Cannot set property without access to an instance.");
         }
 
-        if(parent instanceof VObjectInternalModifiable) {
-            ((VObjectInternalModifiable)parent)._vmf_setPropertyValueById(propertyId, o);
+        if (parent instanceof VObjectInternalModifiable) {
+            ((VObjectInternalModifiable) parent)._vmf_setPropertyValueById(propertyId, o);
         } else {
             throw new RuntimeException("Cannot modify unmodifiable object");
         }
@@ -85,12 +134,12 @@ public final class Property {
 
     public void unset() {
 
-        if(parent == null) {
+        if (parent == null || staticOnly) {
             throw new RuntimeException("Cannot set property without access to an instance.");
         }
 
-        if(parent instanceof VObjectInternalModifiable) {
-            ((VObjectInternalModifiable)parent)._vmf_setPropertyValueById(propertyId, getDefault());
+        if (parent instanceof VObjectInternalModifiable) {
+            ((VObjectInternalModifiable) parent)._vmf_setPropertyValueById(propertyId, getDefault());
         } else {
             throw new RuntimeException("Cannot modify unmodifiable object");
         }
@@ -98,7 +147,7 @@ public final class Property {
 
     public Object get() {
 
-        if(parent == null) {
+        if (parent == null || staticOnly) {
             throw new RuntimeException("Cannot set property without access to an instance.");
         }
 
@@ -108,12 +157,12 @@ public final class Property {
     @Deprecated()
     public void setDefault(Object value) {
 
-        if(parent == null) {
+        if (parent == null || staticOnly) {
             throw new RuntimeException("Cannot set property without access to an instance.");
         }
 
-        if(parent instanceof VObjectInternalModifiable) {
-            ((VObjectInternalModifiable)parent)._vmf_setDefaultValueById(propertyId, value);
+        if (parent instanceof VObjectInternalModifiable) {
+            ((VObjectInternalModifiable) parent)._vmf_setDefaultValueById(propertyId, value);
         } else {
             throw new RuntimeException("Cannot modify unmodifiable object");
         }
@@ -121,7 +170,7 @@ public final class Property {
 
     public Object getDefault() {
 
-        if(parent == null) {
+        if (parent == null || staticOnly) {
             throw new RuntimeException("Cannot set property without access to an instance.");
         }
 
@@ -138,6 +187,7 @@ public final class Property {
 
     /**
      * Returns the list of annotations of this object.
+     *
      * @return the list of annotations of this object
      */
     public List<Annotation> annotations() {
@@ -146,10 +196,11 @@ public final class Property {
 
     /**
      * Returns the annotation specified by key.
+     *
      * @param key the key of the annotation to return
      * @return the annotation specified by key
      */
     public Optional<Annotation> annotationByKey(String key) {
-        return annotations().stream().filter(a->key.equals(a.getKey())).findFirst();
+        return annotations().stream().filter(a -> key.equals(a.getKey())).findFirst();
     }
 }

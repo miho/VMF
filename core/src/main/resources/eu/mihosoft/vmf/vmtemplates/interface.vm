@@ -55,6 +55,14 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString,
 
 #if(!$type.interfaceOnly)
 
+  /**
+   * Returns the Type object of this model type.
+   * @return Type object
+   */
+  static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type type() {
+    return __VMF__${type.typeName}_Creator.getType();
+  }
+
 #parse("${VMF_TEMPLATE_PATH}interface/builder.vm")
 
   /**
@@ -97,6 +105,15 @@ class __VMF__${type.typeName}_Creator {
     static java.lang.reflect.Constructor constructor;
     static java.lang.invoke.MethodHandles.Lookup lookup;
     static java.lang.invoke.MethodHandle constructorMH;
+
+    static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type type;
+
+    static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type getType() {
+        if(type ==null) {
+            type = ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type.newInstance(true, false, "${type.packageName}.$type.typeName", ${type.packageName}.${type.typeName}.class);
+        }
+        return type;
+    }
 
     static ${type.typeName} newInstance() {
         try {

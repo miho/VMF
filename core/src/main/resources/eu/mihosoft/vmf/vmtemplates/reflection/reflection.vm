@@ -21,6 +21,16 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
+
+  static final String[] _VMF_SUPER_TYPE_NAMES = {
+#foreach($tName in $type.implementz)    "$tName.fullTypeName"#if($foreach.hasNext),#end$newline#end
+  };
+
+  @Override
+  public String[] _vmf_getSuperTypeNames() {
+    return _VMF_SUPER_TYPE_NAMES;
+  }
+
   static final String[] _VMF_PROPERTY_NAMES = {
 #foreach($prop in $type.implementation.properties)    "$prop.name"#if($foreach.hasNext),#end$newline#end
   };

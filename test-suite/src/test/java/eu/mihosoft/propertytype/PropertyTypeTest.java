@@ -45,6 +45,10 @@ public class PropertyTypeTest {
                 "Type of property 'entity' is a model type but it is not flagged as such",
                 entity.get().getType().isModelType());
 
+        Assert.assertEquals(
+                "eu.mihosoft.vmftest.propertytype.ChildEntity",
+                entity.get().getType().getName());
+
         Assert.assertTrue(
                 "Property 'name' is no list type but is flagged as such",
                 !name.get().getType().isListType());

@@ -23,6 +23,12 @@
  */
 package eu.mihosoft.vmf.runtime.core;
 
+import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 public final class Type {
@@ -31,14 +37,21 @@ public final class Type {
     private final boolean listType;
     private final String name;
 
-    private Type(boolean modelType, boolean listType, String name) {
+    private final Class<?> modelClass;
+
+    private List<Type> superTypes;
+    private VObject prototype;
+
+    private Type(boolean modelType, boolean listType, String name, Class<?> modelClass) {
         this.modelType = modelType;
         this.listType = listType;
         this.name = name;
+        this.modelClass = modelClass;
     }
 
-    static Type newInstance(boolean modelType, boolean listType, String name) {
-        return new Type(modelType, listType, name);
+    @Deprecated
+    public static Type newInstance(boolean modelType, boolean listType, String name, Class<?> modelClass) {
+        return new Type(modelType, listType, name, modelClass);
     }
 
     public String getName() {
@@ -69,6 +82,74 @@ public final class Type {
 
     @Override
     public String toString() {
-        return "[ name=" + name + ", modelType=" + modelType + ", listType=" + listType + " ]";
+        return "[ name=" + name + ", modelType=" + modelType + ", listType=" + listType + ", cls: " + modelClass + " ]";
+    }
+
+    @SuppressWarnings("deprecation")
+    public Reflect reflect() {
+        ReflectImpl reflect = (ReflectImpl) getPrototype().vmf().reflect();
+        reflect.setStaticOnly(true);
+        return reflect;
+    }
+
+    private VObject getPrototype() {
+
+        if(!isModelType()) {
+            throw new RuntimeException(
+                    "Cannot initialize reflection API of type type '"
+                            + modelClass.getTypeName()
+                            + "'. Reflection failed."
+            );
+        }
+
+        if(prototype == null) {
+
+            try {
+                Method method = modelClass.getMethod("newInstance");
+                prototype = (VObject) method.invoke(null);
+
+            } catch (NoSuchMethodException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (InvocationTargetException e) {
+                e.printStackTrace();
+            } catch (ClassCastException e) {
+                e.printStackTrace();
+            }
+        }
+
+        return prototype;
+    }
+
+
+    @SuppressWarnings("deprecation")
+    public List<Type> superTypes() {
+
+        if(superTypes==null) {
+            superTypes = new ArrayList<>();
+            if(isModelType() && !isListType()) {
+
+                eu.mihosoft.vmf.runtime.core.internal.VObjectInternal parent
+                        = (eu.mihosoft.vmf.runtime.core.internal.VObjectInternal) getPrototype();
+                String[] superTypeNames = parent._vmf_getSuperTypeNames();
+
+                for (String tName : superTypeNames) {
+
+                    try {
+                        superTypes.add(Type.newInstance(false, false, tName, Class.forName(tName)));
+                    } catch (ClassNotFoundException e) {
+                        e.printStackTrace();
+                        throw new RuntimeException(
+                                "Cannot load super type class of type '"
+                                        + tName
+                                        + "'. Reflection failed."
+                        );
+                    }
+                }
+            }
+        }
+
+        return superTypes;
     }
 }

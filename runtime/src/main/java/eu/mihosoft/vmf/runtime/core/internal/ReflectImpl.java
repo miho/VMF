@@ -44,9 +44,13 @@ public class ReflectImpl implements Reflect {
     private VObject model;
     private List<Property> properties;
     private List<Annotation> annotations;
+    private boolean staticOnly;
 
     public void setModel(VObject model) {
         this.model = model;
+    }
+    public void setStaticOnly(boolean staticOnly) {
+        this.staticOnly = staticOnly;
     }
 
     @Override
@@ -70,7 +74,7 @@ public class ReflectImpl implements Reflect {
             properties = new ArrayList<>(parent._vmf_getPropertyNames().length);
 
             for(String pName : parent._vmf_getPropertyNames()) {
-                properties.add(Property.newInstance(parent, pName));
+                properties.add(Property.newInstance(parent, pName, staticOnly));
             }
         }
 
