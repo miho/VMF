@@ -25,11 +25,9 @@ package eu.mihosoft.vmf.runtime.core;
 
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
+import vjavax.observer.Subscription;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @SuppressWarnings("deprecation")
 public final class Property {
@@ -202,5 +200,28 @@ public final class Property {
      */
     public Optional<Annotation> annotationByKey(String key) {
         return annotations().stream().filter(a -> key.equals(a.getKey())).findFirst();
+    }
+
+    /**
+     * Adds the specified change listener to this property. Listeners will be notified about changes regardless
+     * of whether change recording is enabled. This allows to react to and/or undo specific
+     * changes without the overhead of storing all previous events in a collection. The listener registers
+     * with this property only.
+     *
+     * @param l the listener to add
+     * @return a subscription which allows to unsubscribe the specified listener
+     */
+    public Subscription addChangeListener(ChangeListener l) {
+        if (parent == null || staticOnly) {
+            throw new RuntimeException("Cannot add change listeners without access to an instance.");
+        }
+
+        Subscription s = parent.vmf().changes().addListener((c) -> {
+            if(Objects.equals(getName(),c.propertyName())) {
+                l.onChange(c);
+            }
+        });
+
+        return s;
     }
 }
