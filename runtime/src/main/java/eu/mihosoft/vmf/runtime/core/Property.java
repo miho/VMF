@@ -113,10 +113,20 @@ public final class Property {
         return new Property(parent, name, staticOnly);
     }
 
+    /**
+     * Indicates whether this property is set. A property is defined as being set if the current value differs from the
+     * default value, i.e., {@code Objects.equals(property.get(),property.getDefault())}.
+     * @return {@code true} if this property is set; {@code false} otherwise
+     */
     public boolean isSet() {
         return parent._vmf_isSetById(propertyId);
     }
 
+    /**
+     * Sets this property to the specified object.
+     * @param o object to set
+     * @see #isSet()
+     */
     public void set(Object o) {
 
         if (parent == null || staticOnly) {
@@ -130,6 +140,10 @@ public final class Property {
         }
     }
 
+    /**
+     * Unsets this property, i.e., resets it to the specified default values.
+     * @see #isSet()
+     */
     public void unset() {
 
         if (parent == null || staticOnly) {
@@ -143,6 +157,10 @@ public final class Property {
         }
     }
 
+    /**
+     * Returns the value of this property.
+     * @return value of this property
+     */
     public Object get() {
 
         if (parent == null || staticOnly) {
@@ -166,6 +184,12 @@ public final class Property {
         }
     }
 
+    /**
+     * Returns the default value of this property.
+     * @return default value of this property
+     * @see #unset()
+     * @see #isSet()
+     */
     public Object getDefault() {
 
         if (parent == null || staticOnly) {
@@ -175,10 +199,18 @@ public final class Property {
         return parent._vmf_getDefaultValueById(propertyId);
     }
 
+    /**
+     * Returns the type of this property.
+     * @return type of this property
+     */
     public Type getType() {
         return type;
     }
 
+    /**
+     * Returns the name of this property.
+     * @return name of this property
+     */
     public String getName() {
         return name;
     }
