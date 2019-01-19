@@ -252,7 +252,7 @@ public final class Property {
             if(Objects.equals(getName(),c.propertyName())) {
                 l.onChange(c);
             }
-        });
+        }, false);
 
         return s;
     }
