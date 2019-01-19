@@ -35,7 +35,7 @@ public interface ModelVersion {
 
     /**
      * Returns the timestamp which denotes the creation of this model version.
-     * @return the timestamp which denotes the creation of this model version.
+     * @return the timestamp which denotes the creation of this model version
      */
     long timestamp();
 

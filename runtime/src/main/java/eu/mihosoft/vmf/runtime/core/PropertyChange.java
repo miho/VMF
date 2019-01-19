@@ -24,7 +24,7 @@
 package eu.mihosoft.vmf.runtime.core;
 
 /**
- * Describes a property change.
+ * Represents a property change.
  *
  * Created by miho on 23.02.17.
  *

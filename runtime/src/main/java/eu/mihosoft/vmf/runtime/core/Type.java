@@ -31,6 +31,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Represents a type, e.g. {@code java.lang.Integer} or {@code your.pkg.ModelType}.
+ */
 public final class Type {
 
     private final boolean modelType;
@@ -54,14 +57,26 @@ public final class Type {
         return new Type(modelType, listType, name, modelClass);
     }
 
+    /**
+     * Returns the name of this type.
+     * @return name of this type (full type name, including package name)
+     */
     public String getName() {
         return this.name;
     }
 
+    /**
+     * Indicates whether this type is a model type.
+     * @return {@code true} if this is a model type
+     */
     public boolean isModelType() {
         return this.modelType;
     }
 
+    /**
+     * Indicates whether this type is a list type.
+     * @return {@code true} if this is a list type
+     */
     public boolean isListType() {
         return listType;
     }
@@ -85,6 +100,10 @@ public final class Type {
         return "[ name=" + name + ", modelType=" + modelType + ", listType=" + listType + ", cls: " + modelClass + " ]";
     }
 
+    /**
+     * Returns a static reflection API object which allows to
+     * @return
+     */
     @SuppressWarnings("deprecation")
     public Reflect reflect() {
         ReflectImpl reflect = (ReflectImpl) getPrototype().vmf().reflect();
@@ -123,6 +142,11 @@ public final class Type {
     }
 
 
+    /**
+     * Returns the super types of this type. Note, this method only returns the super types if the type represented by
+     * this object is a model type.
+     * @return list of super types of this type if this is a model type; returns an empty list otherwise
+     */
     @SuppressWarnings("deprecation")
     public List<Type> superTypes() {
 

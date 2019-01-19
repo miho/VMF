@@ -28,7 +28,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Reflection API of this object graph.
+ * Reflection API of an object/type.
  *
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
