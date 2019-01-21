@@ -119,6 +119,11 @@ public final class Property {
      * @return {@code true} if this property is set; {@code false} otherwise
      */
     public boolean isSet() {
+
+        if (parent == null || staticOnly) {
+            throw new RuntimeException("Cannot check if property is set without access to an instance.");
+        }
+
         return parent._vmf_isSetById(propertyId);
     }
 
@@ -164,7 +169,7 @@ public final class Property {
     public Object get() {
 
         if (parent == null || staticOnly) {
-            throw new RuntimeException("Cannot set property without access to an instance.");
+            throw new RuntimeException("Cannot get property without access to an instance.");
         }
 
         return parent._vmf_getPropertyValueById(propertyId);

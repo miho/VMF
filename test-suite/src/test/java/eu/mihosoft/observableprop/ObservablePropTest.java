@@ -98,4 +98,61 @@ public class ObservablePropTest {
 
     }
 
+    @Test
+    public void throwExceptionIfRuntimeMEthodsAreUsedForStaticReflection() {
+
+        Property nameProperty = ObserveMyProperties.type().reflect().propertyByName("name").orElse(null);
+
+        Assert.assertNotNull(nameProperty);
+
+        try {
+            nameProperty.get();
+            Assert.fail("Cannot get property, property is not associated to an object");
+        } catch(RuntimeException ex) {
+            ex.printStackTrace(System.err);
+        }
+
+        try {
+            nameProperty.set(null);
+            Assert.fail("Cannot set property, property is not associated to an object");
+        } catch(RuntimeException ex) {
+            ex.printStackTrace(System.err);
+        }
+
+        try {
+            nameProperty.getDefault();
+            Assert.fail("Cannot get property default, property is not associated to an object");
+        } catch(RuntimeException ex) {
+            ex.printStackTrace(System.err);
+        }
+
+        try {
+            nameProperty.setDefault(null);
+            Assert.fail("Cannot set property default, property is not associated to an object");
+        } catch(RuntimeException ex) {
+            ex.printStackTrace(System.err);
+        }
+
+        try {
+            nameProperty.isSet();
+            Assert.fail("Cannot check if property is set, property is not associated to an object");
+        } catch(RuntimeException ex) {
+            ex.printStackTrace(System.err);
+        }
+
+        try {
+            nameProperty.unset();
+            Assert.fail("Cannot unset property, property is not associated to an object");
+        } catch(RuntimeException ex) {
+            ex.printStackTrace(System.err);
+        }
+
+        try {
+            nameProperty.addChangeListener((c)->{});
+            Assert.fail("Cannot register change listener,  property is not associated to an object");
+        } catch(RuntimeException ex) {
+            ex.printStackTrace(System.err);
+        }
+    }
+
 }
