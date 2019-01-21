@@ -1,9 +1,6 @@
 package eu.mihosoft.observableprop;
 
-import eu.mihosoft.vmf.runtime.core.Change;
-import eu.mihosoft.vmf.runtime.core.ChangeListener;
 import eu.mihosoft.vmf.runtime.core.Property;
-import eu.mihosoft.vmf.runtime.core.PropertyChange;
 import eu.mihosoft.vmftest.observableprop.ObserveMyProperties;
 import org.junit.Assert;
 import org.junit.Test;
