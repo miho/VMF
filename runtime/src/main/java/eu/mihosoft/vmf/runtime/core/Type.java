@@ -101,8 +101,8 @@ public final class Type {
     }
 
     /**
-     * Returns a static reflection API object which allows to
-     * @return
+     * Returns the reflection API of this type (static reflection only).
+     * @return the reflection API of this type (static reflection only)
      */
     @SuppressWarnings("deprecation")
     public Reflect reflect() {
