@@ -146,6 +146,7 @@ public final class Type {
      * Returns the super types of this type. Note, this method only returns the super types if the type represented by
      * this object is a model type.
      * @return list of super types of this type if this is a model type; returns an empty list otherwise
+     * (for non-model types, such as {@code java.lang.String} and list types, regardless of the element type)
      */
     @SuppressWarnings("deprecation")
     public List<Type> superTypes() {
@@ -161,7 +162,7 @@ public final class Type {
                 for (String tName : superTypeNames) {
 
                     try {
-                        superTypes.add(Type.newInstance(false, false, tName, Class.forName(tName)));
+                        superTypes.add(Type.newInstance(true, false, tName, Class.forName(tName)));
                     } catch (ClassNotFoundException e) {
                         e.printStackTrace();
                         throw new RuntimeException(
