@@ -2,6 +2,7 @@ package eu.mihosoft.vmf.gradle.plugin
 
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Dependency
 import org.gradle.api.tasks.compile.JavaCompile
 
 import org.gradle.api.Plugin
@@ -31,7 +32,8 @@ import org.gradle.api.file.SourceDirectorySet;
 import org.gradle.api.internal.file.SourceDirectorySetFactory;
 import org.gradle.api.reflect.HasPublicType;
 import org.gradle.api.reflect.TypeOf
-import org.gradle.api.tasks.incremental.IncrementalTaskInputs;
+import org.gradle.api.tasks.incremental.IncrementalTaskInputs
+import org.gradle.plugins.ide.idea.IdeaPlugin;
 import org.gradle.util.ConfigureUtil;
 import javax.inject.Inject
 import java.util.stream.Collectors;
@@ -140,6 +142,8 @@ class VMFPlugin implements Plugin<Project> {
 
         // apply the java plugin
         project.getPluginManager().apply(JavaPlugin.class)
+        project.getPluginManager().apply(IdeaPlugin.class)
+
 
         // add the 'vmf' extension object
         def extension = project.extensions.create('vmf', VMFPluginExtension)
@@ -147,11 +151,11 @@ class VMFPlugin implements Plugin<Project> {
         // we create a 'vmfCompile' configuration that contains the dependencies to vmf-core and potentially
         // other dependencies needed to compile the model definitions
         // TODO 22.01.2019 do we need one configuration per source set?
+        Dependency dep = project.dependencies.create(
+                "eu.mihosoft.vmf:vmf:$extension.version")
         def conf = project.configurations.maybeCreate( 'vmfCompile' )
-            conf.defaultDependencies { deps ->
-                deps.add( project.dependencies.create(
-                        "eu.mihosoft.vmf:vmf:$extension.version")
-            )
+        conf.defaultDependencies { deps ->
+                deps.add( dep )
         }
 
         project.repositories {
@@ -250,6 +254,19 @@ class VMFPlugin implements Plugin<Project> {
                                 outputDirectoryModelDef.listFiles().each {
                                     f -> f.deleteDir()
                                 }
+                            }
+                        }
+
+                        // 7) register source set for idea plugin
+                        project.idea {
+                            module {
+                                // add the already(!) added vmf src dir for intellij
+                                sourceDirs += project.file("src/" + sourceSet.getName())
+                                sourceDirs += project.file(srcDir)
+
+                                // add the already(!) added vmf gen output src dir for intellij
+                                generatedSourceDirs += outputDirectory
+
                             }
                         }
                     }
