@@ -1,6 +1,5 @@
 package eu.mihosoft.vmf.gradle.plugin
 
-import com.sun.tools.sjavac.CompileJavaPackages
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.tasks.compile.JavaCompile
