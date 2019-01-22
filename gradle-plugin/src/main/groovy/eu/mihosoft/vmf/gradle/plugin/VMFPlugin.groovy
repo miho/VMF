@@ -191,7 +191,7 @@ class VMFPlugin implements Plugin<Project> {
                         sourceSet.getJava().srcDir(outputDirectory);
 
                         final String outputDirectoryNameModelDef =
-                                project.getBuildDir().absolutePath+"/vmf-modeldef/vmf-" + sourceSet.getName();
+                                project.getBuildDir().absolutePath+"/vmf-modeldef-src/vmf-" + sourceSet.getName();
                         final File outputDirectoryModelDef = new File(outputDirectoryNameModelDef);
 
                         final String compileModelDefTaskName = sourceSet.getTaskName("vmfCompileModelDef", "Code");
