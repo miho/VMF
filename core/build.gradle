@@ -39,6 +39,8 @@ dependencies {
     compile group: 'org.apache.velocity', name: 'velocity', version: '1.7'
     compile group: 'io.github.lukehutch', name: 'fast-classpath-scanner', version: '3.1.12'
 
+    compile group: 'org.mdkt.compiler', name: 'InMemoryJavaCompiler', version: '1.3.0'
+
 }
 
 

@@ -22,4 +22,4 @@ echo "----------------------------------------"
 echo "TESTING..."
 echo "----------------------------------------"
 cd ../test-suite
-./gradlew clean test
+./gradlew clean test --stacktrace
