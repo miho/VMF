@@ -91,9 +91,9 @@ interface VMFSourceVirtualDirectory {
 class VMFSourceVirtualDirectoryImpl implements VMFSourceVirtualDirectory, HasPublicType {
     private final SourceDirectorySet vmf;
 
-    public VMFSourceVirtualDirectoryImpl(String parentDisplayName, SourceDirectorySetFactory sourceDirectorySetFactory) {
+    public VMFSourceVirtualDirectoryImpl(String parentDisplayName, org.gradle.api.model.ObjectFactory sourceDirectorySetFactory) {
         final String displayName = parentDisplayName + " VMF source";
-        vmf = sourceDirectorySetFactory.create(displayName);
+        vmf = sourceDirectorySetFactory.sourceDirectorySet("vmf", displayName);
         vmf.getFilter().include("**/*.java");
     }
 
@@ -128,10 +128,10 @@ class VMFPluginExtension {
 
 class VMFPlugin implements Plugin<Project> {
 
-    private SourceDirectorySetFactory sourceDirectorySetFactory;
+    private org.gradle.api.model.ObjectFactory sourceDirectorySetFactory;
 
     @Inject
-    public VMFPlugin(SourceDirectorySetFactory sourceDirectorySetFactory) {
+    public VMFPlugin(org.gradle.api.model.ObjectFactory sourceDirectorySetFactory) {
         this.sourceDirectorySetFactory = sourceDirectorySetFactory;
     }
 
