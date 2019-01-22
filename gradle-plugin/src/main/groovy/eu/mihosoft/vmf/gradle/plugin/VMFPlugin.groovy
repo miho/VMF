@@ -285,6 +285,7 @@ class CompileVMFTask extends DefaultTask {
     @TaskAction
     void vmfGenModelSources(IncrementalTaskInputs inputs) {
 
+
 //        // directory set
 //        println(" -> directories:")
 //        for(File f : sourceDirectorySet.srcDirs) {
@@ -297,11 +298,6 @@ class CompileVMFTask extends DefaultTask {
 //            println("   --> file: " + f)
 //        }
 //
-//        // inputs that are out of date
-//        println(" -> out-of-date inputs:")
-//        inputs.outOfDate {
-//            println("   --> file: " + it.file)
-//        }
 //
 //        // output directory
 //        println(" -> output directory:")
@@ -313,8 +309,11 @@ class CompileVMFTask extends DefaultTask {
 
         def filesOutOfDate = []
 
+        // println(" -> out-of-date inputs:")
+
         inputs.outOfDate {
             if(it.file.isFile() && it.file.absolutePath.toLowerCase().endsWith(".java")) {
+                // println("   --> file: " + it.file)
                 filesOutOfDate.add(it.file)
             }
         }
