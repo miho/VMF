@@ -206,7 +206,7 @@ class VMFPlugin implements Plugin<Project> {
                         FileCollection vmfClassPath = project.files(project.configurations.vmfCompile.resolve())
 
                         Task compileVMFModelDefTask = project.task(compileModelDefTaskName, type: JavaCompile) {
-                            source = sourceDirectorySet.srcDirs
+                            source = sourceDirectorySet
                             classpath = vmfClassPath
                             destinationDir = outputDirectoryModelDef
                             // dependencyCacheDir = file('.')
