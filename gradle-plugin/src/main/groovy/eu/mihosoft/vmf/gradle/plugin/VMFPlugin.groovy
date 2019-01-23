@@ -261,7 +261,7 @@ class VMFPlugin implements Plugin<Project> {
                         project.idea {
                             module {
                                 // add the already(!) added vmf src dir for intellij
-                                sourceDirs += project.file("src/" + sourceSet.getName())
+                                // sourceDirs += project.file("src/" + sourceSet.getName())
                                 sourceDirs += project.file(srcDir)
 
                                 // add the already(!) added vmf gen output src dir for intellij
