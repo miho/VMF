@@ -126,6 +126,8 @@ class VMFPluginExtension {
     // vmf version
     // String version  = "0.1.13"
     String version  = "0.2-SNAPSHOT"
+
+    boolean intelliJIntegration = true
 }
 
 class VMFPlugin implements Plugin<Project> {
@@ -142,21 +144,16 @@ class VMFPlugin implements Plugin<Project> {
 
         // apply the java plugin
         project.getPluginManager().apply(JavaPlugin.class)
-        project.getPluginManager().apply(IdeaPlugin.class)
 
+        // we optionally apply the idea plugin to improve the management of
+        // 'vmf' source roots (see below)
+        if(project.hasProperty("vmfPluginIntelliJIntegration")
+                && project.property("vmfPluginIntelliJIntegration")) {
+            project.getPluginManager().apply(IdeaPlugin.class)
+        }
 
         // add the 'vmf' extension object
         def extension = project.extensions.create('vmf', VMFPluginExtension)
-
-        // we create a 'vmfCompile' configuration that contains the dependencies to vmf-core and potentially
-        // other dependencies needed to compile the model definitions
-        // TODO 22.01.2019 do we need one configuration per source set?
-        Dependency dep = project.dependencies.create(
-                "eu.mihosoft.vmf:vmf:$extension.version")
-        def conf = project.configurations.maybeCreate( 'vmfCompile' )
-        conf.defaultDependencies { deps ->
-                deps.add( dep )
-        }
 
         project.repositories {
             mavenLocal()
@@ -170,6 +167,17 @@ class VMFPlugin implements Plugin<Project> {
 
                         // For each source set we will:
 
+                        // 0) Create a 'vmfCompile' configuration that contains the dependencies to vmf-core and
+                        // potentially other dependencies needed to compile the model definitions
+                        // TODO 22.01.2019 do we need one configuration per source set?
+                        String configName = sourceSet.getTaskName("vmfCompile", "");
+                        Dependency dep = project.dependencies.create(
+                                "eu.mihosoft.vmf:vmf:$extension.version")
+                        def conf = project.configurations.maybeCreate( configName )
+                        conf.defaultDependencies { deps ->
+                            deps.add( dep )
+                        }
+
                         // 1) Add a new 'vmf' virtual directory mapping
                         final VMFSourceVirtualDirectoryImpl vmfDirectoryDelegate =
                                 new VMFSourceVirtualDirectoryImpl(
@@ -179,10 +187,11 @@ class VMFPlugin implements Plugin<Project> {
                         new DslObject(sourceSet).getConvention().getPlugins().put(
                                 VMFSourceVirtualDirectory.NAME, vmfDirectoryDelegate
                         );
+                        // 1.5 Add the source directory set 'vmf' to the source set
                         final String srcDir = "src/" + sourceSet.getName() + "/vmf";
                         SourceDirectorySet sourceDirectorySet = vmfDirectoryDelegate.getVMF();
                         sourceDirectorySet.srcDir(srcDir);
-                        sourceSet.getAllSource().source(vmfDirectoryDelegate.getVMF());
+                        sourceSet.getAllSource().source(sourceDirectorySet);
 
                         // 2) Create a VMFTask for this sourceSet following the gradle
                         //    naming conventions via call to sourceSet.getTaskName()
@@ -201,24 +210,32 @@ class VMFPlugin implements Plugin<Project> {
                         final String compileModelDefTaskName = sourceSet.getTaskName("vmfCompileModelDef", "Code");
 
                         // 3.5) create custom JavaCompile task that compiles the model definitions in the
-                        //      'vmf' SourceDirectorySet and creates the class files needed by the VMF.generate
+                        //      'vmf' SourceDirectorySet and creates the class files needed by the VMF.generate()
                         //      task
 
                         // TODO 22.01.2019 delay resolution via resolve() until task execution to allow user defined deps
 
                         // resolve dependencies for task that compiles model definitions
-                        FileCollection vmfClassPath = project.files(project.configurations.vmfCompile.resolve())
+                        FileCollection vmfClassPath
 
-                        Task compileVMFModelDefTask = project.task(compileModelDefTaskName, type: JavaCompile) {
+                        Closure<FileCollection> resolveClassPath = {
+                            if (vmfClassPath==null) {
+                                vmfClassPath = project.files(project.configurations.getByName(configName).resolve());
+                            }
+
+                            return vmfClassPath
+                        }
+
+                        JavaCompile compileVMFModelDefTask = project.task(compileModelDefTaskName, type: JavaCompile) {
                             source = sourceDirectorySet
-                            classpath = vmfClassPath
+                            classpath = project.configurations.getByName(configName)
                             destinationDir = outputDirectoryModelDef
                             // dependencyCacheDir = file('.')
                             // sourceCompatibility = '1.7'
                             // targetCompatibility = '1.7'
                         }
 
-                        Task vmfTask = project.getTasks().create(taskName, CompileVMFTask.class, new Action<CompileVMFTask>() {
+                        CompileVMFTask vmfTask = project.getTasks().create(taskName, CompileVMFTask.class, new Action<CompileVMFTask>() {
                             @Override
                             void execute(CompileVMFTask vmfTask) {
                                 // 4) Set up convention mapping for default sources (allows user to not have to specify)
@@ -233,9 +250,13 @@ class VMFPlugin implements Plugin<Project> {
                                 vmfTask.sourceSet = sourceSet;
                                 vmfTask.sourceDirectorySet = sourceDirectorySet;
                                 vmfTask.outputDirectoryModelDef = outputDirectoryModelDef;
-                                vmfTask.vmfClassPath = vmfClassPath;
                             }
                         });
+
+                        // resolve classpath after it's initialized
+                        vmfTask.doFirst {
+                            vmfTask.vmfClassPath = resolveClassPath.call();
+                        }
 
                         vmfTask.dependsOn(compileVMFModelDefTask)
 
@@ -257,16 +278,20 @@ class VMFPlugin implements Plugin<Project> {
                             }
                         }
 
-                        // 7) register source set for idea plugin
-                        project.idea {
-                            module {
-                                // add the already(!) added vmf src dir for intellij
-                                // sourceDirs += project.file("src/" + sourceSet.getName())
-                                sourceDirs += project.file(srcDir)
+                        // we optionally add the 'vmf' source roots to the idea module
+                        // (in addition to adding them to gradle)
+                        // and we mark generated folders (allows intellij to detect them as generated code)
+                        if(project.hasProperty("vmfPluginIntelliJIntegration")
+                                && project.property("vmfPluginIntelliJIntegration")) {
+                            // 7) register source set for idea plugin
+                            project.idea {
+                                module {
+                                    // add the already(!) added vmf src dir for intellij
+                                    sourceDirs += sourceSet.vmf.srcDirs
 
-                                // add the already(!) added vmf gen output src dir for intellij
-                                generatedSourceDirs += outputDirectory
-
+                                    // add the already(!) added vmf gen output src dir for intellij
+                                    generatedSourceDirs += outputDirectory
+                                }
                             }
                         }
                     }
