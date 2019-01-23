@@ -160,6 +160,9 @@ class VMFPlugin implements Plugin<Project> {
             jcenter()
         }
 
+        // get version from generated Constants.groovy
+        String VMF_VERSION = eu.mihosoft.vmf.gradle.plugin.constants.Constants.VMF_VERSION;
+
         project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets().all(new Action<SourceSet>() {
             public void execute(final SourceSet sourceSet) {
 
@@ -168,11 +171,9 @@ class VMFPlugin implements Plugin<Project> {
                 // 0) Create a 'vmfCompile' configuration that contains the dependencies to vmf-core and
                 // potentially other dependencies needed to compile the model definitions
 
-                String VERSION = eu.mihosoft.vmf.gradle.plugin.constants.Constants.VERSION;
-
                 String configName = sourceSet.getTaskName("vmfCompile", "");
                 Dependency dep = project.dependencies.create(
-                        "eu.mihosoft.vmf:vmf:$VERSION")
+                        "eu.mihosoft.vmf:vmf:$VMF_VERSION")
                 def conf = project.configurations.maybeCreate(configName)
                 conf.defaultDependencies { deps ->
                     deps.add(dep)
@@ -297,7 +298,7 @@ class VMFPlugin implements Plugin<Project> {
         });
 
         project.dependencies {
-            compile group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: extension.version
+            compile group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: VMF_VERSION
         }
 
     }

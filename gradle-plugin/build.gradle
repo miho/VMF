@@ -59,7 +59,7 @@ task writeVersionInfo() {
         buildInfoCode.getParentFile().mkdirs()
         buildInfoCode.write("package eu.mihosoft.vmf.gradle.plugin.constants;\n"
                 + "public class Constants {\n"
-                + "  public static final String VERSION   = \"${project.commonProps.get("publication.version")}\";\n"
+                + "  public static final String VMF_VERSION = \"${project.commonProps.get("publication.version")}\";\n"
                 + "}\n"
         )
     }
