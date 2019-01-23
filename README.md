@@ -34,17 +34,11 @@ VMF comes with excellent Gradle support. Just add the plugin like so (get the la
 
 ```gradle
 plugins {
-  id "eu.mihosoft.vmf" version "0.1.6" // use latest version
+  id "eu.mihosoft.vmf" version "0.2" // use latest version
 }
 ```
-and configure VMF:
 
-```gradle
-vmf {
-    version = '0.1.1' // use desired VMF version
-}
-```
-Now just add the model definitions to the VMF source folder, e.g., `src/vmf/java`. The package name must end with `.vmfmodel`, for example:
+Now just add the model definitions to the VMF source folder, e.g., `src/main/vmf/`. The package name must end with `.vmfmodel`, for example:
 
 ```java
 package eu.mihosoft.vmf.tutorial.vmfmodel;
@@ -70,6 +64,13 @@ interface Child {
 
 Just call the `vmfGenModelSources` task to generate the implementation.
 
+To improve IDE support, enable the IntelliJ support via
+
+```
+buildscript {
+  ext.vmfPluginIntelliJIntegration = true
+}
+```
 
 ## Building VMF (Core)
 
