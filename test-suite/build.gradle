@@ -21,11 +21,18 @@ plugins {
 //    id 'eu.mihosoft.vmf' version '0.2-SNAPSHOT'
 }
 
-ext.commonProps = new Properties()
-file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
+ext.vmfPluginIntelliJIntegration = true
 
 apply plugin: 'java'
 apply plugin: 'eu.mihosoft.vmf'
+
+idea {
+    module {
+        dependencies {
+            compile group: 'eu.mihosoft.vmf', name: 'vmf', version: commonProps.get("publication.version")
+        }
+    }
+}
 
 sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
@@ -36,7 +43,7 @@ if (!hasProperty('mainClass')) {
 }
 
 wrapper {
-    gradleVersion = '5.0'
+    gradleVersion = '5.1'
 }
 
 repositories {
@@ -47,13 +54,10 @@ repositories {
 
 dependencies {
 
-    ext.commonProps = new Properties()
-    file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    testCompile group: 'eu.mihosoft.vmf', name: 'vmf', version: commonProps.get("publication.version")
 
-    testCompile group: 'junit', name: 'junit', version: '4.10'
-    
-    compile group: 'eu.mihosoft.vmf', name: 'vmf', version: ext.commonProps.get("publication.version")
-    compile group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: ext.commonProps.get("publication.version")
+    compile group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: commonProps.get("publication.version")
     compile group: 'org.mdkt.compiler', name: 'InMemoryJavaCompiler', version: '1.3.0'
     compile group: 'org.codehaus.groovy', name: 'groovy-console', version: '2.0.1'
     
@@ -85,3 +89,5 @@ license {
 
     exclude '**/*.svg'
 }
+
+

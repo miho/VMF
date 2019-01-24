@@ -1,6 +1,6 @@
 /*
- * Copyright 2017-2018 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
- * Copyright 2017-2018 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ public class VMFTest {
         boolean emptyModelException = false;
 
         try {
-            VMF.generate(tmpDir.toFile());
+            VMF.generate(tmpDir.toFile(), new Class[0]);
         } catch (IllegalArgumentException ex) {
             emptyModelException = true;
         }

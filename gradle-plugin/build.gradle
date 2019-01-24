@@ -11,7 +11,7 @@ ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 wrapper {
-    gradleVersion = '5.0'
+    gradleVersion = '5.1'
 }
 
 sourceCompatibility = '1.8'
@@ -50,6 +50,27 @@ pluginBundle {
             displayName = 'Gradle VMF plugin'
         }
     }
+}
+
+// write build info to build.properties in resource folder
+task writeVersionInfo() {
+    doLast {
+        def buildInfoCode = new File("${project.buildDir}/generated-src/vmfconstants/Constants.groovy")
+        buildInfoCode.getParentFile().mkdirs()
+        buildInfoCode.write("package eu.mihosoft.vmf.gradle.plugin.constants;\n"
+                + "public class Constants {\n"
+                + "  public static final String VMF_VERSION = \"${project.commonProps.get("publication.version")}\";\n"
+                + "}\n"
+        )
+    }
+}
+
+// add the 'vmfconstants' src dir to the folders to compile (input to groovyc)
+sourceSets.main.groovy.srcDirs+=file("${project.buildDir}/generated-src/vmfconstants/")
+
+// register the fact that we generate the 'writeVersionInfo' code first and compile after that
+compileGroovy {
+    dependsOn(writeVersionInfo)
 }
 
 
