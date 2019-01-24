@@ -77,7 +77,7 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
 #foreach( $prop in ${type.implementation.properties} )
   @Override
   public $prop.getterDeclaration {
-    return this.${prop.name};
+    return this.__vmf_prop_${prop.name};
   }
 #end##foreach property
 
@@ -104,11 +104,11 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
   // --------------------------------------------------------------------
 
   @Override
-  public void addPropertyChangeListener(PropertyChangeListener l) {
+  public void addPropertyChangeListener(java.beans.PropertyChangeListener l) {
       // don't do anything. immutable types don't publish change events
   }
   @Override
-  public void removePropertyChangeListener(PropertyChangeListener l) {
+  public void removePropertyChangeListener(java.beans.PropertyChangeListener l) {
       // don't do anything. immutable types don't publish change events
   }
 
