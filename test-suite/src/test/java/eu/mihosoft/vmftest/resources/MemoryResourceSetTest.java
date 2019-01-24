@@ -22,7 +22,7 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.resources;
+package eu.mihosoft.vmftest.resources;
 
 import eu.mihosoft.vmf.core.io.MemoryResource;
 import eu.mihosoft.vmf.core.io.MemoryResourceSet;

@@ -22,34 +22,21 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.vmftest.parentcontainment01.vmfmodel;
+package eu.mihosoft.vmftest.ignoretostring;
 
+import org.junit.Assert;
+import org.junit.Test;
 
-import eu.mihosoft.vmf.core.Container;
-import eu.mihosoft.vmf.core.Contains;
-import eu.mihosoft.vmf.core.DelegateTo;
-import eu.mihosoft.vmf.core.InterfaceOnly;
+public class ToStringTest {
 
+    @Test
+    public void testIgnoreTo() {
+        SampleClass instance = SampleClass.newBuilder().withName("my name").withIgnoredProp("ignored prop").build();
 
-@InterfaceOnly
-@DelegateTo(className = "eu.mihosoft.vmftest.parentcontainment01.CodeEntityDelegate")
-interface CodeEntity {
-    CodeEntity getParent();
+        String toString = instance.toString();
 
-    @DelegateTo(className = "eu.mihosoft.vmftest.parentcontainment01.CodeEntityDelegate")
-    CodeEntity root();
-}
+        Assert.assertTrue("'my name prop' must be present", toString.contains("my name"));
+        Assert.assertTrue("'ignored prop' must not be present", !toString.contains("ignored prop"));
+    }
 
-@InterfaceOnly
-interface Expression extends CodeEntity {
-
-}
-
-interface OperatorExpression extends Expression {
-    Expression getLeft();
-    Expression getRight();
-}
-
-interface NumberExpression extends Expression {
-    Double getValue();
 }

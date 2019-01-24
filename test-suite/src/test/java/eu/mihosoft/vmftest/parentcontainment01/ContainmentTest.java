@@ -22,10 +22,8 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.parentcontainment01;
+package eu.mihosoft.vmftest.parentcontainment01;
 
-import eu.mihosoft.vmftest.parentcontainment01.NumberExpression;
-import eu.mihosoft.vmftest.parentcontainment01.OperatorExpression;
 import org.junit.Assert;
 import org.junit.Test;
 

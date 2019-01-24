@@ -22,22 +22,45 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.ignoretostring;
+package eu.mihosoft.vmftest.parentcontainment01;
 
-import eu.mihosoft.vmftest.ignoretostring.SampleClass;
-import org.junit.Assert;
-import org.junit.Test;
+import eu.mihosoft.vmf.runtime.core.DelegatedBehavior;
 
-public class ToStringTest {
+public class CodeEntityDelegate implements DelegatedBehavior<CodeEntity> {
 
-    @Test
-    public void testIgnoreTo() {
-        SampleClass instance = SampleClass.newBuilder().withName("my name").withIgnoredProp("ignored prop").build();
+    private CodeEntity codeEntity;
 
-        String toString = instance.toString();
-
-        Assert.assertTrue("'my name prop' must be present", toString.contains("my name"));
-        Assert.assertTrue("'ignored prop' must not be present", !toString.contains("ignored prop"));
+    @Override
+    public void setCaller(CodeEntity caller) {
+        this.codeEntity = caller;
     }
 
+    public void onCodeEntityInstantiated() {
+        codeEntity.vmf().changes().addListener( l -> {
+
+            if(l.object() != codeEntity || "parent".equals(l.propertyName())) {
+                return;
+            }
+
+            Object o = l.propertyChange().get().newValue();
+
+            if(o instanceof CodeEntity) {
+                CodeEntity cE = (CodeEntity) o;
+                cE.setParent(codeEntity);
+            }
+
+        }, false);
+    }
+
+    public CodeEntity root() {
+
+        CodeEntity cE = codeEntity;
+
+        while(cE.getParent()!=null) {
+            cE = cE.getParent();
+        }
+
+        return cE;
+
+    }
 }

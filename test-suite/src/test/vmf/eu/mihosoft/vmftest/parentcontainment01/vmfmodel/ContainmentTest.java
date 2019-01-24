@@ -22,51 +22,32 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.vmftest.parentcontainment01;
+package eu.mihosoft.vmftest.parentcontainment01.vmfmodel;
 
-import eu.mihosoft.vcollections.VList;
-import eu.mihosoft.vmf.runtime.core.DelegatedBehavior;
-import eu.mihosoft.vmf.runtime.core.VObject;
-import vjavax.observer.Subscription;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import eu.mihosoft.vmf.core.DelegateTo;
+import eu.mihosoft.vmf.core.InterfaceOnly;
 
-public class CodeEntityDelegate implements DelegatedBehavior<CodeEntity> {
 
-    private CodeEntity codeEntity;
+@InterfaceOnly
+@DelegateTo(className = "eu.mihosoft.vmftest.parentcontainment01.CodeEntityDelegate")
+interface CodeEntity {
+    CodeEntity getParent();
 
-    @Override
-    public void setCaller(CodeEntity caller) {
-        this.codeEntity = caller;
-    }
+    @DelegateTo(className = "eu.mihosoft.vmftest.parentcontainment01.CodeEntityDelegate")
+    CodeEntity root();
+}
 
-    public void onCodeEntityInstantiated() {
-        codeEntity.vmf().changes().addListener( l -> {
+@InterfaceOnly
+interface Expression extends CodeEntity {
 
-            if(l.object() != codeEntity || "parent".equals(l.propertyName())) {
-                return;
-            }
+}
 
-            Object o = l.propertyChange().get().newValue();
+interface OperatorExpression extends Expression {
+    Expression getLeft();
+    Expression getRight();
+}
 
-            if(o instanceof CodeEntity) {
-                CodeEntity cE = (CodeEntity) o;
-                cE.setParent(codeEntity);
-            }
-
-        }, false);
-    }
-
-    public CodeEntity root() {
-
-        CodeEntity cE = codeEntity;
-
-        while(cE.getParent()!=null) {
-            cE = cE.getParent();
-        }
-
-        return cE;
-
-    }
+interface NumberExpression extends Expression {
+    Double getValue();
 }
