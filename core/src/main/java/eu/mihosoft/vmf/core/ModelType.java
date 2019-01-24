@@ -127,8 +127,6 @@ public class ModelType {
 
             properties.add(p);
 
-            System.out.println();
-
             if(p.getCustomOrderIndex()!=null) {
                 customPropertyOrderPresent = true;
             } else {
