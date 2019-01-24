@@ -54,7 +54,7 @@ public class VMFTest {
         boolean emptyModelException = false;
 
         try {
-            VMF.generate(tmpDir.toFile());
+            VMF.generate(tmpDir.toFile(), new Class[0]);
         } catch (IllegalArgumentException ex) {
             emptyModelException = true;
         }

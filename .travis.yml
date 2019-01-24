@@ -34,15 +34,15 @@ matrix:
 script:
     - export CWD=$(pwd)
     - cd core
-    - sh ./gradlew clean publishToMavenLocal
+    - sh ./gradlew clean test publishToMavenLocal
     - cd $CWD
     - cd runtime
-    - sh ./gradlew clean publishToMavenLocal
+    - sh ./gradlew clean test publishToMavenLocal
     - cd $CWD
     - cd gradle-plugin
-    - sh ./gradlew clean publishToMavenLocal
+    - sh ./gradlew clean test publishToMavenLocal
     - cd $CWD
     - cd test-suite
-    - sh ./gradlew clean test
+    - sh ./gradlew clean test --stacktrace
     - cd $CWD
     
