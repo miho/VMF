@@ -196,7 +196,7 @@ class VMFPlugin implements Plugin<Project> {
 
                 // 2) Create a VMFTask for this sourceSet following the gradle
                 //    naming conventions via call to sourceSet.getTaskName()
-                final String taskName = sourceSet.getTaskName("vmfGenModelSources", "Code");
+                final String taskName = sourceSet.getTaskName("vmfGenModelSources", "");
 
                 // 3) Set up the VMF output directories (adding to javac inputs!)
                 final String outputDirectoryName =
