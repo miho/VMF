@@ -294,7 +294,9 @@ public class Prop {
                         "Specified opposite property '" + oppositeOfGetContainedProperty + "' cannot be found");
             }
         } else {
-            this.containmentInfo = ContainmentInfo.newInstance(null, null, null, null, ContainmentType.NONE);
+            this.containmentInfo = ContainmentInfo.newInstance(
+                    null, null, null, null, ContainmentType.NONE
+            );
         }
     }
 
