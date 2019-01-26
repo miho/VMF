@@ -35,7 +35,19 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 
   private boolean appendCollections = true;
 
-  public Builder${VMF_IMPL_CLASS_EXT}() {}
+  public Builder${VMF_IMPL_CLASS_EXT}() {
+     // --------------------------------------------------------------------
+     // --- initialization of default values
+     // --------------------------------------------------------------------
+ #foreach($prop in $type.implementation.properties)
+     // property ${foreach.index}
+ #if(${prop.getDefaultValueAsString()}!="null")
+     __vmf_prop_$prop.name = ${prop.getDefaultValueAsString()};
+ #else##if default is present
+     // -> no default value is present
+ #end## if default is present      
+ #end## for-each property
+  }
 
 #foreach( $prop in ${type.implementation.properties} )
 #if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}!="CONTAINER")

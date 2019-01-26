@@ -74,9 +74,11 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
 // --- initialization of default values
 // --------------------------------------------------------------------
 #foreach($prop in $type.implementation.properties)
-    // property ${foreach.index}
+    // ----------
+    // property id=${foreach.index} , name='${prop.name}'
 #if(${prop.getDefaultValueAsString()}!="null")
-    _vmf_setPropertyValueById(${foreach.index}, ${prop.getDefaultValueAsString()});
+    __vmf_prop_$prop.name = ${prop.getDefaultValueAsString()};
+    // TODO 26.01.2019 which one should we use? _vmf_setPropertyValueById(${foreach.index}, ${prop.getDefaultValueAsString()});
 #else##if default is present
     // -> no default value is present
 #end## if default is present      
