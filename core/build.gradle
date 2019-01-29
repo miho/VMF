@@ -44,7 +44,7 @@ dependencies {
 
 jar {
     manifest {
-        attributes('Automatic-Module-Name': 'eu.mihosoft.vmf')
+        attributes('Automatic-Module-Name': 'eu.mihosoft.vmf.core')
     }
 }
 
