@@ -19,10 +19,16 @@ matrix:
     - os: linux
       language: java
       jdk:  openjdk-ea
+    - os: linux
+      language: java
+      jdk:  openjdk12
     allow_failures:
        - os: linux
          language: java
          jdk:  openjdk-ea
+       - os: linux
+         language: java
+         jdk:  openjdk12  
 
 #cache:
 #  ccache: true
