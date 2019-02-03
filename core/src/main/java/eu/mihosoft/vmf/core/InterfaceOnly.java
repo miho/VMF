@@ -31,7 +31,7 @@ import java.lang.annotation.Target;
 /**
  * Indicates that only an interface should be generated for entities annotated with this annotation.
  * 
- * Created by miho on 10.03.17.
+ * <p>Created by miho on 10.03.17.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */

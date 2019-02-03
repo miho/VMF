@@ -28,10 +28,33 @@ import java.lang.annotation.*;
 /**
  * Used to define a containment relationship.
  * 
- * Created by miho on 02.01.2017.
+ * <h2>Example Model:</h2>
+ * <pre><code>
+ * package mypkg.vmfmodel;
+ * 
+ * import eu.mihosoft.vmf.core.*;
+ *
+ * interface Parent {
+ * 
+ *     {@literal @}Contains(opposite = "parent")
+ *     Child getChild();
+ * 
+ *     String getName();
+ * }
+ * 
+ * interface Child {
+ *     {@literal @}Container(opposite="child")
+ *     Parent getParent();
+ * 
+ *     int getValue();
+ * }
+ * </code></pre>
+ * 
+ * <p>Created by miho on 02.01.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  * @see Contains
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-03/README.md">Tutorial on Containment References</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

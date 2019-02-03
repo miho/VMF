@@ -32,7 +32,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Created by miho on 21.03.2017.
+ * <p>Created by miho on 21.03.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */

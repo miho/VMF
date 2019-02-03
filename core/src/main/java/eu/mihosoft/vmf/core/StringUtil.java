@@ -26,9 +26,9 @@ package eu.mihosoft.vmf.core;
 import java.io.IOException;
 
 /**
- * Created by miho on 25.01.2017.
- *
  * This class is for internal use inside Velocity templates only.
+ *
+ * <p>Created by miho on 25.01.2017.</p>
  *
  * @author Michael Hoffer <info@michaelhoffer.de>
  */

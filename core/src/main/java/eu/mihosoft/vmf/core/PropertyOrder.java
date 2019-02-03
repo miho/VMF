@@ -29,8 +29,32 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Created by miho on 02.01.2017.
+ * This annotation can be used to define a property order. The order is used for object graph traversal and
+ * reflection.
  * 
+ * <h3>Example Model:</h3>
+ * <pre><code>
+ * package mypkg.vmfmodel;
+ *
+ * interface Node {
+ * 
+ *     {@literal @}PropertyOrder(index = 0)
+ *     String getName();
+ * 
+ *     {@literal @}PropertyOrder(index = 2)
+ *     Boolean getVisible();
+ * 
+ *     {@literal @}PropertyOrder(index = 1)
+ *     Node getChild();
+ * }
+ * </code></pre>
+ * 
+ * Use <b>{@code node.vmf().reflect().properties()}</b> to access the complete list of properties of a node object in the
+ * specified order (<b>"name"</b>, <b>"child"</b>, <b>"visible"</b>).
+ * 
+ * <p>Created by miho on 02.01.2017.</p>
+ * 
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-06/README.md">Tutorial on custom Property Order</a>
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 @Retention(RetentionPolicy.RUNTIME)

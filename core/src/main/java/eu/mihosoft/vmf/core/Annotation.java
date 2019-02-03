@@ -27,8 +27,26 @@ import java.lang.annotation.*;
 
 /**
  * An annotation can be used to add custom metadata to entities and properties of a model. 
+ * <pre><code>
+ * package mypkg.vmfmodel;
  * 
- * Created by miho on 05.12.2018.
+ * import eu.mihosoft.vmf.core.*;
+ * 
+ * interface Node {
+ * 
+ *     String getId();
+ * 
+ *     {@literal @}Annotation(key="api",value="input")
+ *     Node getA();
+ * 
+ *     {@literal @}Annotation(key="api",value="input")
+ *     Node getB();
+ * 
+ *     {@literal @}Annotation(key="api",value="output")
+ *     Node getC();
+ * }</code></pre>
+ * 
+ * <p>Created by miho on 05.12.2018.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
