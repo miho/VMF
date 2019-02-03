@@ -28,7 +28,8 @@ package eu.mihosoft.vmf.core;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
-public class SyncInfo {
+@Deprecated
+public final class SyncInfo {
     private final ModelType thiz;
     private final ModelType other;
     private final Prop opposite;

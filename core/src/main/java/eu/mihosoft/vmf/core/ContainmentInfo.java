@@ -28,7 +28,8 @@ package eu.mihosoft.vmf.core;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
-public class ContainmentInfo {
+@Deprecated
+public final class ContainmentInfo {
     private final ModelType thiz;
     private final Prop thisProp;
     private final ModelType other;

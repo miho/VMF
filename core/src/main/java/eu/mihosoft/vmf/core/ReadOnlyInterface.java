@@ -31,7 +31,8 @@ import java.util.List;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
-public class ReadOnlyInterface {
+@Deprecated
+public final class ReadOnlyInterface {
 
     private final String name;
     private final String packageName;

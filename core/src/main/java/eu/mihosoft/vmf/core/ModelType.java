@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated
 public class ModelType {
 
     private final String packageName;

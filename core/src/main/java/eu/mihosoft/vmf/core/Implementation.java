@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated
 public class Implementation {
 
     private final String typeName;

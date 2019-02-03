@@ -34,7 +34,9 @@ import java.util.List;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
-public class TypeUtil {
+@Deprecated
+public final class TypeUtil {
+
     private TypeUtil() {
         throw new AssertionError("Don't instantiate me!");
     }

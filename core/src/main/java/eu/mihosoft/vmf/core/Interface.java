@@ -31,6 +31,7 @@ import java.util.List;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated
 public class Interface {
 
     private final String name;

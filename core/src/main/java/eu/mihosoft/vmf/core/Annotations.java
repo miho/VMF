@@ -31,6 +31,7 @@ import java.lang.annotation.Target;
 /**
  * Used to store multiple annotations per property/entity.
  */
+@Deprecated
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface Annotations {

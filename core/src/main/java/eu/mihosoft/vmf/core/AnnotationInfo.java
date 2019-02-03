@@ -28,6 +28,7 @@ import java.util.Objects;
 /**
  * An annotation info stores the key and value of a custom model annotation.
  */
+@Deprecated
 public final class AnnotationInfo {
 
     private String key;

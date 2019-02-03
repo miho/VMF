@@ -32,7 +32,8 @@ import java.util.stream.Collectors;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
-public class ReadOnlyImplementation {
+@Deprecated
+public final class ReadOnlyImplementation {
 
     private final String typeName;
     private final String packageName;

@@ -24,12 +24,21 @@
 package eu.mihosoft.vmf.core;
 
 /**
+ * Indicates the collection type of as property. Currently, only lists are supported. VMF might support sets and maps
+ * in the future.
+ * 
  * Created by miho on 13.01.2017.
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 public enum CollectionType {
+        /**
+         * Denotes a property that consists of a single value.
+         */
         NONE,
+        /**
+         * Denotes a property that consists of multiple values (list).
+         */
         LIST,
 //        SET,
 //        MAP

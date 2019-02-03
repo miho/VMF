@@ -32,6 +32,7 @@ import java.lang.annotation.Target;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface Required {

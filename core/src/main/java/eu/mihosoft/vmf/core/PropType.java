@@ -28,6 +28,7 @@ package eu.mihosoft.vmf.core;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated
 public enum PropType {
     PRIMITIVE,
     CLASS,

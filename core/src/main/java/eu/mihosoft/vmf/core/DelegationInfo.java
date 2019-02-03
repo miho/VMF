@@ -36,6 +36,7 @@ import java.util.Objects;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated
 public class DelegationInfo {
     private final String fullTypeName;
     private final String returnType;

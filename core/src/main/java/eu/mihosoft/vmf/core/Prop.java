@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
  *
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated
 public class Prop {
 
     // method used to specify this property in the model interface (subpackage '.vmfmodel')
