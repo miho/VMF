@@ -29,6 +29,9 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 /**
+ * A file resource.
+ * 
+ * @see MemoryResource
  * 
  * @author Sam
  * @author Michael Hoffer (info@michaelhoffer.de)

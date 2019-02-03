@@ -26,6 +26,8 @@ package eu.mihosoft.vmf.core;
 import java.lang.annotation.*;
 
 /**
+ * An annotation can be used to add custom metadata to entities and properties of a model. 
+ * 
  * Created by miho on 05.12.2018.
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
@@ -34,7 +36,15 @@ import java.lang.annotation.*;
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Repeatable(value = Annotations.class)
 public @interface Annotation {
+    /**
+     * Key of the annotation, e.g., <b>"api"</b> or <b>"model"</b>.
+     */
     String key() default "";
+
+    /**
+     * Value of the annotation. This can be an arbitrary string. Consumers of the annotation are responsible for
+     * parsing the value string.
+     */
     String value();
 }
 

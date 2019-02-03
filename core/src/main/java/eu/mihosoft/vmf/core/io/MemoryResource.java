@@ -27,6 +27,13 @@ import java.io.CharArrayWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 
+/**
+ * Memory resource. This class can be used for writing to memory instead of a file.
+ *
+ * @see FileResource
+ * @author Sam
+ * @author Michael Hoffer (info@michaelhoffer.de)
+ */
 public class MemoryResource implements Resource {
 
     CharArrayWriter mem = new CharArrayWriter();

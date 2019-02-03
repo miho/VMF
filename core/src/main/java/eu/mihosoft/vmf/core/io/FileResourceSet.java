@@ -43,6 +43,7 @@ public final class FileResourceSet implements ResourceSet {
 
     /**
      * Creates a new file resource set.
+     * 
      * @param rootSrcFolder root folder of this resource set
      */
     public FileResourceSet(File rootSrcFolder) {
@@ -59,6 +60,10 @@ public final class FileResourceSet implements ResourceSet {
     }
 
 
+    /**
+     * Returns the root folder of this resource set.
+     * @return root folder of this resource set
+     */
     public File getRootSrcFolder() {
         return rootSrcFolder;
     }

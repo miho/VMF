@@ -31,6 +31,7 @@ import java.lang.annotation.RetentionPolicy;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated // TODO 30.01.2019 do we still need this annotation?
 @Retention(RetentionPolicy.RUNTIME)
 public @interface VMFModel {
     String destinationPackage();

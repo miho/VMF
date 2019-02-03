@@ -25,6 +25,9 @@ package eu.mihosoft.vmf.core.io;
 
 
 /**
+ * A set of resources. All resources available in the
+ * set can be opened.
+ * 
  * @author Sam
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
@@ -35,7 +38,8 @@ public interface ResourceSet {
     //
 
     /**
-     * Opens a resource in this resource set.
+     * Opens a resource in this resource set. If the resource has already been created it will
+     * be returned. A new resources is created otherwise.
      * @param url the URL to open.
      * @return resource
      */

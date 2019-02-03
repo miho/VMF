@@ -26,12 +26,18 @@ package eu.mihosoft.vmf.core;
 import java.lang.annotation.*;
 
 /**
+ * Used to define a containment relationship.
+ * 
  * Created by miho on 02.01.2017.
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
+ * @see Contains
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)
 public @interface Container {
+   /**
+     * Sets the opposite property of this containment relationship, e.g., <b>"child"</b> (short form) or <b>"ClassName.child"</b> (full property).
+     */
     String opposite();
 }

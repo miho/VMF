@@ -27,6 +27,9 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Hashtable;
 
+/**
+ * A memory based respurce set (content is stored in RAM).
+ */
 public class MemoryResourceSet implements ResourceSet {
 
     private Hashtable<String, MemoryResource> memSet = new Hashtable<>();
@@ -41,6 +44,10 @@ public class MemoryResourceSet implements ResourceSet {
         }
     }
 
+    /**
+     * Returns the set of memory resources.
+     * @return the set of memory resources
+     */
     public Hashtable<String, MemoryResource> getMemSet() {
         return memSet;
     }

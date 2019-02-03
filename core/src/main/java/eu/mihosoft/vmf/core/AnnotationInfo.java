@@ -25,28 +25,52 @@ package eu.mihosoft.vmf.core;
 
 import java.util.Objects;
 
+/**
+ * An annotation info stores the key and value of a custom model annotation.
+ */
 public final class AnnotationInfo {
 
     private String key;
     private String value;
 
+    /**
+     * Creates a new annotation info.
+     * @param key annotation key
+     * @param value annotation value
+     */
     public AnnotationInfo(String key, String value) {
         this.key = key;
         this.value = value;
     }
 
+    /**
+     * 
+     * @return annotation key
+     */
     public String getKey() {
         return key;
     }
 
+    /**
+     * Sets the annotation key.
+     * @param key string to set
+     */
     public void setKey(String key) {
         this.key = key;
     }
 
+    /**
+     * 
+     * @return annotation value
+     */
     public String getValue() {
         return value;
     }
 
+    /**
+     * Sets the annotation value.
+     * @param value string to set
+     */
     public void setValue(String value) {
         this.value = value;
     }
