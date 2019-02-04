@@ -27,6 +27,8 @@ import java.lang.annotation.*;
 
 /**
  * An annotation can be used to add custom metadata to entities and properties of a model. 
+ * 
+ * <h3>Example Model:</h3>
  * <pre><code>
  * package mypkg.vmfmodel;
  * 
@@ -44,10 +46,41 @@ import java.lang.annotation.*;
  * 
  *     {@literal @}Annotation(key="api",value="output")
  *     Node getC();
+ * 
  * }</code></pre>
+ * 
+ * <h3>Retrieving Annotations:</h3>
+ * 
+ * We can retrieve property annotations with the following API call:
+ * 
+ * <pre><code>
+ * Property p = ...
+ * List<Annotation> annotations = p.annotations();
+ * </code></pre>
+ * 
+ * <h3>Filter Annotations:</h3>
+ * 
+ * Using the stream API, one can query a specific annotation (e.g. filtered by key). Here's an example that prints
+ * all properties of a node instance annotated as input (<b>key="api"</b>, <b>value="input"</b>).
+ * 
+ * <pre><code>
+ * // predicate to filter inputs
+ * Predicate<Property> isInput = (p) -> {
+ *     return p.annotationByKey("api").
+ *         map(ann->"input".equals(ann.getValue())).orElse(false);
+ * };
+ * 
+ * // query inputs:
+ * n.vmf().reflect().properties().stream().filter(isInput).forEach(p->{
+ *     System.out.println(
+ *         "-> input  param '" + p.getName() + "' -> node: " + ((Node)p.get()).getId()
+ *     );
+ * });
+ * </code></pre>   
  * 
  * <p>Created by miho on 05.12.2018.</p>
  * 
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-11/README.md">Tutorial on Annotation Support</a>
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 @Retention(RetentionPolicy.RUNTIME)

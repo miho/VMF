@@ -29,8 +29,34 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Created by miho on 18.06.2018.
+ * This model annotation allows to define custom default values for properties. 
  * 
+ * <h3>Example Model:</h3>
+ * 
+ * <pre><code>
+ * package mypkg.vmfmodel;
+ *
+ * import eu.mihosoft.vmf.core.*;
+ * 
+ * interface ObjectWithDefaultValues {
+ *     
+ *     {@literal @}DefaultValue(value="23")
+ *     Integer getValue();
+ * 
+ *     {@literal @}DefaultValue(value="\"my name\"")
+ *     String getName();
+ * }
+ * </code></pre>
+ * 
+ * <h3>Additional Notes:</h3>
+ * Default values are also responsible for defining whether a value is set or unset. Usually, properties have
+ * the default value <b>{@code null}</b>. It is set if it is not {@code null} and unset if it is {@code null}. 
+ * If the default value is different from {@code null} it is unset if it is equal to the custom default value
+ * and set if it is not equal to the custom default value.
+ * 
+ * <p>Created by miho on 18.06.2018.</p>
+ * 
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-09/README.md">Custom Default Values for Properties</a>
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 @Retention(RetentionPolicy.RUNTIME)

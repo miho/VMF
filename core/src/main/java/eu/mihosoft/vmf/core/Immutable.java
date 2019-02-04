@@ -29,9 +29,49 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * Entities annotated with this annotation are declared as being immutable, i.e., the state can only be set
+ * during initialization via the builder pattern. The state is constant during the whole lifetime of an
+ * immutable object. Consequently, it only provides getter methods for accessing its properties and only 
+ * allows immutable property objects/types.
+ * 
+ * <h3>Example Model:</h3>
+ * 
+ * <pre><code>
+ * package mypkg.vmfmodel;
+ * 
+ * import eu.mihosoft.vmf.core.*;
+ * 
+ * {@literal @}Immutable
+ * interface ImmutableObject {
+ *     int getValue();
+ * }
+ * </code></pre>
+ * 
+ * The state of <b>{@code ImmutableObject}</b> instances can be defined via its associated builder:
+ * 
+ * <pre><code>
+ * ImmutableObject obj = ImmutableObject.newBuilder().withValue(123).build();
+ * </code></pre>
+ * 
+ * The <b>{@code value}</b> property of {@code obj} cannot be changed anymore.
+ * 
+ * As an example, the following code will not compile:
+ * 
+ * <pre><code>
+ * ImmutableObject obj = ImmutableObject.newInstance();
+ * obj.setValue(); // there is no setter method
+ * </code></pre>
+ * 
+ * <h3>Additional Notes:</h3>
+ * 
+ * VMF uses shared immutable instances for cloning. That is, while state changes of immutable 
+ * properties require new instantiations (which might be performance critical) they can improve
+ * the performance and memory footprint of cloning since immutable references can be shared.
+ * 
  * <p>Created by miho on 10.03.17.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-07/README.md">Tutorial on Immutable Objects and ReadOnly API</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
