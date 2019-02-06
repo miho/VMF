@@ -29,6 +29,10 @@ import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.CompleteOrderInfo
 import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.IncompleteOrderInfo;
 import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.InvalidOrderInfo;
 import eu.mihosoft.vmftests.delegationtest.vmfmodel.DelegationTestClass;
+import eu.mihosoft.vmftests.immutability.invalidinheritance.mutableinheritance.vmfmodel.MutableInheritanceBase;
+import eu.mihosoft.vmftests.immutability.invalidinheritance.mutableinheritance.vmfmodel.MutableInheritanceImmutable;
+import eu.mihosoft.vmftests.immutability.mutableproperties.vmfmodel.MutableProperty;
+import eu.mihosoft.vmftests.immutability.mutableproperties.vmfmodel.MutablePropertyImmutable;
 import eu.mihosoft.vmftests.reflectiontest.vmfmodel.InheritedDefaultValue;
 import eu.mihosoft.vmftests.reflectiontest.vmfmodel.InheritedDefaultValueFromTwoParents;
 import eu.mihosoft.vmftests.reflectiontest.vmfmodel.InheritedDefaultValueFromTwoParents2;
@@ -389,6 +393,28 @@ public class VMFGenerateRuns extends VMFTestShell {
             Assert.fail("Should throw an exception");
         } catch (Exception ex) {
             ex.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testImmutabilityInvalidMutableInheritance() throws Throwable {
+        try {
+            setUp(MutableInheritanceBase.class, MutableInheritanceImmutable.class);
+            Assert.fail("Should throw an exception");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testImmutabilityInvalidMutableProperty() throws Throwable {
+        try {
+            setUp(MutablePropertyImmutable.class, MutableProperty.class);
+            Assert.fail("Should throw an exception");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+
+            ex.printStackTrace(System.out);
         }
     }
 
