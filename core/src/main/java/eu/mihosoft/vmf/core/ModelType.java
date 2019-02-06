@@ -62,6 +62,7 @@ public class ModelType {
 
     private final boolean immutable;
     private final boolean interfaceOnly;
+    private boolean interfaceWithGettersOnly;
 
     private final int typeId;
 
@@ -378,7 +379,7 @@ public class ModelType {
             String ifsName = model.convertModelTypeToDestination(ifs);
 
             if (ifsName.startsWith(model.getPackageName())) {
-                if (ifs.getAnnotation(Immutable.class) != null || ifs.getAnnotation(InterfaceOnly.class) != null) {
+                if (ifs.getAnnotation(Immutable.class) != null) {
                     ext3nds.add("" + ifs.getSimpleName());
                 } else {
                     ext3nds.add("ReadOnly" + ifs.getSimpleName());
@@ -538,6 +539,16 @@ public class ModelType {
 
     public boolean isInterfaceOnly() {
         return interfaceOnly;
+    }
+
+    public boolean isInterfaceOnlyWithGettersOnly() {
+        boolean iFaceOnlyWithGettersOnly = isInterfaceOnly() 
+            && !getImplementation().getProperties().stream().
+                filter(p->!p.isGetterOnly()).findFirst().isPresent();
+
+        System.out.println("!!!PEEK: " + getTypeName() + " " + iFaceOnlyWithGettersOnly);
+
+        return iFaceOnlyWithGettersOnly;        
     }
 
     private static final Map<String, String> primitiveToBoxedTypeNames = new HashMap<>();

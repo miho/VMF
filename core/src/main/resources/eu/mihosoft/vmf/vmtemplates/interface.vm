@@ -81,8 +81,11 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString,
    * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
+#if($type.interfaceOnlyWithGettersOnly)   
+  ${type.typeName} asReadOnly();
+#else
   ${type.readOnlyInterface.typeName} asReadOnly();
-
+#end
   /**
    * Returns a deep clone of this object.
    * @return a deep clone of this object

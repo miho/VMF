@@ -29,6 +29,34 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * Indicates that only the getter method of a property should be publically available. This is no alternative to immutable
+ * types. Actually, the purpose of this annotation is to allow a common interface for immutable and mutable types. It is
+ * only valid in combination with {@link InterfaceOnly} and cannot be applied to regular types.
+ * 
+ * <h3>Example Model:</h3>
+ * <pre><code>
+ * package mypkg.vmfmodel;
+ * import eu.mihosoft.vmf.core.*;
+ * 
+ * @InterfaceOnly
+ * interface WithName {
+ * 
+ *   @GetterOnly
+ *   String getName();
+ * 
+ * }
+ * 
+ * interface ImmutableObj extends WithName {
+ * 
+ * }
+ * 
+ * interface MutableObj extends WithName {
+ * 
+ * }
+ * 
+ * 
+ * </code></pre>
+ * 
  * <p>Created by miho on 02.01.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>

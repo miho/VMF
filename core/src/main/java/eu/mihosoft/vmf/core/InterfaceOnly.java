@@ -29,11 +29,14 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Indicates that only an interface should be generated for entities annotated with this annotation.
+ * Indicates that only an interface should be generated for entities annotated with this annotation. Interface-only types
+ * cannot be instantiated. That is, there's no {@code newInstance()} method and no builder for this entity.
  * 
  * <p>Created by miho on 10.03.17.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
+ * 
+ * @see {@link GetterOnly}
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
