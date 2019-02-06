@@ -2,7 +2,6 @@ package eu.mihosoft.vmftest.getteronly.vmfmodel;
 import eu.mihosoft.vmf.core.*;
 
 
-
 @Immutable
 interface MyObjImmutable{
   String getId();

@@ -418,4 +418,30 @@ public class VMFGenerateRuns extends VMFTestShell {
         }
     }
 
+    @Test
+    public void testImmutabilityInvalidMutableProperty2() throws Throwable {
+        try {
+            addModelCode("mutableproperties.vmfmodel.MutableProperty",
+            "package mutableproperties.vmfmodel;\n" + 
+            "public interface MutableProperty {\n"+
+            "    String getName();\n"+
+            "}\n"
+            );
+            addModelCode("mutableproperties.vmfmodel.MutablePropertyImmutable2",
+            "package mutableproperties.vmfmodel;\n"+
+            "import eu.mihosoft.vmf.core.Immutable;\n"+
+            "@Immutable\n"+
+            "public interface MutablePropertyImmutable2 {\n"+
+            "    MutableProperty getProperty();\n"+
+            "}"
+            );
+            setupModelFromCode();
+            Assert.fail("Should throw an exception");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+
+            ex.printStackTrace(System.out);
+        }
+    }
+
 }

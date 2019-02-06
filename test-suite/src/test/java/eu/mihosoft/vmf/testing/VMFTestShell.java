@@ -43,7 +43,8 @@ import java.util.*;
 public class VMFTestShell {
     GroovyShell shell;
     MemoryResourceSet codeField;
-
+    MemoryResourceSet modelCodeField;
+    
     /**
      * Adds manally implemented code, such as delegated behavior. To add delegation classes, this method must be called
      * prior to setup. Otherwise the generated code does not contain the delegated behavior and will fail to compile.
@@ -60,12 +61,69 @@ public class VMFTestShell {
         }
     }
 
+    /**
+     * Adds model classes code for runtime compilation. This code is only compiled if the 
+     * {@link setupModelFromCode()} method is used to setup the model. Otherwise, it is ignored.
+     *
+     * @param className name of the class to add
+     * @param code code of the class to add
+     */
+    public void addModelCode(String className, String code) {
+        // register code, e.g., delegation classes which are necessary for setup
+        Resource res = getModelCodeField().open(TypeUtil.computeFileNameFromJavaFQN(className));
+        try {
+            res.open().append(code).close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     MemoryResourceSet getCodeField() {
         if(codeField==null) {
             codeField = new MemoryResourceSet();
         }
 
         return codeField;
+    }
+
+    MemoryResourceSet getModelCodeField() {
+        if(modelCodeField==null) {
+            modelCodeField = new MemoryResourceSet();
+        }
+
+        return modelCodeField;
+    }
+
+    /**
+     * Sets up a model from code specified via {@link #addModelCode(String, String)}.
+     * @throws Throwable
+     */
+    public void setupModelFromCode() throws Throwable  {
+        InMemoryJavaCompiler compiler = InMemoryJavaCompiler.newInstance().ignoreWarnings();
+        for (Map.Entry<String, MemoryResource> entry : getModelCodeField().getMemSet().entrySet()) {
+            // convert /path/to/File.java to pkg.File
+            compiler.addSource(entry.getKey().replace('/','.').substring(0,entry.getKey().length()-5),
+                    entry.getValue().asString());
+        }
+
+        Map<String, Class<?>> modelClasses = compiler.compileAll();
+
+        Class[] classes = modelClasses.values().toArray(new Class[modelClasses.size()]);
+
+        VMF.generate(getCodeField(), classes);
+
+        InMemoryJavaCompiler generatedModelCompiler = InMemoryJavaCompiler.newInstance().ignoreWarnings();
+        for (Map.Entry<String, MemoryResource> entry : getCodeField().getMemSet().entrySet()) {
+            // convert /path/to/File.java to pkg.File
+            generatedModelCompiler.addSource(entry.getKey().replace('/','.').substring(0,entry.getKey().length()-5),
+                    entry.getValue().asString());
+        }
+
+        generatedModelCompiler.compileAll();
+        shell = new GroovyShell(generatedModelCompiler.getClassloader());
+        for (Class cls : classes) {
+            shell.setVariable("a" + cls.getSimpleName(), vmfNewInstance(generatedModelCompiler.getClassloader(), cls).getValue());
+        }
     }
 
     public void setUp(Class... classes) throws Throwable {
