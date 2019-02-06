@@ -22,7 +22,7 @@
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
 ## we don't support setters for collection types
-#if(${prop.propType}!="COLLECTION" && !${prop.getterOnly})
+#if(${prop.propType}!="COLLECTION" && (${prop.getterOnly} == false || (${type.immutable} == false && ${type.interfaceOnly} == false) ) )
  /**
   * Sets the value of the '<em>${prop.name}</em>' property.
   *
@@ -33,4 +33,9 @@
   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
   */
   $prop.setterDeclaration;
+#else
+//  SKIPPING prop: ${prop.name}
+//  getter:    ${prop.getterOnly} 
+//  immutable: ${type.immutable}
+//  iface:     ${type.interfaceOnly}
 #end

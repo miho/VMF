@@ -23,7 +23,9 @@
  */
 package eu.mihosoft.vmf.core;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -36,7 +38,8 @@ import java.util.stream.Collectors;
 @Deprecated
 public class Prop {
 
-    // method used to specify this property in the model interface (subpackage '.vmfmodel')
+    // method used to specify this property in the model interface (subpackage
+    // '.vmfmodel')
     private final Method getterMethod;
 
     // property name
@@ -45,8 +48,10 @@ public class Prop {
     // package name, e.g., 'eu.mihosoft.vmf.tutorial'
     private String packageName;
 
-    // type name without package, e.g. 'MyType' instead of 'mypackage.MyType' in case of
-    // model types, full typename with package for external types that don't belong to
+    // type name without package, e.g. 'MyType' instead of 'mypackage.MyType' in
+    // case of
+    // model types, full typename with package for external types that don't belong
+    // to
     // the package
     private String typeName;
 
@@ -66,19 +71,22 @@ public class Prop {
     private SyncInfo syncInfo;
 
     // indicates whether this property is required (validation & constructors)
-    // TODO 07.11.2017: actually use required (since we don't have no-default constructors, usage is probably limited to builders & validation)
+    // TODO 07.11.2017: actually use required (since we don't have no-default
+    // constructors, usage is probably limited to builders & validation)
     private boolean required;
 
-    // indicates whether this property should be ignored for equals() code generation
+    // indicates whether this property should be ignored for equals() code
+    // generation
     private boolean ignoredForEquals;
 
-    // indicates whether this property should be ignored for toString() code generation
+    // indicates whether this property should be ignored for toString() code
+    // generation
     private boolean ignoredForToString;
 
     // getter prefix (get or is)
     private String getterPrefix;
 
-    //type of the property, e.g., primitive or Collection
+    // type of the property, e.g., primitive or Collection
     private PropType propType;
     private ModelType type;
 
@@ -97,6 +105,14 @@ public class Prop {
 
     private int propId;
 
+    // // ONLY used for shallow-clone (until we replace this with vmf model entities
+    // // and proper cloning)
+    // private Prop(ModelType parent, Method getterMethod, String name) {
+    //     this.getterMethod = getterMethod;
+    //     this.name = name;
+    //     this.parent = parent;
+    // }
+
     private Prop(ModelType parent, Method getterMethod) {
         this.getterMethod = getterMethod;
         name = propertyNameFromGetter(getterMethod);
@@ -110,7 +126,7 @@ public class Prop {
         Class<?> propClass = getterMethod.getReturnType();
 
         PropertyOrder propOrder = getterMethod.getAnnotation(PropertyOrder.class);
-        if(propOrder!=null) {
+        if (propOrder != null) {
             customOrderIndex = propOrder.index();
         }
 
@@ -127,16 +143,14 @@ public class Prop {
 
             if (getterMethod.getGenericReturnType() != null) {
                 if (getterMethod.getGenericReturnType() instanceof ParameterizedType) {
-                    retType = (ParameterizedType) getterMethod
-                            .getGenericReturnType();
+                    retType = (ParameterizedType) getterMethod.getGenericReturnType();
                 }
             }
 
             Class<?> containedClazz;
 
             if (retType != null) {
-                containedClazz = (Class<?>) (retType
-                        .getActualTypeArguments()[0]);
+                containedClazz = (Class<?>) (retType.getActualTypeArguments()[0]);
             } else {
                 containedClazz = Object.class;
             }
@@ -149,28 +163,23 @@ public class Prop {
                 if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
                     genericPackageName = "";
                 } else {
-                    genericPackageName = m.
-                            convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+                    genericPackageName = m.convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
                 }
 
                 genericTypeName = containedClazz.getSimpleName();
             }
 
-            typeName = "eu.mihosoft.vcollections.VList<" + m.
-                    convertModelTypeToDestination(containedClazz) + ">";
-            simpleTypeName = "VList<" + m.
-                    convertModelTypeToDestination(containedClazz) + ">";
+            typeName = "eu.mihosoft.vcollections.VList<" + m.convertModelTypeToDestination(containedClazz) + ">";
+            simpleTypeName = "VList<" + m.convertModelTypeToDestination(containedClazz) + ">";
             packageName = "eu.mihosoft.vcollections";
 
         } else if (propClass.isArray()) {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
-            simpleTypeName = "VList<" + ModelType.primitiveToBoxedType(
-                    m.
-                            convertModelTypeToDestination(containedClazz)) + ">";
-            typeName = "eu.mihosoft.vcollections.VList<" + ModelType.primitiveToBoxedType(
-                    m.
-                            convertModelTypeToDestination(containedClazz)) + ">";
+            simpleTypeName = "VList<" + ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz))
+                    + ">";
+            typeName = "eu.mihosoft.vcollections.VList<"
+                    + ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz)) + ">";
             // System.out.println("TYPENAME: " + typeName);
 
             packageName = "eu.mihosoft.vcollections";
@@ -179,26 +188,25 @@ public class Prop {
             if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
                 genericPackageName = "";
             } else {
-                genericPackageName = m.
-                        convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+                genericPackageName = m.convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
             }
 
-//            System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
+            // System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
 
             genericTypeName = containedClazz.getSimpleName();
         } else {
             propType = PropType.CLASS;
 
-//            if (getParent().getModel().isModelType(propClass.getName())) {
-//                typeName = propClass.getSimpleName();
-//            } else {
-//                typeName = propClass.getName();
-//            }
+            // if (getParent().getModel().isModelType(propClass.getName())) {
+            // typeName = propClass.getSimpleName();
+            // } else {
+            // typeName = propClass.getName();
+            // }
 
             simpleTypeName = propClass.getSimpleName();
 
-            this.packageName = getParent().getModel().
-                    convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
+            this.packageName = getParent().getModel()
+                    .convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
 
             typeName = this.packageName + "." + propClass.getSimpleName();
         }
@@ -217,11 +225,10 @@ public class Prop {
             defaultValueAsString = defVal.value();
         }
 
-
         Annotation[] annotationObjects = getterMethod.getDeclaredAnnotationsByType(Annotation.class);
 
-        for(Annotation a : annotationObjects) {
-            annotations.add(new AnnotationInfo(a.key(),a.value()));
+        for (Annotation a : annotationObjects) {
+            annotations.add(new AnnotationInfo(a.key(), a.value()));
         }
 
         // we require alphabetic order (by key)
@@ -263,8 +270,8 @@ public class Prop {
             }
 
             if (opposite.isPresent()) {
-                this.containmentInfo = ContainmentInfo.newInstance(
-                        parent, this, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINER);
+                this.containmentInfo = ContainmentInfo.newInstance(parent, this, opposite.get().getParent(),
+                        opposite.get(), ContainmentType.CONTAINER);
             } else {
                 throw new RuntimeException(
                         "Specified opposite property '" + oppositeOfGetContainerProperty + "' cannot be found");
@@ -288,16 +295,14 @@ public class Prop {
             }
 
             if (opposite.isPresent()) {
-                this.containmentInfo = ContainmentInfo.newInstance(
-                        parent, this, opposite.get().getParent(), opposite.get(), ContainmentType.CONTAINED);
+                this.containmentInfo = ContainmentInfo.newInstance(parent, this, opposite.get().getParent(),
+                        opposite.get(), ContainmentType.CONTAINED);
             } else {
                 throw new RuntimeException(
                         "Specified opposite property '" + oppositeOfGetContainedProperty + "' cannot be found");
             }
         } else {
-            this.containmentInfo = ContainmentInfo.newInstance(
-                    null, null, null, null, ContainmentType.NONE
-            );
+            this.containmentInfo = ContainmentInfo.newInstance(null, null, null, null, ContainmentType.NONE);
         }
     }
 
@@ -326,10 +331,8 @@ public class Prop {
                 opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfSyncProperty);
             }
 
-
             if (opposite.isPresent()) {
-                this.syncInfo = SyncInfo.newInstance(
-                        parent, opposite.get().getParent(), opposite.get());
+                this.syncInfo = SyncInfo.newInstance(parent, opposite.get().getParent(), opposite.get());
             } else {
                 throw new RuntimeException(
                         "Specified opposite property '" + oppositeOfSyncProperty + "' cannot be found");
@@ -340,6 +343,51 @@ public class Prop {
     public static Prop newInstance(ModelType parent, Method getterMethod) {
         return new Prop(parent, getterMethod);
     }
+
+    // /**
+    //  * Creates and returns a shallow clone of this property.
+    //  * @return returns a shallow clone of this property
+    //  */
+    // private Prop shallowClone() {
+    //     Prop p = new Prop(parent, getterMethod, name);
+
+    //     // assign all non-final fields declared inside property
+    //     for (Field field : Prop.class.getDeclaredFields()) {
+    //         if (!Modifier.isFinal(field.getModifiers())) {
+    //             try {
+    //                 field.set(p, field.get(this));
+    //             } catch (IllegalArgumentException | IllegalAccessException e) {
+    //                 throw new RuntimeException(
+    //                     "Cannot create shallow clone of property '" + name + "'");
+    //             }
+    //         }
+    //     }
+
+    //     return p;
+    // }
+
+    // /**
+    //  * Creates a shallow copy of this property for inheritance of a mutable type, 
+    //  * i.e., {@link GetterOnly} is removed if present. 
+    //  * @return a deep copy of this property for inheritance of a mutable type
+    //  */
+    // public Prop inheritToMutable() {
+    //     Prop shallowClone = newInstance(parent, getterMethod);
+
+    //     // remove getter-only annotation
+    //     shallowClone.getterOnly = false;
+
+    //     return shallowClone;
+    // }
+
+    // /**
+    //  * Returns a shallow copy (or just a reference if no changes are necessary) of this property for 
+    //  * inheritance of a mutable type, i.e., {@link GetterOnly} is removed if present. 
+    //  * @return a deep copy of this property for inheritance of a mutable type
+    //  */
+    // public Prop inheritToImmutable() {
+    //     return this;
+    // }
 
     public boolean isModelType() {
         return getParent().getModel().isModelType(getPackageName() + "." + getTypeName());

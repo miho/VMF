@@ -378,7 +378,7 @@ public class ModelType {
             String ifsName = model.convertModelTypeToDestination(ifs);
 
             if (ifsName.startsWith(model.getPackageName())) {
-                if (ifs.getAnnotation(Immutable.class) != null) {
+                if (ifs.getAnnotation(Immutable.class) != null || ifs.getAnnotation(InterfaceOnly.class) != null) {
                     ext3nds.add("" + ifs.getSimpleName());
                 } else {
                     ext3nds.add("ReadOnly" + ifs.getSimpleName());

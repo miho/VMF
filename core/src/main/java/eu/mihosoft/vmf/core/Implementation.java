@@ -35,7 +35,7 @@ import java.util.stream.Collectors;
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 @Deprecated
-public class Implementation {
+public final class Implementation {
 
     private final String typeName;
     private final String packageName;
@@ -60,42 +60,7 @@ public class Implementation {
 
     void initPropertiesImportsAndDelegates() {
 
-        List<Prop> implProperties = new ArrayList<>();
-        implProperties.addAll(computeImplementedProperties(type));
-
-        // distinct properties ( done via Object.equals() )
-        implProperties = implProperties.stream().distinct().collect(Collectors.toList());
-
-        if(type.isCustomPropertyOrderPresent()) {
-
-            // properties of super types go first
-            // that's, why we use negative indices for those
-            int index = -implProperties.size();
-
-            // find min index used by type properties
-            int minIndex = type.getProperties().stream().
-                    mapToInt(p->p.getCustomOrderIndex()).min().getAsInt();
-
-            // ensure that we are below min index
-            if(minIndex < 0) {
-                index = index + minIndex;
-            }
-
-            // assign property indices
-            for(Prop implProp : implProperties) {
-                implProp.setCustomOrderIndex(index);
-                index++;
-            }
-        }
-
-        // only add properties that are not already present in properties
-        this.properties.addAll(implProperties.stream().filter(p->!properties.contains(p)).
-                distinct().collect(Collectors.toList()));
-
-        // filter out duplicates (considering overloaded properties)
-        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
-        this.properties.clear();
-        this.properties.addAll(distinctProperties);
+        collectAndSetProperties();
 
         // All delegations
         List<DelegationInfo> delegations = new ArrayList<>(type.getDelegations());
@@ -114,7 +79,7 @@ public class Implementation {
 
         // set all annotations (distinct)
         List<AnnotationInfo> allAnnotations = new ArrayList<>(type.getAnnotations());
-//        allAnnotations.addAll(computeInheritedAnnotations(type));
+        // allAnnotations.addAll(computeInheritedAnnotations(type));
         this.annotations.addAll(allAnnotations);
 
         // we require alphabetic order (by key)
@@ -123,20 +88,59 @@ public class Implementation {
         // sort properties
         ModelType.sortProperties(properties, type.isCustomPropertyOrderPresent());
 
-        this.propertiesWithoutCollectionsBasedContainment.addAll(
-                ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties));
+        this.propertiesWithoutCollectionsBasedContainment
+                .addAll(ModelType.propertiesWithoutCollectionsBasedContainment(this.type, this.properties));
 
-        propertiesForEquals.addAll(properties.stream().
-                filter(p->!p.isIgnoredForEquals()).
-                filter(p->!p.isContainer()).collect(Collectors.toList()));
+        propertiesForEquals.addAll(properties.stream().filter(p -> !p.isIgnoredForEquals())
+                .filter(p -> !p.isContainer()).collect(Collectors.toList()));
 
         initImports(imports);
+    }
+
+    private void collectAndSetProperties() {
+        List<Prop> implProperties = new ArrayList<>();
+        implProperties.addAll(computeImplementedProperties(type));
+
+        // distinct properties ( done via Object.equals() )
+        implProperties = implProperties.stream().distinct().collect(Collectors.toList());
+
+        if (type.isCustomPropertyOrderPresent()) {
+
+            // properties of super types go first
+            // that's, why we use negative indices for those
+            int index = -implProperties.size();
+
+            // find min index used by type properties
+            int minIndex = type.getProperties().stream().mapToInt(p -> p.getCustomOrderIndex()).min().getAsInt();
+
+            // ensure that we are below min index
+            if (minIndex < 0) {
+                index = index + minIndex;
+            }
+
+            // assign property indices
+            for (Prop implProp : implProperties) {
+                implProp.setCustomOrderIndex(index);
+                index++;
+            }
+        }
+
+        // only add properties that are not already present in properties
+        this.properties.addAll(
+                implProperties.stream().filter(p -> !properties.contains(p)).distinct().collect(Collectors.toList()));
+
+        // filter out duplicates (considering overloaded properties)
+        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
+        this.properties.clear();
+        this.properties.addAll(distinctProperties);
     }
 
     private static List<Prop> computeImplementedProperties(ModelType type) {
         List<Prop> result = new ArrayList<>();
         for(ModelType t: type.getImplementz()) {
-            result.addAll(computeImplementedProperties(t));
+
+            List<Prop> computerProps = computeImplementedProperties(t);
+            result.addAll(computerProps);
             result.addAll(t.getProperties());
         }
 

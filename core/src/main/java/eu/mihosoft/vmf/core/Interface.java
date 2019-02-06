@@ -25,6 +25,7 @@ package eu.mihosoft.vmf.core;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * <p>Created by miho on 06.01.2017.</p>
@@ -32,12 +33,12 @@ import java.util.List;
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
 @Deprecated
-public class Interface {
+public final class Interface {
 
     private final String name;
     private final String packageName;
     private final List<Prop> properties = new ArrayList<>();
-    private final List<Prop> propertiesWithoutCollectionsBasedContainment;
+    private final List<Prop> propertiesWithoutCollectionsBasedContainment = new ArrayList<>();
     private final ModelType type;
 
     private Interface(ModelType type) {
@@ -45,16 +46,30 @@ public class Interface {
 
         this.packageName = type.getPackageName();
         this.name = type.getTypeName();
-
-        this.properties.addAll(type.getProperties());
-
-        this.propertiesWithoutCollectionsBasedContainment =
-                ModelType.propertiesWithoutCollectionsBasedContainment(
-                        this.type, this.properties);
     }
 
     public static Interface newInstance(ModelType type) {
         return new Interface(type);
+    }
+
+    void initProperties() {
+
+        if(!properties.isEmpty()) {
+            throw new RuntimeException("Properties of '" + getName() + "' already initialized!");
+        }
+
+        List<Prop> allProps = new ArrayList<>();
+        allProps.addAll(type.getProperties());
+        allProps.addAll(computeImplementedProperties(type));
+
+        // filter out duplicates (considering overloaded properties)
+        List<Prop> distinctProperties = Prop.filterDuplicateProps(allProps, false);
+        this.properties.addAll(distinctProperties);
+
+        this.propertiesWithoutCollectionsBasedContainment.addAll(
+                ModelType.propertiesWithoutCollectionsBasedContainment(
+                        this.type, this.properties)
+        );
     }
 
     public String getName() {
@@ -75,5 +90,23 @@ public class Interface {
 
     public List<Prop> getPropertiesWithoutCollectionsBasedContainment() {
         return propertiesWithoutCollectionsBasedContainment;
+    }
+
+    private static List<Prop> computeImplementedProperties(ModelType type) {
+        List<Prop> result = new ArrayList<>();
+        for(ModelType t: type.getImplementz()) {
+
+            List<Prop> computerProps = computeImplementedProperties(t);
+            result.addAll(computerProps);
+            // only add properties if they are getter-only and
+            //  we are not an interface-only or immutable type
+            result.addAll(t.getProperties().stream().
+                filter(
+                    p->p.isGetterOnly()
+                ).collect(Collectors.toList())
+            );
+        }
+
+        return result;
     }
 }
