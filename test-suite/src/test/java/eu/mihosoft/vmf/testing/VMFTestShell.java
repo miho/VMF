@@ -24,7 +24,6 @@
  */
 package eu.mihosoft.vmf.testing;
 
-
 import eu.mihosoft.vmf.VMF;
 import eu.mihosoft.vmf.core.TypeUtil;
 import eu.mihosoft.vmf.core.io.MemoryResource;
@@ -38,6 +37,7 @@ import org.mdkt.compiler.InMemoryJavaCompiler;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.*;
 
 public class VMFTestShell {
@@ -123,15 +123,13 @@ public class VMFTestShell {
     }
 
     static Map.Entry<Class, Object> vmfNewInstance(ClassLoader cl, Class externalTemplate) throws ClassNotFoundException, NoSuchMethodException, IllegalAccessException, InvocationTargetException, InstantiationException {
-        String fqn;
-        fqn = externalTemplate.getName().replace(".vmfmodel", ".impl").concat("Impl");
-        Class implClass = cl.loadClass(fqn);
-        Constructor c = implClass.getConstructor();
-        c.setAccessible(true);
-        Object instance = c.newInstance();
 
-        fqn = externalTemplate.getName().replace(".vmfmodel", "");
+        String fqn = externalTemplate.getName().replace(".vmfmodel", "");
+
         Class pubInterface = cl.loadClass(fqn);
+        Method newInstance = pubInterface.getMethod("newInstance");
+        Object instance = newInstance.invoke(null);
+
         return new AbstractMap.SimpleEntry<Class, Object>(pubInterface, instance);
     }
 
