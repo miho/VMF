@@ -25,11 +25,15 @@
 package eu.mihosoft.vmf.testing;
 
 import eu.mihosoft.vmf.VMF;
+import eu.mihosoft.vmf.core.InterfaceOnly;
 import eu.mihosoft.vmf.core.TypeUtil;
 import eu.mihosoft.vmf.core.io.MemoryResource;
 import eu.mihosoft.vmf.core.io.MemoryResourceSet;
 import eu.mihosoft.vmf.core.io.Resource;
+import groovy.lang.GroovyClassLoader;
 import groovy.lang.GroovyShell;
+
+import org.codehaus.groovy.runtime.powerassert.SourceText;
 import org.junit.After;
 import org.junit.Assert;
 import org.mdkt.compiler.InMemoryJavaCompiler;
@@ -99,7 +103,7 @@ public class VMFTestShell {
      * @throws Throwable
      */
     public void setupModelFromCode() throws Throwable  {
-        InMemoryJavaCompiler compiler = InMemoryJavaCompiler.newInstance().ignoreWarnings();
+        InMemoryJavaCompiler compiler = InMemoryJavaCompiler.newInstance();//.ignoreWarnings();
         for (Map.Entry<String, MemoryResource> entry : getModelCodeField().getMemSet().entrySet()) {
             // convert /path/to/File.java to pkg.File
             compiler.addSource(entry.getKey().replace('/','.').substring(0,entry.getKey().length()-5),
@@ -108,9 +112,9 @@ public class VMFTestShell {
 
         Map<String, Class<?>> modelClasses = compiler.compileAll();
 
-        Class[] classes = modelClasses.values().toArray(new Class[modelClasses.size()]);
+        Class[] modelClassesArray = modelClasses.values().toArray(new Class[modelClasses.size()]);
 
-        VMF.generate(getCodeField(), classes);
+        VMF.generate(getCodeField(), modelClassesArray);
 
         InMemoryJavaCompiler generatedModelCompiler = InMemoryJavaCompiler.newInstance().ignoreWarnings();
         for (Map.Entry<String, MemoryResource> entry : getCodeField().getMemSet().entrySet()) {
@@ -118,10 +122,10 @@ public class VMFTestShell {
             generatedModelCompiler.addSource(entry.getKey().replace('/','.').substring(0,entry.getKey().length()-5),
                     entry.getValue().asString());
         }
-
-        generatedModelCompiler.compileAll();
+        Map<String, Class<?>> classes = generatedModelCompiler.compileAll();
+        Class[] classesArray = classes.values().toArray(new Class[classes.size()]);
         shell = new GroovyShell(generatedModelCompiler.getClassloader());
-        for (Class cls : classes) {
+        for (Class cls : modelClassesArray) {
             shell.setVariable("a" + cls.getSimpleName(), vmfNewInstance(generatedModelCompiler.getClassloader(), cls).getValue());
         }
     }
@@ -185,15 +189,29 @@ public class VMFTestShell {
         String fqn = externalTemplate.getName().replace(".vmfmodel", "");
 
         Class pubInterface = cl.loadClass(fqn);
-        Method newInstance = pubInterface.getMethod("newInstance");
-        Object instance = newInstance.invoke(null);
 
-        return new AbstractMap.SimpleEntry<Class, Object>(pubInterface, instance);
+        Method newInstanceMethod = null;
+
+        for(Method m : pubInterface.getDeclaredMethods()) {
+            if("newInstance".equals(m.getName())) {
+                newInstanceMethod = m;
+                break;
+            }
+        }
+
+        if(newInstanceMethod!=null) {
+            Object instance = newInstanceMethod.invoke(null);
+
+            return new AbstractMap.SimpleEntry<Class, Object>(pubInterface, instance);
+        } else {
+            return new AbstractMap.SimpleEntry<Class, Object>(pubInterface, null);
+        }
     }
 
     @After
     public void tearDown() {
         shell = null;
         codeField = null;
+        modelCodeField = null;
     }
 }

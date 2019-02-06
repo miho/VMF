@@ -168,8 +168,8 @@ public class Model {
                             !p.getType().allPropertyTypesAreInterfaceOnlyWithGettersOnlyOrImmutable();    
 
                         if (isNotImmutableOrInterfaceWithGettersOnly
-                            || (!p.getType().isImmutable() 
-                                && inheritedPropertiesAreNotImmutableNorInterfaceWithGettersOnly)
+                            && (!p.getType().isImmutable() 
+                                 && inheritedPropertiesAreNotImmutableNorInterfaceWithGettersOnly)
                         ) {
                             throw new RuntimeException("Immutable type '" + t.getFullTypeName()
                                     + "' cannot have properties of mutable type '"

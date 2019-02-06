@@ -29,10 +29,6 @@ import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.CompleteOrderInfo
 import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.IncompleteOrderInfo;
 import eu.mihosoft.vmftests.completepropertyordertest.vmfmodel.InvalidOrderInfo;
 import eu.mihosoft.vmftests.delegationtest.vmfmodel.DelegationTestClass;
-import eu.mihosoft.vmftests.immutability.invalidinheritance.mutableinheritance.vmfmodel.MutableInheritanceBase;
-import eu.mihosoft.vmftests.immutability.invalidinheritance.mutableinheritance.vmfmodel.MutableInheritanceImmutable;
-import eu.mihosoft.vmftests.immutability.mutableproperties.vmfmodel.MutableProperty;
-import eu.mihosoft.vmftests.immutability.mutableproperties.vmfmodel.MutablePropertyImmutable;
 import eu.mihosoft.vmftests.reflectiontest.vmfmodel.InheritedDefaultValue;
 import eu.mihosoft.vmftests.reflectiontest.vmfmodel.InheritedDefaultValueFromTwoParents;
 import eu.mihosoft.vmftests.reflectiontest.vmfmodel.InheritedDefaultValueFromTwoParents2;
@@ -399,7 +395,20 @@ public class VMFGenerateRuns extends VMFTestShell {
     @Test
     public void testImmutabilityInvalidMutableInheritance() throws Throwable {
         try {
-            setUp(MutableInheritanceBase.class, MutableInheritanceImmutable.class);
+
+            addModelCode("mutableinheritance.vmfmodel.MutableInheritanceBase",
+            "package mutableinheritance.vmfmodel;\n"+
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "public interface MutableInheritanceBase {\n"+
+            "    String getName();\n"+
+            "}");
+            addModelCode("mutableinheritance.vmfmodel.MutableInheritanceImmutable",
+            "package mutableinheritance.vmfmodel;\n"+
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@Immutable public interface MutableInheritanceImmutable extends MutableInheritanceBase {}");
+
+            setupModelFromCode();
+
             Assert.fail("Should throw an exception");
         } catch (Exception ex) {
             ex.printStackTrace();
@@ -409,29 +418,17 @@ public class VMFGenerateRuns extends VMFTestShell {
     @Test
     public void testImmutabilityInvalidMutableProperty() throws Throwable {
         try {
-            setUp(MutablePropertyImmutable.class, MutableProperty.class);
-            Assert.fail("Should throw an exception");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-
-            ex.printStackTrace(System.out);
-        }
-    }
-
-    @Test
-    public void testImmutabilityInvalidMutableProperty2() throws Throwable {
-        try {
             addModelCode("mutableproperties.vmfmodel.MutableProperty",
             "package mutableproperties.vmfmodel;\n" + 
             "public interface MutableProperty {\n"+
             "    String getName();\n"+
-            "}\n"
+            "}"
             );
-            addModelCode("mutableproperties.vmfmodel.MutablePropertyImmutable2",
+            addModelCode("mutableproperties.vmfmodel.MutablePropertyImmutable",
             "package mutableproperties.vmfmodel;\n"+
-            "import eu.mihosoft.vmf.core.Immutable;\n"+
+            "import eu.mihosoft.vmf.core.*;\n"+
             "@Immutable\n"+
-            "public interface MutablePropertyImmutable2 {\n"+
+            "public interface MutablePropertyImmutable {\n"+
             "    MutableProperty getProperty();\n"+
             "}"
             );
@@ -439,8 +436,101 @@ public class VMFGenerateRuns extends VMFTestShell {
             Assert.fail("Should throw an exception");
         } catch (Exception ex) {
             ex.printStackTrace();
+        }
+    }
 
-            ex.printStackTrace(System.out);
+    @Test
+    public void testImmutabilityValidInterfaceOnlyGetterOnlyProperty() throws Throwable {
+        try {
+            addModelCode("getteronlypropvalid.vmfmodel.MyProperty",
+            "package getteronlypropvalid.vmfmodel;\n" + 
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@InterfaceOnly\n"+
+            "interface MyProperty {\n"+
+            "    @GetterOnly String getName();\n"+
+            "}"
+            );
+            addModelCode("getteronlypropvalid.vmfmodel.ImmutableObj",
+            "package getteronlypropvalid.vmfmodel;\n"+
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@Immutable\n"+
+            "interface ImmutableObj {\n"+
+            "    MyProperty getProperty();\n"+
+            "}"
+            );
+            setupModelFromCode();
+            
+        } catch (Exception ex) {
+            Assert.fail("Should not throw an exception! " + ex.getClass().getName() + " : " +ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testImmutabilityInalidIndirectInheritedMutableProperty() throws Throwable {
+        try {
+            addModelCode("getteronlypropvalid.vmfmodel.MyProperty",
+            "package getteronlypropvalid.vmfmodel;\n" + 
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@InterfaceOnly\n"+
+            "interface MyMutableProperty {\n"+
+            "    String getName();\n"+
+            "}"
+            );
+            addModelCode("getteronlypropinvalid.vmfmodel.MyProperty",
+            "package getteronlypropinvalid.vmfmodel;\n" + 
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@InterfaceOnly\n"+
+            "interface MyProperty extends MyMutableProperty{\n"+
+            "    @GetterOnly String getName();\n"+
+            "}"
+            );
+            addModelCode("getteronlypropinvalid.vmfmodel.ImmutableObj",
+            "package getteronlypropinvalid.vmfmodel;\n"+
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@Immutable\n"+
+            "interface ImmutableObj {\n"+
+            "    MyProperty getProperty();\n"+
+            "}"
+            );
+            setupModelFromCode();
+            Assert.fail("Should throw an exception!");
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testImmutabilityInalidIndirectMutableProperty() throws Throwable {
+        try {
+            addModelCode("getteronlypropvalid.vmfmodel.MyProperty",
+            "package getteronlypropvalid.vmfmodel;\n" + 
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@InterfaceOnly\n"+
+            "interface MyMutableProperty {\n"+
+            "    String getName();\n"+
+            "}"
+            );
+            addModelCode("getteronlypropinvalid.vmfmodel.MyProperty",
+            "package getteronlypropinvalid.vmfmodel;\n" + 
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@InterfaceOnly\n"+
+            "interface MyProperty {\n"+
+            "    @GetterOnly MyMutableProperty getName();\n"+
+            "}"
+            );
+            addModelCode("getteronlypropinvalid.vmfmodel.ImmutableObj",
+            "package getteronlypropinvalid.vmfmodel;\n"+
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@Immutable\n"+
+            "interface ImmutableObj {\n"+
+            "    MyProperty getProperty();\n"+
+            "}"
+            );
+            setupModelFromCode();
+            Assert.fail("Should throw an exception!");
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
     }
 
