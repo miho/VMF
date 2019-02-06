@@ -46,16 +46,24 @@ import java.lang.annotation.Target;
  * 
  * }
  * 
- * interface ImmutableObj extends WithName {
+ * interface ImmutableObj extends WithName { }
  * 
- * }
- * 
- * interface MutableObj extends WithName {
- * 
- * }
- * 
- * 
+ * interface MutableObj extends WithName { }
  * </code></pre>
+ * 
+ * Both, the mutable and the immutable entity can be casted to their common super interface
+ * 
+ * <pre><code>
+ * ImmutableObj immutableObj = ImmutableObj.newBuilder().withName("immutable obj").build();
+ * MutableObj   mutableObj   = MutableObj.newBuilder().withName("mutable obj").build();
+ * WithName withName1 = immutableObj;
+ * WithName withName2 = mutableObj;
+ * </code></pre>
+ * 
+ * This is possible because VMF detects that {@code WithName} is effectively 'immutable', i.e., 
+ * equivalent to its read-only type {@code ReadOnlyWithName} and only has/inherits imutable property types. 
+ * That is, it is compatible with the immutable type which can safely inherit from the {@code WithName}
+ * interface.
  * 
  * <p>Created by miho on 02.01.2017.</p>
  * 

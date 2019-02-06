@@ -205,10 +205,12 @@ public class CodeGenerator {
                     Writer out = res.open();
                     generateImmutableTypeInterface(out, t);
                 }
-                try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
-                        + t.getImplementation().getTypeName()))) {
-                    Writer out = res.open();
-                    generateImmutableTypeImplementation(out, t);
+                if(!t.isInterfaceOnly()) {
+                    try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
+                            + t.getImplementation().getTypeName()))) {
+                        Writer out = res.open();
+                        generateImmutableTypeImplementation(out, t);
+                    }
                 }
             } else {
 

@@ -59,6 +59,7 @@ public class ModelType {
     private final String immutableImplementzString;
 
     private final List<ModelType> implementz = new ArrayList<>();
+    private final List<ModelType> allInheritedTypes = new ArrayList<>();
 
     private final boolean immutable;
     private final boolean interfaceOnly;
@@ -267,6 +268,24 @@ public class ModelType {
         }
 
         this.implementation = Implementation.newInstance(this);
+    }
+
+    void initAllInheritedTypes() {
+        allInheritedTypes.addAll(compiteInheritedTypes(this));
+    }
+
+    private List<ModelType> compiteInheritedTypes(ModelType type) {
+        List<ModelType> result = new ArrayList<>();
+
+        result.addAll(type.getImplementz());
+
+        for(ModelType t : type.getImplementz()) {
+            result.addAll(compiteInheritedTypes(t));
+        }
+
+        result = result.stream().distinct().collect(Collectors.toList());
+
+        return result;
     }
 
 //    private void initImports(List<String> imports) {
@@ -529,6 +548,10 @@ public class ModelType {
         return implementz;
     }
 
+    public List<ModelType> getAllInheritedTypes() {
+        return allInheritedTypes;
+    }
+
     public Implementation getImplementation() {
         return implementation;
     }
@@ -541,13 +564,22 @@ public class ModelType {
         return interfaceOnly;
     }
 
+    public boolean allInheritedTypesAreInterfaceOnlyWithGettersOnly() {
+        return !getAllInheritedTypes().stream().
+            filter(t->!t.isInterfaceOnlyWithGettersOnly()).findAny().isPresent();
+    }
+
+    public boolean allPropertyTypesAreInterfaceOnlyWithGettersOnlyOrImmutable() {
+        return getImplementation().getProperties().stream().map(p->p.getType()).filter(t->t!=null).
+        filter(t->t.isInterfaceOnlyWithGettersOnly() || t.isImmutable()).findAny().isPresent();
+    }
+
+
     public boolean isInterfaceOnlyWithGettersOnly() {
         boolean iFaceOnlyWithGettersOnly = isInterfaceOnly() 
             && !getImplementation().getProperties().stream().
-                filter(p->!p.isGetterOnly()).findFirst().isPresent();
-
-        System.out.println("!!!PEEK: " + getTypeName() + " " + iFaceOnlyWithGettersOnly);
-
+                filter(p->!p.isGetterOnly()).findAny().isPresent()
+            ;
         return iFaceOnlyWithGettersOnly;        
     }
 

@@ -69,16 +69,25 @@
 
       // -- try every implementation that implements our interface --
 #foreach ($t in $type.getModel().getAllTypesThatImplement($type))
+#if($t.interfaceOnly)
 
-      // perform the actual comparison for each property
+      // -> type ${t.typeName} is interface-only and will be skipped
+
+#else## if($t.interfaceOnly)
+
+      // -> type ${t.typeName} is checked:
+
+      //   -> perform the actual comparison for each property
       if (o instanceof ${t.implementation.typeName}) {
         $t.implementation.typeName other = ($t.implementation.typeName) o;
         return #if($t.implementation.propertiesForEquals.isEmpty())true;#end
+       
 #foreach ($prop in $type.implementation.propertiesForEquals)
           _vmf_equals(this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end## for-each property
       }
+#end## if($t.interfaceOnly)       
 #end## for-each potential implementation
 
       // no implementation matched. we end the comparison.

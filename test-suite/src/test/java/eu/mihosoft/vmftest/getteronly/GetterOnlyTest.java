@@ -8,7 +8,6 @@ public class GetterOnlyTest {
     public void getterOnlyTest() {
 
         ImmutableObj immutableObj = ImmutableObj.newBuilder().withName("immutable obj").build();
-
         MutableObj mutableObj = MutableObj.newBuilder().withName("mutable obj").build();
         
         WithName withName1 = immutableObj;
