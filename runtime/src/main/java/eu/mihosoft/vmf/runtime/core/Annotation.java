@@ -25,10 +25,30 @@ package eu.mihosoft.vmf.runtime.core;
 
 import java.util.Objects;
 
+/**
+ * An annotation can contain compile-time meta-information that can be queried via VMFs reflection API ({@link Reflect}).
+ * Model entities as well as properties can be annotated. 
+ * 
+ * @see {@link Reflect}
+ * @see <a href=https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-11/README.md>Tutorial on Annitations</a>
+ */
 public interface Annotation {
+    /**
+     * Returns the annotation key which can be an arbitrary string. Keys are used to group annotations into categories.
+     * @return annotation key, e.g., <b>{@code "api"}</b> or <b>{@code "model"}</b>
+     */
     String getKey();
+    /**
+     * Returns the annotation value which can be an arbitrary string. Consumers of the annotation are responsible for
+     * parsing the value string.
+     * @return annotation value, e.g., <b>{@code "min=3;max=27"}</b>
+     */
     String getValue();
 
+    /**
+     * Determines whether this annotation object is equal to the specified key and value.
+     * @return {@code true} if this object is equal to the specified key and value; {@code false} otherwise
+     */
     default boolean equals(String key, String value) {
         return Objects.equals(getKey(), key) && Objects.equals(value, getValue());
     }

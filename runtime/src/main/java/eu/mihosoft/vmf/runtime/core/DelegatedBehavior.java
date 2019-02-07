@@ -28,9 +28,10 @@ package eu.mihosoft.vmf.runtime.core;
  * custom extensions by manipulating their implementation code. However, custom behavior can be realized be defining
  * delegation classes that implement this interface.
  *
- * Created by miho on 05.04.17.
+ * <p>Created by miho on 05.04.17.</p>
  *
  * @author Michael Hoffer <info@michaelhoffer.de>
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-08/README.md">Tutorial on Custom Behavior & Delegation</a>
  */
 public interface DelegatedBehavior<T extends VObject> {
 

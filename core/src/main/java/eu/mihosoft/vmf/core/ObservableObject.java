@@ -28,7 +28,7 @@ import java.beans.PropertyChangeListener;
 /**
  * An observable object interface.
  * 
- * Created by miho on 04.01.2017.
+ * <p>Created by miho on 04.01.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */

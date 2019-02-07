@@ -31,6 +31,14 @@ package eu.mihosoft.vmf.runtime.core;
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
 public interface PropertyChange {
+    /**
+     * The value prior to this change.
+     * @return value prior to this change
+     */
     Object oldValue();
+    /**
+     * The new value after the change.
+     * @return new value after the change
+     */
     Object newValue();
 }

@@ -28,9 +28,15 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
- * Reflection API of an object/type.
+ * Reflection API of an object/type. The reflection API of an object can be accessed via the {@code vmf()} method:
+ * 
+ * <pre><code>
+ * VObject o = ...
+ * Reflect r = o.vmf().reflect()
+ * </code></pre>
  *
  * @author Michael Hoffer (info@michaelhoffer.de)
+ * @see {@link VMF}
  */
 public interface Reflect {
 

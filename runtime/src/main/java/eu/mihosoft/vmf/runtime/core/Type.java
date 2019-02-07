@@ -33,6 +33,10 @@ import java.util.Objects;
 
 /**
  * Represents a type, e.g. {@code java.lang.Integer} or {@code your.pkg.ModelType}.
+ * 
+ * @see {@link Property}
+ * @see {@link Reflect}
+ * @see {@link Annotation}
  */
 public final class Type {
 

@@ -29,7 +29,13 @@ import vjavax.observer.Subscription;
 
 import java.util.*;
 
-
+/**
+ * Gives reflective access to an objects/types property. Property objects can be used to set and
+ * unset properties as well as acquire type information as well as annotations. Additionally,
+ * one can register change listeners.
+ * 
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-09/README.md">Tutorial on Custom Default Values for Properties</a>
+ */
 @SuppressWarnings("deprecation")
 public final class Property {
 

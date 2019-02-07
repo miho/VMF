@@ -31,16 +31,27 @@ package eu.mihosoft.vmf.runtime.core;
 import java.util.List;
 
 /**
- * A collection of changes. Transactions can be used to describe
+ * A collection of changes. Transactions can be used to describe higher-level model edits.
  *
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
 public interface Transaction {
 
+    /**
+     * Returns the atomic changes that are part of this transaction.
+     * @return a list of the atomic changes that are part of this transaction
+     */
     List<Change> changes();
 
+    /**
+     * Indicates whether this transaction is undoable.
+     * @return {@code true} if this transaction (and all contained atomic changes) is undoable; {@code false} otherwise
+     */
     boolean isUndoable();
 
+    /**
+     * Undos this transaction.
+     */
     void undo();
 }
 

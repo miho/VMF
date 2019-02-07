@@ -39,6 +39,9 @@ import java.util.stream.StreamSupport;
  * Iterator that iterates over the specified object graph.
  *
  * @author Michael Hoffer (info@michaelhoffer.de)
+ * 
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-06/README.md">Tutorial on Object Graph Traversal & Custom Property Order</a>
+ * @see {@link Content}
  */
 @SuppressWarnings("deprecation")
 public class VIterator implements Iterator<VObject> {

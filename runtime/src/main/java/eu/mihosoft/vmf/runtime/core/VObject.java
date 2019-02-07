@@ -24,7 +24,7 @@
 package eu.mihosoft.vmf.runtime.core;
 
 /**
- * VMF base class.
+ * VMF base class. All generated classes of a VMF model implement this interface.
  *
  * @author Michael Hoffer (info@michaelhoffer.de)
  */

@@ -34,6 +34,9 @@ import eu.mihosoft.vmf.runtime.core.internal.ChangesImpl;
  * VMF API. Gives access to VMF related functionality.
  * 
  * @author Michael Hoffer (info@michaelhoffer.de)
+ * @see {@link Content}
+ * @see {@link Change}
+ * @see {@link Reflect}
  */
 public interface VMF {
     

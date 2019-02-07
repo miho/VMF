@@ -28,7 +28,7 @@ import java.util.Iterator;
 /**
  * Traversal listener for traversing object graphs and performing corresponding actions.
  *
- * Created by miho on 10.03.2017.
+ * <p>Created by miho on 10.03.2017.</p>
  *
  * @author Michael Hoffer (info@michaelhoffer.de)
  */

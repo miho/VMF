@@ -29,9 +29,15 @@ import java.util.Iterator;
 import java.util.stream.Stream;
 
 /**
- * Content of this object graph.
+ * Content of this object graph. The content API of an object can be accessed via the {@code vmf()} method:
+ * 
+ * <pre><code>
+ * VObject o = ...
+ * Content r = o.vmf().content()
+ * </code></pre>
  * 
  * @author Michael Hoffer (info@michaelhoffer.de)
+ * @see {@link VMF}
  */
 public interface Content {
 

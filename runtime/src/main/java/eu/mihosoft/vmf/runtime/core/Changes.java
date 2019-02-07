@@ -33,8 +33,16 @@ import eu.mihosoft.vcollections.VList;
 import vjavax.observer.Subscription;
 
 /**
- * Contains change related functionality of this object graph.
+ * Contains change related functionality of this object graph. The change API of an object can be
+ * accessed via the {@code vmf()} method:
+ * 
+ * <pre><code>
+ * VObject o = ...
+ * Change r = o.vmf().change()
+ * </code></pre> * 
+ * 
  * @author Michael Hoffer (info@michaelhoffer.de)
+ * @see {@link VMF}
  */
 public interface Changes {
 

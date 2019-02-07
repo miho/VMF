@@ -29,9 +29,15 @@ package eu.mihosoft.vmf.runtime.core;
  * Created by miho on 23.02.17.
  *
  * @author Michael Hoffer (info@michaelhoffer.de)
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-07/README.md">Tutorial on Immutable Objects and ReadOnly API</a>
  */
 public interface ReadOnly {
 
+    /**
+     * Returns a modifiable deep copy of this read-only instance
+     * @return a modifiable deep copy of this read-only instance
+     * @see {@link Content#deepCopy()}
+     */
     default VObject asModifiable() {
         throw new UnsupportedOperationException("FIXME: unsupported method invoked. This should not happen :(");
     }
