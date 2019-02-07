@@ -27,7 +27,7 @@ import eu.mihosoft.vmf.core.CodeGenerator;
 import eu.mihosoft.vmf.core.TypeUtil;
 import eu.mihosoft.vmf.core.io.FileResourceSet;
 import eu.mihosoft.vmf.core.io.ResourceSet;
-import io.github.lukehutch.fastclasspathscanner.FastClasspathScanner;
+import io.github.classgraph.ClassGraph;
 import org.mdkt.compiler.InMemoryJavaCompiler;
 
 import java.io.File;
@@ -209,9 +209,9 @@ public class VMF {
      * @throws IllegalArgumentException if the specified model is empty
      */
     private static Collection<Class<?>> listClassesInPackage(ClassLoader classLoader, String packageName) {
-        List<String> clsNames = new FastClasspathScanner(packageName).addClassLoader(classLoader)
-                .scan()
-                .getNamesOfAllClasses();
+        List<String> clsNames = new ClassGraph().whitelistPackages(packageName).enableAllInfo()
+                .addClassLoader(classLoader)
+                .scan().getAllClasses().getNames();      
 
         return clsNames.stream().map(clsName->loadClass(classLoader, clsName)).
                 filter(cls->cls!=null).filter(cls->{
