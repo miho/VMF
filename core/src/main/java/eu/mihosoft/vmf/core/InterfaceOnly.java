@@ -37,6 +37,7 @@ import java.lang.annotation.Target;
  * @author Michael Hoffer <info@michaelhoffer.de>
  * 
  * @see {@link GetterOnly}
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-07/README.md#how-can-mutable-and-immutable-types-share-a-common-super-type">Tutorial on Immutable Objects and ReadOnly API</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)

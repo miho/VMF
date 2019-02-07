@@ -26,11 +26,22 @@ package eu.mihosoft.vmf.core;
 import java.beans.PropertyChangeListener;
 
 /**
+ * An observable object interface.
+ * 
  * Created by miho on 04.01.2017.
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
+@Deprecated
 interface ObservableObject {
+    /**
+     * Adds a listener.
+     * @param l listener to add
+     */
     void addPropertyChangeListener(PropertyChangeListener l);
+    /**
+     * Removes a listener.
+     * @param l listener to remove
+     */
     void removePropertyChangeListener(PropertyChangeListener l);
 }

@@ -119,7 +119,7 @@ public class Model {
             }
 
             if (!t.isImmutable()) {
-                for (ModelType iType : t.getImplementz()) {
+                for (ModelType iType : t.getAllInheritedTypes()) {
                     if (iType.isImmutable()) {
                         throw new RuntimeException("Mutable type '" + t.getFullTypeName()
                                 + "' cannot extend immutable type '"
@@ -159,18 +159,8 @@ public class Model {
                 }
 
                 for (Prop p : t.getImplementation().getProperties()) {
-                    if (p.getType() != null) {
-
-                        boolean isNotImmutableOrInterfaceWithGettersOnly = 
-                            !p.getType().isImmutable() && !p.getType().isInterfaceOnlyWithGettersOnly();
-                        
-                        boolean inheritedPropertiesAreNotImmutableNorInterfaceWithGettersOnly =
-                            !p.getType().allPropertyTypesAreInterfaceOnlyWithGettersOnlyOrImmutable();    
-
-                        if (isNotImmutableOrInterfaceWithGettersOnly
-                            && (!p.getType().isImmutable() 
-                                 && inheritedPropertiesAreNotImmutableNorInterfaceWithGettersOnly)
-                        ) {
+                    if (p.getType() != null) {  
+                        if (!p.getType().isImmutable()) {
                             throw new RuntimeException("Immutable type '" + t.getFullTypeName()
                                     + "' cannot have properties of mutable type '"
                                     + p.getType().getFullTypeName() + "'.");

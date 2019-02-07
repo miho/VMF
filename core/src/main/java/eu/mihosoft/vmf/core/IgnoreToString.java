@@ -50,7 +50,7 @@ import java.lang.annotation.Target;
  * <p>Created by miho on 08.01.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
- * @see IgnoreToString
+ * @see IgnoreEquals
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

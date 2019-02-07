@@ -459,9 +459,8 @@ public class VMFGenerateRuns extends VMFTestShell {
             "}"
             );
             setupModelFromCode();
-            
+            Assert.fail("Should throw an exception!");
         } catch (Exception ex) {
-            Assert.fail("Should not throw an exception! " + ex.getClass().getName() + " : " +ex.getMessage());
             ex.printStackTrace();
         }
     }
@@ -530,6 +529,37 @@ public class VMFGenerateRuns extends VMFTestShell {
             setupModelFromCode();
             Assert.fail("Should throw an exception!");
         } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testGetterOnlyInterfaceOnlyAsCommonInterface() throws Throwable {
+        try {
+            addModelCode("commoniface.vmfmodel.WithName",
+            "package commoniface.vmfmodel;\n" + 
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@InterfaceOnly\n"+
+            "interface WithName {\n"+
+            "    @GetterOnly String getName();\n"+
+            "}"
+            );
+            addModelCode("commoniface.vmfmodel.ImmutableObj",
+            "package commoniface.vmfmodel;\n" + 
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "@Immutable\n"+
+            "interface ImmutableObj extends WithName { }\n"
+            );
+            addModelCode("commoniface.vmfmodel.MutableObj",
+            "package commoniface.vmfmodel;\n" + 
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "interface MutableObj extends WithName { }\n"
+            );
+            
+            setupModelFromCode();
+            
+        } catch (Exception ex) {
+            Assert.fail("Should not throw an exception! " + ex.getMessage());
             ex.printStackTrace();
         }
     }

@@ -29,11 +29,56 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
+ * Delegates method calls to custom behavior implementations. Usually, VMF models only declare properties
+ * and annotate them to define a working data model. But sometimes, it is desirable to introduce custom
+ * behavior that cannot be declared with VMF. Consider the following model.
  * 
+ * <h3>Example Model:</h3>
+ * <pre><code>
+ * package mypkg.vmfmodel;
+ * import eu.mihosoft.vmf.core.*;
+ * 
+ * interface ObjectWithCustomBehavior {
+ *     
+ *     int getA();
+ *     int getB();
+ * 
+ *     {@literal @}DelegateTo(className="mypkg.CustomBehavior")
+ *     int computeSum();
+ * }
+ * </code></pre>
+ * 
+ * For the custom behavior one could imagine a method that computes the sum of properties <b>{@code a}</b>
+ * and <b>{@code b}</b>. To achieve that, one needs to provide an implementation of the 
+ * <b>{@code DelegatedBehavior<T extends VObject}</b> interface. A sample implementation is given below:
+ * 
+ * <pre><code>
+ * package mypkg;
+ * 
+ * import eu.mihosoft.vmf.runtime.core.DelegatedBehavior;
+ * 
+ * public class CustomBehavior implements DelegatedBehavior<ObjectWithCustomBehavior> {
+ * 
+ *     private ObjectWithCustomBehavior caller;
+ * 
+ *     {@literal @}Override
+ *     public void setCaller(ObjectWithCustomBehavior caller) {
+ *         this.caller = caller;
+ *     }
+ * 
+ *     // Delegated behavior. It is called whenever {@code caller.computeSum()} is called. 
+ *     // This method computes and returns the sum of property 'a' and 'b'.
+ *     // @return sum of 'a' and 'b'
+ *     public int computeSum() {
+ *         return caller.getA() + caller.getB();
+ *     }
+ * }
+ * </code></pre>
  * 
  * <p>Created by miho on 21.03.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-08/README.md">Tutorial on Custom Behavior & Delegation</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})
