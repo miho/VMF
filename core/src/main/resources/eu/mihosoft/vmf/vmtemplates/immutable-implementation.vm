@@ -77,7 +77,15 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
 #foreach( $prop in ${type.implementation.properties} )
   @Override
   public $prop.getterDeclaration {
+  #if($prop.propType == "COLLECTION")
+    if(this.__vmf_prop_$prop.name==null) {
+      this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
+        java.util.Collections.emptyList();
+      );
+    }
+  #else## if is collection type
     return this.__vmf_prop_${prop.name};
+  #end## if is collection type  
   }
 #end##foreach property
 
