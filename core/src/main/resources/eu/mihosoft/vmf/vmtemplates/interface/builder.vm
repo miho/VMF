@@ -76,7 +76,7 @@
    * Returns a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
    * @return a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
    */
-  static Builder newBuilder() {// !!!WHY? $type.interfaceOnly
+  static Builder newBuilder() {
     return __VMF__${type.typeName}_Creator.newBuilderInstance();
   } // end newBuilder()
 

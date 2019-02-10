@@ -570,16 +570,24 @@ public class ModelType {
     }
 
     public boolean allPropertyTypesAreInterfaceOnlyWithGettersOnlyOrImmutable() {
-        return getImplementation().getProperties().stream().map(p->p.getType()).filter(t->t!=null).
-        filter(t->t.isInterfaceOnlyWithGettersOnly() || t.isImmutable()).findAny().isPresent();
+
+        // TODO 10.02.2019 with t==null we currently assume immutable (future vmf versions might add 
+        // more detailed options for non-model types)
+        long numConformingProperties = getImplementation().getProperties().stream().map(p->p.getType()).
+        filter(t-> t==null || t.isInterfaceOnlyWithGettersOnly() || t.isImmutable()).count();
+        
+        return numConformingProperties == getImplementation().getProperties().size();
+
     }
 
 
     public boolean isInterfaceOnlyWithGettersOnly() {
+
         boolean iFaceOnlyWithGettersOnly = isInterfaceOnly() 
             && !getImplementation().getProperties().stream().
                 filter(p->!p.isGetterOnly()).findAny().isPresent()
             ;
+
         return iFaceOnlyWithGettersOnly;        
     }
 

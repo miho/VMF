@@ -474,19 +474,14 @@ public class VMFGenerateRuns extends VMFTestShell {
             "@InterfaceOnly\n"+
             "interface MyMutableProperty {\n"+
             "    String getName();\n"+
-            "}"
-            );
-            addModelCode("getteronlypropinvalid.vmfmodel.MyProperty",
-            "package getteronlypropinvalid.vmfmodel;\n" + 
+            "}\n"+
+            // ---
             "import eu.mihosoft.vmf.core.*;\n"+
             "@InterfaceOnly\n"+
             "interface MyProperty extends MyMutableProperty{\n"+
             "    @GetterOnly String getName();\n"+
-            "}"
-            );
-            addModelCode("getteronlypropinvalid.vmfmodel.ImmutableObj",
-            "package getteronlypropinvalid.vmfmodel;\n"+
-            "import eu.mihosoft.vmf.core.*;\n"+
+            "}\n"+
+            // ---
             "@Immutable\n"+
             "interface ImmutableObj {\n"+
             "    MyProperty getProperty();\n"+
@@ -502,24 +497,19 @@ public class VMFGenerateRuns extends VMFTestShell {
     @Test
     public void testImmutabilityInalidIndirectMutableProperty() throws Throwable {
         try {
-            addModelCode("getteronlypropvalid.vmfmodel.MyProperty",
-            "package getteronlypropvalid.vmfmodel;\n" + 
-            "import eu.mihosoft.vmf.core.*;\n"+
+
+            addModelCode("getteronlypropinvalid.vmfmodel.ImmutableObj",
+            "package getteronlypropinvalid.vmfmodel;\n"+
             "@InterfaceOnly\n"+
             "interface MyMutableProperty {\n"+
             "    String getName();\n"+
-            "}"
-            );
-            addModelCode("getteronlypropinvalid.vmfmodel.MyProperty",
-            "package getteronlypropinvalid.vmfmodel;\n" + 
-            "import eu.mihosoft.vmf.core.*;\n"+
+            "}\n"+
+            // ---
             "@InterfaceOnly\n"+
             "interface MyProperty {\n"+
             "    @GetterOnly MyMutableProperty getName();\n"+
-            "}"
-            );
-            addModelCode("getteronlypropinvalid.vmfmodel.ImmutableObj",
-            "package getteronlypropinvalid.vmfmodel;\n"+
+            "}"+
+            // ---
             "import eu.mihosoft.vmf.core.*;\n"+
             "@Immutable\n"+
             "interface ImmutableObj {\n"+
@@ -560,6 +550,27 @@ public class VMFGenerateRuns extends VMFTestShell {
             
         } catch (Exception ex) {
             Assert.fail("Should not throw an exception! " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testGetterOnlyInterfaceOnlyWithModifiableProperties() throws Throwable {
+        try {
+
+            addModelCode("commoniface.vmfmodel.NormalProperty",
+            "package commoniface.vmfmodel;\n"+
+            "import eu.mihosoft.vmf.core.*;\n"+
+            "public interface NormalProperty { String getName(); }\n"+
+            "@InterfaceOnly interface InterfaceOnlyGetterOnlyType {\n"+
+            "    @GetterOnly NormalProperty getParent();\n"+
+            "}"
+            );
+            
+            setupModelFromCode();
+            
+        } catch (Exception ex) {
+            Assert.fail("Should not throw an exception! " + ex.getClass() + ": " + ex.getMessage());
             ex.printStackTrace();
         }
     }
