@@ -34,6 +34,7 @@ import vjavax.observer.Subscription;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -105,13 +106,16 @@ public class ChangesImpl implements Changes {
             }
         };
 
+        AtomicBoolean recursiveRegistered = new AtomicBoolean(false);
         changeListeners.addChangeListener((evt) -> {
-            if (changeListeners.isEmpty() && !recording) {
-//                System.out.println("unregister");
+            if (changeListeners.isEmpty() && !recording && recursiveRegistered.get()) {
+                // System.out.println("rc-unregister");
                 unregisterChangeListener(model, objListener);
-            } else if (!changeListeners.isEmpty()) {
-//                System.out.println("register");
+                recursiveRegistered.set(false);
+            } else if (!changeListeners.isEmpty() && !recursiveRegistered.get()) {
+                // System.out.println("rc-register");
                 registerChangeListener(model, objListener);
+                recursiveRegistered.set(true);
             }
         });
 
@@ -126,14 +130,17 @@ public class ChangesImpl implements Changes {
             }
         };
 
+        AtomicBoolean nonrecursiveRegistered = new AtomicBoolean(false);
         nonRecursiveChangeListeners.addChangeListener((evt) -> {
-            if (nonRecursiveChangeListeners.isEmpty() && !recording) {
-//                System.out.println("unregister");
+            if (nonRecursiveChangeListeners.isEmpty() && !recording && nonrecursiveRegistered.get()) {
+                // System.out.println("nr-unregister");
                 unregisterChangeListenerNonRecursive(model, nonRecursiveObjListener);
                 nonRecursiveSubscriptions.forEach(s->s.unsubscribe());
-            } else if (!nonRecursiveChangeListeners.isEmpty()) {
-//                System.out.println("register");
+                nonrecursiveRegistered.set(false);
+            } else if (!nonRecursiveChangeListeners.isEmpty() && !nonrecursiveRegistered.get()) {
+                // System.out.println("nr-register");
                 registerChangeListenerNonRecursive(model, nonRecursiveObjListener);
+                nonrecursiveRegistered.set(true);
             }
         });
 
