@@ -40,9 +40,10 @@ ${codeIndentValue}    "${prop.containmentInfo.opposite.name}", oldOpposite, $opp
 ${codeIndentValue}  // not generating change event (disableFireEventValue=$disableFireEventValue)
 #end## if disableFireEventValue
 ${codeIndentValue}} catch (Exception ex) {
-${codeIndentValue}  java.util.logging.Logger.getLogger(
-${codeIndentValue}     ${type.implementation.typeName}.class.getName()).
-${codeIndentValue}     log(java.util.logging.Level.SEVERE, null, ex);
+${codeIndentValue}    java.util.logging.Logger.getLogger(
+${codeIndentValue}        ${type.implementation.typeName}.class.getName()).
+${codeIndentValue}        log(java.util.logging.Level.SEVERE, null, ex);
+${codeIndentValue}    throw new RuntimeException("Reflection broken", ex);
 ${codeIndentValue}}
 
 ## ${codeIndentValue}} catch (NoSuchFieldException ex) {
