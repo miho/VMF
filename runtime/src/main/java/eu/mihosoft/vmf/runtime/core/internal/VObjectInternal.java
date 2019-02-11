@@ -101,6 +101,12 @@ public interface VObjectInternal extends VObject, ObservableObject {
     public int[] _vmf_getChildrenIndices();
 
     /**
+     * Returns the indices of all parent properties which declare this object as
+     * child/contained element (opposite).
+     */
+    public int[] _vmf_getParentIndices();
+
+    /**
      * Returns the property index of the specified property name.
      * @param propertyName
      * @return the property index of the specified property name or {@code -1}

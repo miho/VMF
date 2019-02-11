@@ -90,7 +90,7 @@ public class ChangesImpl implements Changes {
 
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
                         evt.getOldValue(), evt.getNewValue());
-
+     
                 fireChange(c);
 
                 if (evt.getNewValue() instanceof VObject) {
@@ -147,7 +147,23 @@ public class ChangesImpl implements Changes {
         }
 
         if (recording && nonRecursiveChangeListeners.isEmpty() ) {
-            all.add(c);
+
+            // check whether the change belongs to a parent property of a
+            // contained object (opposite)
+            // -> in this case we omit the change from recorded changes
+            VObjectInternal modelInternal = (VObjectInternal) c.object();
+            int pIndex = modelInternal._vmf_getPropertyIdByName(c.propertyName());
+            boolean foundParent = false;
+            for(int idx : modelInternal._vmf_getParentIndices()) {
+                if (pIndex == idx) {
+                    foundParent = true;
+                    break;
+                }
+            }
+
+            if(!foundParent) {
+                all.add(c);
+            }
         }
     }
 
@@ -158,7 +174,23 @@ public class ChangesImpl implements Changes {
         }
 
         if (recording && changeListeners.isEmpty()) {
-            all.add(c);
+
+            // check whether the change belongs to a parent property of a
+            // contained object (opposite)
+            // -> in this case we omit the change from recorded changes
+            VObjectInternal modelInternal = (VObjectInternal) c.object();
+            int pIndex = modelInternal._vmf_getPropertyIdByName(c.propertyName());
+            boolean foundParent = false;
+            for(int idx : modelInternal._vmf_getParentIndices()) {
+                if (pIndex == idx) {
+                    foundParent = true;
+                    break;
+                }
+            }
+
+            if(!foundParent) {
+                all.add(c);
+            }
         }
     }
 

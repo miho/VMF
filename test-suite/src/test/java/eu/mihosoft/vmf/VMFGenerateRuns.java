@@ -251,12 +251,7 @@ public class VMFGenerateRuns extends VMFTestShell {
             // containment properties cannot be set. we expect unset as default:
             assertResult("aNode.vmf().reflect().propertyByName(\"parent\").get().isSet()", false);
 
-
-            // containment properties cannot be set. we expect an exception:
-            assertExceptionOn("aNode.vmf().reflect().propertyByName(\"parent\").get().set(aNode)",
-                    "RuntimeException");
-
-            // containment properties cannot be set. we expect an exception (also for default values):
+            // containment properties cannot be set. we expect an exception (for default values):
             assertExceptionOn("aNode.vmf().reflect().propertyByName(\"parent\").get().setDefault(aNode)",
                     "RuntimeException");
 

@@ -93,6 +93,18 @@
 #end
   };
 
+  /**
+   * - indices of model parents
+   * - children, i.e., contained elements and pure references are skipped
+   * - only indices of container/parent elements, i.e.,
+   *   children are listed here
+   */
+  static final int[] _VMF_PARENT_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.type && $prop.containmentInfo.containmentType=="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
   @Override
   public String[] _vmf_getPropertyNames() {
     return _VMF_PROPERTY_NAMES;
@@ -129,6 +141,11 @@
   }
 
   @Override
+  public int[] _vmf_getParentIndices() {
+    return _VMF_PARENT_INDICES;
+  }
+
+  @Override
   public Object _vmf_getPropertyValueById(int propertyId) {
 
     switch(propertyId) {
@@ -161,8 +178,8 @@
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
 #if(!$prop.genericType)
-#if(${prop.propType}!="COLLECTION" && $prop.containmentInfo.containmentType!="CONTAINER")
-      case $foreach.index: // normal property (no collection and no containment)
+#if(${prop.propType}!="COLLECTION") ## && $prop.containmentInfo.containmentType!="CONTAINER"
+      case $foreach.index: // normal property (no collection)
         set${prop.nameWithUpperCase}((${prop.typeName})value);
         break;
 #elseif(${prop.propType}=="COLLECTION")
@@ -170,7 +187,7 @@
         get${prop.nameWithUpperCase}().clear();
         get${prop.nameWithUpperCase}().addAll((${prop.typeName})value);
         break;
-#end## end if !container && !collection
+#end## end if !collection
 #end## end if !genericType
 #end## for-each property
       default:
