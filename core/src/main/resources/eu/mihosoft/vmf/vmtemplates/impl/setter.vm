@@ -46,7 +46,7 @@
     }
 
     // remember old value for change event generation
-    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+    // $prop.typeName oldValue = this.__vmf_prop_$prop.name;
 
     // remove this from previous opposite
     if(this.__vmf_prop_$prop.name!=null) {
@@ -58,8 +58,8 @@
         $prop.name.${prop.containmentInfo.opposite.getterPrefix}${prop.containmentInfo.opposite.nameWithUpperCase}().add(this);
     }
 
-    // fire property change event
-    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // fire property change event (this is actually done in collection listener that sets the opposite)
+    // _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
   }
 #end## if opposite is collection type
 #if(${prop.propType}!="COLLECTION" && ${prop.containmentInfo.opposite.propType}!="COLLECTION")

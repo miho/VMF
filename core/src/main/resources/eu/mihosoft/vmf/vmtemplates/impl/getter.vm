@@ -43,7 +43,7 @@
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "this")
                 #set($codeIndentValue = "                ")
-                #set($disableFireEventValue=true)
+                #set($disableFireEventValue=false)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 
 #set($objectToAddReferenceOnValue="this")
@@ -59,7 +59,7 @@
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "null")
                 #set($codeIndentValue = "                ")
-                #set($disableFireEventValue=true)
+                #set($disableFireEventValue=false)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 
 #set($objectToAddReferenceOnValue=false)
