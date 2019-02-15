@@ -41,9 +41,9 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.10'
-    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3'
-    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3', classifier: 'sources'
+    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.1'
+    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.1', classifier: 'sources'
 }
 
 jar {

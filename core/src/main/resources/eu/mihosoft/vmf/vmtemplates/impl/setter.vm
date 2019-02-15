@@ -45,7 +45,7 @@
       return;
     }
 
-    // remember old value for change event generation
+    // remember the old value for change event generation
     // $prop.typeName oldValue = this.__vmf_prop_$prop.name;
 
     // remove this from previous opposite
@@ -65,7 +65,7 @@
 #if(${prop.propType}!="COLLECTION" && ${prop.containmentInfo.opposite.propType}!="COLLECTION")
 #if($overridePropertySetter)
   @Override
-#end ## overridePropertySetter
+#end## overridePropertySetter
   public $prop.setterDeclaration {
 
     // return early if identical value has been set
@@ -84,7 +84,7 @@
 #if(${prop.propType}=="COLLECTION")
     // no collection based containment code necessary
     // FIXME this comment should not be visible in the generated code
-#else ## if collection
+#else## if collection
     // if previous container is present then release containment relation
     if(oldValue!=null) {
       // (($prop.typeName$VMF_IMPL_CLASS_EXT)oldValue)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(null);
@@ -105,12 +105,12 @@
 #set($codeIndentValue = "      ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
     }
-#end ## if collection
-#else ## if container
+#end## if collection
+#else## if container
 #if(${prop.propType}=="COLLECTION")
     // no collection based containment code necessary
     // FIXME this comment should not be visible in the generated code
-#else ## if collection
+#else## if collection
     // if previous container is present then release containment relation
     if(oldValue!=null) {
       //(($prop.typeName$VMF_IMPL_CLASS_EXT)oldValue)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(null);
@@ -140,9 +140,9 @@
 #set($codeIndentValue = "      ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
     }
-#end ## if collection
-#end ## if container
-#end ## containment property
+#end## if collection
+#end## if container
+#end## containment property
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
@@ -161,6 +161,6 @@
     // fire property change event
     _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
   }
-#end ## end if containment property and no collection
-#end ## end if containment property
-#end ## end for-each
+#end## end if containment property and no collection
+#end## end if containment property
+#end## end for-each
