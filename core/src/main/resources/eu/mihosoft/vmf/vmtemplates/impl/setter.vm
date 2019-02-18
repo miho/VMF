@@ -37,6 +37,13 @@
   @Override
   public $prop.setterDeclaration {
 
+    // ----------------------------------------
+    // containment property: 
+    // ----------------------------------------
+    // -> this is a single property
+    // -> the opposite is a collection
+    // ----------------------------------------
+
     // opposite is a collection type. we just need to add this to the
     // opposite collection which will handle the containment just fine
 
@@ -46,7 +53,7 @@
     }
 
     // remember the old value for change event generation
-    // $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
 
     // remove this from previous opposite
     if(this.__vmf_prop_$prop.name!=null) {
@@ -58,8 +65,8 @@
         $prop.name.${prop.containmentInfo.opposite.getterPrefix}${prop.containmentInfo.opposite.nameWithUpperCase}().add(this);
     }
 
-    // fire property change event (this is actually done in collection listener that sets the opposite)
-    // _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // fire property change event
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
   }
 #end## if opposite is collection type
 #if(${prop.propType}!="COLLECTION" && ${prop.containmentInfo.opposite.propType}!="COLLECTION")
@@ -73,18 +80,40 @@
       return;
     }
 
+    // ----------------------------------------
     // set the new value
+    // ----------------------------------------
     $prop.typeName oldValue = this.__vmf_prop_$prop.name;
     this.__vmf_prop_$prop.name = $prop.name;
-
+    // ----------------------------------------
+#if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}=="CONTAINED")
+    // we fire a change event now
+    // (we are a normal property or a containment parent / container)
+    // ----------------------------------------
+    // we are a normal property or container and need to fire now
     // fire property change event
+    // ----------------------------------------
     _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // ----------------------------------------
+#else    
+    // we fire a change event later after setting up the new parent and releasing the old parent
+    // (if we are a containment child / contained)
+#end## normal property or contained property
+
 #if($prop.containmentProperty)
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")
 #if(${prop.propType}=="COLLECTION")
     // no collection based containment code necessary
     // FIXME this comment should not be visible in the generated code
 #else## if collection
+    
+    // ----------------------------------------
+    // containment property: 
+    // ----------------------------------------
+    // -> this is a single container property (parent)
+    // -> the opposite is a single containe property (child)
+    // ----------------------------------------
+
     // if previous container is present then release containment relation
     if(oldValue!=null) {
       // (($prop.typeName$VMF_IMPL_CLASS_EXT)oldValue)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(null);
@@ -111,6 +140,15 @@
     // no collection based containment code necessary
     // FIXME this comment should not be visible in the generated code
 #else## if collection
+
+    // ----------------------------------------
+    // containment property: 
+    // ----------------------------------------
+    // -> this is a single contained property (child)
+    // -> the opposite is a single container property (parent)
+    // ----------------------------------------
+
+    // 
     // if previous container is present then release containment relation
     if(oldValue!=null) {
       //(($prop.typeName$VMF_IMPL_CLASS_EXT)oldValue)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(null);
@@ -143,6 +181,15 @@
 #end## if collection
 #end## if container
 #end## containment property
+
+#if(${prop.containmentInfo.containmentType}=="CONTAINER")
+    // ----------------------------------------
+    // we are a contained property and need to fire after updating parent to allow event propagation
+    // fire property change event
+    // ----------------------------------------
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // ----------------------------------------
+#end## normal property or contained property
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})

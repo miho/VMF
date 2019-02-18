@@ -29,8 +29,8 @@
     if(this.__vmf_prop_$prop.name==null) {
       this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
 
-      this.__vmf_prop_${prop.name}.addChangeListener((evt)-> {
-            evt.added().elements().forEach((e)->{
+      this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+            evt.added().elements().forEach( (e) -> {
 
                 if(e==null) return;
 
@@ -43,7 +43,7 @@
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "this")
                 #set($codeIndentValue = "                ")
-                #set($disableFireEventValue=false)
+                #set($disableFireEventValue=true)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 
 #set($objectToAddReferenceOnValue="this")
@@ -54,12 +54,12 @@
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.added()
 
-            evt.removed().elements().forEach((e)->{
+            evt.removed().elements().forEach( (e) -> {
               if(e==null) return;
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "null")
                 #set($codeIndentValue = "                ")
-                #set($disableFireEventValue=false)
+                #set($disableFireEventValue=true)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 
 #set($objectToAddReferenceOnValue=false)
@@ -82,8 +82,8 @@
     if(this.__vmf_prop_$prop.name==null) {
       this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
 #if($prop.type||$prop.genericType)
-      this.__vmf_prop_${prop.name}.addChangeListener((evt)-> {
-            evt.added().elements().forEach((e)->{
+      this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+            evt.added().elements().forEach( (e) -> {
               // nothing to do if e == null
               if(e==null) return;
 #set($objectToAddReferenceOnValue="this")
@@ -94,7 +94,7 @@
 #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.added()
 
-            evt.removed().elements().forEach((e)->{
+            evt.removed().elements().forEach( (e) -> {
               // nothing to do if e == null
               if(e==null) return;
 #set($objectToAddReferenceOnValue=false)

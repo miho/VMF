@@ -96,6 +96,7 @@ public interface Content {
      *
      * @return an unmodifiable list of all objects that reference this object
      */
+    @Deprecated // TODO 17.02.2019 feature deactivated due to huge memory consumption
     VList<VObject> referencedBy();
 
     /**
@@ -103,6 +104,7 @@ public interface Content {
      *
      * @return an unmodifiable list of all objects that are referenced by this object.
      */
+    @Deprecated // TODO 17.02.2019 feature deactivated due to huge memory consumption
     VList<VObject> references();
     
     /**

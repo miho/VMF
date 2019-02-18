@@ -21,30 +21,48 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
-## sets opposite field via reflection
-${codeIndentValue}try {
-${codeIndentValue}  java.lang.reflect.Field field =
-${codeIndentValue}    ${propertyToModifyValue}.getClass().getDeclaredField("__vmf_prop_${prop.containmentInfo.opposite.name}");
-${codeIndentValue}  field.setAccessible(true);
-${codeIndentValue}  Object oldOpposite = field.get(${propertyToModifyValue});
-${codeIndentValue}  field.set(${propertyToModifyValue}, $oppositeValue);
+#if($prop.propType == "COLLECTION")
+${codeIndentValue}Object oldOpposite = ${codeIndentValue}((${prop.genericPackageName}.impl.${prop.genericTypeName}Impl)${propertyToModifyValue}).__vmf_prop_${prop.containmentInfo.opposite.name};
+${codeIndentValue}((${prop.genericPackageName}.impl.${prop.genericTypeName}Impl)${propertyToModifyValue}).__vmf_prop_${prop.containmentInfo.opposite.name} = $oppositeValue;
 #if(!$disableFireEventValue)
-${codeIndentValue}  // generate change event (disableFireEventValue=$disableFireEventValue)
-${codeIndentValue}  java.lang.reflect.Method m = ${propertyToModifyValue}.getClass().getDeclaredMethod(
-${codeIndentValue}    "_vmf_firePropertyChangeIfListenersArePresent",
-${codeIndentValue}    String.class, Object.class, Object.class);
-${codeIndentValue}  m.setAccessible(true);
-${codeIndentValue}  m.invoke(${propertyToModifyValue},
-${codeIndentValue}    "${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
+${codeIndentValue}((${prop.genericPackageName}.impl.${prop.genericTypeName}Impl)${propertyToModifyValue})._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
 #else## if disableFireEventValue
-${codeIndentValue}  // not generating change event (disableFireEventValue=$disableFireEventValue)
+${codeIndentValue}// not generating change event (disableFireEventValue=$disableFireEventValue)
 #end## if disableFireEventValue
-${codeIndentValue}} catch (Exception ex) {
-${codeIndentValue}    java.util.logging.Logger.getLogger(
-${codeIndentValue}        ${type.implementation.typeName}.class.getName()).
-${codeIndentValue}        log(java.util.logging.Level.SEVERE, null, ex);
-${codeIndentValue}    throw new RuntimeException("Reflection broken", ex);
-${codeIndentValue}}
+#else## if prop type == COLLECTION
+${codeIndentValue}Object oldOpposite = ${codeIndentValue}((${prop.packageName}.impl.${prop.simpleTypeName}Impl)${propertyToModifyValue}).__vmf_prop_${prop.containmentInfo.opposite.name};
+${codeIndentValue}((${prop.packageName}.impl.${prop.simpleTypeName}Impl)${propertyToModifyValue}).__vmf_prop_${prop.containmentInfo.opposite.name} = $oppositeValue;
+#if(!$disableFireEventValue)
+${codeIndentValue}((${prop.packageName}.impl.${prop.simpleTypeName}Impl)${propertyToModifyValue})._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
+#else## if disableFireEventValue
+${codeIndentValue}// not generating change event (disableFireEventValue=$disableFireEventValue)
+#end## if disableFireEventValue
+#end##  if prop type == COLLECTION
+## sets opposite field via reflection
+## TODO since 18.02.2019 we try to use direct field access instead
+## ${codeIndentValue}try {
+## ${codeIndentValue}  java.lang.reflect.Field field =
+## ${codeIndentValue}    ${propertyToModifyValue}.getClass().getDeclaredField("__vmf_prop_${prop.containmentInfo.opposite.name}");
+## ${codeIndentValue}  field.setAccessible(true);
+## ${codeIndentValue}  Object oldOpposite = field.get(${propertyToModifyValue});
+## ${codeIndentValue}  field.set(${propertyToModifyValue}, $oppositeValue);
+## #if(!$disableFireEventValue)
+## ${codeIndentValue}  // generate change event (disableFireEventValue=$disableFireEventValue)
+## ${codeIndentValue}  java.lang.reflect.Method m = ${propertyToModifyValue}.getClass().getDeclaredMethod(
+## ${codeIndentValue}    "_vmf_firePropertyChangeIfListenersArePresent",
+## ${codeIndentValue}    String.class, Object.class, Object.class);
+## ${codeIndentValue}  m.setAccessible(true);
+## ${codeIndentValue}  m.invoke(${propertyToModifyValue},
+## ${codeIndentValue}    "${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
+## #else## if disableFireEventValue
+## ${codeIndentValue}  // not generating change event (disableFireEventValue=$disableFireEventValue)
+## #end## if disableFireEventValue
+## ${codeIndentValue}} catch (Exception ex) {
+## ${codeIndentValue}    java.util.logging.Logger.getLogger(
+## ${codeIndentValue}        ${type.implementation.typeName}.class.getName()).
+## ${codeIndentValue}        log(java.util.logging.Level.SEVERE, null, ex);
+## ${codeIndentValue}    throw new RuntimeException("Reflection broken", ex);
+## ${codeIndentValue}}
 
 ## ${codeIndentValue}} catch (NoSuchFieldException ex) {
 ## ${codeIndentValue}  java.util.logging.Logger.getLogger(

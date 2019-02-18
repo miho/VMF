@@ -38,7 +38,7 @@ public class UndoRedoWithContainmentTest {
 
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
-        // TODO 11.02.2019 decide what we want assertThat("there are two changes in total", numChanges.get(), equalTo(2));
+        assertThat("there are two changes in total", numChanges.get(), equalTo(2));
     }
 
     @Test
@@ -70,7 +70,7 @@ public class UndoRedoWithContainmentTest {
 
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
-        // TODO 11.02.2019 decide what we want assertThat("there are two changes in total", numChanges.get(), equalTo(2));
+        assertThat("there are two changes in total", numChanges.get(), equalTo(2));
     }
 
     @Test
@@ -102,7 +102,7 @@ public class UndoRedoWithContainmentTest {
 
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
-        // TODO 11.02.2019 decide what we want assertThat("there are two changes in total", numChanges.get(), equalTo(2));
+        assertThat("there are two changes in total", numChanges.get(), equalTo(2));
     }
 
     @Test
@@ -134,7 +134,7 @@ public class UndoRedoWithContainmentTest {
 
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
-        // TODO 11.02.2019 decide what we want assertThat("there are two changes in total", numChanges.get(), equalTo(2));
+        assertThat("there are two changes in total", numChanges.get(), equalTo(2));
     }
 
 

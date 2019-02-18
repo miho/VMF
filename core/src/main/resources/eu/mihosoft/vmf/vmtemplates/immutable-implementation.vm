@@ -124,7 +124,7 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
       return false;
   }
 
-  private void _vmf_firePropertyChangeIfListenersArePresent() {
+  /*package private*/ void _vmf_firePropertyChangeIfListenersArePresent() {
      // don't do anything. immutable types don't publish change events
   }
 
@@ -252,8 +252,16 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
   // --------------------------------------------------------------------
 
   @Override
-  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_referencedBy() { return this.referencedBy;}
+  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_referencedBy() { 
+    // TODO 17.02.2019 feature deactivated due to huge memory consumption
+    // return this.referencedBy;
+    throw new UnsupportedOperationException("TODO 17.02.2019 feature deactivated due to huge memory consumption");
+  }
   @Override
-  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_references() { return this.references;}
+  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_references() { 
+    // TODO 17.02.2019 feature deactivated due to huge memory consumption
+    // return this.references;
+    throw new UnsupportedOperationException("TODO 17.02.2019 feature deactivated due to huge memory consumption");
+  }
 
 }

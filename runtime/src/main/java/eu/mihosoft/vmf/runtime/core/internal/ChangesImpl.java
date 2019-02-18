@@ -170,6 +170,8 @@ public class ChangesImpl implements Changes {
 
             if(!foundParent) {
                 all.add(c);
+            } else {
+                System.out.println("!!! not firing recursive! " + c.propertyName());
             }
         }
     }
@@ -197,6 +199,8 @@ public class ChangesImpl implements Changes {
 
             if(!foundParent) {
                 all.add(c);
+            } else {
+                System.out.println("!!! not firing non-recursive! " + c.propertyName());
             }
         }
     }

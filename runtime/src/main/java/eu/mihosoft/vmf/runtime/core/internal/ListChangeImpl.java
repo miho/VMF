@@ -112,29 +112,34 @@ class ListChangeImpl implements Change {
 
     @Override
     public boolean isUndoable() {
-        if (evt.wasSet()) {
-            for(int index : evt.removed().indices()) {
-                if(index > evt.removed().indices().length) {
-                    return false;
-                }
-            }
-        } else if (evt.wasAdded()) {
-            // TODO check size changes
-            for(int index : evt.added().indices()) {
-                if (index > evt.added().indices().length) {
-                    return false;
-                }
-            }
-        } else if(evt.wasRemoved()) {
-            // TODO check size changes
-            for(int index : evt.removed().indices()) {
-                if(index > evt.removed().indices().length) {
-                    return false;
-                }
-            }
-        }
+
+        // System.err.println("WARNING/TODO: implement proper isUndoable check for list changes!");
 
         return true;
+
+        // if (evt.wasSet()) {
+        //     for(int index : evt.removed().indices()) {
+        //         if(index > evt.removed().indices().length) {
+        //             return false;
+        //         }
+        //     }
+        // } else if (evt.wasAdded()) {
+        //     // TODO check size changes
+        //     for(int index : evt.added().indices()) {
+        //         if (index > evt.added().indices().length) {
+        //             return false;
+        //         }
+        //     }
+        // } else if(evt.wasRemoved()) {
+        //     // TODO check size changes
+        //     for(int index : evt.removed().indices()) {
+        //         if(index > evt.removed().indices().length) {
+        //             return false;
+        //         }
+        //     }
+        // }
+
+        // return true;
     }
 
     @Override
