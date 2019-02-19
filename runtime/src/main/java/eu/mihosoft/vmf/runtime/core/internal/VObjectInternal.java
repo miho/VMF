@@ -175,6 +175,12 @@ public interface VObjectInternal extends VObject, ObservableObject {
     List<Annotation> _vmf_getAnnotations();
 
     /**
+     * 
+     * @param threadlocalMap the thread local map for equality checks
+     */
+    void _vmf_setThreadLocalEquals(ThreadLocal<java.util.Map<EqualsPair, ?>> threadlocalMap);
+
+    /**
    * The purpose of this class is to store a pair of objects used for equals().
    * This class's equals() method checks equality by object identity. Same
    * for hashCode() which uses identity hashes of 'first' and 'second' to
