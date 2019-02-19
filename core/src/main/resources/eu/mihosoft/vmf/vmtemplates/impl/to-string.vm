@@ -25,8 +25,14 @@
 #if(${type.isToStringMethodDelegated()})
   // -> toString() method is delegated
 #else## #if(${type.isToStringMethodDelegated()})
+
   @Override
   public String toString() {
+    return __vmf_toString(new StringBuilder());
+  }
+  
+  @Override
+  public String __vmf_toString(StringBuilder sb) {
 
     boolean entry = _vmf_getThreadLocalToString().get().isEmpty();
     try {
@@ -41,12 +47,24 @@
           }
           entry = true;
         }
-        return "{\"@type\":\"$type.typeName\"" +
+
+        sb.append("{\"@type\":\"$type.typeName\"");
+
 #foreach ($prop in $type.implementation.properties)
 #if (${prop.isIgnoredForToString()} == false)
 #if ($prop.containmentInfo.containmentType != "CONTAINER" )
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
-        ", " + (this.__vmf_prop_${prop.name}==null?"[]":this.__vmf_prop_${prop.name}) +
+        sb.append(", ");
+        if(this.__vmf_prop_${prop.name}==null) {
+          sb.append("[]");
+        } else {
+          sb.append("[");
+          for(Object lEntry : this.__vmf_prop_${prop.name}) {
+            if(lEntry instanceof )
+          }
+          sb.append("]");
+        }
+        (this.__vmf_prop_${prop.name}==null?"[]":this.__vmf_prop_${prop.name}) +
 #else
         ", \"$prop.name\": \"" + this.__vmf_prop_$prop.name + "\"" +
 #end ## if contained and collection
@@ -54,6 +72,9 @@
 #end ## end if not ignore for toString
 #end ## for-each property
         "}";
+
+        return sb.toString();
+
     } finally {
         if (entry) {
             _vmf_getThreadLocalToString().get().clear();
@@ -71,7 +92,7 @@
     return _vmf_fToStringChecker;
   }
 
-  private ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_fToStringChecker;
+  private static ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_fToStringChecker;
 
   // end toString()
 #end## #if(${type.isToStringMethodDelegated()})

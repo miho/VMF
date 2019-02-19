@@ -217,9 +217,9 @@
     return _vmf_fHashCodeChecker;
   }
 
-  private ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> _vmf_fEqualsChecker;
+  private static ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> _vmf_fEqualsChecker;
 
 
-  private ThreadLocal<java.util.Map<Integer, ?>> _vmf_fHashCodeChecker;
+  private static ThreadLocal<java.util.Map<Integer, ?>> _vmf_fHashCodeChecker;
 #end## #if(${type.isEqualsMethodDelegated()})
   // ---------------------------- END EQUALITY ------------------------------
