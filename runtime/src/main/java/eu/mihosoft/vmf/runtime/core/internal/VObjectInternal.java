@@ -173,4 +173,59 @@ public interface VObjectInternal extends VObject, ObservableObject {
      * @return annotations of this object
      */
     List<Annotation> _vmf_getAnnotations();
+
+    /**
+     * 
+     * @param threadlocalMap the thread local map for equality checks
+     */
+    void _vmf_setThreadLocalEquals(ThreadLocal<java.util.Map<EqualsPair, ?>> threadlocalMap);
+
+    /**
+   * The purpose of this class is to store a pair of objects used for equals().
+   * This class's equals() method checks equality by object identity. Same
+   * for hashCode() which uses identity hashes of 'first' and 'second' to
+   * compute the hash.
+   *
+   * This class can be used in conjunction with a regular HashMap to get
+   * similar results to an IdentityHashMap, except that in this case identity
+   * pairs can be used. And we don't have to use a map implementation that is
+   * deliberately broken by design.
+   */
+   static class EqualsPair {
+
+    final Object first;
+    final Object second;
+
+    public EqualsPair(Object first, Object second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(System.identityHashCode(first),
+                System.identityHashCode(second));
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+          return true;
+      }
+      if (obj == null) {
+          return false;
+      }
+      if (getClass() != obj.getClass()) {
+          return false;
+      }
+      final EqualsPair other = (EqualsPair) obj;
+      if (this.first!=other.first) {
+          return false;
+      }
+      if (this.second!=other.second) {
+          return false;
+      }
+      return true;
+    }
+}
 }
