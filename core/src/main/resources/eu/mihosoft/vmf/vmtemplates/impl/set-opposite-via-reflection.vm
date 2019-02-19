@@ -22,18 +22,18 @@
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
 #if($prop.propType == "COLLECTION")
-${codeIndentValue}Object oldOpposite = ${codeIndentValue}((${prop.genericPackageName}.impl.${prop.genericTypeName}Impl)${propertyToModifyValue}).__vmf_prop_${prop.containmentInfo.opposite.name};
-${codeIndentValue}((${prop.genericPackageName}.impl.${prop.genericTypeName}Impl)${propertyToModifyValue}).__vmf_prop_${prop.containmentInfo.opposite.name} = $oppositeValue;
+${codeIndentValue}Object oldOpposite = ${codeIndentValue}((${prop.genericPackageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)${propertyToModifyValue}).__vmf_get_prop_${prop.containmentInfo.opposite.name}();
+${codeIndentValue}((${prop.genericPackageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)${propertyToModifyValue}).__vmf_set_prop_${prop.containmentInfo.opposite.name}($oppositeValue);
 #if(!$disableFireEventValue)
-${codeIndentValue}((${prop.genericPackageName}.impl.${prop.genericTypeName}Impl)${propertyToModifyValue})._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
+${codeIndentValue}((${prop.genericPackageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)${propertyToModifyValue})._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
 #else## if disableFireEventValue
 ${codeIndentValue}// not generating change event (disableFireEventValue=$disableFireEventValue)
 #end## if disableFireEventValue
 #else## if prop type == COLLECTION
-${codeIndentValue}Object oldOpposite = ${codeIndentValue}((${prop.packageName}.impl.${prop.simpleTypeName}Impl)${propertyToModifyValue}).__vmf_prop_${prop.containmentInfo.opposite.name};
-${codeIndentValue}((${prop.packageName}.impl.${prop.simpleTypeName}Impl)${propertyToModifyValue}).__vmf_prop_${prop.containmentInfo.opposite.name} = $oppositeValue;
+${codeIndentValue}Object oldOpposite = ${codeIndentValue}((${prop.packageName}.impl.__VMF_TYPE_${prop.simpleTypeName}Impl)${propertyToModifyValue}).__vmf_get_prop_${prop.containmentInfo.opposite.name}();
+${codeIndentValue}((${prop.packageName}.impl.__VMF_TYPE_${prop.simpleTypeName}Impl)${propertyToModifyValue}).__vmf_set_prop_${prop.containmentInfo.opposite.name}($oppositeValue);
 #if(!$disableFireEventValue)
-${codeIndentValue}((${prop.packageName}.impl.${prop.simpleTypeName}Impl)${propertyToModifyValue})._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
+${codeIndentValue}((${prop.packageName}.impl.__VMF_TYPE_${prop.simpleTypeName}Impl)${propertyToModifyValue})._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
 #else## if disableFireEventValue
 ${codeIndentValue}// not generating change event (disableFireEventValue=$disableFireEventValue)
 #end## if disableFireEventValue

@@ -46,7 +46,7 @@ import $import;
  * An implementation of the model object {@code $type.fullTypeName}.
  */
 @SuppressWarnings("deprecation")
-class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.VObjectInternalModifiable, VCloneableInternal {
+class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$type.implementation.typeName, ${VMFPKG_INT}.VObjectInternalModifiable, VCloneableInternal {
 
   // --------------------------------------------------------------------
   // --- declaration of member variables
@@ -143,7 +143,8 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
       return propertyChanges!=null;
   }
 
-  /*package private*/ void _vmf_firePropertyChangeIfListenersArePresent(
+  @Override
+  public void _vmf_firePropertyChangeIfListenersArePresent(
     String propertyName, Object oldValue, Object newValue) {
       if(_vmf_hasListeners()) {
           _vmf_getPropertyChanges().
@@ -282,5 +283,28 @@ class $type.implementation.typeName implements ${type.typeName}, ${VMFPKG_INT}.V
     // return this.references;
     throw new UnsupportedOperationException("TODO 17.02.2019 feature deactivated due to huge memory consumption");
   }
+
+}
+
+// Internal Interface which gives access to impl features used in a 'multi-inheritance' context.
+// Rationale:
+// - we cannot cast to the implementation class to get access to impl features
+//   such as direct/raw property access since we simulate multiple inheritance
+// - previously we just used reflection to circumvent the problem but this
+//   came at a huge performance cost
+// - this interface supports multiple inheritance of impl features and
+//   gives access to proerties without reflection which results in a huge
+//   performance improvement (up to 10x)
+interface __VMF_TYPE_${type.implementation.typeName} extends ${type.typeName}${type.vmfTypeIfaceImplementzString} {
+
+#foreach( $prop in ${type.implementation.properties})
+  // --- PROP '$prop.typeName'
+  void __vmf_set_prop_${prop.name}($prop.typeName obj);
+  $prop.typeName __vmf_get_prop_${prop.name}();
+#end
+
+  void _vmf_firePropertyChangeIfListenersArePresent(
+    String propertyName, Object oldValue, Object newValue
+  );
 
 }

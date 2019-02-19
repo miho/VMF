@@ -53,6 +53,8 @@ public class ModelType {
 
     private final String ext3ndsString;
     private final String implementzString;
+    // internal interface inside impl class that allows to access raw properties without reflection
+    private final String vmfTypeIfaceImplementzString;
     private final List<String> implementsList = new ArrayList<>();
     private final String writableImplementzString;
     private final String readOnlyImplementzString;
@@ -98,6 +100,7 @@ public class ModelType {
 
         this.ext3ndsString = generateExtendsString(getModel(), clazz);
         this.implementzString = generateImplementsString(getModel(), clazz);
+        this.vmfTypeIfaceImplementzString = generateVmfTypeIfaceImplementsString(getModel(), clazz);
         this.writableImplementzString = generateWritableImplementsString(getModel(), clazz);
         this.readOnlyImplementzString = generateReadOnlyImplementsString(getModel(), clazz);
         this.immutableImplementzString = generateImmutableImplementsString(getModel(), clazz);
@@ -362,6 +365,23 @@ public class ModelType {
         return String.join(",", ext3nds);
     }
 
+    private static String generateVmfTypeIfaceImplementsString(Model model, Class<?> clazz) {
+        List<String> ext3nds = new ArrayList<String>();
+        for (Class<?> ifs : clazz.getInterfaces()) {
+
+            String ifsName = model.convertModelTypeToDestination(ifs);
+
+            boolean ifsIsImmutable = ifs.getAnnotation(Immutable.class) != null;
+            boolean ifsIsInterfaceOnly = ifs.getAnnotation(InterfaceOnly.class) != null;
+
+            if (!ifsIsImmutable && !ifsIsInterfaceOnly && ifsName.startsWith(model.getPackageName())) {
+                ext3nds.add("__VMF_TYPE_"+ifs.getSimpleName()+"Impl");
+            }
+        }
+
+        return String.join(",", ext3nds);
+    }
+
     private static String generateWritableImplementsString(Model model, Class<?> clazz) {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
@@ -438,6 +458,14 @@ public class ModelType {
             return "";
         } else {
             return ", " + implementzString;
+        }
+    }
+
+    public String getVmfTypeIfaceImplementzString() {
+        if (vmfTypeIfaceImplementzString.isEmpty()) {
+            return "";
+        } else {
+            return ", " + vmfTypeIfaceImplementzString;
         }
     }
 
