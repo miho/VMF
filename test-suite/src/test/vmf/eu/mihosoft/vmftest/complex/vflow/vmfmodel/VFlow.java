@@ -139,19 +139,3 @@ interface VFlow extends VNode {
     VFlow newSubFlow(Object o);
 
 }
-
-interface N {
-    @Contains(opposite="parent")
-    C getC();
-
-    @Contains(opposite="parent2")
-    C[] getC2();
-}
-
-interface C {
-    @Container(opposite="c")
-    N getParent();
-
-    @Container(opposite="c2")
-    N getParent2();
-}
