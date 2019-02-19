@@ -32,7 +32,7 @@
     try {
       // test if the object pair (this,o) has been checked before
       boolean isImmutable = (o instanceof eu.mihosoft.vmf.runtime.core.Immutable);
-      if (!isImmutable && _vmf_getThreadLocalEquals().get().containsKey(new ${VMFPKG_INT}.VObjectInternal.EqualsPair(this, o))) {
+      if (!isImmutable && _vmf_getThreadLocalEquals().get().containsKey(new EqualsPair(this, o))) {
         // This pair has been seen before. That's why we return true now.
         // If this pair wasn't equal, we wouldn't need to do a second
         // comparison. Returning 'true' is equivalent to ignoring this
@@ -40,7 +40,7 @@
         return true;
       } else {
         if(!isImmutable) {
-          _vmf_getThreadLocalEquals().get().put(new ${VMFPKG_INT}.VObjectInternal.EqualsPair(this, o), null);
+          _vmf_getThreadLocalEquals().get().put(new EqualsPair(this, o), null);
         }
         entry = true;
       }
@@ -62,7 +62,7 @@
         $type.implementation.typeName other = ($type.implementation.typeName) o;
         return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
-          _vmf_equals(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
+          _vmf_equals(this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end## for-each property
       }
@@ -83,7 +83,7 @@
         return #if($t.implementation.propertiesForEquals.isEmpty())true;#end
        
 #foreach ($prop in $type.implementation.propertiesForEquals)
-          _vmf_equals(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
+          _vmf_equals(this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end## for-each property
       }
@@ -100,15 +100,9 @@
     }
   } // end equals()
 
-  private static boolean _vmf_equals(ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> threadLocalEqualsMap, Object o1, Object o2) {
+  private static boolean _vmf_equals(Object o1, Object o2) {
     boolean oneAndOnlyOneIsNull = (o1 == null) != (o2 == null);
-    boolean o1IsCollectionType = o1 instanceof ${VCOLL_PKG}.VList;
-    boolean o2IsCollectionType = o2 instanceof ${VCOLL_PKG}.VList;
-
-    // if only one is a collection we are not equal
-    if(o1IsCollectionType!=o2IsCollectionType) return false;
-
-    boolean collectionType = o1IsCollectionType;
+    boolean collectionType = o1 instanceof ${VCOLL_PKG}.VList || o2 instanceof ${VCOLL_PKG}.VList;
 
     // since we support lazy initialization for collections,
     // uninitialized empty collection values are defined as equal to null
@@ -121,37 +115,6 @@
         return ((${VCOLL_PKG}.VList)o1).isEmpty();
       }
     } else {
-
-      // if o1 is a model type reuse the threadLocalEqualsMap 
-      if(o1 instanceof ${VMFPKG_INT}.VObjectInternal) {
-        ${VMFPKG_INT}.VObjectInternal vObj1 = (${VMFPKG_INT}.VObjectInternal)o1;
-        vObj1._vmf_setThreadLocalEquals(threadLocalEqualsMap);
-      }
-
-      if(o2 instanceof ${VMFPKG_INT}.VObjectInternal) {
-        ${VMFPKG_INT}.VObjectInternal vObj2 = (${VMFPKG_INT}.VObjectInternal)o2;
-        vObj2._vmf_setThreadLocalEquals(threadLocalEqualsMap);
-      }
-
-      if(o1IsCollectionType) {
-        ${VCOLL_PKG}.VList l1 = (${VCOLL_PKG}.VList)o1;
-
-        l1.stream().filter(entry->entry instanceof ${VMFPKG_INT}.VObjectInternal).
-          forEach(entry->{
-          ${VMFPKG_INT}.VObjectInternal vObjInt = (${VMFPKG_INT}.VObjectInternal)entry;
-          vObjInt._vmf_setThreadLocalEquals(threadLocalEqualsMap);
-        });
-      }      
-      if(o2IsCollectionType) {
-        ${VCOLL_PKG}.VList l2 = (${VCOLL_PKG}.VList)o2;
-
-        l2.stream().filter(entry->entry instanceof ${VMFPKG_INT}.VObjectInternal).
-          forEach(entry->{
-          ${VMFPKG_INT}.VObjectInternal vObjInt = (${VMFPKG_INT}.VObjectInternal)entry;
-          vObjInt._vmf_setThreadLocalEquals(threadLocalEqualsMap);
-        });
-      }
-
       return java.util.Objects.equals(o1,o2);
     }
   }
@@ -194,7 +157,56 @@
       return java.util.Arrays.deepHashCode(fields);
   } // end _vmf_deepHashCode()
 
-  /*package private*/ ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> _vmf_getThreadLocalEquals() {
+  /**
+   * The purpose of this class is to store a pair of objects used for equals().
+   * This class's equals() method checks equality by object identity. Same
+   * for hashCode() which uses identity hashes of 'first' and 'second' to
+   * compute the hash.
+   *
+   * This class can be used in conjunction with a regular HashMap to get
+   * similar results to an IdentityHashMap, except that in this case identity
+   * pairs can be used. And we don't have to use a map implementation that is
+   * deliberately broken by design.
+   */
+  private static class EqualsPair {
+
+      final Object first;
+      final Object second;
+
+      public EqualsPair(Object first, Object second) {
+          this.first = first;
+          this.second = second;
+      }
+
+      @Override
+      public int hashCode() {
+          return java.util.Objects.hash(System.identityHashCode(first),
+                  System.identityHashCode(second));
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final EqualsPair other = (EqualsPair) obj;
+        if (this.first!=other.first) {
+            return false;
+        }
+        if (this.second!=other.second) {
+            return false;
+        }
+        return true;
+      }
+  }
+
+  private ThreadLocal<java.util.Map<EqualsPair, ?>> _vmf_getThreadLocalEquals() {
     if (_vmf_fEqualsChecker==null) {
       _vmf_fEqualsChecker = ThreadLocal.withInitial(
         () -> new java.util.HashMap<>());
@@ -203,12 +215,7 @@
     return _vmf_fEqualsChecker;
   }
 
-  @Override
-  public void _vmf_setThreadLocalEquals(ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> threadlocalMap) {
-      _vmf_fEqualsChecker = threadlocalMap;
-  }
-
-  /*package private*/ ThreadLocal<java.util.Map<Integer, ?>> _vmf_getThreadLocalHashCode() {
+  private ThreadLocal<java.util.Map<Integer, ?>> _vmf_getThreadLocalHashCode() {
     if (_vmf_fHashCodeChecker==null) {
       _vmf_fHashCodeChecker = ThreadLocal.withInitial(
         () -> new java.util.HashMap<>());
@@ -217,9 +224,9 @@
     return _vmf_fHashCodeChecker;
   }
 
-  private ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> _vmf_fEqualsChecker;
+  private static ThreadLocal<java.util.Map<EqualsPair, ?>> _vmf_fEqualsChecker;
 
 
-  private ThreadLocal<java.util.Map<Integer, ?>> _vmf_fHashCodeChecker;
+  private static ThreadLocal<java.util.Map<Integer, ?>> _vmf_fHashCodeChecker;
 #end## #if(${type.isEqualsMethodDelegated()})
   // ---------------------------- END EQUALITY ------------------------------

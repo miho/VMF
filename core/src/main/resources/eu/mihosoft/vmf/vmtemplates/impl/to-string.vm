@@ -62,7 +62,7 @@
     }
   }
 
-  private ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_getThreadLocalToString() {
+  private ThreadLocal<java.util.IdentityHashMap<Object, ?>> _vmf_getThreadLocalToString() {
     if (_vmf_fToStringChecker==null) {
       _vmf_fToStringChecker = ThreadLocal.withInitial(
         () -> new java.util.IdentityHashMap<>());
@@ -71,7 +71,7 @@
     return _vmf_fToStringChecker;
   }
 
-  private ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_fToStringChecker;
+  private static ThreadLocal<java.util.IdentityHashMap<Object, ?>> _vmf_fToStringChecker;
 
   // end toString()
 #end## #if(${type.isToStringMethodDelegated()})

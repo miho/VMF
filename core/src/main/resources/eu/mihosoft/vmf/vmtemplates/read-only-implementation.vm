@@ -182,11 +182,6 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
         new java.util.IdentityHashMap<>()).asReadOnly();
   }
 
-  @Override
-  public void _vmf_setThreadLocalEquals(ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> threadlocalMap) {
-      ((${VMFPKG_INT}.VObjectInternal)this.mutableObject)._vmf_setThreadLocalEquals(threadlocalMap);
-  }
-
   // --------------------------------------------------------------------
   // --- Public VMF API
   // --------------------------------------------------------------------
