@@ -181,6 +181,12 @@ public interface VObjectInternal extends VObject, ObservableObject {
     void _vmf_setThreadLocalEquals(ThreadLocal<java.util.Map<EqualsPair, ?>> threadlocalMap);
 
     /**
+     * @param sb string builder used to create the final string
+     * @param identityMap the identity map for checking for recursion
+     */
+    void __vmf_toString(StringBuilder sb, java.util.IdentityHashMap<Object, ?> identityMap);
+
+    /**
    * The purpose of this class is to store a pair of objects used for equals().
    * This class's equals() method checks equality by object identity. Same
    * for hashCode() which uses identity hashes of 'first' and 'second' to

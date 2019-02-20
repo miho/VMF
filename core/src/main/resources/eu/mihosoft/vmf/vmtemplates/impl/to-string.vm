@@ -28,24 +28,28 @@
 
   @Override
   public String toString() {
-    return __vmf_toString(new StringBuilder());
+    StringBuilder sb = new StringBuilder();
+    java.util.IdentityHashMap<Object, ?> _vmf_fToStringChecker = new java.util.IdentityHashMap<>();
+    __vmf_toString(sb, _vmf_fToStringChecker);
+    _vmf_fToStringChecker.clear();
+    _vmf_fToStringChecker = null;
+    return sb.toString();
   }
   
   @Override
-  public String __vmf_toString(StringBuilder sb) {
+  public void __vmf_toString(StringBuilder sb, java.util.IdentityHashMap<Object, ?> _vmf_fToStringChecker) {
 
-    boolean entry = _vmf_getThreadLocalToString().get().isEmpty();
-    try {
+    { // begin
         // test if "this" has been seen before
         // implementation based on http://stackoverflow.com/a/11300376/1493549
         boolean isImmutable = (this instanceof eu.mihosoft.vmf.runtime.core.Immutable);
-        if (!isImmutable && _vmf_getThreadLocalToString().get().containsKey(this)) {
-          return "{skipping recursion}";
+        if (!isImmutable && _vmf_fToStringChecker.containsKey(this)) {
+          sb.append("{skipping recursion}");
+          return;
         } else {
           if(!isImmutable) {
-            _vmf_getThreadLocalToString().get().put(this, null);
+            _vmf_fToStringChecker.put(this, null);
           }
-          entry = true;
         }
 
         sb.append("{\"@type\":\"$type.typeName\"");
@@ -54,45 +58,49 @@
 #if (${prop.isIgnoredForToString()} == false)
 #if ($prop.containmentInfo.containmentType != "CONTAINER" )
 #if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
+
+        // -- writing collection param '$prop.name'
+        //
         sb.append(", ");
         if(this.__vmf_prop_${prop.name}==null) {
           sb.append("[]");
         } else {
           sb.append("[");
-          for(Object lEntry : this.__vmf_prop_${prop.name}) {
-            if(lEntry instanceof )
+          for(int i = 0; i < this.__vmf_prop_${prop.name}.size(); i++) {
+            if(i>0) sb.append(", ");
+            Object lEntry = this.__vmf_prop_${prop.name}.get(i);
+            if(lEntry instanceof ${VMFPKG_INT}.VObjectInternal) {
+              ${VMFPKG_INT}.VObjectInternal lEntryVobj = (${VMFPKG_INT}.VObjectInternal) lEntry;
+              lEntryVobj.__vmf_toString(sb, _vmf_fToStringChecker);
+            } else {
+              sb.append(lEntry);
+            }
           }
           sb.append("]");
         }
-        (this.__vmf_prop_${prop.name}==null?"[]":this.__vmf_prop_${prop.name}) +
 #else
-        ", \"$prop.name\": \"" + this.__vmf_prop_$prop.name + "\"" +
+
+        // -- writing param '$prop.name'
+        {
+          
+          Object propObj = this.__vmf_prop_${prop.name};
+          sb.append(", \"$prop.name\": \"");
+          if(propObj instanceof ${VMFPKG_INT}.VObjectInternal) {
+              ${VMFPKG_INT}.VObjectInternal propVobj = (${VMFPKG_INT}.VObjectInternal) propObj;
+              propVobj.__vmf_toString(sb, _vmf_fToStringChecker);
+          } else {
+              sb.append(propObj);
+          }
+          sb.append("\"");
+        } // end
 #end ## if contained and collection
 #end ## end if container type
 #end ## end if not ignore for toString
 #end ## for-each property
-        "}";
+        sb.append("}");
 
-        return sb.toString();
-
-    } finally {
-        if (entry) {
-            _vmf_getThreadLocalToString().get().clear();
-            _vmf_fToStringChecker = null;
-        }
     }
   }
-
-  private ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_getThreadLocalToString() {
-    if (_vmf_fToStringChecker==null) {
-      _vmf_fToStringChecker = ThreadLocal.withInitial(
-        () -> new java.util.IdentityHashMap<>());
-    }
-
-    return _vmf_fToStringChecker;
-  }
-
-  private static ThreadLocal<java.util.IdentityHashMap<$type.typeName, ?>> _vmf_fToStringChecker;
 
   // end toString()
 #end## #if(${type.isToStringMethodDelegated()})

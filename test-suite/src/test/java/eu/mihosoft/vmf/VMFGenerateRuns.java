@@ -91,6 +91,7 @@ public class VMFGenerateRuns extends VMFTestShell {
         runScript("aParent.setName(\"Father\")");
         runScript("aParent.getChildren().add(aChild)");
         runScript("aChild.setName(\"Luke\")");
+        runScript("println(aParent.toString())");
         assertResult("aParent.toString()","{\"@type\":\"Parent\", [{\"@type\":\"Child\", \"name\": \"Luke\"}], \"elements\": \"null\", \"name\": \"Father\"}");
     }
 

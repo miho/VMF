@@ -133,6 +133,11 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   }
 
   @Override
+  public void __vmf_toString(StringBuilder sb, java.util.IdentityHashMap<Object, ?> identityMap) {
+    ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).__vmf_toString(sb, identityMap);
+  }
+
+  @Override
   public boolean equals(Object o) {
     return this.mutableObject.equals(o);
   }
