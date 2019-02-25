@@ -37,7 +37,7 @@ jobs:
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
         tasks: 'clean build publishToMavenLocal'
-- job: 'GRADLE-PLUGIN'
+- job: 'GRADLE_PLUGIN'
   pool: ${{ parameters.pool }}
   steps:
     - task: Gradle@2
@@ -49,7 +49,7 @@ jobs:
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
         tasks: 'clean build publishToMavenLocal'
-- job: 'TEST-SUITE'
+- job: 'TEST_SUITE'
   pool: ${{ parameters.pool }}
   steps:
     - task: Gradle@2
