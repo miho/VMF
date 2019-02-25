@@ -13,7 +13,7 @@ parameters:
 
 
 jobs:
-- job: 'CORE [${{ parameters.name }}]'
+- job: 'CORE__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
   steps:
     - task: Gradle@2
@@ -25,7 +25,7 @@ jobs:
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
         tasks: 'clean build publishToMavenLocal'
-- job: 'RUNTIME [${{ parameters.name }}]'
+- job: 'RUNTIME__${{ parameters.name }}]__'
   pool: ${{ parameters.pool }}
   steps:
     - task: Gradle@2
@@ -37,7 +37,7 @@ jobs:
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
         tasks: 'clean build publishToMavenLocal'
-- job: 'GRADLE_PLUGIN [${{ parameters.name }}]'
+- job: 'GRADLE_PLUGIN__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
   steps:
     - task: Gradle@2
@@ -49,7 +49,7 @@ jobs:
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
         tasks: 'clean build publishToMavenLocal'
-- job: 'TEST_SUITE [${{ parameters.name }}]'
+- job: 'TEST_SUITE__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
   steps:
     - task: Gradle@2
