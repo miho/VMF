@@ -13,7 +13,7 @@ jobs:
   # Linux job
   - template: ./build-job.yml
     parameters:
-      name: Linux, JDK 11
+      name: Linux_JDK_11
       platform: linux
       jdkVersion: 1.11
       pool:
@@ -22,7 +22,7 @@ jobs:
   # Mac OS job
   - template: ./build-job.yml
     parameters:
-      name: MacOS, JDK 11
+      name: MacOS_JDK_11
       platform: mac
       jdkVersion: 1.11
       pool:
@@ -31,7 +31,7 @@ jobs:
   # Windows job
   - template: ./build-job.yml
     parameters:
-      name: Windows, JDK 11
+      name: Windows_JDK_11
       platform: win
       jdkVersion: 1.11
       pool:
