@@ -1,0 +1,35 @@
+
+# Get Azure Pipelines free plan
+# Visit https://azure.microsoft.com/en-us/services/devops/pipelines/
+
+trigger:
+  - master
+
+# Ensure this is the same as in build.gradle
+#variables:
+#  appPackaging: fxapp
+
+jobs:
+  # Linux job
+  - template: azure-pipelines/build-job.yml
+    parameters:
+      name: Linux
+      platform: linux
+      pool:
+        vmImage: 'ubuntu-16.04'
+
+  # Mac OS job
+  - template: azure-pipelines/build-job.yml
+    parameters:
+      name: MacOS
+      platform: mac
+      pool:
+        vmImage: 'macOS-10.13'
+
+  # Windows job
+  - template: azure-pipelines/build-job.yml
+    parameters:
+      name: Windows
+      platform: win
+      pool:
+        vmImage: 'windows-2019'

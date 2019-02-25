@@ -1,0 +1,42 @@
+# Gradle
+# https://docs.microsoft.com/azure/devops/pipelines/languages/java
+
+parameters:
+  name: ''
+  pool: ''
+  platform: ''
+  jdkVersion: '1.11'
+  gradleWrapperFile: 'gradlew.bat'
+  workingDirectory: ''
+  tasks: 'clean build'
+
+
+
+jobs:
+- job: ${{ parameters.name }}
+  pool: ${{ parameters.pool }}
+  steps:
+    - task: Gradle@2
+      inputs:
+        gradleWrapperFile: ${{ parameters.gradleWrapperFile }}
+        workingDirectory: ${{ parameters.workingDirectory }}
+        javaHomeOption: 'JDKVersion'
+        jdkVersionOption: ${{ parameters.jdkVersion }}
+        jdkArchitectureOption: 'x64'
+        publishJUnitResults: true
+        tasks: ${{ parameters.tasks }}
+
+
+
+#    - task: PublishBuildArtifacts@1
+#      inputs:
+#        pathToPublish: '$(System.DefaultWorkingDirectory)/build/distributions/${{ parameters.appPackaging }}-${{ parameters.platform }}.zip'
+
+
+# steps:
+# - task: Gradle@2
+#   displayName: '[CORE] gradlew clean publish'
+#   inputs:
+#     gradleWrapperFile: core/gradlew.bat
+#     workingDirectory: core
+#     tasks: 'clean build publishToMavenLocal'
