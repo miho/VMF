@@ -25,7 +25,7 @@ jobs:
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
         tasks: 'clean build publishToMavenLocal'
-- job: 'RUNTIME__${{ parameters.name }}]__'
+- job: 'RUNTIME__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
   steps:
     - task: Gradle@2
