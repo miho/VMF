@@ -24,6 +24,7 @@ jobs:
         jdkVersionOption: ${{ parameters.jdkVersion }}
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
+        testResultsFiles: '**/TEST-*.xml'
         tasks: 'clean build publishToMavenLocal'
 - job: 'RUNTIME__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
@@ -36,6 +37,7 @@ jobs:
         jdkVersionOption: ${{ parameters.jdkVersion }}
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
+        testResultsFiles: '**/TEST-*.xml'
         tasks: 'clean build publishToMavenLocal'
 - job: 'GRADLE_PLUGIN__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
@@ -48,6 +50,7 @@ jobs:
         jdkVersionOption: ${{ parameters.jdkVersion }}
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
+        testResultsFiles: '**/TEST-*.xml'  
         tasks: 'clean build publishToMavenLocal'
 - job: 'TEST_SUITE__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
@@ -60,6 +63,7 @@ jobs:
         jdkVersionOption: ${{ parameters.jdkVersion }}
         jdkArchitectureOption: 'x64'
         publishJUnitResults: true
+        testResultsFiles: '**/TEST-*.xml'    
         tasks: 'clean test'
 
 
