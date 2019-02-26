@@ -73,5 +73,25 @@ compileGroovy {
     dependsOn(writeVersionInfo)
 }
 
+license {
+    header = rootProject.file('config/HEADER')
+    strictCheck = true
+    ignoreFailures = true
+    mapping {
+        java   = 'SLASHSTAR_STYLE'
+        groovy = 'SLASHSTAR_STYLE'
+        fxml   = 'XML_STYLE'
+    }
+
+    ext.yearCurrent  = new java.text.SimpleDateFormat("yyyy").format(new Date())
+    ext.yearSince1   = '2017'
+    ext.author1 = 'Michael Hoffer <info@michaelhoffer.de>'
+    ext.yearSince2   = '2017'
+    ext.author2= 'Goethe Center for Scientific Computing, University Frankfurt'
+    ext.yearSince3   = '2017'
+    ext.author3 = 'Samuel Michaelis'
+
+    exclude '**/*.svg'
+}
 
 
