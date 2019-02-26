@@ -10,10 +10,8 @@ parameters:
   workingDirectory: ''
   tasks: 'clean build'
 
-
-
 jobs:
-- job: 'CORE__${{ parameters.name }}__'
+- job: '__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
   steps:
     - task: Gradle@2
@@ -26,9 +24,6 @@ jobs:
         publishJUnitResults: true
         testResultsFiles: '**/TEST-*.xml'
         tasks: 'clean build publishToMavenLocal'
-- job: 'RUNTIME__${{ parameters.name }}__'
-  pool: ${{ parameters.pool }}
-  steps:
     - task: Gradle@2
       inputs:
         gradleWrapperFile: 'runtime/gradlew'
@@ -39,9 +34,6 @@ jobs:
         publishJUnitResults: true
         testResultsFiles: '**/TEST-*.xml'
         tasks: 'clean build publishToMavenLocal'
-- job: 'GRADLE_PLUGIN__${{ parameters.name }}__'
-  pool: ${{ parameters.pool }}
-  steps:
     - task: Gradle@2
       inputs:
         gradleWrapperFile: 'gradle-plugin/gradlew'
@@ -52,9 +44,6 @@ jobs:
         publishJUnitResults: true
         testResultsFiles: '**/TEST-*.xml'  
         tasks: 'clean build publishToMavenLocal'
-- job: 'TEST_SUITE__${{ parameters.name }}__'
-  pool: ${{ parameters.pool }}
-  steps:
     - task: Gradle@2
       inputs:
         gradleWrapperFile: 'test-suite/gradlew'
