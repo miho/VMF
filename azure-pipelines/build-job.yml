@@ -21,7 +21,7 @@ jobs:
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: ${{ parameters.jdkVersion }}
         jdkArchitectureOption: 'x64'
-        #publishJUnitResults: true
+        publishJUnitResults: true
         testResultsFiles: '**/TEST-*.xml'
         tasks: 'clean build publishToMavenLocal'
     - task: Gradle@2
@@ -31,7 +31,7 @@ jobs:
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: ${{ parameters.jdkVersion }}
         jdkArchitectureOption: 'x64'
-        #publishJUnitResults: true
+        publishJUnitResults: true
         testResultsFiles: '**/TEST-*.xml'
         tasks: 'clean build publishToMavenLocal'
     - task: Gradle@2
@@ -41,7 +41,7 @@ jobs:
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: ${{ parameters.jdkVersion }}
         jdkArchitectureOption: 'x64'
-        #publishJUnitResults: true
+        publishJUnitResults: true
         testResultsFiles: '**/TEST-*.xml'  
         tasks: 'clean build publishToMavenLocal'
     - task: Gradle@2
@@ -51,7 +51,7 @@ jobs:
         javaHomeOption: 'JDKVersion'
         jdkVersionOption: ${{ parameters.jdkVersion }}
         jdkArchitectureOption: 'x64'
-        #publishJUnitResults: true
+        publishJUnitResults: true
         testResultsFiles: '**/TEST-*.xml'    
         tasks: 'clean test'
 
