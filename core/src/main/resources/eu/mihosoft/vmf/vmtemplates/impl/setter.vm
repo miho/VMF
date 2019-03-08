@@ -66,7 +66,7 @@
     }
 
     // fire property change event
-    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
   }
 #end## if opposite is collection type
 #if(${prop.propType}!="COLLECTION" && ${prop.containmentInfo.opposite.propType}!="COLLECTION")
@@ -98,6 +98,7 @@
 #else    
     // we fire a change event later after setting up the new parent and releasing the old parent
     // (if we are a containment child / contained)
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
 #end## normal property or contained property
 
 #if($prop.containmentProperty)
@@ -187,7 +188,7 @@
     // we are a contained property and need to fire after updating parent to allow event propagation
     // fire property change event
     // ----------------------------------------
-    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // TODO 08.03.2019 _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
     // ----------------------------------------
 #end## normal property or contained property
 
