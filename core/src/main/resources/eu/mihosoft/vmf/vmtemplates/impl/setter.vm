@@ -86,19 +86,16 @@
     $prop.typeName oldValue = this.__vmf_prop_$prop.name;
     this.__vmf_prop_$prop.name = $prop.name;
     // ----------------------------------------
-#if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}=="CONTAINED")
+#if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}=="CONTAINER")
+    // ----------------------------------------
     // we fire a change event now
-    // (we are a normal property or a containment parent / container)
-    // ----------------------------------------
-    // we are a normal property or container and need to fire now
-    // fire property change event
-    // ----------------------------------------
+    // (if this property is a normal property or a containment parent / container)
     _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
     // ----------------------------------------
-#else    
-    // we fire a change event later after setting up the new parent and releasing the old parent
-    // (if we are a containment child / contained)
-    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+#else
+    // we fire a change event later after setting up the new child property and releasing the old child
+    // (if this property is a containment child / contained)
+    // _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
 #end## normal property or contained property
 
 #if($prop.containmentProperty)
@@ -178,6 +175,14 @@
 #set($oppositeValue = "this")
 #set($codeIndentValue = "      ")
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+
+#if(${prop.containmentInfo.containmentType}=="CONTAINED")
+      // ----------------------------------------
+      // (fire now, this property is a containment child / contained)
+      // ----------------------------------------
+      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+      // ----------------------------------------
+#end## if contained      
     }
 #end## if collection
 #end## if container
