@@ -36,7 +36,7 @@ interface Transition {
 
     @Container(opposite="outgoingTransition")
     State getSource();
-    @Container(opposite="outgoingTransition")
+    @Container(opposite="incomingTransition")
     State getTarget();
 
     Action getAction();
