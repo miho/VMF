@@ -51,17 +51,17 @@ public class FSMTest {
         System.out.println("creation took " 
           + ((stopCreation-startCreation)*1e-6/numMeasurements) + "ms");
 
-       FSM clone = null;
+        FSM clone = null;
 
-       long startCloning = System.nanoTime();
+        long startCloning = System.nanoTime();
 
-       for(int j = 0; j < numMeasurements; j++) {
+        for(int j = 0; j < numMeasurements; j++) {
            clone = fsm.clone();
-       }
+        }
 
-       long stopCloning = System.nanoTime();
+        long stopCloning = System.nanoTime();
 
-       System.out.println("cloning took "
+        System.out.println("cloning took "
          + ((stopCloning-startCloning)*1e-6/numMeasurements) + "ms");
 
         int numCreatedTransition = fsm.getOwnedState().size(); 
@@ -75,7 +75,6 @@ public class FSMTest {
         System.out.println("equals: " + fsm.equals(clone));
         
         assertThat("We expect the clone to be equal to the original fsm", fsm, equalTo(clone));
-        
         
         System.out.println("cmp-to-string: " + clone.toString().equals(fsm.toString()));
         
