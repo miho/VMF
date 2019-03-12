@@ -243,6 +243,13 @@ public class ModelType {
         }
     }
 
+    void initCrossRefInfos() {
+        // resolve containment relations
+        for (Prop p : properties) {
+            p.initCrossRefInfo();
+        }
+    }
+
     void initContainments() {
         // resolve containment relations
         for (Prop p : properties) {

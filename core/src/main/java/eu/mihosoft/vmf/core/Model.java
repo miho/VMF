@@ -87,27 +87,32 @@ public class Model {
 
         // PASS 2
         for (ModelType t : types.values()) {
-            t.initImplements();
+            t.initCrossRefInfos();
         }
 
         // PASS 3
+        for (ModelType t : types.values()) {
+            t.initImplements();
+        }
+
+        // PASS 4
         for(ModelType t : types.values()) {
             t.initSyncInfos();
             t.initPropIds();
         }
 
-        // PASS 4
+        // PASS 5
         for (ModelType t : types.values()) {
             t.getImplementation().initPropertiesImportsAndDelegates();
         }
 
-        // PASS 5
+        // PASS 6
         for (ModelType t : types.values()) {
             t.getInterface().initProperties();
             t.initAllInheritedTypes();
         }
 
-        // PASS 6
+        // PASS 7
         for (ModelType t : types.values()) {
 
             if(t.isHashCodeMethodDelegated()!=t.isEqualsMethodDelegated()) {
@@ -187,7 +192,7 @@ public class Model {
                 }
             }
 
-        } // end pass 5
+        } // end pass 7
 
     }
 

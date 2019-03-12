@@ -66,6 +66,9 @@ public class Prop {
 
     // containment info (container or contained property)
     private ContainmentInfo containmentInfo;
+    
+    // reference info (cross ref between properties)
+    private ReferenceInfo referenceInfo;
 
     // sync info
     private SyncInfo syncInfo;
@@ -333,6 +336,45 @@ public class Prop {
 
             if (opposite.isPresent()) {
                 this.syncInfo = SyncInfo.newInstance(parent, opposite.get().getParent(), opposite.get());
+            } else {
+                throw new RuntimeException(
+                        "Specified opposite property '" + oppositeOfSyncProperty + "' cannot be found");
+            }
+        }
+    }
+
+    void initCrossRefInfo() {
+
+        // containment
+        Refers referenceInfo = getterMethod.getAnnotation(Refers.class);
+
+        if (referenceInfo != null) {
+
+            System.out.println("init cross-ref info for " + getName());
+
+            String oppositeOfSyncProperty = referenceInfo.opposite();
+
+            // System.out.println("Container: " + container.opposite());
+            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfSyncProperty);
+
+            // if opposite can't be found, try with full name
+            if (!opposite.isPresent()) {
+                if (isCollectionType()) {
+                    oppositeOfSyncProperty = getGenericTypeName() + "." + oppositeOfSyncProperty;
+                } else {
+                    oppositeOfSyncProperty = getTypeName() + "." + oppositeOfSyncProperty;
+                }
+
+                opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfSyncProperty);
+            }
+
+            if (opposite.isPresent()) {
+                this.referenceInfo = ReferenceInfo.newInstance(
+                        parent, 
+                        this, 
+                        opposite.get().getParent(),
+                        opposite.get()
+                );
             } else {
                 throw new RuntimeException(
                         "Specified opposite property '" + oppositeOfSyncProperty + "' cannot be found");
