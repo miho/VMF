@@ -267,6 +267,7 @@ public class ModelType {
     void initImplements() {
         // init implements
         for (String implClsName : implementsList) {
+
             Optional<ModelType> type = model.resolveType(implClsName);
 
             if (!type.isPresent()) {
@@ -365,7 +366,7 @@ public class ModelType {
             String ifsName = model.convertModelTypeToDestination(ifs);
 
             if (ifsName.startsWith(model.getPackageName())) {
-                ext3nds.add(ifs.getSimpleName());
+                ext3nds.add(ifsName);
             }
         }
 
@@ -381,9 +382,13 @@ public class ModelType {
             boolean ifsIsImmutable = ifs.getAnnotation(Immutable.class) != null;
             boolean ifsIsInterfaceOnly = ifs.getAnnotation(InterfaceOnly.class) != null;
 
-            if (!ifsIsImmutable && !ifsIsInterfaceOnly && ifsName.startsWith(model.getPackageName())) {
+            if (!ifsIsImmutable && ifsName.startsWith(model.getPackageName())) {
                 ext3nds.add("__VMF_TYPE_"+ifs.getSimpleName()+"Impl");
             }
+
+//            if (!ifsIsImmutable && !ifsIsInterfaceOnly && ifsName.startsWith(model.getPackageName())) {
+//                ext3nds.add("__VMF_TYPE_"+ifs.getSimpleName()+"Impl");
+//            }
         }
 
         return String.join(",", ext3nds);

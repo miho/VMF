@@ -519,36 +519,37 @@ public class VMFGenerateRuns extends VMFTestShell {
         }
     }
 
-    @Test
-    public void testGetterOnlyInterfaceOnlyAsCommonInterface() throws Throwable {
-        try {
-            addModelCode("commoniface.vmfmodel.WithName",
-            "package commoniface.vmfmodel;\n" + 
-            "import eu.mihosoft.vmf.core.*;\n"+
-            "@InterfaceOnly\n"+
-            "interface WithName {\n"+
-            "    @GetterOnly String getName();\n"+
-            "}"
-            );
-            addModelCode("commoniface.vmfmodel.ImmutableObj",
-            "package commoniface.vmfmodel;\n" + 
-            "import eu.mihosoft.vmf.core.*;\n"+
-            "@Immutable\n"+
-            "interface ImmutableObj extends WithName { }\n"
-            );
-            addModelCode("commoniface.vmfmodel.MutableObj",
-            "package commoniface.vmfmodel;\n" + 
-            "import eu.mihosoft.vmf.core.*;\n"+
-            "interface MutableObj extends WithName { }\n"
-            );
+    // already covered in test src test/vmf/getteronly
+    // @Test
+    // public void testGetterOnlyInterfaceOnlyAsCommonInterface() throws Throwable {
+    //     try {
+    //         addModelCode("commoniface.vmfmodel.WithName",
+    //         "package commoniface.vmfmodel;\n" + 
+    //         "import eu.mihosoft.vmf.core.*;\n"+
+    //         "@InterfaceOnly\n"+
+    //         "interface WithName {\n"+
+    //         "    @GetterOnly String getName();\n"+
+    //         "}"
+    //         );
+    //         addModelCode("commoniface.vmfmodel.ImmutableObj",
+    //         "package commoniface.vmfmodel;\n" + 
+    //         "import eu.mihosoft.vmf.core.*;\n"+
+    //         "@Immutable\n"+
+    //         "interface ImmutableObj extends WithName { }\n"
+    //         );
+    //         addModelCode("commoniface.vmfmodel.MutableObj",
+    //         "package commoniface.vmfmodel;\n" + 
+    //         "import eu.mihosoft.vmf.core.*;\n"+
+    //         "interface MutableObj extends WithName { }\n"
+    //         );
             
-            setupModelFromCode();
+    //         setupModelFromCode();
             
-        } catch (Exception ex) {
-            Assert.fail("Should not throw an exception! " + ex.getMessage());
-            ex.printStackTrace();
-        }
-    }
+    //     } catch (Exception ex) {
+    //         Assert.fail("Should not throw an exception! " + ex.getClass() + ": " + ex.getMessage());
+    //         ex.printStackTrace();
+    //     }
+    // }
 
     @Test
     public void testGetterOnlyInterfaceOnlyWithModifiableProperties() throws Throwable {

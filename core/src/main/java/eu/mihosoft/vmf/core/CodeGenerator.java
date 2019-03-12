@@ -224,7 +224,12 @@ public class CodeGenerator {
                     generateReadOnlyTypeInterface(out, t);
                 }
 
-                if(!t.isInterfaceOnly()) {
+                if(t.isInterfaceOnly()) {
+                    try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".__VMF_TYPE_" + t.getTypeName()))) {
+                        Writer out = res.open();
+                        generateInternalTypeInterface(out, t);
+                    }
+                } else {
                     try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
                             + t.getImplementation().getTypeName()))) {
                         Writer out = res.open();
@@ -327,6 +332,13 @@ public class CodeGenerator {
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("interface", context, out);
+    }
+
+    private void generateInternalTypeInterface(Writer out, ModelType t) throws IOException {
+        VelocityContext context = new VelocityContext();
+        context.put("type", t);
+        VMFEngineProperties.installProperties(context);
+        mergeTemplate("interface__vmf_type", context, out);
     }
 
     private void generateWritableTypeInterface(Writer out, ModelType t) throws IOException {

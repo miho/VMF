@@ -25,8 +25,21 @@
 
   // --- PROP '$prop.typeName'
   /*package private*/ $prop.typeName __vmf_prop_$prop.name;
+#if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
+  /*package private*/ java.util.List<${prop.genericTypeName}> __vmf_prop_${prop.name}__vmf_RawList;
+#end## cross-ref collection  
 #if(!$type.immutable)  
-  @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_$prop.name = obj;}
-  @Override public $prop.typeName __vmf_get_prop_${prop.name}() {return this.__vmf_prop_$prop.name;}
+  @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_${prop.name} = obj;}
+  @Override public $prop.typeName __vmf_get_prop_${prop.name}() {return this.__vmf_prop_${prop.name};}
+#if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
+  @Override public java.util.List<${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList() {
+
+    if(this.__vmf_prop_${prop.name}__vmf_RawList==null) {
+  	  __vmf_prop_${prop.name}__vmf_RawList = new java.util.ArrayList<>();
+    }
+
+    return this.__vmf_prop_${prop.name}__vmf_RawList;
+  };
+#end## cross-ref collection
 #end## is not immutable  
 #end

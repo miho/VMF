@@ -463,6 +463,13 @@ public class Prop {
         return containmentInfo;
     }
 
+    /**
+     * @return the referenceInfo
+     */
+    public ReferenceInfo getReferenceInfo() {
+        return referenceInfo;
+    }
+
     public SyncInfo getSyncInfo() {
         return syncInfo;
     }
@@ -485,6 +492,10 @@ public class Prop {
 
     public boolean isContainmentProperty() {
         return getContainmentInfo().getContainmentType() != ContainmentType.NONE;
+    }
+
+    public boolean isCrossRefProperty() {
+        return getReferenceInfo() != null;
     }
 
     public String getNameWithUpperCase() {

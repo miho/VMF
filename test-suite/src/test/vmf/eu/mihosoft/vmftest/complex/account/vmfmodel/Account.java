@@ -38,3 +38,22 @@ interface Address {
     String getCity();
     String getPostal();
 }
+
+interface P {
+    @Contains(opposite="p")
+    C[] getCs();
+}
+
+@InterfaceOnly
+interface C {
+    @Container(opposite="cs")
+    P getP();
+}
+
+interface C1 extends C {
+
+}
+
+interface C2 extends C {
+
+}

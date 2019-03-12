@@ -22,6 +22,59 @@
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
 #foreach( $prop in ${type.implementation.properties} )
+
+#if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
+  @Override
+  public ${prop.getterDeclaration} {
+#if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
+    if(this.__vmf_prop_$prop.name==null) {
+      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
+
+      this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+            evt.added().elements().forEach( (e) -> {
+              if(e==null) return;
+
+#set($oppositeRefProp=${prop.referenceInfo.opposite})
+              // ${prop.referenceInfo.opposite.propType}
+              java.util.List<${oppositeRefProp.genericTypeName}> oppositeRefList = 
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}__vmf_RawList();
+              oppositeRefList.add(this);  
+
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "e")
+#set($objectToRemoveReferenceOnValue = false)
+#set($referenceToRemoveValue = false)
+#set($codeIndentValue = "                ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+            }); // end of evt.added()
+
+            evt.removed().elements().forEach( (e) -> {
+              if(e==null) return;
+
+#set($oppositeRefProp=${prop.referenceInfo.opposite})
+              // ${prop.referenceInfo.opposite.propType}
+              java.util.List<${oppositeRefProp.genericTypeName}> oppositeRefList = 
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}__vmf_RawList();
+              oppositeRefList.remove(this);    
+
+#set($objectToAddReferenceOnValue=false)
+#set($referenceToAddValue = false)
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "e")
+#set($codeIndentValue = "                ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+            }); // end of evt.removed()
+      });
+
+
+    } // end lazy-init  
+    
+    return this.__vmf_prop_$prop.name;
+#elseif(${prop.referenceInfo.opposite.propType} != "COLLECTION" )
+    
+#end## collection type  
+  }  
+#else## cross-ref prop
   @Override
   public $prop.getterDeclaration {
 #if($prop.containmentProperty && $prop.propType == "COLLECTION")
@@ -113,4 +166,5 @@
 
 #end
   } // end of $prop.getterDeclaration
-#end
+#end## not cross-ref prop   
+#end## foreach prop
