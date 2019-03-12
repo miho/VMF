@@ -39,21 +39,21 @@ interface Address {
     String getPostal();
 }
 
-interface P {
-    @Contains(opposite="p")
-    C[] getCs();
-}
+// interface P {
+//     @Contains(opposite="p")
+//     C[] getCs();
+// }
 
-@InterfaceOnly
-interface C {
-    @Container(opposite="cs")
-    P getP();
-}
+// @InterfaceOnly
+// interface C {
+//     @Container(opposite="cs")
+//     P getP();
+// }
 
-interface C1 extends C {
+// interface C1 extends C {
 
-}
+// }
 
-interface C2 extends C {
+// interface C2 extends C {
 
-}
+// }
