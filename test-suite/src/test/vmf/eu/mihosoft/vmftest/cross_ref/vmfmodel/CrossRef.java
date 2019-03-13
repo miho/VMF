@@ -1,4 +1,4 @@
-package package eu.mihosoft.vmftest.cross_ref.vmfmodel;
+package eu.mihosoft.vmftest.cross_ref.vmfmodel;
 
 interface EntityOne {
     @Refers(opposite="ref")
