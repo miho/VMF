@@ -2,11 +2,30 @@ package eu.mihosoft.vmftest.cross_ref.vmfmodel;
 
 import eu.mihosoft.vmf.core.Refers;
 
-interface EntityOne {
+interface EntityOneA {
     @Refers(opposite="ref")
-    EntityTwo getRef();
+    EntityTwoA getRef();
 }
-interface EntityTwo {
+interface EntityTwoA {
     @Refers(opposite="ref")
-    EntityOne getRef();
+    EntityOneA getRef();
+}
+
+
+interface EntityOneB {
+    @Refers(opposite="refs")
+    EntityTwoB getRef();
+}
+interface EntityTwoB {
+    @Refers(opposite="ref")
+    EntityOneB[] getRefs();
+}
+
+interface EntityOneC {
+    @Refers(opposite="refs")
+    EntityTwoC[] getRefs();
+}
+interface EntityTwoC {
+    @Refers(opposite="refs")
+    EntityOneC[] getRefs();
 }

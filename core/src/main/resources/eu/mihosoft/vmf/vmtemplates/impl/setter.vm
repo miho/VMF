@@ -98,6 +98,16 @@
     // _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
 #end## normal property or contained property
 
+#if(${prop.crossRefProperty})
+    // -- CROSS REF begin
+#if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
+    // OPPOSITE IS COLLECTION
+#else## #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
+    // OPPOSITE IS NO COLLECTION
+#end## #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
+    // -- CROSS REF end
+#end## if(${prop.crossRefProperty})
+
 #if($prop.containmentProperty)
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")
 #if(${prop.propType}=="COLLECTION")
