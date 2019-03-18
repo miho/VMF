@@ -18,7 +18,7 @@ jobs:
       inputs:
         versionSpec: ${{ parameters.jdkVersion }} 
         jdkArchitectureOption: x64 # Options: x64, x86
-        jdkSourceOption: azureStorage # Options: azureStorage, localDirectory
+        jdkSourceOption: localDirectory # Options: azureStorage, localDirectory
     - task: Gradle@2
       inputs:
         gradleWrapperFile: 'core/gradlew'
