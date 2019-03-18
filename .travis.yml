@@ -1,0 +1,53 @@
+sudo: false
+
+env:
+  - TERM=dumb
+  
+matrix:
+    include:
+    - os: linux
+      language: java
+      jdk:  oraclejdk8
+      install: true
+    - os: linux
+      language: java
+      jdk:  oraclejdk9
+      install: true
+    - os: linux
+      language: java
+      jdk:  openjdk11
+    - os: linux
+      language: java
+      jdk:  openjdk-ea
+    - os: linux
+      language: java
+      jdk:  openjdk12
+    allow_failures:
+       - os: linux
+         language: java
+         jdk:  openjdk-ea
+       - os: linux
+         language: java
+         jdk:  openjdk12  
+
+#cache:
+#  ccache: true
+#  directories:
+#   - /Users/travis/build/miho/
+
+#before_script:
+  
+script:
+    - export CWD=$(pwd)
+    - cd core
+    - sh ./gradlew clean test publishToMavenLocal
+    - cd $CWD
+    - cd runtime
+    - sh ./gradlew clean test publishToMavenLocal
+    - cd $CWD
+    - cd gradle-plugin
+    - sh ./gradlew clean test publishToMavenLocal
+    - cd $CWD
+    - cd test-suite
+    - sh ./gradlew clean test --stacktrace
+    - cd $CWD
