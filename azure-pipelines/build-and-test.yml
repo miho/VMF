@@ -8,7 +8,7 @@ trigger:
 # Ensure this is the same as in build.gradle
 #variables:
 #  appPackaging: fxapp
-  
+jobs:  
   # Linux job
   - template: ./build-job.yml
     parameters:
