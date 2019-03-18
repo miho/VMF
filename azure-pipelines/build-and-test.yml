@@ -28,7 +28,7 @@ jobs:
     parameters:
       name: Linux_JDK_12
       platform: linux
-      jdkVersion: 1.12
+      jdkVersion: 12
       pool:
         vmImage: 'ubuntu-16.04'      
 
@@ -51,7 +51,7 @@ jobs:
     parameters:
       name: MacOS_JDK_12
       platform: mac
-      jdkVersion: 1.12
+      jdkVersion: 12
       pool:
         vmImage: 'macOS-10.13'      
 
@@ -74,6 +74,6 @@ jobs:
     parameters:
       name: Windows_JDK_12
       platform: win
-      jdkVersion: 1.12
+      jdkVersion: 12
       pool:
         vmImage: 'windows-2019'        
