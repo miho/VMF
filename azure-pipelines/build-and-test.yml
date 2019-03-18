@@ -8,30 +8,7 @@ trigger:
 # Ensure this is the same as in build.gradle
 #variables:
 #  appPackaging: fxapp
-
-jobs:
-
-- job: 'Install JDK'
-  steps:
-  - task: JavaToolInstaller@0
-    inputs:
-      versionSpec: '8' 
-      jdkArchitectureOption: x64 # Options: x64, x86
-
-# Java Tool Installer
-# Acquires a specific version of Java from a user supplied Azure blob or the tools cache and sets JAVA_HOME. Use this task to change the version of Java used in Java tasks.
-  - task: JavaToolInstaller@0
-    inputs:
-      versionSpec: '11' 
-      jdkArchitectureOption: x64 # Options: x64, x86
-     
-# Java Tool Installer
-# Acquires a specific version of Java from a user supplied Azure blob or the tools cache and sets JAVA_HOME. Use this task to change the version of Java used in Java tasks.
-  - task: JavaToolInstaller@0
-    inputs:
-      versionSpec: '12' 
-      jdkArchitectureOption: x64 # Options: x64, x86    
-
+  
   # Linux job
   - template: ./build-job.yml
     parameters:
