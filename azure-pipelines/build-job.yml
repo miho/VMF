@@ -11,6 +11,11 @@ parameters:
   tasks: 'clean build'
 
 jobs:
+- job: 'Install JDK __${{ parameters.name }}__'
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: ${{ parameters.jdkVersion }} 
+        jdkArchitectureOption: x64 # Options: x64, x86
 - job: '__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
   steps:
