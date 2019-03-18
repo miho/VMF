@@ -12,16 +12,14 @@ parameters:
 
 jobs:
 
-- job: 'Install JDK __${{ parameters.name }}__'
-  steps:
-  - task: JavaToolInstaller@0
-    inputs:
-      versionSpec: '8' 
-      jdkArchitectureOption: x64 # Options: x64, x86
       
 - job: '__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
   steps:
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: ${{ parameters.jdkVersion }} 
+        jdkArchitectureOption: x64 # Options: x64, x86
     - task: Gradle@2
       inputs:
         gradleWrapperFile: 'core/gradlew'
