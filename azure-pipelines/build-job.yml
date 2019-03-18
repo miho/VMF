@@ -12,7 +12,7 @@ parameters:
 
 jobs:
 
-- job: 'Install JDK ${{ parameters.name }}'
+- job: 'Install JDK __${{ parameters.name }}__'
   steps:
   - task: JavaToolInstaller@0
     inputs:
