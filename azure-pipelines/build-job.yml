@@ -16,7 +16,7 @@ jobs:
   steps:
     - task: JavaToolInstaller@0
       inputs:
-        versionSpec: ${{ parameters.jdkVersion }} 
+        versionSpec: 12 # ${{ parameters.jdkVersion }} 
         jdkArchitectureOption: x64 # Options: x64, x86
         jdkSourceOption: localDirectory # Options: azureStorage, localDirectory
         jdkFile: azure-deps/jdk # Required when jdkSourceOption == LocalDirectory
