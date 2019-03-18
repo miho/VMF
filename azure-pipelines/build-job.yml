@@ -10,6 +10,7 @@ parameters:
   workingDirectory: ''
   tasks: 'clean build'
 
+jobs:
 - job: '__${{ parameters.name }}__'
   pool: ${{ parameters.pool }}
   steps:
