@@ -50,6 +50,19 @@ public class CrossRefTest {
     }
     @Test
     public void multipleMultipleRefTest() {
-    
+        {
+            EntityOneC entityOneC = EntityOneC.newInstance();
+            EntityTwoC entityTwoC = EntityTwoC.newInstance();
+
+            entityOneC.getRefs().add(entityTwoC);
+            assertThat("opposite refs must contain ref", entityTwoC.getRefs(), contains(entityOneC));
+        }
+        {
+            EntityOneC entityOneC = EntityOneC.newInstance();
+            EntityTwoC entityTwoC = EntityTwoC.newInstance();
+
+            entityTwoC.getRefs().add(entityOneC);
+            assertThat("opposite refs must contain ref", entityOneC.getRefs(), contains(entityTwoC));
+        }
     }
 }
