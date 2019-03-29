@@ -10,13 +10,14 @@ trigger:
 #  appPackaging: fxapp
 jobs:  
   # Linux job
-  - template: ./build-job.yml
-    parameters:
-      name: Linux_JDK_8
-      platform: linux
-      jdkVersion: 1.8
-      pool:
-        vmImage: 'ubuntu-16.04'   
+  # azure pipelines broken for linux with jdk8
+  # - template: ./build-job.yml
+  #   parameters:
+  #     name: Linux_JDK_8
+  #     platform: linux
+  #     jdkVersion: 1.8
+  #     pool:
+  #       vmImage: 'ubuntu-16.04'   
   - template: ./build-job.yml
     parameters:
       name: Linux_JDK_11
