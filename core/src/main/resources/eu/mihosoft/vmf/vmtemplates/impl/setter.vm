@@ -102,8 +102,27 @@
     // -- CROSS REF begin
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
     // OPPOSITE IS COLLECTION
+    if(oldValue!=null) {
+      String evetInfo = oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+      oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo("vmf:crossref");
+      oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().remove(this);
+      oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(evetInfo);
+    }
+
+    if(this.__vmf_prop_${prop.name}!=null) {
+      String evetInfo = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+      this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo("vmf:crossref");
+      this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().add(this);
+      this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(evetInfo);
+    }
 #else## #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
     // OPPOSITE IS NO COLLECTION
+    if(oldValue!=null) {
+      oldValue.set${prop.referenceInfo.opposite.nameWithUpperCase}(null);
+    }
+    if(this.__vmf_prop_${prop.name}!=null) {
+      this.__vmf_prop_${prop.name}.set${prop.referenceInfo.opposite.nameWithUpperCase}(this);
+    }
 #end## #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
     // -- CROSS REF end
 #end## if(${prop.crossRefProperty})

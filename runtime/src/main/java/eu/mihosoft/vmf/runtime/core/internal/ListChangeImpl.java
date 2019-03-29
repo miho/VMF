@@ -44,24 +44,46 @@ import java.util.Optional;
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
 @Deprecated
-class ListChangeImpl implements Change {
+class ListChangeImpl implements ChangeInternal {
     private final VObject object;
     private final String propertyName;
     private final CollectionChangeEvent<Object,VList<Object>, VListChange<Object>> evt;
     private final VList list;
     private final long timestamp;
+    private final String internalChangeInfo;
 
+    
     @SuppressWarnings({"deprecation", "unchecked"})
     public ListChangeImpl(VObject object, String propertyName, CollectionChangeEvent<Object,VList<Object>, VListChange<Object>> evt) {
         this.object = object;
         this.propertyName = propertyName;
         this.evt = evt;
-
+        
         VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         list = (VList) internal._vmf_getPropertyValueById(propId);
-
+        
         this.timestamp = System.nanoTime();
+        this.internalChangeInfo = "";
+    }
+
+    @SuppressWarnings({"deprecation", "unchecked"})
+    public ListChangeImpl(VObject object, String propertyName, CollectionChangeEvent<Object,VList<Object>, VListChange<Object>> evt, String internalChangeInfo) {
+        this.object = object;
+        this.propertyName = propertyName;
+        this.evt = evt;
+        
+        VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
+        int propId = internal._vmf_getPropertyIdByName(propertyName);
+        list = (VList) internal._vmf_getPropertyValueById(propId);
+        
+        this.timestamp = System.nanoTime();
+        this.internalChangeInfo = internalChangeInfo;
+    }
+    
+    @Override
+    public String getInternalChangeInfo() {
+        return internalChangeInfo;
     }
 
     @Override

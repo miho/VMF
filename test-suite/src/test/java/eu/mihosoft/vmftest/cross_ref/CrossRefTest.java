@@ -11,6 +11,19 @@ public class CrossRefTest {
         {
             EntityOneA entityOneA = EntityOneA.newInstance();
             EntityTwoA entityTwoA = EntityTwoA.newInstance();
+
+            entityOneA.setRef(entityTwoA);
+
+            assertThat("opposite ref must be set to ref", entityTwoA.getRef(), equalTo(entityOneA));
+        }
+
+        {
+            EntityOneA entityOneA = EntityOneA.newInstance();
+            EntityTwoA entityTwoA = EntityTwoA.newInstance();
+
+            entityTwoA.setRef(entityOneA);
+
+            assertThat("opposite ref must be set to ref", entityOneA.getRef(), equalTo(entityTwoA));
         }
     }
 

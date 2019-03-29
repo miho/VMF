@@ -42,13 +42,14 @@ import java.util.Optional;
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
 @Deprecated
-class PropChangeImpl implements Change, PropertyChange {
+class PropChangeImpl implements ChangeInternal, PropertyChange {
 
     private final VObject object;
     private final String propertyName;
     private final Object oldValue;
     private final Object newValue;
     private final long timestamp;
+    private final String internalChangeInfo;
 
     PropChangeImpl(VObject object, String propertyName, Object oldValue, Object newValue) {
         this.object = object;
@@ -56,7 +57,25 @@ class PropChangeImpl implements Change, PropertyChange {
         this.oldValue = oldValue;
         this.newValue = newValue;
 
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = System.nanoTime();
+
+        this.internalChangeInfo = "";
+    }
+
+    PropChangeImpl(VObject object, String propertyName, Object oldValue, Object newValue, String internalChangeInfo) {
+        this.object = object;
+        this.propertyName = propertyName;
+        this.oldValue = oldValue;
+        this.newValue = newValue;
+
+        this.timestamp = System.nanoTime();
+
+        this.internalChangeInfo = internalChangeInfo;
+    }
+
+    @Override
+    public String getInternalChangeInfo() {
+        return internalChangeInfo;
     }
 
     public VObject object() {

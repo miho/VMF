@@ -56,7 +56,7 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
 
 #parse("${VMF_TEMPLATE_PATH}impl/declare-delegates.vm")
 
-  private java.beans.PropertyChangeSupport propertyChanges;
+  private ${VMFPKG_INT}.VMFPropertyChangeSupport propertyChanges;
 
   // // TODO 17.02.2019 feature deactivated due to huge memory consumption
   // referenced by
@@ -130,10 +130,10 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
       }
   }
 
-  private java.beans.PropertyChangeSupport _vmf_getPropertyChanges() {
+  private ${VMFPKG_INT}.VMFPropertyChangeSupport _vmf_getPropertyChanges() {
 
       if(propertyChanges==null) {
-          propertyChanges = new java.beans.PropertyChangeSupport(this);
+          propertyChanges = ${VMFPKG_INT}.VMFPropertyChangeSupport.newInstance(this);
       }
 
       return propertyChanges;
@@ -145,10 +145,10 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
 
   @Override
   public void _vmf_firePropertyChangeIfListenersArePresent(
-    String propertyName, Object oldValue, Object newValue) {
+    String propertyName, Object oldValue, Object newValue, String evtInfo) {
       if(_vmf_hasListeners()) {
           _vmf_getPropertyChanges().
-                  firePropertyChange(propertyName, oldValue, newValue);
+                  firePropertyChange(propertyName, oldValue, newValue, evtInfo);
       }
   }
 
@@ -306,8 +306,14 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.typeName}${t
 #end## cross-ref collection
 #end
 
-  void _vmf_firePropertyChangeIfListenersArePresent(
+  default void _vmf_firePropertyChangeIfListenersArePresent(
     String propertyName, Object oldValue, Object newValue
+  ) {
+    _vmf_firePropertyChangeIfListenersArePresent(propertyName, oldValue, newValue, "");
+  }
+  
+  void _vmf_firePropertyChangeIfListenersArePresent(
+    String propertyName, Object oldValue, Object newValue, String evtInfo
   );
 
 }

@@ -108,8 +108,8 @@ public interface Change {
     ChangeType getType();
 
     /**
-     * Returns the timestamp which denotes the creation of this change.
-     * @return the timestamp which denotes the creation of this change
+     * Returns the timestamp (in nano seconds) which denotes the creation of this change.
+     * @return the timestamp (in nano seconds) which denotes the creation of this change
      */
     long getTimestamp();
 
