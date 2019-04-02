@@ -86,7 +86,7 @@
     $prop.typeName oldValue = this.__vmf_prop_$prop.name;
     this.__vmf_prop_$prop.name = $prop.name;
     // ----------------------------------------
-#if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}=="CONTAINER")
+#if( !$prop.containmentProperty && !${prop.crossRefProperty} || ${prop.containmentInfo.containmentType}=="CONTAINER" )
     // ----------------------------------------
     // we fire a change event now
     // (if this property is a normal property or a containment parent / container)
@@ -94,7 +94,7 @@
     // ----------------------------------------
 #else
     // we fire a change event later after setting up the new child property and releasing the old child
-    // (if this property is a containment child / contained)
+    // (if this property is a containment child / contained or cross ref)
     // _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
 #end## normal property or contained property
 
@@ -121,7 +121,12 @@
       oldValue.set${prop.referenceInfo.opposite.nameWithUpperCase}(null);
     }
     if(this.__vmf_prop_${prop.name}!=null) {
-      this.__vmf_prop_${prop.name}.set${prop.referenceInfo.opposite.nameWithUpperCase}(this);
+      Object refOldVal = ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name}).__vmf_get_prop_${prop.referenceInfo.opposite.name}();
+      ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name}).__vmf_set_prop_${prop.referenceInfo.opposite.name}(this);
+      // fire property change event
+      if(refOldVal != this) {
+        ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name})._vmf_firePropertyChangeIfListenersArePresent("${prop.referenceInfo.opposite.name}", refOldVal, this);
+      }
     }
 #end## #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
     // -- CROSS REF end
@@ -224,7 +229,20 @@
     // ----------------------------------------
     // TODO 08.03.2019 _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
     // ----------------------------------------
-#end## normal property or contained property
+#end## normal property or contained property 
+
+#if( ${prop.crossRefProperty} )
+    // ----------------------------------------
+    // we are a cross-ref property and need to fire after updating the other prop to allow event propagation
+    // fire property change event
+    // ----------------------------------------
+    if(oldValue!=this.__vmf_prop_$prop.name) {
+      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    }
+    // ----------------------------------------
+#end## normal property or cross-ref property
+
+
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
