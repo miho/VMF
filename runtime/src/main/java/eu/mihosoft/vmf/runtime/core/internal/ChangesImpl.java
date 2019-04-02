@@ -29,7 +29,6 @@ package eu.mihosoft.vmf.runtime.core.internal;
 import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vcollections.VMappedList;
 import eu.mihosoft.vmf.runtime.core.*;
-import eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent;
 import vjavax.observer.Subscription;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -84,6 +83,7 @@ public class ChangesImpl implements Changes {
 
     private ModelVersion modelVersion = new ModelVersionImpl(System.currentTimeMillis(), 0);
 
+    @SuppressWarnings({"deprecation"})
     public ChangesImpl() {
         objListener = new PropertyChangeListener() {
             @Override
@@ -91,8 +91,8 @@ public class ChangesImpl implements Changes {
 
                 String evtInfo = "";
 
-                if(evt instanceof VMFPropertyChangeEvent) {
-                    evtInfo = ((VMFPropertyChangeEvent)evt).getEventInfo();
+                if(evt instanceof eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent) {
+                    evtInfo = ((eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent)evt).getEventInfo();
                 }
 
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
@@ -131,8 +131,8 @@ public class ChangesImpl implements Changes {
 
                 String evtInfo = "";
 
-                if(evt instanceof VMFPropertyChangeEvent) {
-                    evtInfo = ((VMFPropertyChangeEvent)evt).getEventInfo();
+                if(evt instanceof eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent) {
+                    evtInfo = ((eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent)evt).getEventInfo();
                 }
 
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
