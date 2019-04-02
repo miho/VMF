@@ -64,7 +64,7 @@ class ListChangeImpl implements ChangeInternal {
         list = (VList) internal._vmf_getPropertyValueById(propId);
         
         this.timestamp = System.nanoTime();
-        this.internalChangeInfo = "";
+        this.internalChangeInfo = evt.eventInfo();
     }
 
     @SuppressWarnings({"deprecation", "unchecked"})

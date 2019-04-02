@@ -29,7 +29,7 @@ package eu.mihosoft.vmf.runtime.core.internal;
 import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vcollections.VMappedList;
 import eu.mihosoft.vmf.runtime.core.*;
-
+import eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent;
 import vjavax.observer.Subscription;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -89,8 +89,14 @@ public class ChangesImpl implements Changes {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
 
+                String evtInfo = "";
+
+                if(evt instanceof VMFPropertyChangeEvent) {
+                    evtInfo = ((VMFPropertyChangeEvent)evt).getEventInfo();
+                }
+
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
-                        evt.getOldValue(), evt.getNewValue());
+                        evt.getOldValue(), evt.getNewValue(), evtInfo);
      
                 fireChange(c);
 
@@ -123,8 +129,14 @@ public class ChangesImpl implements Changes {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
 
+                String evtInfo = "";
+
+                if(evt instanceof VMFPropertyChangeEvent) {
+                    evtInfo = ((VMFPropertyChangeEvent)evt).getEventInfo();
+                }
+
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
-                        evt.getOldValue(), evt.getNewValue());
+                        evt.getOldValue(), evt.getNewValue(), evtInfo);
 
                 fireChangeForNonRecursive(c);
             }
