@@ -16,12 +16,12 @@ public class CrossRefTest {
         AtomicInteger numChanges= new AtomicInteger(0);
         o.vmf().changes().addListener(change -> {
             System.out.println("change: ");
-            System.out.println(" -> obj: " + o.getClass() + ", value: " + o.toString());
+            System.out.println(" -> obj: " + o.getClass() + ", value: " + System.identityHashCode(o));
             System.out.print(" -> prop="+change.propertyName() + ": ");
             
             if(change.propertyChange().isPresent()) {
-                System.out.println(", oldVal= " + change.propertyChange().get().oldValue()
-                                 + ", newVal= " + change.propertyChange().get().newValue());
+                System.out.println(", oldVal= " + System.identityHashCode(change.propertyChange().get().oldValue())
+                                 + ", newVal= " + System.identityHashCode(change.propertyChange().get().newValue()));
             } else {
                 System.out.println("<not present>");
             }
@@ -35,6 +35,8 @@ public class CrossRefTest {
     @Test
     public void singleRefTest() {
         {
+
+            System.out.println("--- TEST singleRefTest");
             EntityOneA entityOneA = EntityOneA.newInstance();
             EntityTwoA entityTwoA = EntityTwoA.newInstance();
 
@@ -62,6 +64,8 @@ public class CrossRefTest {
     @Test
     public void singleMultipleRefTest() {
 
+        System.out.println("--- TEST singleMultipleRefTest");
+
         {
             EntityOneB entityOneB = EntityOneB.newInstance();
             EntityTwoB entityTwoB = EntityTwoB.newInstance();
@@ -82,6 +86,9 @@ public class CrossRefTest {
     }
     @Test
     public void multipleMultipleRefTest() {
+
+        System.out.println("--- TEST multipleMultipleRefTest");
+
         {
             EntityOneC entityOneC = EntityOneC.newInstance();
             EntityTwoC entityTwoC = EntityTwoC.newInstance();

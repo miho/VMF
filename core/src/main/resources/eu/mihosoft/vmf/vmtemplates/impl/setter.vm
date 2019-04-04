@@ -237,7 +237,7 @@
     // fire property change event
     // ----------------------------------------
     if(oldValue!=this.__vmf_prop_$prop.name) {
-      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+      _vmf_firePropertyChangeIfListenersArePresent("ABC$prop.name", oldValue, this.__vmf_prop_$prop.name);
     }
     // ----------------------------------------
 #end## normal property or cross-ref property
