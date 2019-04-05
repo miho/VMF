@@ -103,29 +103,30 @@
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
     // OPPOSITE IS COLLECTION
     if(oldValue!=null) {
-      String evetInfo = oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+      String eventInfo = oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
       oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
       oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().remove(this);
-      oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(evetInfo);
+      oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
     }
 
     if(this.__vmf_prop_${prop.name}!=null) {
-      String evetInfo = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+      String eventInfo = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
       this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
       this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().add(this);
-      this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(evetInfo);
+      this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
     }
 #else## #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
     // OPPOSITE IS NO COLLECTION
     if(oldValue!=null) {
       oldValue.set${prop.referenceInfo.opposite.nameWithUpperCase}(null);
     }
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
     if(this.__vmf_prop_${prop.name}!=null) {
       Object refOldVal = ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name}).__vmf_get_prop_${prop.referenceInfo.opposite.name}();
       ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name}).__vmf_set_prop_${prop.referenceInfo.opposite.name}(this);
       // fire property change event
       if(refOldVal != this) {
-        ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name})._vmf_firePropertyChangeIfListenersArePresent("${prop.referenceInfo.opposite.name}", refOldVal, this/*, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF*/);
+        ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name})._vmf_firePropertyChangeIfListenersArePresent("${prop.referenceInfo.opposite.name}", refOldVal, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
       }
     }
 #end## #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
@@ -237,7 +238,7 @@
     // fire property change event
     // ----------------------------------------
     if(oldValue!=this.__vmf_prop_$prop.name) {
-      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+//      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
     }
     // ----------------------------------------
 #end## normal property or cross-ref property

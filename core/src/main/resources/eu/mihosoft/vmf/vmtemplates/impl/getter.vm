@@ -75,7 +75,7 @@
               // ${prop.referenceInfo.opposite.propType}
                 Object refOldVal = ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}();
                 ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_set_prop_${oppositeRefProp.name}(this);
-                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e)._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, this/*, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF*/);
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e)._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "e")
@@ -90,7 +90,9 @@
 
 #set($oppositeRefProp=${prop.referenceInfo.opposite})
               // ${prop.referenceInfo.opposite.propType}
+                Object refOldVal = ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}();
                 ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_set_prop_${oppositeRefProp.name}(null);   
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e)._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
 
 #set($objectToAddReferenceOnValue=false)
 #set($referenceToAddValue = false)

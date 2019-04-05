@@ -51,9 +51,9 @@ public class CrossRefTest {
 
             assertThat("opposite ref must be set to ref", entityTwoA.getRef(), equalTo(entityOneA));
             assertThat("there's exactly one property 'ref' change", entityOneA.vmf().changes().all().size(), equalTo(1));
-            assertThat("there's exactly one property 'ref' change-events", numEvtOneA.get(), equalTo(1));
-            assertThat("there are two property 'ref' change-events", numEvtTwoA.get(), equalTo(2));
-            assertThat("there's exactly one property 'ref' change", entityTwoA.vmf().changes().all().size(), equalTo(0));
+            assertThat("there's exactly one property 'ref' change-events", numEvtOneA.get(), equalTo(2));
+            assertThat("there are two property 'ref' change-events", numEvtTwoA.get(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change. but it's only stored in the initiating object.", entityTwoA.vmf().changes().all().size(), equalTo(0));
         }
 
         {
@@ -70,9 +70,9 @@ public class CrossRefTest {
 
             assertThat("opposite ref must be set to ref", entityOneA.getRef(), equalTo(entityTwoA));
             assertThat("there's exactly one property 'ref' change", entityTwoA.vmf().changes().all().size(), equalTo(1));
-            assertThat("there's exactly one property 'ref' change-events", numEvtTwoA.get(), equalTo(1));
-            assertThat("there are two property 'ref' change-events", numEvtOneA.get(), equalTo(2));
-            assertThat("there's exactly one property 'ref' change", entityOneA.vmf().changes().all().size(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change-events", numEvtTwoA.get(), equalTo(2));
+            assertThat("there are two property 'ref' change-events", numEvtOneA.get(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change. but it's only stored in the initiating object.", entityOneA.vmf().changes().all().size(), equalTo(0));
         }
     }
 
@@ -97,11 +97,13 @@ public class CrossRefTest {
             assertThat("opposite ref must be set to ref", entityOneB.getRef(), equalTo(entityTwoB));
             assertThat("there's exactly one property 'ref' change-events", numEvtOneB.get(), equalTo(1));
             assertThat("there's exactly one property 'ref' change-events", numEvtTwoB.get(), equalTo(1));
-            assertThat("there's exactly one property 'ref' change", entityOneB.vmf().changes().all().size(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change.", entityTwoB.vmf().changes().all().size(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change. but it's only stored in the initiating object.", entityOneB.vmf().changes().all().size(), equalTo(0));
 
         }
 
         {
+
             EntityOneB entityOneB = EntityOneB.newInstance();
             EntityTwoB entityTwoB = EntityTwoB.newInstance();
 
@@ -111,7 +113,7 @@ public class CrossRefTest {
             entityOneB.setRef(entityTwoB);
 
             assertThat("opposite refs must contain ref", entityTwoB.getRefs(), contains(entityOneB));
-            assertThat("there's exactly one property 'ref' change", entityTwoB.vmf().changes().all().size(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change. but it's only stored in the initiating object.", entityTwoB.vmf().changes().all().size(), equalTo(0));
         }
     }
     @Test
