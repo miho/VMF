@@ -31,14 +31,23 @@
 
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
       this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+            
+            if(${VMFPKG_INT}.ChangeInternal.isCrossRefChange(evt)) {
+              return;
+            }
+
             evt.added().elements().forEach( (e) -> {
               if(e==null) return;
 
 #set($oppositeRefProp=${prop.referenceInfo.opposite})
               // ${prop.referenceInfo.opposite.propType}
-              java.util.List<${oppositeRefProp.genericTypeName}> oppositeRefList = 
-                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}__vmf_RawList();
-              oppositeRefList.add(this);  
+              // java.util.List<${oppositeRefProp.genericTypeName}> oppositeRefList = 
+              //  ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}__vmf_RawList();
+              // oppositeRefList.add(this);  
+              String eventInfo = ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+              ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+              ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().add(this);
+              ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo); 
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "e")
@@ -53,9 +62,13 @@
 
 #set($oppositeRefProp=${prop.referenceInfo.opposite})
               // ${prop.referenceInfo.opposite.propType}
-              java.util.List<${oppositeRefProp.genericTypeName}> oppositeRefList = 
-                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}__vmf_RawList();
-              oppositeRefList.remove(this);    
+              // java.util.List<${oppositeRefProp.genericTypeName}> oppositeRefList = 
+              //  ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}__vmf_RawList();
+              // oppositeRefList.remove(this);   
+              String eventInfo = ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+              ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+              ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().remove(this);
+              ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo); 
 
 #set($objectToAddReferenceOnValue=false)
 #set($referenceToAddValue = false)

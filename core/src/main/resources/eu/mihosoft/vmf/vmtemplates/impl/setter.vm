@@ -109,6 +109,8 @@
       oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
     }
 
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+
     if(this.__vmf_prop_${prop.name}!=null) {
       String eventInfo = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
       this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);

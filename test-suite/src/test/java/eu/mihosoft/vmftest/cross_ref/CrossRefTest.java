@@ -107,13 +107,21 @@ public class CrossRefTest {
             EntityOneB entityOneB = EntityOneB.newInstance();
             EntityTwoB entityTwoB = EntityTwoB.newInstance();
 
+            final AtomicInteger numEvtOneB = countChangeEvents(entityOneB);
+            final AtomicInteger numEvtTwoB = countChangeEvents(entityTwoB);
+
             entityOneB.vmf().changes().start();
             entityTwoB.vmf().changes().start();
 
             entityOneB.setRef(entityTwoB);
 
             assertThat("opposite refs must contain ref", entityTwoB.getRefs(), contains(entityOneB));
+
+            assertThat("there's exactly one property 'ref' change-events", numEvtOneB.get(), equalTo(2));
+            assertThat("there's exactly one property 'ref' change-events", numEvtTwoB.get(), equalTo(1));
+
             assertThat("there's exactly one property 'ref' change. but it's only stored in the initiating object.", entityTwoB.vmf().changes().all().size(), equalTo(0));
+            assertThat("there's exactly one property 'ref' change.", entityOneB.vmf().changes().all().size(), equalTo(1));
         }
     }
     @Test
@@ -125,15 +133,42 @@ public class CrossRefTest {
             EntityOneC entityOneC = EntityOneC.newInstance();
             EntityTwoC entityTwoC = EntityTwoC.newInstance();
 
+            final AtomicInteger numEvtOneC = countChangeEvents(entityOneC);
+            final AtomicInteger numEvtTwoC = countChangeEvents(entityTwoC);
+
+            entityOneC.vmf().changes().start();
+            entityTwoC.vmf().changes().start();
+
             entityOneC.getRefs().add(entityTwoC);
+
             assertThat("opposite refs must contain ref", entityTwoC.getRefs(), contains(entityOneC));
+
+            assertThat("there's exactly one property 'ref' change-events", numEvtOneC.get(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change-events", numEvtTwoC.get(), equalTo(1));
+
+            assertThat("there's exactly one property 'ref' change. but it's only stored in the initiating object.", entityTwoC.vmf().changes().all().size(), equalTo(0));
+            assertThat("there's exactly one property 'ref' change.", entityOneC.vmf().changes().all().size(), equalTo(1));
+            
+
         }
         {
             EntityOneC entityOneC = EntityOneC.newInstance();
             EntityTwoC entityTwoC = EntityTwoC.newInstance();
 
+            final AtomicInteger numEvtOneC = countChangeEvents(entityOneC);
+            final AtomicInteger numEvtTwoC = countChangeEvents(entityTwoC);
+
+            entityOneC.vmf().changes().start();
+            entityTwoC.vmf().changes().start();
+
             entityTwoC.getRefs().add(entityOneC);
             assertThat("opposite refs must contain ref", entityOneC.getRefs(), contains(entityTwoC));
+
+            assertThat("there's exactly one property 'ref' change-events", numEvtOneC.get(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change-events", numEvtTwoC.get(), equalTo(1));
+
+            assertThat("there's exactly one property 'ref' change. but it's only stored in the initiating object.", entityOneC.vmf().changes().all().size(), equalTo(0));
+            assertThat("there's exactly one property 'ref' change.", entityTwoC.vmf().changes().all().size(), equalTo(1));
         }
     }
 }
