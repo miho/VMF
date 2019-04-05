@@ -24,6 +24,9 @@
   // --------------------------- BEGIN TO_STRING -----------------------------
 #if(${type.isToStringMethodDelegated()})
   // -> toString() method is delegated
+  public void __vmf_toString(StringBuilder sb, java.util.IdentityHashMap<Object, ?> _vmf_fToStringChecker) {
+    sb.append(toString());
+  }
 #else## #if(${type.isToStringMethodDelegated()})
 
   @Override
