@@ -5,11 +5,22 @@ import eu.mihosoft.vmf.core.Contains;
 import eu.mihosoft.vmf.core.InterfaceOnly;
 import eu.mihosoft.vmf.core.Refers;
 
+interface AccountModel {
+
+    @Contains(opposite="model")
+    Customer[] getCustomers();
+    @Contains(opposite="model")
+    Account[] getAccounts();
+}
+
 interface Account {
     String getName();
 
     @Refers(opposite="accounts")
     Customer[] getAuthorizedSignatories();
+
+    @Container(opposite="accounts")
+    AccountModel getModel();
 }
 
 @InterfaceOnly
@@ -17,6 +28,9 @@ interface Customer {
     
     @Refers(opposite="authorizedSignatories")
     Account[] getAccounts();
+
+    @Container(opposite="customers")
+    AccountModel getModel();
 }
 
 interface PrivateCustomer extends Customer {
@@ -30,7 +44,7 @@ interface BusinessCustomer extends Customer {
 
     String getCompanyName();
 
-    Address getComapanyAddress();
+    Address getCompanyAddress();
 }
 
 interface Address {
@@ -38,22 +52,3 @@ interface Address {
     String getCity();
     String getPostal();
 }
-
-// interface P {
-//     @Contains(opposite="p")
-//     C[] getCs();
-// }
-
-// @InterfaceOnly
-// interface C {
-//     @Container(opposite="cs")
-//     P getP();
-// }
-
-// interface C1 extends C {
-
-// }
-
-// interface C2 extends C {
-
-// }
