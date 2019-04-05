@@ -3,15 +3,26 @@ package eu.mihosoft.vmf.core;
 import java.lang.annotation.*;
 
 /**
- * Used to define a cross reference (linking releationship). 
+ * Used to define a cross reference (bidirectional linking relationship). 
  * <h3>Example Model:</h3>
  * <pre><code>
  * package mypkg.vmfmodel;
  * 
  * import eu.mihosoft.vmf.core.*;
  *
- * Todo add code
- * 
+ * interface Book {
+ *    String getTitle();
+ *
+ *    @Refers(opposite="books")
+ *    Writer[] getAuthors();
+ * }
+ *
+ * interface Writer {
+ *    String getName();
+ *
+ *    @Refers(opposite="authors")
+ *    Book[] getBooks();
+ * }
  * </code></pre>
  * 
  * <p>Created by miho on 12.03.2019.</p>

@@ -56,8 +56,8 @@
 
 #foreach ($prop in $type.implementation.properties)
 #if (${prop.isIgnoredForToString()} == false)
-#if ($prop.containmentInfo.containmentType != "CONTAINER" )
-#if ($prop.containmentInfo.containmentType == "CONTAINED" && $prop.propType == "COLLECTION")
+#if (${prop.containmentInfo.containmentType} != "CONTAINER" )
+#if ( (${prop.containmentInfo.containmentType} == "CONTAINED" || ${prop.crossRefProperty}) && ${prop.propType} == "COLLECTION")
 
         // -- writing collection param '$prop.name'
         //
