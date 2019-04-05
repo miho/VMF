@@ -16,7 +16,8 @@ public class CrossRefTest {
         AtomicInteger numChanges= new AtomicInteger(0);
         o.vmf().changes().addListener(change -> {
             System.out.println("change: ");
-            System.out.println(" -> obj: " + o.getClass() + ", value: " + System.identityHashCode(o));
+            System.out.println(" -> obj:     " + o.getClass() + ", value: " + System.identityHashCode(o));
+            System.out.println(" -> evt-src: " + change.object().getClass() + ", value: " + System.identityHashCode(change.object()));
             System.out.print(" -> prop="+change.propertyName() + ": ");
             
             if(change.propertyChange().isPresent()) {
@@ -43,21 +44,35 @@ public class CrossRefTest {
             final AtomicInteger numEvtOneA = countChangeEvents(entityOneA);
             final AtomicInteger numEvtTwoA = countChangeEvents(entityTwoA);
 
+            entityOneA.vmf().changes().start();
+            entityTwoA.vmf().changes().start();
+
             entityOneA.setRef(entityTwoA);
 
             assertThat("opposite ref must be set to ref", entityTwoA.getRef(), equalTo(entityOneA));
-
-            assertThat("there's exactly one property 'ref' change", numEvtOneA.get(), equalTo(1));
-            assertThat("there's exactly one property 'ref' change", numEvtTwoA.get(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change", entityOneA.vmf().changes().all().size(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change-events", numEvtOneA.get(), equalTo(1));
+            assertThat("there are two property 'ref' change-events", numEvtTwoA.get(), equalTo(2));
+            assertThat("there's exactly one property 'ref' change", entityTwoA.vmf().changes().all().size(), equalTo(0));
         }
 
         {
             EntityOneA entityOneA = EntityOneA.newInstance();
             EntityTwoA entityTwoA = EntityTwoA.newInstance();
 
+            final AtomicInteger numEvtOneA = countChangeEvents(entityOneA);
+            final AtomicInteger numEvtTwoA = countChangeEvents(entityTwoA);
+
+            entityOneA.vmf().changes().start();
+            entityTwoA.vmf().changes().start();
+
             entityTwoA.setRef(entityOneA);
 
             assertThat("opposite ref must be set to ref", entityOneA.getRef(), equalTo(entityTwoA));
+            assertThat("there's exactly one property 'ref' change", entityTwoA.vmf().changes().all().size(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change-events", numEvtTwoA.get(), equalTo(1));
+            assertThat("there are two property 'ref' change-events", numEvtOneA.get(), equalTo(2));
+            assertThat("there's exactly one property 'ref' change", entityOneA.vmf().changes().all().size(), equalTo(1));
         }
     }
 
@@ -70,18 +85,33 @@ public class CrossRefTest {
             EntityOneB entityOneB = EntityOneB.newInstance();
             EntityTwoB entityTwoB = EntityTwoB.newInstance();
 
+            final AtomicInteger numEvtOneB = countChangeEvents(entityOneB);
+            final AtomicInteger numEvtTwoB = countChangeEvents(entityTwoB);
+
+
+            entityOneB.vmf().changes().start();
+            entityTwoB.vmf().changes().start();
+
             entityTwoB.getRefs().add(entityOneB);
 
             assertThat("opposite ref must be set to ref", entityOneB.getRef(), equalTo(entityTwoB));
+            assertThat("there's exactly one property 'ref' change-events", numEvtOneB.get(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change-events", numEvtTwoB.get(), equalTo(1));
+            assertThat("there's exactly one property 'ref' change", entityOneB.vmf().changes().all().size(), equalTo(1));
+
         }
 
         {
             EntityOneB entityOneB = EntityOneB.newInstance();
             EntityTwoB entityTwoB = EntityTwoB.newInstance();
 
+            entityOneB.vmf().changes().start();
+            entityTwoB.vmf().changes().start();
+
             entityOneB.setRef(entityTwoB);
 
             assertThat("opposite refs must contain ref", entityTwoB.getRefs(), contains(entityOneB));
+            assertThat("there's exactly one property 'ref' change", entityTwoB.vmf().changes().all().size(), equalTo(1));
         }
     }
     @Test

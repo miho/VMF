@@ -89,10 +89,12 @@ public class ChangesImpl implements Changes {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
 
-                String evtInfo = "";
+                String evtInfo;
 
                 if(evt instanceof eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent) {
                     evtInfo = ((eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent)evt).getEventInfo();
+                } else {
+                    evtInfo = "";
                 }
 
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
@@ -129,10 +131,12 @@ public class ChangesImpl implements Changes {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
 
-                String evtInfo = "";
+                String evtInfo;
 
                 if(evt instanceof eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent) {
                     evtInfo = ((eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent)evt).getEventInfo();
+                } else {
+                    evtInfo = "";
                 }
 
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
@@ -180,7 +184,7 @@ public class ChangesImpl implements Changes {
                 }
             }
 
-            if(!foundParent) {
+            if(!foundParent && !ChangeInternal.isCrossRefChange(c)) {
                 all.add(c);
             }
         }
@@ -207,7 +211,7 @@ public class ChangesImpl implements Changes {
                 }
             }
 
-            if(!foundParent) {
+            if(!foundParent && !ChangeInternal.isCrossRefChange(c)) {
                 all.add(c);
             }
         }
