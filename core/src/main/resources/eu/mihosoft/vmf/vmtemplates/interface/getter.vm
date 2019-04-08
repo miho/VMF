@@ -60,7 +60,33 @@
    * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end ## if collection
-#elseif(${prop.propType}=="COLLECTION") ## if container / contained
+#elseif(${prop.isCrossRefProperty()})          ## if container / contained
+#set($opposite = ${prop.referenceInfo.opposite})
+#if(${prop.propType}=="COLLECTION") ## if collection
+  /**
+   * Returns the value of the '<em>${prop.name}</em>' cross reference list.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.genericTypeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em>${prop.name}</em>' containment list.
+   */
+#else                               ## if collection
+  /**
+   * Returns the value of the '<em><b>${prop.name}</b></em>' cross reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em><b>${prop.name}</b></em>' cross reference.
+   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   */
+#end                                ## if collection
+#elseif(${prop.propType}=="COLLECTION"       ) ## if container / contained
   /**
    * Returns the value of the '<em>${prop.name}</em>' property.
    *
