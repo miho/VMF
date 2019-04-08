@@ -265,6 +265,10 @@ public class Prop {
         return customDocumentation;
     }
 
+    public boolean isDocumented() {
+        return getCustomDocumentation()!=null && !getCustomDocumentation().isEmpty();
+    }
+
     void setPropId(int propId) {
         this.propId = propId;
     }

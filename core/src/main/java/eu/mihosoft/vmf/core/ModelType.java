@@ -190,6 +190,10 @@ public class ModelType {
         return customDocumentation;
     }
 
+    public boolean isDocumented() {
+        return getCustomDocumentation()!=null && !getCustomDocumentation().isEmpty();
+    }
+
 
     private void initAnnotations(Class<?> clazz) {
         Annotation[] annotationObjects = clazz.getDeclaredAnnotationsByType(Annotation.class);

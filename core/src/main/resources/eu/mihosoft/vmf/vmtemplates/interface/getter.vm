@@ -23,18 +23,23 @@
  *#
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")
 #set($opposite = ${prop.containmentInfo.opposite})
-/**
- * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
- *
- * It is bidirectional and its opposite is '{@link ${prop.typeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
- *
- * <!-- vmf-begin-model-doc -->
- * <p>${prop.customDocumentation}</p>
- * <!-- vmf-end-model-doc -->
- *
- * @return the value of the '<em><b>${prop.name}</b></em>' container reference.
- * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
- */
+  /**
+   * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+   * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em><b>${prop.name}</b></em>' container reference.
+   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   */
 #elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
 #if(${prop.propType}=="COLLECTION")
 #set($opposite = ${prop.containmentInfo.opposite})
@@ -44,7 +49,12 @@
    * It is bidirectional and its opposite is '{@link ${prop.genericTypeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em>${prop.name}</em>' containment list.
@@ -56,7 +66,12 @@
    * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
@@ -72,7 +87,12 @@
    * It is bidirectional and its opposite is '{@link ${prop.genericTypeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em>${prop.name}</em>' containment list.
@@ -84,7 +104,12 @@
    * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' cross reference.
@@ -96,7 +121,12 @@
    * Returns the value of the '<em>${prop.name}</em>' property.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em>${prop.name}</em>' property.
@@ -106,7 +136,12 @@
    * Returns the value of the '<em>${prop.name}</em>' property.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em>${prop.name}</em>' property.

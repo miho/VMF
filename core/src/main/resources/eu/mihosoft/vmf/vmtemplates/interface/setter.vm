@@ -26,18 +26,23 @@
 ##
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")##      ## if container / contained
 #set($opposite = ${prop.containmentInfo.opposite})
-/**
- * Sets the value of the '<em><b>${prop.name}</b></em>' container reference.
- *
- * It is bidirectional and its opposite is '{@link ${prop.typeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
- *
- * <!-- vmf-begin-model-doc -->
- * <p>${prop.customDocumentation}</p>
- * <!-- vmf-end-model-doc -->
- *
- * @param $prop.name the value to set
- * @see ${type.typeName}#get${prop.nameWithUpperCase}($prop.typeName)
- */
+  /**
+   * Sets the value of the '<em><b>${prop.name}</b></em>' container reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+   * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+   * <!-- vmf-end-model-doc -->
+   *
+   * @param $prop.name the value to set
+   * @see ${type.typeName}#get${prop.nameWithUpperCase}($prop.typeName)
+   */
 #elseif (${prop.containmentInfo.containmentType}=="CONTAINED")##  ## if container / contained
   /**
    * Sets the value of the '<em><b>${prop.name}</b></em>' containment reference.
@@ -45,7 +50,12 @@
    * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @param $prop.name the value to set
@@ -59,7 +69,12 @@
    * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @param $prop.name the value to set
@@ -70,7 +85,12 @@
    * Returns the value of the '<em>${prop.name}</em>' property.
    *
    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
    * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em>${prop.name}</em>' property.

@@ -40,7 +40,12 @@ package ${type.packageName};
  * An read-only representation of the model object {@code $type.fullTypeName}.
  *
  * <!-- vmf-begin-model-doc -->
+#if(${type.documented})
  * <p>${type.customDocumentation}</p>
+#else
+ * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+ * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
  * <!-- vmf-end-model-doc -->
  */
 public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type.readOnlyImplementsString, ${VMFPKG}.ReadOnly #if($type.interfaceOnlyWithGettersOnly && $type.allPropertyTypesAreInterfaceOnlyWithGettersOnlyOrImmutable()), $type.typeName #end{
