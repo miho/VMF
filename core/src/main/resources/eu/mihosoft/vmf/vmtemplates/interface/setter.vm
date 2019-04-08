@@ -23,17 +23,7 @@
  *#
 ## we don't support setters for collection types
 #if(${prop.propType}!="COLLECTION" && (${prop.getterOnly} == false || (${type.immutable} == false && ${type.interfaceOnly} == false) ) )
- /**
-  * Sets the value of the '<em>${prop.name}</em>' property.
-  *
-  * <!-- vmf-begin-model-doc -->
-  * <!-- vmf-end-model-doc -->
-  *
-  * @param $prop.name the value to set
-  * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
-  */
-
-##----------------------------------------------------
+##
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")##      ## if container / contained
 #set($opposite = ${prop.containmentInfo.opposite})
 /**
@@ -85,17 +75,10 @@
 #end## if type is not immutable
    */
 #end##                                        ## if container / contained
-##----------------------------------------------------
-
-
-
-
-
-
   $prop.setterDeclaration;
-#else
+#else##
 //  SKIPPING prop: ${prop.name}
 //  getter:    ${prop.getterOnly} 
 //  immutable: ${type.immutable}
 //  iface:     ${type.interfaceOnly}
-#end
+#end##

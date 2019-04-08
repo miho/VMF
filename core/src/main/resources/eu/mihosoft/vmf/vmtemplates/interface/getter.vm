@@ -59,8 +59,8 @@
    * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
    * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
-#end ## if collection
-#elseif(${prop.isCrossRefProperty()})          ## if container / contained
+#end## if collection
+#elseif(${prop.isCrossRefProperty()})##          ## if container / contained
 #set($opposite = ${prop.referenceInfo.opposite})
 #if(${prop.propType}=="COLLECTION") ## if collection
   /**
@@ -73,7 +73,7 @@
    *
    * @return the value of the '<em>${prop.name}</em>' containment list.
    */
-#else                               ## if collection
+#else##                               ## if collection
   /**
    * Returns the value of the '<em><b>${prop.name}</b></em>' cross reference.
    *
@@ -85,8 +85,8 @@
    * @return the value of the '<em><b>${prop.name}</b></em>' cross reference.
    * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
-#end                                ## if collection
-#elseif(${prop.propType}=="COLLECTION"       ) ## if container / contained
+#end##                                ## if collection
+#elseif(${prop.propType}=="COLLECTION"       )## ## if container / contained
   /**
    * Returns the value of the '<em>${prop.name}</em>' property.
    *
@@ -95,7 +95,7 @@
    *
    * @return the value of the '<em>${prop.name}</em>' property.
    */
-#else ## if collection
+#else## if collection
   /**
    * Returns the value of the '<em>${prop.name}</em>' property.
    *
@@ -107,5 +107,5 @@
    * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
 #end## if type is not immutable
    */
-#end ## if container / contained
+#end## if container / contained
 $prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}();
