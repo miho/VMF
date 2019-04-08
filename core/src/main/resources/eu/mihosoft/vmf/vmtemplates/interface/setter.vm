@@ -32,6 +32,66 @@
   * @param $prop.name the value to set
   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
   */
+
+##----------------------------------------------------
+#if(${prop.containmentInfo.containmentType}=="CONTAINER")##      ## if container / contained
+#set($opposite = ${prop.containmentInfo.opposite})
+/**
+ * Sets the value of the '<em><b>${prop.name}</b></em>' container reference.
+ *
+ * It is bidirectional and its opposite is '{@link ${prop.typeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+ *
+ * <!-- vmf-begin-model-doc -->
+ * <!-- vmf-end-model-doc -->
+ *
+ * @param $prop.name the value to set
+ * @see ${type.typeName}#get${prop.nameWithUpperCase}($prop.typeName)
+ */
+#elseif (${prop.containmentInfo.containmentType}=="CONTAINED")##  ## if container / contained
+  /**
+   * Sets the value of the '<em><b>${prop.name}</b></em>' containment reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @param $prop.name the value to set
+   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+   */
+#elseif(${prop.isCrossRefProperty()})##       ## if container / contained
+#set($opposite = ${prop.referenceInfo.opposite})
+  /**
+   * Sets the value of the '<em><b>${prop.name}</b></em>' cross reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @param $prop.name the value to set
+   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+   */
+#else##                                       ## if container / contained                         
+  /**
+   * Returns the value of the '<em>${prop.name}</em>' property.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em>${prop.name}</em>' property.
+#if(!$type.immutable)
+   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+#end## if type is not immutable
+   */
+#end##                                        ## if container / contained
+##----------------------------------------------------
+
+
+
+
+
+
   $prop.setterDeclaration;
 #else
 //  SKIPPING prop: ${prop.name}
