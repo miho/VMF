@@ -4,6 +4,7 @@ import eu.mihosoft.vmf.core.Container;
 import eu.mihosoft.vmf.core.Contains;
 import eu.mihosoft.vmf.core.InterfaceOnly;
 import eu.mihosoft.vmf.core.Refers;
+import eu.mihosoft.vmf.core.Doc;
 
 interface AccountModel {
 
@@ -13,6 +14,7 @@ interface AccountModel {
     Account[] getAccounts();
 }
 
+@Doc("A bank account has one or more authorized signatories.")
 interface Account {
     String getName();
 
@@ -23,9 +25,11 @@ interface Account {
     AccountModel getModel();
 }
 
+@Doc("A customer can have one or more bank accounts.")
 @InterfaceOnly
 interface Customer {
     
+    @Doc("Returns all bank accounts of this customer.")
     @Refers(opposite="authorizedSignatories")
     Account[] getAccounts();
 
@@ -33,6 +37,7 @@ interface Customer {
     AccountModel getModel();
 }
 
+@Doc("A private customer has a name and a residential address.")
 interface PrivateCustomer extends Customer {
     String getFirstName();
     String getLastName();
@@ -40,6 +45,7 @@ interface PrivateCustomer extends Customer {
     Address getResidentialAddress();
 }
 
+@Doc("A business customer is a company.")
 interface BusinessCustomer extends Customer {
 
     String getCompanyName();
@@ -47,6 +53,7 @@ interface BusinessCustomer extends Customer {
     Address getCompanyAddress();
 }
 
+@Doc("An address for customers.")
 interface Address {
     String getStreet();
     String getCity();

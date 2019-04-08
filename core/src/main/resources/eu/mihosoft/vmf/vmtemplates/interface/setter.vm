@@ -32,6 +32,7 @@
  * It is bidirectional and its opposite is '{@link ${prop.typeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
  *
  * <!-- vmf-begin-model-doc -->
+ * <p>${prop.customDocumentation}</p>
  * <!-- vmf-end-model-doc -->
  *
  * @param $prop.name the value to set
@@ -44,6 +45,7 @@
    * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
+   * <p>${prop.customDocumentation}</p>
    * <!-- vmf-end-model-doc -->
    *
    * @param $prop.name the value to set
@@ -57,6 +59,7 @@
    * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
    *
    * <!-- vmf-begin-model-doc -->
+   * <p>${prop.customDocumentation}</p>
    * <!-- vmf-end-model-doc -->
    *
    * @param $prop.name the value to set
@@ -67,6 +70,7 @@
    * Returns the value of the '<em>${prop.name}</em>' property.
    *
    * <!-- vmf-begin-model-doc -->
+   * <p>${prop.customDocumentation}</p>
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em>${prop.name}</em>' property.

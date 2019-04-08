@@ -108,6 +108,8 @@ public class Prop {
 
     private int propId;
 
+    private String customDocumentation="";
+
     // // ONLY used for shallow-clone (until we replace this with vmf model entities
     // // and proper cloning)
     // private Prop(ModelType parent, Method getterMethod, String name) {
@@ -127,6 +129,8 @@ public class Prop {
     void initType(Model m, Method getterMethod) {
 
         Class<?> propClass = getterMethod.getReturnType();
+
+        intitCustomDocumentation(getterMethod);
 
         PropertyOrder propOrder = getterMethod.getAnnotation(PropertyOrder.class);
         if (propOrder != null) {
@@ -237,6 +241,28 @@ public class Prop {
         // we require alphabetic order (by key)
         Collections.sort(annotations, Comparator.comparing(AnnotationInfo::getKey));
 
+    }
+
+    private void intitCustomDocumentation(Method m) {
+        Doc doc = m.getDeclaredAnnotation(Doc.class);
+
+        if(doc!=null) {
+            setCustomDocumentation(doc.value());
+        }
+    }
+
+    /**
+     * @param customDocumentation the customDocumentation to set
+     */
+    void setCustomDocumentation(String customDocumentation) {
+        this.customDocumentation = customDocumentation;
+    }
+
+    /**
+     * @return the customDocumentation
+     */
+    public String getCustomDocumentation() {
+        return customDocumentation;
     }
 
     void setPropId(int propId) {

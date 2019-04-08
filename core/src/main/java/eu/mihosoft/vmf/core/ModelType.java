@@ -67,6 +67,8 @@ public class ModelType {
     private final boolean interfaceOnly;
     private boolean interfaceWithGettersOnly;
 
+    private String customDocumentation="";
+
     private final int typeId;
 
     private final List<DelegationInfo> delegations = new ArrayList<>();
@@ -89,6 +91,8 @@ public class ModelType {
 
         this.immutable = clazz.getAnnotation(Immutable.class) != null;
         this.interfaceOnly = clazz.getAnnotation(InterfaceOnly.class) != null;
+
+        intitCustomDocumentation(clazz);
 
         initDelegations(clazz);
 
@@ -163,6 +167,29 @@ public class ModelType {
 
         sortProperties(properties, customPropertyOrderPresent);
     }
+
+    private void intitCustomDocumentation(Class<?> clazz) {
+        Doc doc = clazz.getDeclaredAnnotation(Doc.class);
+
+        if(doc!=null) {
+            setCustomDocumentation(doc.value());
+        }
+    }
+
+    /**
+     * @param customDocumentation the customDocumentation to set
+     */
+    void setCustomDocumentation(String customDocumentation) {
+        this.customDocumentation = customDocumentation;
+    }
+
+    /**
+     * @return the customDocumentation
+     */
+    public String getCustomDocumentation() {
+        return customDocumentation;
+    }
+
 
     private void initAnnotations(Class<?> clazz) {
         Annotation[] annotationObjects = clazz.getDeclaredAnnotationsByType(Annotation.class);

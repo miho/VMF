@@ -2,6 +2,7 @@ package eu.mihosoft.vmftest.complex.fsm.vmfmodel;
 
 import eu.mihosoft.vmf.core.*;
 
+@Doc("This model entity is a finite state machine.")
 interface FSM {
 
     String getName();
