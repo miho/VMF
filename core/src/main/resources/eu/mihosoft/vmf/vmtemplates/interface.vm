@@ -76,10 +76,7 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString,
    * @return a new instance of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
   static ${type.typeName} newInstance() {
-
     return __VMF__${type.typeName}_Creator.newInstance();
-
-
   }
 #end##if type interface only
 
