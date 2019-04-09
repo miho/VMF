@@ -50,7 +50,9 @@ public class DelegationInfo {
 
     private final boolean constructor;
 
-    private DelegationInfo(String fullTypeName, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor) {
+    private final String customDocumentation;
+
+    private DelegationInfo(String fullTypeName, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor, String customDocumentation) {
         this.fullTypeName = fullTypeName;
         this.methodName = methodName;
         this.returnType = returnType;
@@ -64,10 +66,12 @@ public class DelegationInfo {
         varName = "__vmf_delegate_"+delegationTypes.indexOf(fullTypeName);
 
         this.constructor = constructor;
+
+        this.customDocumentation = customDocumentation;
     }
 
-    public static DelegationInfo newInstance(String className, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor) {
-        return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames, constructor);
+    public static DelegationInfo newInstance(String className, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor, String customDocumentation) {
+        return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames, constructor, customDocumentation);
     }
 
     public static DelegationInfo newInstance(Model model, Method m) {
@@ -85,11 +89,21 @@ public class DelegationInfo {
             paramNames.add(p.getName());
         }
 
+        Doc doc = m.getAnnotation(Doc.class);
+
+        String customDocumentation;
+        
+        if(doc!=null) {
+            customDocumentation = doc.value();
+        } else {
+            customDocumentation = "";
+        }
+
         return newInstance(
                 delegation.className(),
                 m.getName(),
                 TypeUtil.getReturnTypeAsString(model,m),
-                paramTypes, paramNames, false);
+                paramTypes, paramNames, false, customDocumentation);
     }
 
     public static DelegationInfo newInstance(Model model, Class<?> clazz) {
@@ -108,7 +122,8 @@ public class DelegationInfo {
                 delegation.className(),
                 "on"+clazz.getSimpleName()+"Instantiated",
                 TypeUtil.getTypeAsString(model,clazz),
-                paramTypes, paramNames, true);
+                paramTypes, paramNames, true, 
+                "" /*constructors are not documented because there's no public API for them*/);
     }
 
     public List<String> getParamTypes() {
@@ -154,6 +169,14 @@ public class DelegationInfo {
 
     public String getVarName() {
         return varName;
+    }
+
+    public boolean isDocumented() {
+        return getCustomDocumentation()!=null && !getCustomDocumentation().isEmpty();
+    }
+
+    public String getCustomDocumentation() {
+        return this.customDocumentation;
     }
 
 }

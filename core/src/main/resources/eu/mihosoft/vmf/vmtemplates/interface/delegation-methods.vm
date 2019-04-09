@@ -27,6 +27,12 @@
 
 #foreach( $delegate in ${type.methodDelegations})
 #if($delegate.methodName != "clone")
+  /**
+#if($delegate.documented)
+   * <p>${delegate.customDocumentation}</p>
+#end## is documented   
+   * <p><b>Note:</b> The behavior of this method is defined by '{@link ${delegate.fullTypeName}}'.</p>
+   */
   $delegate.methodDeclaration;
 #end## #if($delegate.methodName != "clone")
 #end## for each delegate
