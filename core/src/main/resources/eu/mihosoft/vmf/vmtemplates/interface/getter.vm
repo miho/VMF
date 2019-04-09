@@ -150,4 +150,4 @@
 #end## if type is not immutable
    */
 #end## if container / contained
-$prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}();
+  $prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}();
