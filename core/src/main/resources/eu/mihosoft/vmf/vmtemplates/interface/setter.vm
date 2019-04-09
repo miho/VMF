@@ -82,7 +82,7 @@
    */
 #else##                                       ## if container / contained                         
   /**
-   * Returns the value of the '<em>${prop.name}</em>' property.
+   * Sets the value of the '<em>${prop.name}</em>' property.
    *
    * <!-- vmf-begin-model-doc -->
 #if(${prop.documented})
@@ -93,7 +93,7 @@
 #end
    * <!-- vmf-end-model-doc -->
    *
-   * @return the value of the '<em>${prop.name}</em>' property.
+   * @param $prop.name the value to set
 #if(!$type.immutable)
    * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
 #end## if type is not immutable
