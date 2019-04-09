@@ -41,7 +41,7 @@
    * <!-- vmf-end-model-doc -->
    *
    * @param $prop.name the value to set
-   * @see ${type.typeName}#get${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.fullTypeName}#get${prop.nameWithUpperCase}($prop.typeName)
    */
 #elseif (${prop.containmentInfo.containmentType}=="CONTAINED")##  ## if container / contained
   /**
@@ -59,7 +59,7 @@
    * <!-- vmf-end-model-doc -->
    *
    * @param $prop.name the value to set
-   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+   * @see ${type.fullTypeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
    */
 #elseif(${prop.isCrossRefProperty()})##       ## if container / contained
 #set($opposite = ${prop.referenceInfo.opposite})
@@ -78,7 +78,7 @@
    * <!-- vmf-end-model-doc -->
    *
    * @param $prop.name the value to set
-   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+   * @see ${type.fullTypeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
    */
 #else##                                       ## if container / contained                         
   /**
@@ -95,7 +95,7 @@
    *
    * @param $prop.name the value to set
 #if(!$type.immutable)
-   * @see ${type.typeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+   * @see ${type.fullTypeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
 #end## if type is not immutable
    */
 #end##                                        ## if container / contained

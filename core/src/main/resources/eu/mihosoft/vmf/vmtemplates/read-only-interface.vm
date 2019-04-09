@@ -62,7 +62,7 @@ public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type
  * <!-- vmf-end-model-doc -->
  *
  * @return the value of the '<em>${prop.name}</em>' container reference.
- * @see ${type.typeName}#\set${prop.nameWithUpperCase}($prop.typeName)
+ * @see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
  */
 #elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
 #if(${prop.propType}=="COLLECTION")
@@ -88,7 +88,7 @@ public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
-   * @see ${type.typeName}#\set${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end ## if collection
 #else ## if container / contained
@@ -99,7 +99,7 @@ public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type
   * <!-- vmf-end-model-doc -->
   *
   * @return the value of the '<em>${prop.name}</em>' property.
-  * #if(${prop.propType}!="COLLECTION")@see ${type.typeName}#\set${prop.nameWithUpperCase}($prop.typeName)
+  * #if(${prop.propType}!="COLLECTION")@see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
 #end
   */
 #end ## if container / contained

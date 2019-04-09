@@ -97,7 +97,7 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString,
 
 #if(!$type.interfaceOnly)
 /*
- *  Creates instances of type {@code${type.implementation.packageName}.${type.implementation.typeName}}. Method handles
+ *  Creates instances of type {@code ${type.implementation.packageName}.${type.implementation.typeName}}. Method handles
  *  and class objects are lazily initialized and cached since repetitive and high frequent usage is likely.
  *
  *  This class is used to gain efficient avvess to private classes from the impl package.

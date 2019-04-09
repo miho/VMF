@@ -38,7 +38,7 @@
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' container reference.
-   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
 #if(${prop.propType}=="COLLECTION")
@@ -75,7 +75,7 @@
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
-   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end## if collection
 #elseif(${prop.isCrossRefProperty()})##          ## if container / contained
@@ -113,7 +113,7 @@
    * <!-- vmf-end-model-doc -->
    *
    * @return the value of the '<em><b>${prop.name}</b></em>' cross reference.
-   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end##                                ## if collection
 #elseif(${prop.propType}=="COLLECTION"       )## ## if container / contained
@@ -146,7 +146,7 @@
    *
    * @return the value of the '<em>${prop.name}</em>' property.
 #if(!$type.immutable)
-   * @see ${type.typeName}#set${prop.nameWithUpperCase}($prop.typeName)
+   * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
 #end## if type is not immutable
    */
 #end## if container / contained
