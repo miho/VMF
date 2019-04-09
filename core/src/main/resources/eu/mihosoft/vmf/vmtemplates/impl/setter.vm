@@ -146,7 +146,7 @@
     // containment property: 
     // ----------------------------------------
     // -> this is a single container property (parent)
-    // -> the opposite is a single containe property (child)
+    // -> the opposite is a single contained property (child)
     // ----------------------------------------
 
     // if previous container is present then release containment relation
