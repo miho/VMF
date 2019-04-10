@@ -66,4 +66,12 @@ public final class ContainmentInfo {
         return containmentType;
     }
 
+    /**
+     * Indicates if this containment does not have an opposite.
+     * @return
+     */
+    public boolean isWithoutOpposite() {
+        return getOpposite()==null;
+    }
+
 }

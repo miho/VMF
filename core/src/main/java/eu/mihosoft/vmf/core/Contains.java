@@ -61,5 +61,7 @@ public @interface Contains {
     /**
      * Sets the opposite property of this containment relationship, e.g., <b>"parent"</b> (short form) or <b>"ClassName.parent"</b> (full property).
      */
-    String opposite();
+    String opposite() default NO_OPPOSITE_PROPERTY;
+
+    static String NO_OPPOSITE_PROPERTY = "vmf:containment:no-opposite";
 }

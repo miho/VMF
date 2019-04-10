@@ -314,25 +314,32 @@ public class Prop {
 
             String oppositeOfGetContainedProperty = contained.opposite();
 
-            // System.out.println("Container: " + container.opposite());
-            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
-
-            // if opposite can't be found, try with full name
-            if (!opposite.isPresent()) {
-                if (isCollectionType()) {
-                    oppositeOfGetContainedProperty = getGenericTypeName() + "." + oppositeOfGetContainedProperty;
-                } else {
-                    oppositeOfGetContainedProperty = getTypeName() + "." + oppositeOfGetContainedProperty;
-                }
-                opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
-            }
-
-            if (opposite.isPresent()) {
-                this.containmentInfo = ContainmentInfo.newInstance(parent, this, opposite.get().getParent(),
-                        opposite.get(), ContainmentType.CONTAINED);
+            if(Contains.NO_OPPOSITE_PROPERTY.equals(oppositeOfGetContainedProperty)) {
+                // no opposite specified. this is allowed for the `@contains` annotation
+                // but not allowed for `@container` annotation
+                this.containmentInfo = ContainmentInfo.newInstance(parent, this, null,
+                            null, ContainmentType.CONTAINED);
             } else {
-                throw new RuntimeException(
-                        "Specified opposite property '" + oppositeOfGetContainedProperty + "' cannot be found");
+                // System.out.println("Container: " + container.opposite());
+                Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
+
+                // if opposite can't be found, try with full name
+                if (!opposite.isPresent()) {
+                    if (isCollectionType()) {
+                        oppositeOfGetContainedProperty = getGenericTypeName() + "." + oppositeOfGetContainedProperty;
+                    } else {
+                        oppositeOfGetContainedProperty = getTypeName() + "." + oppositeOfGetContainedProperty;
+                    }
+                    opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
+                }
+
+                if (opposite.isPresent()) {
+                    this.containmentInfo = ContainmentInfo.newInstance(parent, this, opposite.get().getParent(),
+                            opposite.get(), ContainmentType.CONTAINED);
+                } else {
+                    throw new RuntimeException(
+                            "Specified opposite property '" + oppositeOfGetContainedProperty + "' cannot be found");
+                }
             }
         } else {
             this.containmentInfo = ContainmentInfo.newInstance(null, null, null, null, ContainmentType.NONE);
