@@ -51,7 +51,7 @@
 
     // for-loop begin
 #foreach($pType in ${prop.parent.model.findAllPropsThatContainType(${prop.type})})
-    ${pType.parent.typeName}.${pType.name}
+    // -> affected properties: ${pType.parent.typeName}.${pType.name}
 #end
     // for-loop end
 

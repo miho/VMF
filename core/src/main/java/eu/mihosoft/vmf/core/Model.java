@@ -214,7 +214,7 @@ public class Model {
                 if(
                     p.isContainmentProperty()
                     && p.getContainmentInfo().isWithoutOpposite()
-                    // && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
+                    && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
                     && p.getType().extendsType(type)) {
                     result.add(p);
                 }
