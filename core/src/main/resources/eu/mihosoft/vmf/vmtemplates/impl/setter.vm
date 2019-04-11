@@ -34,7 +34,30 @@
 //      -> propType:   ${prop.typeName}  
 //   -> opposite:      false, <none>
 // ----------------------------------------
+  @Override
+  public $prop.setterDeclaration {
 
+    // return early if identical value has been set
+    if (this.__vmf_prop_$prop.name == $prop.name) {
+      return;
+    }
+
+    // ----------------------------------------
+    // set the new value
+    // ----------------------------------------
+    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+    this.__vmf_prop_$prop.name = $prop.name;
+    // ----------------------------------------
+
+    // TODO implement me!
+
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "oldValue")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+  } // setterDeclaration (setter method)    
 #else##--------------------------------------else (no opposite)
 ########################################################################################################################
 #if(${prop.containmentInfo.containmentType}=="CONTAINED")## if (prop is contained)   
