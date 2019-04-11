@@ -175,6 +175,11 @@ public interface VObjectInternal extends VObject, ObservableObject {
     List<Annotation> _vmf_getAnnotations();
 
     /**
+     * @return current unnamed container (named containers are represented via the specified properties instead)
+     */
+    default VObject _vmf_getContainer() {throw new RuntimeException("This type is not contained and this method shouldn't be called!");};
+
+    /**
      * 
      * @param threadlocalMap the thread local map for equality checks
      */

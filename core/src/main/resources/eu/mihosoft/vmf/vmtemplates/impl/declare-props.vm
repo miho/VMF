@@ -21,8 +21,14 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
-#foreach( $prop in ${type.implementation.properties})
+#if(${type.containedWithoutOpposite})
+  // containment prop (for containments without specified opposite)
+  /*package private*/ ${VMFPKG}.VObject __vmf_internal_container;
+  @Override public ${VMFPKG}.VObject _vmf_getContainer() {return this.__vmf_internal_container;}
+  @Override public void _vmf_setContainer(${VMFPKG}.VObject container) {this.__vmf_internal_container = container;}
+#end
 
+#foreach( $prop in ${type.implementation.properties})
   // --- PROP '$prop.typeName'
   /*package private*/ $prop.typeName __vmf_prop_$prop.name;
 #if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")

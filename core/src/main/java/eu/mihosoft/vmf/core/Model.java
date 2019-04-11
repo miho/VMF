@@ -227,7 +227,7 @@ public class Model {
             filter(p->p.isContainmentProperty()).
             filter(p->p.getContainmentInfo().isWithoutOpposite()).
             filter(p->p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED).
-            filter(p->p.getType().extendsType(type)).collect(Collectors.toList());
+            filter(p->p.getType().extendsType(type)||type.extendsType(p.getType())).collect(Collectors.toList());
     }
 
     /**

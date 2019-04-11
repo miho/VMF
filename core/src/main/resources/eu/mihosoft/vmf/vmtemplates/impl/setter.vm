@@ -43,17 +43,38 @@
     }
 
     // ----------------------------------------
+    // save the old value
+    // ----------------------------------------
+    ${prop.typeName} oldValue = this.__vmf_prop_$prop.name;
+    // ----------------------------------------
+
+    // release old container
+    if(oldValue!=null) {
+      ${VMFPKG_INT}.VObjectInternalModifiable oldValueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)oldValue;
+      oldValueInternal._vmf_setContainer(null);
+    }
+
+    // release from old container & set new container
+    if($prop.name!=null) {
+      ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)$prop.name;
+      // for-loop <begin>
+#foreach($pType in ${prop.type.findAllPropsThatContainType()})
+      // PROP: ${pType.parent.typeName}.${pType.name}
+      if(valueInternal._vmf_getContainer() instanceof ${pType.parent.typeName}) {
+        ${pType.parent.typeName} container = (${pType.parent.typeName})valueInternal._vmf_getContainer();
+        container.set${pType.nameWithUpperCase}(null);
+      }
+#end
+      // for-loop <end>
+      valueInternal._vmf_setContainer(this);
+    }
+
+    // ----------------------------------------
     // set the new value
     // ----------------------------------------
-    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
     this.__vmf_prop_$prop.name = $prop.name;
     // ----------------------------------------
 
-    // for-loop <begin>
-#foreach($pType in ${prop.type.findAllPropsThatContainType()})
-    // -> affected properties: ${pType.parent.typeName}.${pType.name}
-#end
-    // for-loop <end>
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})

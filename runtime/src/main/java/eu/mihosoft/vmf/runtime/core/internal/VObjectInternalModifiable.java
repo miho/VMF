@@ -62,4 +62,11 @@ public interface VObjectInternalModifiable extends VObjectInternal {
         cImpl.setModel(this);
     }
 
+    /**
+     * Sets current unnamed container (named containers are represented via the specified properties instead).
+     * @param container container to set
+     */
+    default void _vmf_setContainer(VObject container) {throw new RuntimeException("This type is not contained and this method shouldn't be called!");};
+
+
 }
