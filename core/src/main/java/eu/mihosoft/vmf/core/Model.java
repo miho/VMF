@@ -204,30 +204,51 @@ public class Model {
      */
     List<Prop> findAllPropsThatContainType(ModelType type) {
 
+        List<Prop> result = new ArrayList<>();
+        if(type==null) return result;
+        
         List<ModelType> allTypes = getTypes();
-        // List<Prop> result = new ArrayList<>();
 
-        // // check whether this model contains entities with containment
-        // // properties that declare no opposite and 
-        // for(ModelType t : allTypes) {
-        //     for(Prop p : t.getProperties()) {
-        //         if(
-        //             p.isContainmentProperty()
-        //             && p.getContainmentInfo().isWithoutOpposite()
-        //             && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
-        //             && p.getType().extendsType(type)) {
-        //             result.add(p);
-        //         }
-        //     }
-        // }
-        // return result;
+        // check whether this model contains entities with containment
+        // properties that declare no opposite and 
+        for(ModelType t : allTypes) {
+            for(Prop p : t.getProperties()) {
 
-        // version with streams & lambdas
-        return allTypes.stream().flatMap(t->t.getProperties().stream()).
-            filter(p->p.isContainmentProperty()).
-            filter(p->p.getContainmentInfo().isWithoutOpposite()).
-            filter(p->p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED).
-            filter(p->p.getType().extendsType(type)||type.extendsType(p.getType())).collect(Collectors.toList());
+                // if p is a single valued parameter then obtain the type directly
+                // if it is a collection param then get the generic type
+                ModelType pType;
+                if(p.getType()!=null) {
+                    pType = p.getType();
+                } else if (p.isCollectionType() && p.getGenericType()!=null) {
+                    pType = p.getGenericType();
+                } else {
+                    pType = null;
+                }
+
+                if(pType==null) continue;
+
+                // add the parameter if its type is a model type, is container
+                // and no opposite has been specified and if the paramater type
+                // and the specified type have a common descentent or ancestor
+                if(    p.isContainmentProperty()
+                    && p.getContainmentInfo().isWithoutOpposite()
+                    && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
+                    && (pType.extendsType(type) || type.extendsType(pType))) {
+                    result.add(p);
+                }
+            }
+        }
+        return result;
+
+        // // version with streams & lambdas
+        // return allTypes.stream().flatMap(t->t.getProperties().stream()).
+        //     filter(p->p.isContainmentProperty()).
+        //     filter(p->p.getContainmentInfo().isWithoutOpposite()).
+        //     filter(p->p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED).
+        //     filter(p->
+        //       p.getType()!=null && (p.getType().extendsType(type)
+        //       ||type.extendsType(p.getType()))
+        //     ).collect(Collectors.toList());
     }
 
     /**
@@ -238,8 +259,6 @@ public class Model {
     boolean isContainedWithoutOpposite(ModelType type) {
         return !findAllPropsThatContainType(type).isEmpty();
     }
-
-
 
     public String getPackageName() {
         return packageName;

@@ -58,13 +58,17 @@
     if($prop.name!=null) {
       ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)$prop.name;
       // for-loop <begin>
-#foreach($pType in ${prop.type.findAllPropsThatContainType()})
-      // PROP: ${pType.parent.typeName}.${pType.name}
-      if(valueInternal._vmf_getContainer() instanceof ${pType.parent.typeName}) {
-        ${pType.parent.typeName} container = (${pType.parent.typeName})valueInternal._vmf_getContainer();
-        container.set${pType.nameWithUpperCase}(null);
+#foreach($pOfType in ${prop.type.findAllPropsThatContainType()})## // for-loop <begin>
+      // PROP: ${pOfType.parent.typeName}.${pOfType.name}
+      if(valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
+        ${pOfType.parent.typeName} container = (${pOfType.parent.typeName})valueInternal._vmf_getContainer();
+#if(${pOfType.propOfType}=="COLLECTION")## if    (is collection-type)
+        container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
+#else##-----------------------------## else  (is collection-type)
+        container.set${pOfType.nameWithUpperCase}(null);
+#end##------------------------------## end   (is collection-type)
       }
-#end
+#end##---------------------------------------------------------- // for-loop <end>
       // for-loop <end>
       valueInternal._vmf_setContainer(this);
     }
