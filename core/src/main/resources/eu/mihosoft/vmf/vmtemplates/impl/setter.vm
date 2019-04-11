@@ -75,6 +75,11 @@
     this.__vmf_prop_$prop.name = $prop.name;
     // ----------------------------------------
 
+    // ----------------------------------------
+    // we fire a change event now
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // ----------------------------------------
+
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
