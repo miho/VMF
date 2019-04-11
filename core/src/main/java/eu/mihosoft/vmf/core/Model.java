@@ -202,27 +202,44 @@ public class Model {
      * @param type type to analyze
      * @return properties that match the aforementioned criterions
      */
-    public List<Prop> findAllPropsThatContainType(ModelType type) {
+    List<Prop> findAllPropsThatContainType(ModelType type) {
 
         List<ModelType> allTypes = getTypes();
-        List<Prop> result = new ArrayList<>();
+        // List<Prop> result = new ArrayList<>();
 
-        // check whether this model contains entities with containment
-        // properties that declare no opposite and 
-        for(ModelType t : allTypes) {
-            for(Prop p : t.getProperties()) {
-                if(
-                    p.isContainmentProperty()
-                    && p.getContainmentInfo().isWithoutOpposite()
-                    && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
-                    && p.getType().extendsType(type)) {
-                    result.add(p);
-                }
-            }
-        }
+        // // check whether this model contains entities with containment
+        // // properties that declare no opposite and 
+        // for(ModelType t : allTypes) {
+        //     for(Prop p : t.getProperties()) {
+        //         if(
+        //             p.isContainmentProperty()
+        //             && p.getContainmentInfo().isWithoutOpposite()
+        //             && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
+        //             && p.getType().extendsType(type)) {
+        //             result.add(p);
+        //         }
+        //     }
+        // }
+        // return result;
 
-        return result;
+        // version with streams & lambdas
+        return allTypes.stream().flatMap(t->t.getProperties().stream()).
+            filter(p->p.isContainmentProperty()).
+            filter(p->p.getContainmentInfo().isWithoutOpposite()).
+            filter(p->p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED).
+            filter(p->p.getType().extendsType(type)).collect(Collectors.toList());
     }
+
+    /**
+     * Determines whether the specified type is contained via {@code @Contains} without opposite.
+     * @param type type to check
+     * @return {@code true} if the specified type is contained; {@code false} otherwise
+     */
+    boolean isContainedWithoutOpposite(ModelType type) {
+        return !findAllPropsThatContainType(type).isEmpty();
+    }
+
+
 
     public String getPackageName() {
         return packageName;
