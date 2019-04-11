@@ -49,7 +49,11 @@
     this.__vmf_prop_$prop.name = $prop.name;
     // ----------------------------------------
 
-    // TODO implement me!
+    // for-loop begin
+#foreach($pType in ${prop.parent.model.findAllPropsThatContainType(${prop.type})})
+    ${pType.parent.typeName}.${pType.name}
+#end
+    // for-loop end
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})

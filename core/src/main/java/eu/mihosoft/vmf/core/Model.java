@@ -196,6 +196,34 @@ public class Model {
 
     }
 
+    /**
+     * Returns all properties of this model (searches in all properties of all model types) that contain instance of the
+     * specified type. This includes types that extend this type.
+     * @param type type to analyze
+     * @return properties that match the aforementioned criterions
+     */
+    public List<Prop> findAllPropsThatContainType(ModelType type) {
+
+        List<ModelType> allTypes = getTypes();
+        List<Prop> result = new ArrayList<>();
+
+        // check whether this model contains entities with containment
+        // properties that declare no opposite and 
+        for(ModelType t : allTypes) {
+            for(Prop p : t.getProperties()) {
+                if(
+                    p.isContainmentProperty()
+                    && p.getContainmentInfo().isWithoutOpposite()
+                    // && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
+                    && p.getType().extendsType(type)) {
+                    result.add(p);
+                }
+            }
+        }
+
+        return result;
+    }
+
     public String getPackageName() {
         return packageName;
     }
@@ -209,6 +237,8 @@ public class Model {
     }
 
     public List<ModelType> getTypes() {
+        // TODO 11.04.2019 why do we sort over and over again?
+
         List<ModelType> typeList = new ArrayList<>(types.values());
 
         Collections.sort(typeList,
