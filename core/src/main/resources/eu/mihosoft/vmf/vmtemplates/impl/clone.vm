@@ -54,18 +54,11 @@
         // nothing to copy
       }
     } else {
-#if($prop.containmentProperty)##----- if   (containment)
-      // throw new RuntimeException("Cannot create a shallow copy of containment properties. Use deepCopy() instead.");
-#else##------------------------------ else (containment)
       this.__vmf_prop_$prop.name = other.__vmf_prop_$prop.name;
     }
-#end##------------------------------- end  (containment)    
-#if($prop.contained)## if  (contained)
-#if(${prop.containmentInfo.withoutOpposite})## if   (no opposite)
-#else##-------------------------------------## else (no opposite)
-      if(this.__vmf_prop_${prop.name}!=null && !deepCopy) {
-        throw new RuntimeException("Cannot create a shallow copy of containment properties. Use deepCopy() instead.");
-      }  
+#if($prop.contained)
+    if(this.__vmf_prop_${prop.name}!=null && !deepCopy) {
+      throw new RuntimeException("Cannot create shallow copy of containment properties. Use 'deepCopy()' instead.");
 ##       this.__vmf_prop_${prop.name}.forEach((e) -> {
 ##           #set($propertyToModifyValue = "e")
 ##           #set($oppositeValue = "this")
@@ -73,9 +66,8 @@
 ## #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 ##       });
     }
-#end##-------------------------------------## end  (no opposite)    
-#end##---------------- end (contained)
-#else## if collection
+#end ## if contained
+#else ## if collection
 #if($prop.type)
       // property type is a model type
       if(deepCopy) {

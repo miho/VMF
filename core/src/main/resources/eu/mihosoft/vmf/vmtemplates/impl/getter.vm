@@ -124,7 +124,7 @@
 #else## cross-ref prop
   @Override
   public $prop.getterDeclaration {
-#if($prop.containmentProperty && $prop.propType == "COLLECTION")
+#if($prop.containmentProperty && $prop.propType == "COLLECTION" && !${prop.containmentInfo.withoutOpposite})
 
     if(this.__vmf_prop_$prop.name==null) {
       this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
@@ -177,6 +177,87 @@
     return this.__vmf_prop_$prop.name;
 
     // return VContainmentUtil.asContainmentList(this.__vmf_prop_$prop.name, "__vmf_prop_${prop.containmentInfo.opposite.name}");
+#elseif($prop.containmentProperty && $prop.propType == "COLLECTION" && ${prop.containmentInfo.withoutOpposite})
+    if(this.__vmf_prop_$prop.name==null) {
+      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
+
+      this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+            evt.added().elements().forEach( (e) -> {
+
+                if(e==null) return;
+
+      // release from old container & set new container
+      ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
+      // for-loop <begin>
+#foreach($pOfType in ${prop.genericType.findAllPropsThatContainType()})## // for-loop <begin>
+#if(!${pOfType.equals(${prop})})##---- if (prop!=pOfType)
+      // PROP: ${pOfType.parent.typeName}.${pOfType.name}
+      if(valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
+        ${pOfType.parent.typeName} container = (${pOfType.parent.typeName})valueInternal._vmf_getContainer();
+#if(${pOfType.propType}=="COLLECTION")## if    (is collection-type)
+        container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
+#else##---------------------------------## else  (is collection-type)
+        container.set${pOfType.nameWithUpperCase}(null);
+#end##----------------------------------## end   (is collection-type)
+      }
+#else##--------------------------------## else (prop!=pOfType)    
+ 
+      // Prop ignored becaus it is equal to this prop
+      // PROP: ${pOfType.parent.typeName}.${pOfType.name}
+
+#end##---------------------------------## end (prop!=pOfType)      
+#end##------------------------------------------------------------ // for-loop <end>
+      // for-loop <end>
+      valueInternal._vmf_setContainer(this);
+    
+
+##                // remove element from previous collection
+##                // TODO use bulk operations if possible
+##                if(e.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+##                  e.get${prop.containmentInfo.opposite.nameWithUpperCase}().get${prop.nameWithUpperCase}().remove(e);
+##                }
+##
+##                 #set($propertyToModifyValue = "e")
+##                 #set($oppositeValue = "this")
+##                 #set($codeIndentValue = "                ")
+##                 #set($disableFireEventValue=false)
+## #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "e")
+#set($objectToRemoveReferenceOnValue = false)
+#set($referenceToRemoveValue = false)
+#set($codeIndentValue = "                ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+            }); // end of evt.added()
+
+            evt.removed().elements().forEach( (e) -> {
+              if(e==null) return;
+
+      // release this container
+      ${VMFPKG_INT}.VObjectInternalModifiable oldValueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
+      oldValueInternal._vmf_setContainer(null);
+
+
+##                 #set($propertyToModifyValue = "e")
+##                 #set($oppositeValue = "null")
+##                 #set($codeIndentValue = "                ")
+##                 #set($disableFireEventValue=false)
+## #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+
+#set($objectToAddReferenceOnValue=false)
+#set($referenceToAddValue = false)
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "e")
+#set($codeIndentValue = "                ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+            }); // end of evt.removed()
+            
+        }); // end of change listener
+
+    } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)
+
+    return this.__vmf_prop_$prop.name;
 #else
 #if($prop.propType == "COLLECTION")
     if(this.__vmf_prop_$prop.name==null) {
