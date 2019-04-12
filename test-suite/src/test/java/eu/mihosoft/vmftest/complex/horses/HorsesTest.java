@@ -29,7 +29,7 @@ public class HorsesTest {
         
         assertThat("Turnament 1 contains all horses", turnament1.getHorses(), contains(horse1, horse2, horse3));
 
-        // move horse 1 from barn1 to barn2
+        // move horse 1 from barn 1 to barn 2
         barn2.getHorses().add(horse1);
         assertThat("Horse 1 must be removed from barn 1", barn1.getHorses(), not(hasItem(horse1)));
         assertThat("Horse 1 must be contained by barn 2", barn2.getHorses(), hasItem(horse1));
