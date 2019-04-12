@@ -387,7 +387,7 @@ public class Prop {
 
         if (referenceInfo != null) {
 
-            System.out.println("init cross-ref info for " + getName());
+            // System.out.println("init cross-ref info for " + getName());
 
             String oppositeOfSyncProperty = referenceInfo.opposite();
 
