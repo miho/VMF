@@ -50,28 +50,54 @@
 
     // release old container
     if(oldValue!=null) {
-      ${VMFPKG_INT}.VObjectInternalModifiable oldValueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)oldValue;
+      ${VMFPKG_INT}.VObjectInternalModifiable oldValueInternal = 
+        (${VMFPKG_INT}.VObjectInternalModifiable)oldValue;
       oldValueInternal._vmf_setContainer(null);
     }
 
     // release from old container & set new container
     if($prop.name!=null) {
-      ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)$prop.name;
-      // for-loop <begin>
+
+      // cast to internal vobject which allows us to access its container
+      ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = 
+        (${VMFPKG_INT}.VObjectInternalModifiable)$prop.name;
+
+      // indicates whether we found the prev property that contain this value
+      boolean done = false;
+
+      // ----------------------------------------
+      // -- for-loop p : findAllPropsThatContainType() <begin>
+      // ----------------------------------------
+
 #foreach($pOfType in ${prop.type.findAllPropsThatContainType()})## // for-loop <begin>
       // PROP: ${pOfType.parent.typeName}.${pOfType.name}
-      if(valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
+#if(!${pOfType.equals(${prop})})##---- if (prop!=pOfType)
+      if(!done && valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
+#else##--------------------------------## else (prop!=pOfType)  
+      // -> prop is identical to this prop. Only remove if container instance 
+      //    is different from 'this' reference
+      if( !done
+          && valueInternal._vmf_getContainer()!=this
+          && valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
+#end##---------------------------------## end (prop!=pOfType)      
         ${pOfType.parent.typeName} container = (${pOfType.parent.typeName})valueInternal._vmf_getContainer();
-#if(${pOfType.propType}=="COLLECTION")## if    (is collection-type)
+#if(${pOfType.propType}=="COLLECTION")##-- if    (is collection-type)
         container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
 #else##---------------------------------## else  (is collection-type)
         container.set${pOfType.nameWithUpperCase}(null);
 #end##----------------------------------## end   (is collection-type)
-      }
+        done = true;
+      } // end if (${pOfType.parent.typeName}.${pOfType.name})
 #end##------------------------------------------------------------ // for-loop <end>
-      // for-loop <end>
+
+      // ----------------------------------------
+      // -- for-loop p : findAllPropsThatContainType() <end>
+      // ----------------------------------------
+
+      // finally, set 'this' as the container of the new value
       valueInternal._vmf_setContainer(this);
-    }
+
+    } // if ($prop.name!=null)
 
     // ----------------------------------------
     // set the new value
@@ -83,7 +109,6 @@
     // we fire a change event now
     _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
     // ----------------------------------------
-
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
