@@ -46,6 +46,21 @@ public class HorsesTest {
         assertThat("Turnament 2 contains all horses", turnament2.getHorses(), hasItems(horse1, horse2, horse3));
 
         assertThat("Horse 1 attends two turnaments", horse1.getTurnaments(), contains(turnament1, turnament2));
+    }
+
+    @Test public void containmentTestForLists() {
+
+        Owner owner = Owner.newBuilder().withName("Larry Smith").build();
+        Horse horse1 = Horse.newBuilder().withName("Lady").build();
+        
+        // adding a horse to the same list multiple times should still result
+        // in only one reference to this horse being contained
+        owner.getHorses().add(horse1);
+        owner.getHorses().add(horse1);
+        owner.getHorses().add(horse1);
+
+        assertThat("Only one reference to horse 1 should be contained in the horses list", owner.getHorses(), contains(horse1));
+        assertThat("The horses list should only contain one reference to a horse", owner.getHorses().size(), equalTo(1));
 
     }
 }
