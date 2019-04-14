@@ -9,7 +9,7 @@ interface FSM {
 
     State getInitialState();
     State getCurrentState();
-    State getFinalState();
+    State[] getFinalState();
 
     @Contains(opposite="owningFSM")
     State[] getOwnedState();
@@ -24,9 +24,9 @@ interface State {
     FSM getOwningFSM();
 
     @Contains(opposite="source")
-    Transition getOutgoingTransition();
+    Transition[] getOutgoingTransitions();
     @Contains(opposite="target")
-    Transition getIncomingTransition();
+    Transition[] getIncomingTransitions();
 
 }
 
@@ -35,12 +35,12 @@ interface Transition {
     String getInput();
     String getOutput();
 
-    @Container(opposite="outgoingTransition")
+    @Container(opposite="outgoingTransitions")
     State getSource();
-    @Container(opposite="incomingTransition")
+    @Container(opposite="incomingTransitions")
     State getTarget();
 
-    Action getAction();
+    Action[] getActions();
 }
 
 interface Action {

@@ -3,15 +3,18 @@ package eu.mihosoft.vmftest.complex.fsm;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 
+import org.junit.Test;
+
 public class FSMTest {
 
 
+    @Test
     public void fsmCreateAndUndoTest() {
         FSM fsm = null;
 
         long startCreation = System.nanoTime();
 
-        int numMeasurements = 100;
+        int numMeasurements = 1;
 
         int numTransitions = 100_000;
 
@@ -29,7 +32,7 @@ public class FSMTest {
                     // Action a = Action.newBuilder().withName("action").build();
                     Action a = Action.newInstance();
                     a.setName("action");
-                    transition.setAction(a);
+                    transition.getActions().add(a);
 
                     State sender = fsm.getOwnedState().get(i-1);
                     State receiver = s;
@@ -37,13 +40,13 @@ public class FSMTest {
                     transition.setInput(sender.getName());
                     transition.setOutput(receiver.getName());
                     
-                    sender.setOutgoingTransition(transition);
-                    receiver.setIncomingTransition(transition);
+                    sender.getOutgoingTransitions().add(transition);
+                    receiver.getIncomingTransitions().add(transition);
                 }
             }
 
             fsm.setInitialState(fsm.getOwnedState().get(0));
-            fsm.setFinalState(fsm.getOwnedState().get(fsm.getOwnedState().size()-1));
+            fsm.getFinalState().add(fsm.getOwnedState().get(fsm.getOwnedState().size()-1));
         }
 
         long stopCreation = System.nanoTime();

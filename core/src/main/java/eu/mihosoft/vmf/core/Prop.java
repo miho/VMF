@@ -110,13 +110,15 @@ public class Prop {
 
     private String customDocumentation="";
 
-    // // ONLY used for shallow-clone (until we replace this with vmf model entities
-    // // and proper cloning)
-    // private Prop(ModelType parent, Method getterMethod, String name) {
-    //     this.getterMethod = getterMethod;
-    //     this.name = name;
-    //     this.parent = parent;
-    // }
+    // private final static String PUBLIC_LIST_TYPE="java.util.List";
+    private final static String PRIVATE_LIST_TYPE_WITHOUT_PKG="VList";
+    private final static String PRIVATE_LIST_TYPE_PKG_NAME = "eu.mihosoft.vcollections";
+    private final static String PRIVATE_LIST_TYPE_WITH_PKG=PRIVATE_LIST_TYPE_PKG_NAME+"."+PRIVATE_LIST_TYPE_WITHOUT_PKG;
+
+    // currently, we expose VList interface. we might want to use plain list instead.
+    // private final static String PUBLIC_LIST_TYPE_WITH_PKG="java.util.List";
+    private final static String PUBLIC_LIST_TYPE_WITH_PKG=PRIVATE_LIST_TYPE_WITH_PKG;
+    
 
     private Prop(ModelType parent, Method getterMethod) {
         this.getterMethod = getterMethod;
@@ -176,20 +178,20 @@ public class Prop {
                 genericTypeName = containedClazz.getSimpleName();
             }
 
-            typeName = "eu.mihosoft.vcollections.VList<" + m.convertModelTypeToDestination(containedClazz) + ">";
-            simpleTypeName = "VList<" + m.convertModelTypeToDestination(containedClazz) + ">";
-            packageName = "eu.mihosoft.vcollections";
+            typeName = PRIVATE_LIST_TYPE_WITH_PKG + "<" + m.convertModelTypeToDestination(containedClazz) + ">";
+            simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG + "<" + m.convertModelTypeToDestination(containedClazz) + ">";
+            packageName = PRIVATE_LIST_TYPE_PKG_NAME;
 
         } else if (propClass.isArray()) {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
-            simpleTypeName = "VList<" + ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz))
+            simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG+"<" + ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz))
                     + ">";
-            typeName = "eu.mihosoft.vcollections.VList<"
+            typeName = PRIVATE_LIST_TYPE_WITH_PKG+"<"
                     + ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz)) + ">";
             // System.out.println("TYPENAME: " + typeName);
 
-            packageName = "eu.mihosoft.vcollections";
+            packageName = PRIVATE_LIST_TYPE_PKG_NAME;
 
             collectionType = CollectionType.LIST;
             if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
@@ -470,6 +472,10 @@ public class Prop {
 
     public boolean isModelType() {
         return getParent().getModel().isModelType(getPackageName() + "." + getTypeName());
+    }
+
+    public String getTypeNameForInterface() {
+        return getTypeName().replace(PRIVATE_LIST_TYPE_WITH_PKG, PUBLIC_LIST_TYPE_WITH_PKG);
     }
 
     public String getTypeName() {
