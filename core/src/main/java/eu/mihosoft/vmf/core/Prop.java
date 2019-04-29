@@ -739,14 +739,17 @@ public class Prop {
                     continue;
                 }
 
-                boolean modelType = p.getType() != null && otherP.getType() != null;
+                
+                boolean firstIsModelType = p.getType() != null;
+                boolean secondIsModelType = otherP.getType() != null;
+                boolean modelType = firstIsModelType && secondIsModelType;
 
                 if (modelType && otherP.getType().extendsType(p.getType())) {
-                    System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
+                    // System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
                     p = otherP; // otherP is more specific than p
                     otherP.setInheritedProp(p);
                 } else if (modelType && p.getType().extendsType(otherP.getType())) {
-                    System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                    // System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
                     // nothing to do since p is the most specific one already (p = p);
                     p.setInheritedProp(otherP);
                 } else if (!modelType && Objects.equals(p.getTypeName(), otherP.getTypeName())) {
@@ -776,11 +779,12 @@ public class Prop {
                             }
                         }
                     } else if (pType.get().isAssignableFrom(otherPType.get())) {
-                        System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
+                        System.out.println("1Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
                         p = otherP; // otherP is more specific than p
                         otherP.setInheritedProp(p);
                     } else if (otherPType.get().isAssignableFrom(pType.get())) {
-                        System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                        System.out.println("2Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                        System.out.println(" -> TYPE: " + otherP.getTypeName());
                         // nothing to do since p is the most specific one already
                         p.setInheritedProp(otherP);
                     }
