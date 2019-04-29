@@ -293,13 +293,19 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
 // - previously we just used reflection to circumvent the problem but this
 //   came at a huge performance cost
 // - this interface supports multiple inheritance of impl features and
-//   gives access to proerties without reflection which results in a huge
+//   gives access to properties without reflection which results in a huge
 //   performance improvement (up to 10x)
 interface __VMF_TYPE_${type.implementation.typeName} extends ${type.typeName}${type.vmfTypeIfaceImplementzString} {
 
 #foreach( $prop in ${type.implementation.properties})
-  // --- PROP '$prop.typeName'
+
+#if(${prop.isInheritedProp()})## if   inheritedprop
+// --- PROP '$prop.name : $prop.typeName' , Inherited from: '${prop.inheritedProp.parent.typeName}.${prop.inheritedProp.name}'
+  void __vmf_set_prop_${prop.name}(${prop.inheritedProp.typeName} obj);
+#else##------------------------- else inheritedprop
+// --- PROP '$prop.name : $prop.typeName'
   void __vmf_set_prop_${prop.name}($prop.typeName obj);
+#end##-------------------------- end  inheritedprop
   $prop.typeName __vmf_get_prop_${prop.name}();
 #if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
   java.util.List<${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();

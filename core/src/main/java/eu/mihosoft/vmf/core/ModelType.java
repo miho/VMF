@@ -25,6 +25,8 @@ package eu.mihosoft.vmf.core;
 
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -150,8 +152,19 @@ public class ModelType {
         }
 
         if(customPropertyOrderPresent) {
+
+            // predicate for filtering props distinct by name
+            Predicate<Prop> distinctByName = new Predicate<Prop>() {
+                Map<String, Boolean> seen = new ConcurrentHashMap<>();
+
+				@Override
+				public boolean test(Prop p) {
+					return seen.putIfAbsent(p.getName(), Boolean.TRUE) == null; 
+                } 
+            };
+            
             // find potential duplicates
-            long numDuplicates = properties.stream().
+            long numDuplicates = properties.stream().filter(distinctByName).
                     collect(Collectors.groupingBy(p -> p.getCustomOrderIndex(),
                             Collectors.counting())).values().stream().filter(frequency -> frequency > 1).count();
 
@@ -193,7 +206,6 @@ public class ModelType {
     public boolean isDocumented() {
         return getCustomDocumentation()!=null && !getCustomDocumentation().isEmpty();
     }
-
 
     private void initAnnotations(Class<?> clazz) {
         Annotation[] annotationObjects = clazz.getDeclaredAnnotationsByType(Annotation.class);

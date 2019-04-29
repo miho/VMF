@@ -34,8 +34,15 @@
 #if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
   /*package private*/ java.util.List<${prop.genericTypeName}> __vmf_prop_${prop.name}__vmf_RawList;
 #end## cross-ref collection  
-#if(!$type.immutable)  
+#if(!$type.immutable) 
+#if(${prop.isInheritedProp()})## if   inheritedprop
+  //  -> prop is inherited from: '${prop.inheritedProp.parent.typeName}.${prop.inheritedProp.name}'
+  //  -> we have to stick to the parent method signature and do the necessary casting in the setter impl, see (*1*) 
+  @Override public void __vmf_set_prop_${prop.name}(${prop.inheritedProp.typeName} obj) {this.__vmf_prop_${prop.name} = /* (*1*) */($prop.typeName)obj;}
+#else##------------------------- else inheritedprop
   @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_${prop.name} = obj;}
+#end##-------------------------- end  inheritedprop
+  //@Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_${prop.name} = obj;}
   @Override public $prop.typeName __vmf_get_prop_${prop.name}() {return this.__vmf_prop_${prop.name};}
 #if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
   @Override public java.util.List<${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList() {

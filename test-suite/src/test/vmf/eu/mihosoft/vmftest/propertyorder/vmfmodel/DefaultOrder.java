@@ -24,6 +24,8 @@
  */
 package eu.mihosoft.vmftest.propertyorder.vmfmodel;
 
+import eu.mihosoft.vmf.core.GetterOnly;
+import eu.mihosoft.vmf.core.InterfaceOnly;
 import eu.mihosoft.vmf.core.PropertyOrder;
 
 interface DefaultOrder {
@@ -88,4 +90,48 @@ interface InheritedOrderSubClassWithBaseOrder extends InheritedBaseWithCustomOrd
     String getZ();
     @PropertyOrder(index = 2)
     String getB();
+}
+
+interface InheritedOrderSubClassWithRedefinedBaseOrder extends InheritedOrderSubClassWithBaseOrder {
+    @PropertyOrder(index = 0)
+    String getZ();
+
+    @PropertyOrder(index = 1)
+    String getB();
+
+    @PropertyOrder(index = 2)
+    String getA();
+}
+
+// redeclare property order unchanged 1
+// -> this is a compile-only test
+interface InheritedOrderSubClassWithRedefinedBaseOrderUnchanged extends InheritedOrderSubClassWithBaseOrder {
+    @PropertyOrder(index = 0)
+    String getA();
+    @PropertyOrder(index = 1)
+    String getZ();
+    @PropertyOrder(index = 2)
+    String getB();
+}
+
+// redeclare property order unchanged 2
+// -> this is a compile-only test
+@InterfaceOnly
+interface BaseClass {
+    @PropertyOrder(index=0)
+    @GetterOnly
+    Object getValue();
+}
+interface Inherited extends BaseClass {
+
+    // this should be allowed
+    // -> until v0.2.6.1 it wasn't
+    //    because of the property type change
+    //    which is 'Object' in the getter-only
+    //    and 'Integer' here. that's where
+    //    VMF checks for redeclared property
+    //    order failed
+    @PropertyOrder(index=0)
+    Integer getValue();
+
 }

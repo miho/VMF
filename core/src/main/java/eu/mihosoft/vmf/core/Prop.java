@@ -619,6 +619,40 @@ public class Prop {
         return getterOnly;
     }
 
+    /**
+     * Determines whether this property is inherited from a super type.
+     * @return {@code true} if it is inherited; {@code false} otherwise
+     */
+    public boolean isInheritedProp() {
+        return getInheritedProp() != null;
+    }
+
+    /**
+     * Returns the property this property is inherited from.
+     * 
+     * @InterfaceOnly
+     * interface Base {
+     *   @GetterOnly // this is important, cannot inherit otherwise
+     *   Object getValue();
+     * }
+     * 
+     * interface Inherited {
+     *   Integer getValue()
+     * }
+     * 
+     *  -> value property is inherited and changes from Object to Integer
+     * 
+     * @return returns the property this property is inherited from or
+     * {@code null} if this is not the case
+     */
+    public Prop getInheritedProp() {
+        return inheritedProp;
+    }
+    private Prop inheritedProp;
+    private void setInheritedProp(Prop inheritedProp) {
+        this.inheritedProp = inheritedProp;
+    }
+
     static String propertyNameFromGetter(Method getterMethod) {
 
         String usedGetterPrefix;
@@ -710,9 +744,11 @@ public class Prop {
                 if (modelType && otherP.getType().extendsType(p.getType())) {
                     System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
                     p = otherP; // otherP is more specific than p
+                    otherP.setInheritedProp(p);
                 } else if (modelType && p.getType().extendsType(otherP.getType())) {
                     System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
                     // nothing to do since p is the most specific one already (p = p);
+                    p.setInheritedProp(otherP);
                 } else if (!modelType && Objects.equals(p.getTypeName(), otherP.getTypeName())) {
                     // types are identical. nothing to do
                 } else if (!modelType) {
@@ -742,9 +778,11 @@ public class Prop {
                     } else if (pType.get().isAssignableFrom(otherPType.get())) {
                         System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
                         p = otherP; // otherP is more specific than p
+                        otherP.setInheritedProp(p);
                     } else if (otherPType.get().isAssignableFrom(pType.get())) {
                         System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
                         // nothing to do since p is the most specific one already
+                        p.setInheritedProp(otherP);
                     }
                 }
             }

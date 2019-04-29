@@ -102,4 +102,27 @@ public class PropertyOrderTest {
 
     }
 
+    @Test
+    public void inheritedPropertyOrderTestWithRedefinedBaseOrder() {
+
+        // In this test we ensure that inherited properties work correctly.
+        // It is valid for them to define a custom order which has to be used
+        // by the iterators of this class.
+        // In addition to the previous test we also ensure that the order of inherited
+        // properties can be redeclared in the class that inherits them
+        //
+        //
+        // All inherited properties are visited prior to the properties of this class.
+        InheritedOrderSubClassWithRedefinedBaseOrder customOrder = InheritedOrderSubClassWithRedefinedBaseOrder.newInstance();
+
+        // Expected property order
+        String[] propertiesC = new String[] {"baseA", "baseZ", "baseB", "z", "b", "a"};
+
+        // assert that the propperties are visited in the correct order
+        for(int i = 0; i < customOrder.vmf().reflect().properties().size(); i++) {
+            Assert.assertEquals(propertiesC[i], customOrder.vmf().reflect().properties().get(i).getName());
+        }
+
+    }
+
 }
