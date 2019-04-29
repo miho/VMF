@@ -204,39 +204,39 @@ public interface VObjectInternal extends VObject, ObservableObject {
    */
    static class EqualsPair {
 
-    final Object first;
-    final Object second;
+        final Object first;
+        final Object second;
 
-    public EqualsPair(Object first, Object second) {
-        this.first = first;
-        this.second = second;
-    }
+        public EqualsPair(Object first, Object second) {
+            this.first = first;
+            this.second = second;
+        }
 
-    @Override
-    public int hashCode() {
-        return java.util.Objects.hash(System.identityHashCode(first),
-                System.identityHashCode(second));
-    }
+        @Override
+        public int hashCode() {
+            return java.util.Objects.hash(System.identityHashCode(first),
+                    System.identityHashCode(second));
+        }
 
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj) {
-          return true;
-      }
-      if (obj == null) {
-          return false;
-      }
-      if (getClass() != obj.getClass()) {
-          return false;
-      }
-      final EqualsPair other = (EqualsPair) obj;
-      if (this.first!=other.first) {
-          return false;
-      }
-      if (this.second!=other.second) {
-          return false;
-      }
-      return true;
+        @Override
+        public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final EqualsPair other = (EqualsPair) obj;
+        if (this.first!=other.first) {
+            return false;
+        }
+        if (this.second!=other.second) {
+            return false;
+        }
+        return true;
+        }
     }
-}
 }
