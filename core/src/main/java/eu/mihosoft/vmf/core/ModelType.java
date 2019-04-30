@@ -381,9 +381,21 @@ public class ModelType {
 
     public boolean extendsType(ModelType type) {
 
-        if(type.getFullTypeName().equals(this.getFullTypeName())) return true;
+        return extendsType(type.getFullTypeName());
+    }
 
-        return getImplementz().stream().filter(t -> t.getFullTypeName().equals(type.getFullTypeName())).count() > 0;
+    public boolean extendsType(String fullTypeName) {
+
+        // we always extend our type
+        if(typeName.equals(this.getFullTypeName())) return true;
+
+        // we always extend Object
+        if("java.lang.Object".equals(fullTypeName)) return true;
+
+        // we always extend VObject if we are a model type
+        if("eu.mihosoft.vmf.runtime.core.VObject".equals(fullTypeName)) return true;
+
+        return getImplementz().stream().filter(t -> t.getFullTypeName().equals(fullTypeName)).count() > 0;
     }
 
     private static List<String> generateImplementsList(Model model, Class<?> clazz) {

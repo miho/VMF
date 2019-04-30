@@ -747,46 +747,74 @@ public class Prop {
                 if (modelType && otherP.getType().extendsType(p.getType())) {
                     // System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
                     p = otherP; // otherP is more specific than p
+
+                    // set inherited param
                     otherP.setInheritedProp(p);
                 } else if (modelType && p.getType().extendsType(otherP.getType())) {
                     // System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
                     // nothing to do since p is the most specific one already (p = p);
+
+                    // set inherited param
                     p.setInheritedProp(otherP);
                 } else if (!modelType && Objects.equals(p.getTypeName(), otherP.getTypeName())) {
                     // types are identical. nothing to do
                 } else if (!modelType) {
 
-                    // we try to get type information from external types:
-                    Optional<Class<?>> pType = p.getParent().getModel().resolveExternalType(p.getTypeName());
-                    Optional<Class<?>> otherPType = otherP.getParent().getModel().resolveExternalType(otherP.getTypeName());
+                    if(firstIsModelType && !secondIsModelType) {
+                        ModelType pType = p.getType();
 
-                    if (!pType.isPresent() || !otherPType.isPresent()) {
-                        if (!pType.isPresent()) {
-                            String msg = "Cannot resolve external type '" + p.getTypeName() + "'";
-                            System.err.println("TODO [28.05.2018]: " + msg);
-                            System.err.println("TODO [28.05.2018]: could be that the types are not yet initialized.");
-                            System.err.println("TODO [28.05.2018]: -> see PASS 0 & 4 in Model.java");
-                            if (throwTypeNotResolvable) {
-                                throw new RuntimeException(msg);
-                            }
-                        } else {
-                            String msg = "Cannot resolve external type '" + otherP.getTypeName() + "'";
-                            System.err.println("TODO [28.05.2018]: " + msg);
-                            System.err.println("TODO [28.05.2018]: could be that the types are not yet initialized.");
-                            System.err.println("TODO [28.05.2018]: -> see PASS 0 & 4 in Model.java");
-                            if (throwTypeNotResolvable) {
-                                throw new RuntimeException(msg);
-                            }
+                        if(pType.extendsType(otherP.getTypeName())) {
+                            // System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                            // nothing to do since p is the most specific one already (p = p);
+
+                            // set inherited param
+                            p.setInheritedProp(otherP);
                         }
-                    } else if (pType.get().isAssignableFrom(otherPType.get())) {
-                        System.out.println("1Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
-                        p = otherP; // otherP is more specific than p
-                        otherP.setInheritedProp(p);
-                    } else if (otherPType.get().isAssignableFrom(pType.get())) {
-                        System.out.println("2Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
-                        System.out.println(" -> TYPE: " + otherP.getTypeName());
-                        // nothing to do since p is the most specific one already
-                        p.setInheritedProp(otherP);
+
+                    } else if(!firstIsModelType && secondIsModelType) {
+                        ModelType otherPType = otherP.getType();
+
+                        if(otherPType.extendsType(p.getTypeName())) {
+                            // System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                            p = otherP; // otherP is more specific than p
+
+                            // set inherited param
+                            otherP.setInheritedProp(p);
+                        }
+
+                    } else {
+
+                        // we try to get type information from external types:
+                        Optional<Class<?>> pType = p.getParent().getModel().resolveExternalType(p.getTypeName());
+                        Optional<Class<?>> otherPType = otherP.getParent().getModel().resolveExternalType(otherP.getTypeName());
+
+                        if (!pType.isPresent() || !otherPType.isPresent()) {
+                            if (!pType.isPresent()) {
+                                String msg = "Cannot resolve external type '" + p.getTypeName() + "'";
+                                System.err.println("TODO [28.05.2018]: " + msg);
+                                System.err.println("TODO [28.05.2018]: could be that the types are not yet initialized.");
+                                System.err.println("TODO [28.05.2018]: -> see PASS 0 & 4 in Model.java");
+                                if (throwTypeNotResolvable) {
+                                    throw new RuntimeException(msg);
+                                }
+                            } else {
+                                String msg = "Cannot resolve external type '" + otherP.getTypeName() + "'";
+                                System.err.println("TODO [28.05.2018]: " + msg);
+                                System.err.println("TODO [28.05.2018]: could be that the types are not yet initialized.");
+                                System.err.println("TODO [28.05.2018]: -> see PASS 0 & 4 in Model.java");
+                                if (throwTypeNotResolvable) {
+                                    throw new RuntimeException(msg);
+                                }
+                            }
+                        } else if (pType.get().isAssignableFrom(otherPType.get())) {
+                            // System.out.println("Extends: " + p.getTypeName() + " -> " + otherP.getTypeName());
+                            p = otherP; // otherP is more specific than p
+                            otherP.setInheritedProp(p);
+                        } else if (otherPType.get().isAssignableFrom(pType.get())) {
+                            // System.out.println("Extends: " + otherP.getTypeName() + " -> " + p.getTypeName());
+                            // nothing to do since p is the most specific one already
+                            p.setInheritedProp(otherP);
+                        }
                     }
                 }
             }

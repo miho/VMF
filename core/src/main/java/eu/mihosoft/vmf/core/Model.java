@@ -228,8 +228,8 @@ public class Model {
                 if(pType==null) continue;
 
                 // add the parameter if its type is a model type, is container
-                // and no opposite has been specified and if the paramater type
-                // and the specified type have a common descentent or ancestor
+                // and no opposite has been specified and if the parameter type
+                // and the specified type have a common descendent or ancestor
                 if(    p.isContainmentProperty()
                     && p.getContainmentInfo().isWithoutOpposite()
                     && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
