@@ -381,7 +381,9 @@ public class ModelType {
 
     public boolean extendsType(ModelType type) {
 
-        return extendsType(type.getFullTypeName());
+        if(type.getFullTypeName().equals(this.getFullTypeName())) return true;
+
+        return getImplementz().stream().filter(t -> t.getFullTypeName().equals(type.getFullTypeName())).count() > 0;
     }
 
     public boolean extendsType(String fullTypeName) {
