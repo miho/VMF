@@ -16,7 +16,7 @@ public class FSMTest {
 
         int numMeasurements = 1;
 
-        int numTransitions = 100_000;
+        int numTransitions = 100_00;
 
         for(int j = 0; j < numMeasurements; j++) {
             fsm = FSM.newInstance();
