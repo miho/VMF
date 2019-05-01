@@ -22,7 +22,7 @@
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
 // --------------------------------------------------------------------
-// --- declaration of delegation methods
+// --- declaration of constructor delegation methods
 // --------------------------------------------------------------------
 
 #foreach( $delegate in ${type.implementation.constructorDelegations})

@@ -24,7 +24,10 @@
 // --------------------------------------------------------------------
 // --- declaration of delegation methods
 // --------------------------------------------------------------------
-
+## // ALL:                 ${type.implementation.delegations.size()}
+## // METHODS:             ${type.implementation.methodDelegations.size()}
+## // CONSTRUCTOR:         ${type.implementation.constructorDelegations.size()}
+## // ONE_FOR_EACH_TYPE:   ${type.implementation.delegationsOneForEachType.size()}
 #foreach( $delegate in ${type.implementation.methodDelegations})
   $delegate.methodDeclaration {
 

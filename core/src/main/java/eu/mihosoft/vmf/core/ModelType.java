@@ -670,10 +670,13 @@ public class ModelType {
 
         // TODO 10.02.2019 with t==null we currently assume immutable (future vmf versions might add 
         // more detailed options for non-model types)
+        //
+        // only guarantied to be effectively immutable if no delegations
+        // are defined
         long numConformingProperties = getImplementation().getProperties().stream().map(p->p.getType()).
         filter(t-> t==null || t.isInterfaceOnlyWithGettersOnly() || t.isImmutable()).count();
-        
-        return numConformingProperties == getImplementation().getProperties().size();
+
+        return numConformingProperties == getImplementation().getProperties().size() && getDelegations().isEmpty();
 
     }
 
