@@ -60,11 +60,11 @@
 #foreach ($prop in $type.implementation.properties)
 #if (${prop.isIgnoredForToString()} == false)
 #if (${prop.containmentInfo.containmentType} != "CONTAINER" )
-#if ( (${prop.containmentInfo.containmentType} == "CONTAINED" || ${prop.crossRefProperty}) && ${prop.propType} == "COLLECTION")
+#if ( ${prop.propType} == "COLLECTION" )
 
         // -- writing collection param '$prop.name'
         //
-        sb.append(", ");
+        sb.append(", \"$prop.name\": ");
         if(this.__vmf_prop_${prop.name}==null) {
           sb.append("[]");
         } else {
@@ -78,7 +78,7 @@
             } else {
               sb.append(lEntry);
             }
-          }
+          } // end for
           sb.append("]");
         }
 #else
@@ -95,14 +95,14 @@
               sb.append(propObj);
           }
           sb.append("\"");
-        } // end
+        } // end param
 #end ## if contained and collection
 #end ## end if container type
 #end ## end if not ignore for toString
 #end ## for-each property
         sb.append("}");
 
-    }
+    } // end
   }
 
   // end toString()
