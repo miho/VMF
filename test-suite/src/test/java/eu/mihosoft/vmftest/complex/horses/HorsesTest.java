@@ -53,7 +53,7 @@ public class HorsesTest {
         assertThat("Horse 1 attends two tournaments", horse1.getTournaments(), contains(tournament1, tournament2));
     }
 
-    @Test public void containmentTestForLists() {
+    @Test public void crossRefTestForLists() {
 
         Owner owner = Owner.newBuilder().withName("Larry Smith").build();
         Horse horse1 = Horse.newBuilder().withName("Lady").build();
