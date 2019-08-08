@@ -36,6 +36,11 @@ public class HorsesTest {
 
         // owner 2 sells horse 3 to owner 1
         horse3.setOwner(owner1);
+        System.out.println("horse3: " + horse3);
+        System.out.println("horses of owner1:");
+
+        owner1.getHorses().forEach(h-> System.out.println(" -> h: " + h));
+
         assertThat("Horse 3 must be owned by owner 1", owner1.getHorses(), hasItem(horse3));
         assertThat("Horse 3 must be removed from owner 2", owner2.getHorses(), not(hasItem(horse3)));
 
@@ -59,8 +64,8 @@ public class HorsesTest {
         owner.getHorses().add(horse1);
         owner.getHorses().add(horse1);
 
-        assertThat("Only one reference to horse 1 should be contained in the horses list", owner.getHorses(), contains(horse1));
         assertThat("The horses list should only contain one reference to a horse", owner.getHorses().size(), equalTo(1));
+        assertThat("Only one reference to horse 1 should be contained in the horses list", owner.getHorses(), contains(horse1));
 
     }
 }

@@ -40,6 +40,7 @@
               if(e==null) return;
 
 #set($oppositeRefProp=${prop.referenceInfo.opposite})
+
               // ${prop.referenceInfo.opposite.propType}
               // java.util.List<${oppositeRefProp.genericTypeName}> oppositeRefList = 
               //  ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}__vmf_RawList();
@@ -83,6 +84,18 @@
          this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
             evt.added().elements().forEach( (e) -> {
               if(e==null) return;
+
+              // only look for duplicates if not triggered by cross-ref
+              if (!java.util.Objects.equals(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF, this.__vmf_prop_${prop.name}.getEventInfo())) {
+                // we remove entry e if it is already referenced 
+                // to detect we don't use the inefficient List.contains(o)
+                // but just check whether the new opposite is equal to the previous one
+                // which indicates that e has been added already
+                if(this==((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}()) {
+                  this.__vmf_prop_${prop.name}.remove(e); // removed e since it has been already added
+                  // this.__vmf_get_prop_${prop.name}__vmf_RawList().remove(e); // removed e since it has been already added
+                }
+              }
 
 #set($oppositeRefProp=${prop.referenceInfo.opposite})
               // ${prop.referenceInfo.opposite.propType}

@@ -21,8 +21,8 @@ interface Owner {
     String getName();
 
     @Doc("Horses owned by this owner.")
-    @Contains(opposite = "owner")
-    //@Refers(opposite = "owner")
+    //@Contains(opposite = "owner")
+    @Refers(opposite = "owner")
     Horse[] getHorses();
 
 }
@@ -32,8 +32,8 @@ interface Horse {
     String getName();
 
     @Doc("Owner of this horse.")
-    @Container(opposite = "horses")
-    //@Refers(opposite = "horses")
+    //@Container(opposite = "horses")
+    @Refers(opposite = "horses")
     Owner getOwner();
 
     @Doc("Tournaments this horse attends.")
