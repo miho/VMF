@@ -76,6 +76,29 @@ public class ContainmentTest {
     }
 
     @Test
+    public void containmentMultiplePropsTest3() {
+
+        // containment should be unique among multiple properties
+        // of container instances of potentially different type
+
+        // case 2: mixing containments with and without opposites
+
+        // first register with first container instance
+        ContainerOne ca = ContainerOne.newInstance();
+        Element e = Element.newInstance();
+        ca.setElement(e);
+
+        // if we set it to the second container instance...
+        ContainerTwo cb = ContainerTwo.newInstance();
+
+        // ...should work like before, i.e.,
+        cb.setElement2(e);
+
+        // ...should unregister from previous container
+        assertThat(ca.getElement(), equalTo(null));
+    }
+
+    @Test
     public void containmentMultiplePropsTestNoOpposite() {
 
         // containment should be unique among multiple properties
