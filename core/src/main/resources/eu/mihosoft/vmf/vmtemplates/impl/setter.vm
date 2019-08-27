@@ -66,7 +66,7 @@
       // ----------------------------------------
       // -- for-loop p : findAllPropsThatContainType() <begin>
       // ----------------------------------------
-
+      { // scope <begin>
       // indicates whether we found the prev property that contain this value
       boolean done = false;
       
@@ -90,13 +90,48 @@
         done = true;
       } // end if (${pOfType.parent.typeName}.${pOfType.name})
 #end##------------------------------------------------------------ // for-loop <end>
-
+      } // scope <end>
       // ----------------------------------------
       // -- for-loop p : findAllPropsThatContainType() <end>
       // ----------------------------------------
 
       // finally, set 'this' as the container of the new value
       valueInternal._vmf_setContainer(this);
+
+
+      // ----------------------------------------
+      // -- for-loop p : findAllPropsThatContainTypeWithOpposite() <begin>
+      // ----------------------------------------
+      { // scope <begin>
+      // indicates whether we found the prev property that contain this value
+      boolean done = false;
+      
+#foreach($pOfType in ${prop.type.findAllPropsThatContainTypeWithOpposite()})## // for-loop <begin>
+      // PROP: ${pOfType.parent.typeName}.${pOfType.name}
+      // CONTAINER: ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()
+#if(!${pOfType.equals(${prop})})##---- if (prop!=pOfType)
+      if( !done
+          && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+#else##--------------------------------## else (prop!=pOfType)  
+      // -> prop is identical to this prop. Only remove if container instance 
+      //    is different from 'this' reference
+      if( !done
+          && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=null
+          && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=this) {
+#end##---------------------------------## end (prop!=pOfType)      
+        ${pOfType.parent.typeName} container = ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}();
+#if(${pOfType.propType}=="COLLECTION")##-- if    (is collection-type)
+        container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
+#else##---------------------------------## else  (is collection-type)
+        container.set${pOfType.nameWithUpperCase}(null);
+#end##----------------------------------## end   (is collection-type)
+        done = true;
+      } // end if (${pOfType.parent.typeName}.${pOfType.name})
+#end##------------------------------------------------------------ // for-loop <end>
+      } // scope <end>
+      // ----------------------------------------
+      // -- for-loop p : findAllPropsThatContainTypeWithOpposite() <end>
+      // ----------------------------------------
 
     } // if ($prop.name!=null)
 
