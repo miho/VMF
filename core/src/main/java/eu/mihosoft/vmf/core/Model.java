@@ -198,11 +198,22 @@ public class Model {
 
     /**
      * Returns all properties of this model (searches in all properties of all model types) that contain instance of the
-     * specified type. This includes types that extend this type.
+     * specified type and have no explicit opposite. This includes types that extend this type.
      * @param type type to analyze
      * @return properties that match the aforementioned criterions
      */
     List<Prop> findAllPropsThatContainType(ModelType type) {
+        return findAllPropsThatContainType(type, false);
+    }
+
+    /**
+     * Returns all properties of this model (searches in all properties of all model types) that contain instance of the
+     * specified type and have no explicit opposite. This includes types that extend this type.
+     * @param type type to analyze
+     * @param withOpposite indicates whether to search for containers with or without opposites
+     * @return properties that match the aforementioned criterions
+     */
+    List<Prop> findAllPropsThatContainType(ModelType type, boolean withOpposite) {
 
         List<Prop> result = new ArrayList<>();
         if(type==null) return result;
@@ -231,7 +242,11 @@ public class Model {
                 // and no opposite has been specified and if the parameter type
                 // and the specified type have a common descendent or ancestor
                 if(    p.isContainmentProperty()
-                    && p.getContainmentInfo().isWithoutOpposite()
+                    && (
+                           (!withOpposite && p.getContainmentInfo().isWithoutOpposite())
+                            ||
+                           (withOpposite && !p.getContainmentInfo().isWithoutOpposite()) 
+                       )
                     && p.getContainmentInfo().getContainmentType()==ContainmentType.CONTAINED
                     && (pType.extendsType(type) || type.extendsType(pType))) {
                     result.add(p);

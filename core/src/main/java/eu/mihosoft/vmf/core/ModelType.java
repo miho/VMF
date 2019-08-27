@@ -761,4 +761,12 @@ public class ModelType {
     public List<Prop> findAllPropsThatContainType() {
         return getModel().findAllPropsThatContainType(this);
     }
+
+    /**
+     * Determines whether this type is contained via {@code @Contains} with opposite.
+     * @return {@code true} if this type is contained; {@code false} otherwise
+     */
+    public List<Prop> findAllPropsThatContainTypeWithOpposite() {
+        return getModel().findAllPropsThatContainType(this, true);
+    }
 }
