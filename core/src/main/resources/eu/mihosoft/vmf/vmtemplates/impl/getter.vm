@@ -152,12 +152,15 @@
                 if(e.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null) {
                   e.get${prop.containmentInfo.opposite.nameWithUpperCase}().get${prop.nameWithUpperCase}().remove(e);
                 }
+                
+#parse("${VMF_TEMPLATE_PATH}impl/remove-containment-opposites-collection.vm")
 
                 #set($propertyToModifyValue = "e")
                 #set($oppositeValue = "this")
                 #set($codeIndentValue = "                ")
                 #set($disableFireEventValue=false)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+
 
 #set($objectToAddReferenceOnValue="this")
 #set($referenceToAddValue = "e")
@@ -199,31 +202,40 @@
 
                 if(e==null) return;
 
-      // release from old container & set new container
-      ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
-      boolean done = false;
-      // for-loop <begin>
-#foreach($pOfType in ${prop.genericType.findAllPropsThatContainType()})## // for-loop <begin>
-      // PROP: ${pOfType.parent.typeName}.${pOfType.name}
-#if(!${pOfType.equals(${prop})})##---- if (prop!=pOfType)
-      if(!done && valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
-#else##--------------------------------## else (prop!=pOfType)  
-      // -> prop is identical to this prop. only remove if container instance is different from
-      //    'this' reference
-      if(!done && valueInternal._vmf_getContainer()!=this && valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
-#end##---------------------------------## end (prop!=pOfType)      
-        ${pOfType.parent.typeName} container = (${pOfType.parent.typeName})valueInternal._vmf_getContainer();
-#if(${pOfType.propType}=="COLLECTION")## if    (is collection-type)
-        container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
-#else##---------------------------------## else  (is collection-type)
-        container.set${pOfType.nameWithUpperCase}(null);
-#end##----------------------------------## end   (is collection-type)
-        done = true;
-      }
-#end##------------------------------------------------------------ // for-loop <end>
-      // for-loop <end>
-      valueInternal._vmf_setContainer(this);
-    
+#parse("${VMF_TEMPLATE_PATH}impl/remove-containment-opposites-collection.vm")   
+
+${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
+valueInternal._vmf_setContainer(this);
+
+##       // for-loop <begin>
+##       { // scope <begin>
+##       // release from old container & set new container
+##       //${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
+##       boolean done = false;
+      
+## #foreach($pOfType in ${prop.genericType.findAllPropsThatContainType()})## // for-loop <begin>
+##       // PROP: ${pOfType.parent.typeName}.${pOfType.name}
+## #if(!${pOfType.equals(${prop})})##---- if (prop!=pOfType)
+##       if(!done && valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
+## #else##--------------------------------## else (prop!=pOfType)  
+##       // -> prop is identical to this prop. only remove if container instance is different from
+##       //    'this' reference
+##       if(!done && valueInternal._vmf_getContainer()!=this && valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
+## #end##---------------------------------## end (prop!=pOfType)      
+##         ${pOfType.parent.typeName} container = (${pOfType.parent.typeName})valueInternal._vmf_getContainer();
+## #if(${pOfType.propType}=="COLLECTION")## if    (is collection-type)
+##         container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
+## #else##---------------------------------## else  (is collection-type)
+##         container.set${pOfType.nameWithUpperCase}(null);
+## #end##----------------------------------## end   (is collection-type)
+##         done = true;
+##       }
+## #end##------------------------------------------------------------ // for-loop <end>
+## //      valueInternal._vmf_setContainer(this);
+##       } // scope <end>
+##       // for-loop <end>
+      
+      
 
 ##                // remove element from previous collection
 ##                // TODO use bulk operations if possible

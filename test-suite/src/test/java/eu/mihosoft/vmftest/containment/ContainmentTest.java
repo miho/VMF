@@ -157,7 +157,7 @@ public class ContainmentTest {
         // of container instances of potentially different type
 
         // case 6: mixing containments without opposites
-        //         (one list with opposite, the opther without)
+        //         (one list with opposite, the other without)
 
         // first register with first container instance
         ContainerOne ca = ContainerOne.newInstance();
