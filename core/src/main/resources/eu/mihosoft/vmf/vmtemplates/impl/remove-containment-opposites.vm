@@ -58,7 +58,7 @@
 #end##---------------------------------## end (prop!=pOfType)      
         ${pOfType.parent.typeName} container = ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}();
 #if(${pOfType.propType}=="COLLECTION")##-- if    (is collection-type)
-        container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
+        container.get${pOfType.nameWithUpperCase}().remove($prop.name);
 #else##---------------------------------## else  (is collection-type)
         container.set${pOfType.nameWithUpperCase}(null);
 #end##----------------------------------## end   (is collection-type)

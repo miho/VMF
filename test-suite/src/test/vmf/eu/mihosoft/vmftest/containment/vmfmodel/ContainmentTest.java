@@ -9,6 +9,12 @@ interface ContainerOne {
 
     @Contains(opposite = "parentOne")
     Element getElement1();
+
+    @Contains()
+    Element[] getElements1();
+
+    @Contains(opposite="listParentOne")
+    Element[] getElements1a();
 }
 
 interface ContainerTwo {
@@ -17,6 +23,12 @@ interface ContainerTwo {
 
     @Contains(opposite = "parentTwo")
     Element getElement2();
+
+    @Contains()
+    Element[] getElements2();
+
+    @Contains(opposite="listParentTwo")
+    Element[] getElements2a();
 }
 
 interface Element {
@@ -25,4 +37,10 @@ interface Element {
 
     @Container(opposite = "element2")
     ContainerTwo getParentTwo();
+
+    @Container(opposite = "elements1a")
+    ContainerOne getListParentOne();
+
+    @Container(opposite = "elements2a")
+    ContainerTwo getListParentTwo();
 }
