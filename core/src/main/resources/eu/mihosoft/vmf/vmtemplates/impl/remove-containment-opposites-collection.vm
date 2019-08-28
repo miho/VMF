@@ -28,7 +28,7 @@
 #else##---------------------------------## else  (is collection-type)
         container.set${pOfType.nameWithUpperCase}(null);
 #end##----------------------------------## end   (is collection-type)
-        done = true;
+        // TODO 28.09.2019 maybe not allowed due to potential overlap // done = true;
       } // end if (${pOfType.parent.typeName}.${pOfType.name})
 #end##------------------------------------------------------------ // for-loop <end>
       } // scope <end>
@@ -62,7 +62,7 @@
 #else##---------------------------------## else  (is collection-type)
         container.set${pOfType.nameWithUpperCase}(null);
 #end##----------------------------------## end   (is collection-type)
-        done = true;
+        // TODO 28.09.2019 maybe not allowed due to potential overlap // done = true;
       } // end if (${pOfType.parent.typeName}.${pOfType.name})
 #end##------------------------------------------------------------ // for-loop <end>
       } // scope <end>

@@ -60,6 +60,14 @@
       // perform the actual comparison for each property
       if (o instanceof ${type.implementation.typeName}) {
         $type.implementation.typeName other = ($type.implementation.typeName) o;
+
+// DEBUG begin ------------------
+#foreach ($prop in $type.implementation.propertiesForEquals)
+          boolean _v_eq_$prop.name = _vmf_equals(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name);
+          System.out.println("PROP-EQ: ${type.implementation.typeName}.${prop.name} = " + _v_eq_$prop.name + " : " + this.__vmf_prop_$prop.name + ", other: " + other.__vmf_prop_$prop.name);
+#end## for-each property
+// DEBUG end --------------------
+
         return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
           _vmf_equals(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
@@ -106,9 +114,15 @@
     boolean o2IsCollectionType = o2 instanceof ${VCOLL_PKG}.VList;
 
     // if only one is a collection we are not equal
-    if(o1IsCollectionType!=o2IsCollectionType) return false;
+    // (we can only know for sure if both are not null, see below)
+    if( (o1IsCollectionType!=o2IsCollectionType) && (o1!=null && o2!=null) ) return false;
 
-    boolean collectionType = o1IsCollectionType;
+    // we assume collection type if either
+    //  - both are collection type or
+    //  - if one is null and the other is a collection object
+    //    (to ensure we are able to compare lazy init, i.e.: [] == null)
+    boolean collectionType = (o1IsCollectionType && o2IsCollectionType)
+            || ( (o1IsCollectionType || o2IsCollectionType) && oneAndOnlyOneIsNull );
 
     // since we support lazy initialization for collections,
     // uninitialized empty collection values are defined as equal to null
