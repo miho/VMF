@@ -89,7 +89,7 @@ buildscript {
 
 ### IDE
 
-Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
+Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2019) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
