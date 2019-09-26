@@ -100,7 +100,7 @@ class ListChangeImpl implements ChangeInternal {
     @SuppressWarnings("unchecked")
     public void apply(VObject obj) {
 
-        VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
+        VObjectInternalModifiable internal = (VObjectInternalModifiable) obj;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         VList list = (VList) internal._vmf_getPropertyValueById(propId);
         if(evt.wasSet()) {
