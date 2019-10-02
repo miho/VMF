@@ -38,6 +38,11 @@ sourceCompatibility = '1.8'
 targetCompatibility = '1.8'
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
+tasks.withType(Javadoc) {
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.encoding = 'UTF-8'
+}
+
 if (!hasProperty('mainClass')) {
     ext.mainClass = 'eu.mihosoft.vmf.tutorial01.Main'
 }
