@@ -77,5 +77,19 @@ public class PropertyTypeTest {
         Assert.assertTrue(
                 "Type of property 'name' is no model type but it is flagged as such",
                 !name.get().getType().isModelType());
+
+                
+        
+        Assert.assertTrue(
+                "Type of property 'name' is no model type but it reports a generic element type only present in lists",
+                !name.get().getType().getElementTypeName().isPresent());     
+                
+        Assert.assertTrue(
+                "Type of property 'children' is a list type but it does not report a generic element type present in lists",
+                children.get().getType().getElementTypeName().isPresent());
+                
+        Assert.assertTrue(
+                "Type of property 'children' is a list type but it does not report the correct generic element type",
+                children.get().getType().getElementTypeName().map(tName->"eu.mihosoft.vmftest.propertytype.ChildEntity".equals(tName)).orElse(false));                   
     }
 }

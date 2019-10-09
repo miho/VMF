@@ -30,6 +30,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Represents a type, e.g. {@code java.lang.Integer} or {@code your.pkg.ModelType}.
@@ -67,6 +68,40 @@ public final class Type {
      */
     public String getName() {
         return this.name;
+    }
+
+    /**
+     * Returns the element type name if this type denotes a list type.
+     * @return the element type name if this type denotes a list type; returns
+     * an empty optional otherwise
+     */
+    public Optional<String> getElementTypeName() {
+
+        if(!isListType()) {
+            return Optional.empty();
+        }
+
+        String tName = getName();
+
+        int firstIdx = tName.indexOf('<');
+
+        // - '<' can't be at index 0 because the generic type name must be at least
+        //   one char
+        // - values smaller than zero indicate no occurence of '<' has been found
+        if(firstIdx < 1) {
+            return Optional.empty();
+        }
+
+        int lastIdx = tName.lastIndexOf('>');
+
+        // - '>' can't be smaller than the occurrence of '<' since that would indicate
+        //   an invalid type name
+        if(lastIdx <= firstIdx) {
+            return Optional.empty();
+        }
+
+        // finally, we can extract the element type name
+        return Optional.of(tName.substring(firstIdx+1, lastIdx));
     }
 
     /**
