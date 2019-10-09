@@ -29,6 +29,7 @@ package eu.mihosoft.vmf.runtime.core.internal;
 import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vmf.runtime.core.Annotation;
 import eu.mihosoft.vmf.runtime.core.ObservableObject;
+import eu.mihosoft.vmf.runtime.core.Type;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
 import java.util.List;
@@ -46,6 +47,12 @@ public interface VObjectInternal extends VObject, ObservableObject {
      * Returns the type id of this class.
      */
     int _vmf_getTypeId();
+
+    /**
+     * Returns the type of this object.
+     * @return type of this object
+     */
+    Type _vmf_getType();
 
     /**
      * Returns the names of the super types of this class.

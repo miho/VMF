@@ -259,6 +259,12 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
     return _VMF_TYPE_ID;
   }
 
+  // Type info
+  @Override
+  public ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type _vmf_getType() {
+    return ${type.packageName}.${type.typeName}.type();
+  }
+
 #parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
 
   // --------------------------------------------------------------------

@@ -226,6 +226,12 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
     return this;
   }
 
+  // Type info
+  @Override
+  public ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type _vmf_getType() {
+    return ${type.packageName}.${type.typeName}.type();
+  }
+
   // --------------------------------------------------------------------
   // --- Reflection methods
   // --------------------------------------------------------------------

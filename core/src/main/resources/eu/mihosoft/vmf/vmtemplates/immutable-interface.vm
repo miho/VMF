@@ -57,6 +57,15 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.immutableImplemen
 #end ## for each
 
 #if(!$type.interfaceOnly)
+
+  /**
+   * Returns the Type object of this model type.
+   * @return Type object
+   */
+  static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type type() {
+    return __VMF__${type.typeName}_Creator.getType();
+  }
+
 #parse("${VMF_TEMPLATE_PATH}interface/builder.vm")
 #end##if type interface only
 
@@ -79,10 +88,19 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.immutableImplemen
 #if(!$type.interfaceOnly)
 class __VMF__${type.typeName}_Creator {
 
-static Class<?> builderCls;
-static java.lang.invoke.MethodHandles.Lookup lookup;
-static java.lang.reflect.Constructor builderConstructor;
-static java.lang.invoke.MethodHandle builderConstructorMH;
+  static Class<?> builderCls;
+  static java.lang.invoke.MethodHandles.Lookup lookup;
+  static java.lang.reflect.Constructor builderConstructor;
+  static java.lang.invoke.MethodHandle builderConstructorMH;
+
+  static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type type;
+
+  static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type getType() {
+      if(type ==null) {
+          type = ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type.newInstance(true, false, "${type.packageName}.$type.typeName", ${type.packageName}.${type.typeName}.class);
+      }
+      return type;
+  }
 
   static ${type.typeName}.Builder newBuilderInstance() {
       try {#set ( $dollar_sign = "$")

@@ -25,6 +25,7 @@ package eu.mihosoft.vmf.runtime.core.internal;
 
 import eu.mihosoft.vmf.runtime.core.Annotation;
 import eu.mihosoft.vmf.runtime.core.Reflect;
+import eu.mihosoft.vmf.runtime.core.Type;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
@@ -49,13 +50,14 @@ public class ReflectImpl implements Reflect {
     public void setModel(VObject model) {
         this.model = model;
     }
+
     public void setStaticOnly(boolean staticOnly) {
         this.staticOnly = staticOnly;
     }
 
     @Override
     public List<Annotation> annotations() {
-        if(annotations==null) {
+        if (annotations == null) {
             VObjectInternal parent = (VObjectInternal) model;
 
             annotations = new ArrayList<>(parent._vmf_getAnnotations());
@@ -67,17 +69,23 @@ public class ReflectImpl implements Reflect {
     @Override
     public List<Property> properties() {
 
-        if(properties==null) {
+        if (properties == null) {
 
             VObjectInternal parent = (VObjectInternal) model;
 
             properties = new ArrayList<>(parent._vmf_getPropertyNames().length);
 
-            for(String pName : parent._vmf_getPropertyNames()) {
+            for (String pName : parent._vmf_getPropertyNames()) {
                 properties.add(Property.newInstance(parent, pName, staticOnly));
             }
         }
 
         return properties;
+    }
+
+    @Override
+    public Type type() {
+        VObjectInternal vObj = (VObjectInternal) model;
+        return vObj._vmf_getType();
     }
 }

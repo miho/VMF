@@ -80,4 +80,9 @@ public interface Reflect {
     default Optional<Property> propertyByName(String name) {
         return properties().stream().filter(p->name.equals(p.getName())).findFirst();
     }
+
+    /**
+     * Returns the type of this object.
+     */
+    Type type();
 }
