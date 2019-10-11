@@ -38,6 +38,11 @@ public class UndoRedoWithContainmentTest {
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
         assertThat("there is one changes in total (second is only fired locally)", numChanges.get(), equalTo(1));
+
+        // set a child property and see if changes are recorded in parent
+        child.setName("my new name");
+
+        assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
     }
 
     @Test
@@ -70,6 +75,11 @@ public class UndoRedoWithContainmentTest {
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
         assertThat("there is one changes in total (second is only fired locally)", numChanges.get(), equalTo(1));
+
+        // set a child property and see if changes are recorded in parent
+        child.setName("my new name");
+
+        assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
     }
 
     @Test
@@ -102,6 +112,11 @@ public class UndoRedoWithContainmentTest {
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
         assertThat("there is one changes in total (second is only fired locally)", numChanges.get(), equalTo(1));
+
+        // set a child property and see if changes are recorded in parent
+        child.setName("my new name");
+
+        assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
     }
 
     @Test
@@ -134,7 +149,42 @@ public class UndoRedoWithContainmentTest {
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
         assertThat("there is one changes in total (second is only fired locally)", numChanges.get(), equalTo(1));
+
+        // set a child property and see if changes are recorded in parent
+        child.setName("my new name");
+
+        assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
     }
+    @Test
+    public void unoRedoWithSingleContainmentTestwithadditionalListener() {
+
+        ParentSingleContainment parent = ParentSingleContainment.newInstance();
+
+        // register non-recursive listener to reproduce issue #30
+        // see https://github.com/miho/VMF/issues/30
+        parent.vmf().changes().addListener(change -> {
+            System.out.println("change: prop="+change.propertyName());
+        },false);
+
+        // start the change recording
+        parent.vmf().changes().start();
+
+        // create child
+        ChildSingleContainment child = ChildSingleContainment.newInstance();
+
+        // set the parent which sets the opposite as well
+        child.setParent(parent);
+
+        assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
+
+        // set a child property and see if changes are recorded in parent
+        child.setName("my new name");
+
+        assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
+    }
+
+    
+
 
 
 }

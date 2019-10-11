@@ -11,6 +11,8 @@ interface ParentListContainment {
 interface ChildListContainment {
     @Container(opposite="children")
     ParentListContainment getParent();
+
+    String getName();
 }
 
 interface ParentSingleContainment {
@@ -21,4 +23,6 @@ interface ParentSingleContainment {
 interface ChildSingleContainment {
     @Container(opposite="child")
     ParentSingleContainment getParent();
+
+    String getName();
 }
