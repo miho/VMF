@@ -157,9 +157,6 @@ public class UndoRedoWithContainmentTest {
     }
     @Test
     public void unoRedoWithSingleContainmentTestwithadditionalListener() {
-
-        System.out.println("-- !!");
-
         ParentSingleContainment parent = ParentSingleContainment.newInstance();
 
         // register non-recursive listener to reproduce issue #30
@@ -180,9 +177,9 @@ public class UndoRedoWithContainmentTest {
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
 
         // set a child property and see if changes are recorded in parent
-        //child.setName("my new name");
+        child.setName("my new name");
 
-        //assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
+        assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
     }
 
     
