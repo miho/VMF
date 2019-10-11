@@ -100,7 +100,7 @@ public class ChangesImpl implements Changes {
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
                         evt.getOldValue(), evt.getNewValue(), evtInfo);
      
-                fireChange(c);
+                fireChange(c,evt);
 
                 if (evt.getNewValue() instanceof VObject) {
                     VObject newObjectToObserve = (VObject) evt.getNewValue();
@@ -142,7 +142,7 @@ public class ChangesImpl implements Changes {
                 Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
                         evt.getOldValue(), evt.getNewValue(), evtInfo);
 
-                fireChangeForNonRecursive(c);
+                fireChangeForNonRecursive(c, evt);
             }
         };
 
@@ -163,13 +163,16 @@ public class ChangesImpl implements Changes {
 
     }
 
-    private void fireChange(Change c) {
+    private Object lastFiredEvt;
+
+    private void fireChange(Change c, Object evt) {
 
         for (ChangeListener cl : changeListeners) {
             cl.onChange(c);
         }
 
-        if (recording && nonRecursiveChangeListeners.isEmpty() ) {
+        // if (recording)all.add(c);
+        if (recording && lastFiredEvt !=evt/*&& nonRecursiveChangeListeners.isEmpty()*/ ) {
 
             // check whether the change belongs to a parent property of a
             // contained object (opposite)
@@ -178,6 +181,7 @@ public class ChangesImpl implements Changes {
             int pIndex = modelInternal._vmf_getPropertyIdByName(c.propertyName());
             boolean foundParent = false;
             for(int idx : modelInternal._vmf_getParentIndices()) {
+
                 if (pIndex == idx) {
                     foundParent = true;
                     break;
@@ -188,15 +192,17 @@ public class ChangesImpl implements Changes {
                 all.add(c);
             }
         }
+
+        lastFiredEvt = evt;
     }
 
-    private void fireChangeForNonRecursive(Change c) {
+    private void fireChangeForNonRecursive(Change c, Object evt) {
 
         for (ChangeListener cl : nonRecursiveChangeListeners) {
             cl.onChange(c);
         }
 
-        if (recording && changeListeners.isEmpty()) {
+        if (recording && lastFiredEvt !=evt) {
 
             // check whether the change belongs to a parent property of a
             // contained object (opposite)
@@ -210,11 +216,13 @@ public class ChangesImpl implements Changes {
                     break;
                 }
             }
-
+            
             if(!foundParent && !ChangeInternal.isCrossRefChange(c)) {
                 all.add(c);
             }
         }
+
+        lastFiredEvt = evt;
     }
 
     public void setModel(VObject model) {
@@ -294,7 +302,7 @@ public class ChangesImpl implements Changes {
                         (evt) -> {
                             Change c = new ListChangeImpl(object, propName, evt);
 
-                            fireChangeForNonRecursive(c);
+                            fireChangeForNonRecursive(c, evt);
                         }
                 );
 
@@ -318,7 +326,7 @@ public class ChangesImpl implements Changes {
                         (evt) -> {
                             Change c = new ListChangeImpl(object, propName, evt);
 
-                            fireChange(c);
+                            fireChange(c, evt);
 
                             evt.added().elements().stream().filter(
                                     e -> e instanceof VObjectInternal).
