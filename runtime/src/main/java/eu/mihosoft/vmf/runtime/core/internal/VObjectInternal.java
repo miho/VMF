@@ -246,4 +246,17 @@ public interface VObjectInternal extends VObject, ObservableObject {
         return true;
         }
     }
+
+    /**
+     * Indicates whether two objects are equal (checks all properties).
+     * @param o object to compare
+     * @return {@code true} if objects are equal; {@code false} otherwise
+     */
+    boolean _vmf_equals(Object o);
+
+    /**
+     * TBD
+     * @return
+     */
+    int _vmf_hashCode();
 }

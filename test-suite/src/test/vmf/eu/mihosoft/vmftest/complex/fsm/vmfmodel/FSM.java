@@ -1,8 +1,10 @@
 package eu.mihosoft.vmftest.complex.fsm.vmfmodel;
 
 import eu.mihosoft.vmf.core.*;
+import eu.mihosoft.vmf.core.VMFEquals;
 
 @Doc("This model entity is a finite state machine.")
+@VMFEquals
 interface FSM {
 
     String getName();
@@ -16,6 +18,7 @@ interface FSM {
 
 }
 
+@VMFEquals
 interface State {
 
     String getName();
@@ -30,6 +33,7 @@ interface State {
 
 }
 
+@VMFEquals
 interface Transition {
 
     String getInput();
@@ -43,6 +47,7 @@ interface Transition {
     Action[] getActions();
 }
 
+@VMFEquals
 interface Action {
     String getName();
 }

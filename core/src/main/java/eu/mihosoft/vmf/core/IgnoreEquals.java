@@ -54,6 +54,7 @@ import java.lang.annotation.Target;
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  * @see <a href="@see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-10/README.md#ignoring-properties-for-equals">Tutorial on Equals & HashCode</a>
+ * @see EqualsAndHashCode
  * @see IgnoreToString
  */
 @Retention(RetentionPolicy.RUNTIME)

@@ -118,6 +118,27 @@ public interface Content {
      * @return a shallow copy of this object
      */
     <T> T shallowCopy();
+
+    /**
+     * Indicates whether this VMF object is equal to the specified object.
+     * It uses VMFs equals implementation which compares all properties unless
+     * they are ignored explicitly via annotation.
+     * @param o object to compare
+     * @return {@code } if equals; {@code false} otherwise
+     */
+    @Override
+    boolean equals(Object o);
+    /**
+     * Returns the hash-code for this VMF object. It uses VMFs hashCode
+     * implementation which takes all properties into account unless
+     * they are ignored explicitly via annotation.
+     * @param o object to compare
+     * @param o object to compare
+     * @return {@code } if equals; {@code false} otherwise
+     */
+    @Override
+    int hashCode();
+
     
     
 }

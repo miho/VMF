@@ -22,11 +22,9 @@
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
   // --------------------------- BEGIN EQUALITY -----------------------------
-#if(${type.isEqualsMethodDelegated()})
-  // -> equals(Object o) and hashCode() methods are delegated
-#else## #if(${type.isEqualsMethodDelegated()})
+
   @Override
-  public boolean equals(Object o) {
+  public boolean _vmf_equals(Object o) {
 
     boolean entry = _vmf_getThreadLocalEquals().get().isEmpty();
     try {
@@ -48,6 +46,14 @@
       if (o==null) return false;
       else if (this==o) return true;
 
+      #if(${type.isEqualsAndHashCodeCallSuper()})
+      // super call requested via @VMFEquals(callSuper=true)
+      // return early if not equals according to super.equals()
+      if(!super.equals()) return false; 
+
+      // super says we are equal. now we continue with the actual implementation
+#end## #if(${type.isEqualsAndHashCodeCallSuper()})
+
 #if(!$type.immutable)
       // if object is read-only wrapper then unwrap the actual object
       if(o instanceof $type.readOnlyImplementation.typeName) {
@@ -63,14 +69,14 @@
 
 // DEBUG begin ------------------
 #foreach ($prop in $type.implementation.propertiesForEquals)
-          boolean _v_eq_$prop.name = _vmf_equals(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name);
+          boolean _v_eq_$prop.name = _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name);
           System.out.println("PROP-EQ: ${type.implementation.typeName}.${prop.name} = " + _v_eq_$prop.name + " : " + this.__vmf_prop_$prop.name + ", other: " + other.__vmf_prop_$prop.name);
 #end## for-each property
 // DEBUG end --------------------
 
         return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
-          _vmf_equals(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
+          _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end## for-each property
       }
@@ -91,7 +97,7 @@
         return #if($t.implementation.propertiesForEquals.isEmpty())true;#end
        
 #foreach ($prop in $type.implementation.propertiesForEquals)
-          _vmf_equals(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
+          _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end## for-each property
       }
@@ -108,7 +114,7 @@
     }
   } // end equals()
 
-  private static boolean _vmf_equals(ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> threadLocalEqualsMap, Object o1, Object o2) {
+  private static boolean _vmf_equals_helper(ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> threadLocalEqualsMap, Object o1, Object o2) {
     boolean oneAndOnlyOneIsNull = (o1 == null) != (o2 == null);
     boolean o1IsCollectionType = o1 instanceof ${VCOLL_PKG}.VList;
     boolean o2IsCollectionType = o2 instanceof ${VCOLL_PKG}.VList;
@@ -171,7 +177,8 @@
   }
 
   @Override
-  public int hashCode() {
+  public int _vmf_hashCode() {
+
       boolean entry = _vmf_getThreadLocalHashCode().get().isEmpty();
       try {
           // test if "this class" has been seen before
@@ -183,7 +190,9 @@
             return 0; // already visited
           } else {
             _vmf_getThreadLocalHashCode().get().put(System.identityHashCode(this), null);
-            int value = _vmf_deepHashCode(
+            int value = 
+#if(${type.isEqualsAndHashCodeCallSuper()})super.hashCode() + #end
+            _vmf_deepHashCode( 
 #foreach ($prop in $type.implementation.propertiesForEquals)
             this.__vmf_prop_$prop.name#if($foreach.hasNext),#end
 #end        );
@@ -235,5 +244,27 @@
 
 
   private static ThreadLocal<java.util.Map<Integer, ?>> _vmf_fHashCodeChecker;
+#if(${type.isEqualsMethodDelegated()})
+  // -> equals(Object o) and hashCode() methods are delegated
+#elseif(${type.isEqualsAndHashCode()})## #if(${type.isEqualsMethodDelegated()}) 
+  // we use VMF's equals & hashCode implementation
+  @Override
+  public boolean equals(Object o) {
+    return _vmf_equals(o);
+  }
+  @Override
+  public int hashCode() {
+    return _vmf_hashCode();
+  }
+#else
+  // we don't use VMF's equals & hashCode implementation
+  // @Override
+  // public boolean equals(Object o) {
+  //  return _vmf_equals(o);
+  // }
+  // @Override
+  // public int hashCode() {
+  //   return _vmf_hashCode();
+  // }
 #end## #if(${type.isEqualsMethodDelegated()})
   // ---------------------------- END EQUALITY ------------------------------

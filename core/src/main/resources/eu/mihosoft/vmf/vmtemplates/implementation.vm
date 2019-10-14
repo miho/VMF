@@ -201,9 +201,21 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
             public ${type.typeName} shallowCopy() {
               return ${type.implementation.typeName}.
                 this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
-              }
-            };
-          }
+            }
+
+            @Override
+            public boolean equals(Object o) {
+              // vmf object comparison
+              return ${type.implementation.typeName}.this._vmf_equals(o);
+            }
+
+            @Override
+            public int hashCode() {
+              // vmf object hash-code
+              return ${type.implementation.typeName}.this._vmf_hashCode();
+            }
+          }; // end of Content class
+          } // end of content()
 
           private ${VMFPKG_INT}.ChangesImpl changes;
 

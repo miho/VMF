@@ -67,6 +67,10 @@ public class ModelType {
 
     private final boolean immutable;
     private final boolean interfaceOnly;
+
+    private boolean equalsAndHashCode;
+    private boolean equalsAndHashCodeCallSuper;
+
     private boolean interfaceWithGettersOnly;
 
     private String customDocumentation="";
@@ -83,6 +87,20 @@ public class ModelType {
         return annotations;
     }
 
+    /**
+     * @return the equalsAndHashCode
+     */
+    public boolean isEqualsAndHashCode() {
+        return equalsAndHashCode;
+    }
+
+    /**
+     * @return the equalsAndHashCodeCallSuper
+     */
+    public boolean isEqualsAndHashCodeCallSuper() {
+        return equalsAndHashCodeCallSuper;
+    }
+
     private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
 
@@ -93,6 +111,12 @@ public class ModelType {
 
         this.immutable = clazz.getAnnotation(Immutable.class) != null;
         this.interfaceOnly = clazz.getAnnotation(InterfaceOnly.class) != null;
+
+        this.equalsAndHashCode = clazz.getAnnotation(VMFEquals.class) != null;
+        if(this.equalsAndHashCode) {
+            VMFEquals eAnn = clazz.getAnnotation(VMFEquals.class);
+            this.equalsAndHashCodeCallSuper = eAnn.callSuper();
+        }
 
         intitCustomDocumentation(clazz);
 

@@ -25,7 +25,9 @@
 package eu.mihosoft.vmftests.test2.vmfmodel;
 
 import eu.mihosoft.vmf.core.Container;
+import eu.mihosoft.vmf.core.VMFEquals;
 
+@VMFEquals
 public interface Child extends Named {
     @Container(opposite="children")
     Parent getParent();

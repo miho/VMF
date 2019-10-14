@@ -148,6 +148,16 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
   }
 
   @Override
+  public boolean _vmf_equals(Object o) {
+    return ((${VMFPKG_INT}.VObjectInternal)this.mutableObject)._vmf_equals(o);
+  }
+
+  @Override
+  public int _vmf_hashCode() {
+    return ((${VMFPKG_INT}.VObjectInternal)this.mutableObject)._vmf_hashCode();
+  }
+
+  @Override
   public $type.typeName _vmf_getMutableObject() {
     return this.mutableObject;
   }
