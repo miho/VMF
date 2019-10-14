@@ -30,8 +30,6 @@ package eu.mihosoft.vmf.runtime.core;
 
 
 import eu.mihosoft.vcollections.VListChangeEvent;
-import eu.mihosoft.vmf.runtime.core.internal.ListChangeImpl;
-import eu.mihosoft.vmf.runtime.core.internal.PropChangeImpl;
 
 import java.util.*;
 import java.util.function.Predicate;
