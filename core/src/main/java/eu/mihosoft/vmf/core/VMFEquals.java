@@ -28,10 +28,4 @@ import java.lang.annotation.ElementType;
 @Target(ElementType.TYPE)
 public @interface VMFEquals {
 
-    /**
-     * Indicates whether to call super implementations of {@code java.lang.Object#equals(Object)} and
- *  {@code java.lang.Object#hashCode()} prior to calling this implementation.
-     */
-    boolean callSuper() default false;
-
 }

@@ -69,7 +69,6 @@ public class ModelType {
     private final boolean interfaceOnly;
 
     private boolean equalsAndHashCode;
-    private boolean equalsAndHashCodeCallSuper;
 
     private boolean interfaceWithGettersOnly;
 
@@ -94,13 +93,6 @@ public class ModelType {
         return equalsAndHashCode;
     }
 
-    /**
-     * @return the equalsAndHashCodeCallSuper
-     */
-    public boolean isEqualsAndHashCodeCallSuper() {
-        return equalsAndHashCodeCallSuper;
-    }
-
     private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
 
@@ -113,10 +105,6 @@ public class ModelType {
         this.interfaceOnly = clazz.getAnnotation(InterfaceOnly.class) != null;
 
         this.equalsAndHashCode = clazz.getAnnotation(VMFEquals.class) != null;
-        if(this.equalsAndHashCode) {
-            VMFEquals eAnn = clazz.getAnnotation(VMFEquals.class);
-            this.equalsAndHashCodeCallSuper = eAnn.callSuper();
-        }
 
         intitCustomDocumentation(clazz);
 
