@@ -401,6 +401,9 @@ public class ChangesImpl implements Changes {
 
         public TransactionImpl(List<Change> changes) {
             this.changes = changes;
+
+            // try to reduce property changes
+            // TODO 14.10.2019
         }
 
         @Override
@@ -425,6 +428,66 @@ public class ChangesImpl implements Changes {
             for (int i = changes.size() - 1; i > -1; i--) {
                 changes.get(i).undo();
             }
+        }
+
+        /**
+         * Reduces two property changes into one change. This only works if they both denote changes of the same property.
+         * Other forms of changes (e.g. list changes) are not supported.
+         * @param c1 first event
+         * @param c2 second event
+         * @return reduced change that combines the two specified changes
+         */
+        static Change reduce(Change c1, Change c2) {
+
+            if( (c1.object()!=c2.object()) || (!c1.propertyName().equals(c2.propertyName())) ) {
+                throw new UnsupportedOperationException("Cannot reduce changes that don't affect the same property and/or object");
+            }
+
+            if(!c1.propertyChange().isPresent() || !c2.propertyChange().isPresent()) {
+                throw new UnsupportedOperationException("Cannot reduce list changes. Only property changes are supported.");
+            }
+
+            // swap change if first argument occured after second argument
+            if(c1.getTimestamp() > c2.getTimestamp()) {
+                Change swapChange;
+                swapChange = c1;
+                c1 = c2;
+                c2 = swapChange;
+            }
+
+            PropChangeImpl pc1 = (PropChangeImpl)c1.propertyChange().get();
+            PropChangeImpl pc2 = (PropChangeImpl)c2.propertyChange().get();
+
+            Change result = new PropChangeImpl(c1.object(), c1.propertyName(),
+                    pc1.oldValue(), pc2.newValue(), c2.getTimestamp(), pc2.getInternalChangeInfo()
+            );
+
+            return result;
+
+        }
+
+        static Change reduce(Change... changes) {
+            return reduce(Arrays.asList(changes));
+        }
+
+        static Change reduce(List<Change> changes) {
+
+            if(changes.size()==0) {
+                throw new UnsupportedOperationException("Cannot reduce empty list.");
+            }
+
+            if(changes.size()==1) {
+                return changes.get(0);
+            }
+
+            List<Change> toReduce = new ArrayList<>(changes);
+            Collections.sort(toReduce, Comparator.comparingLong(Change::getTimestamp));
+
+            Change c1 = toReduce.get(0);
+            Change c2 = toReduce.get(toReduce.size()-1);
+
+            return reduce(c1,c2);
+
         }
     }
 

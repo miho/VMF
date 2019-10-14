@@ -73,6 +73,17 @@ class PropChangeImpl implements ChangeInternal, PropertyChange {
         this.internalChangeInfo = internalChangeInfo;
     }
 
+    public PropChangeImpl(VObject object, String propertyName, Object oldValue, Object newValue, long timestamp, String internalChangeInfo) {
+        this.object = object;
+        this.propertyName = propertyName;
+        this.oldValue = oldValue;
+        this.newValue = newValue;
+
+        this.timestamp = timestamp;
+
+        this.internalChangeInfo = internalChangeInfo;
+    }
+
     @Override
     public String getInternalChangeInfo() {
         return internalChangeInfo;
