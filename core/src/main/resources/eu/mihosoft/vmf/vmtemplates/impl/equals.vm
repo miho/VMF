@@ -46,14 +46,6 @@
       if (o==null) return false;
       else if (this==o) return true;
 
-      #if(${type.isEqualsAndHashCodeCallSuper()})
-      // super call requested via @VMFEquals(callSuper=true)
-      // return early if not equals according to super.equals()
-      if(!super.equals()) return false; 
-
-      // super says we are equal. now we continue with the actual implementation
-#end## #if(${type.isEqualsAndHashCodeCallSuper()})
-
 #if(!$type.immutable)
       // if object is read-only wrapper then unwrap the actual object
       if(o instanceof $type.readOnlyImplementation.typeName) {
@@ -67,12 +59,12 @@
       if (o instanceof ${type.implementation.typeName}) {
         $type.implementation.typeName other = ($type.implementation.typeName) o;
 
-// DEBUG begin ------------------
-#foreach ($prop in $type.implementation.propertiesForEquals)
-          boolean _v_eq_$prop.name = _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name);
-          System.out.println("PROP-EQ: ${type.implementation.typeName}.${prop.name} = " + _v_eq_$prop.name + " : " + this.__vmf_prop_$prop.name + ", other: " + other.__vmf_prop_$prop.name);
-#end## for-each property
-// DEBUG end --------------------
+## // DEBUG begin ------------------
+## #foreach ($prop in $type.implementation.propertiesForEquals)
+##           boolean _v_eq_$prop.name = _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name);
+##           System.out.println("PROP-EQ: ${type.implementation.typeName}.${prop.name} = " + _v_eq_$prop.name + " : " + this.__vmf_prop_$prop.name + ", other: " + other.__vmf_prop_$prop.name);
+## #end## for-each property
+## // DEBUG end --------------------
 
         return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
@@ -172,7 +164,20 @@
         });
       }
 
-      return java.util.Objects.equals(o1,o2);
+      boolean bothAreVObjects = o1 instanceof ${VMFPKG_INT}.VObjectInternal && o2 instanceof ${VMFPKG_INT}.VObjectInternal;
+      boolean useVMFEquals = false;
+
+      if(bothAreVObjects) {
+        ${VMFPKG_INT}.VObjectInternal vo1 = (${VMFPKG_INT}.VObjectInternal)o1;
+        ${VMFPKG_INT}.VObjectInternal vo2 = (${VMFPKG_INT}.VObjectInternal)o2;
+        useVMFEquals = true;//vo1._vmf_use_vmf_equals() && vo2._vmf_use_vmf_equals();
+      }
+
+      if(useVMFEquals) {
+        return ((${VMFPKG_INT}.VObjectInternal)o1)._vmf_equals(o2);
+      } else {
+        return java.util.Objects.equals(o1,o2);
+      }
     }
   }
 

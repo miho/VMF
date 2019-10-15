@@ -25,14 +25,20 @@ package eu.mihosoft.vmf.core;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
+
+import eu.mihosoft.vmf.core.VMFEquals.EqualsType;
+
+import java.lang.annotation.ElementType;
+
 
 /**
  * <p>Created by miho on 07.01.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
  */
-@Deprecated // TODO 30.01.2019 do we still need this annotation?
 @Retention(RetentionPolicy.RUNTIME)
+@Target(ElementType.TYPE)
 public @interface VMFModel {
-    String destinationPackage();
+    EqualsType equalsDefaultImpl() default EqualsType.INSTANCE;
 }

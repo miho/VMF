@@ -28,4 +28,11 @@ import java.lang.annotation.ElementType;
 @Target(ElementType.TYPE)
 public @interface VMFEquals {
 
+    public static enum EqualsType {
+        CONTAINMENT_AND_EXTERNAL,
+        ALL,
+        INSTANCE
+    }
+
+    EqualsType value() default EqualsType.CONTAINMENT_AND_EXTERNAL;
 }

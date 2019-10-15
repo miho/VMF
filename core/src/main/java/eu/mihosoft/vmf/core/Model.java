@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
 public class Model {
 
     private final String packageName;
+    private ModelConfig modelConfig;
     private final Map<String, ModelType> types = new HashMap<>();
     private Class<?>[] interfaces;
 
@@ -44,22 +45,36 @@ public class Model {
     private Model(Class<?>... interfaces) {
 
         if (interfaces == null || interfaces.length == 0) {
-            throw new IllegalArgumentException(
-                    "At least one interface is required for building a valid model.");
+            throw new IllegalArgumentException("At least one interface is required for building a valid model.");
         }
 
         this.interfaces = interfaces;
         String modelPkgName = TypeUtil.getPackageName(interfaces[0]);
 
         if (!modelPkgName.endsWith(".vmfmodel")) {
-            throw new IllegalArgumentException(
-                    "Model interfaces should be in subpackage 'vmfmodel'."
-                            + " Found model interfaces in '"
-                            + modelPkgName + "'.");
+            throw new IllegalArgumentException("Model interfaces should be in subpackage 'vmfmodel'."
+                    + " Found model interfaces in '" + modelPkgName + "'.");
         }
 
-        this.packageName = modelPkgName.substring(
-                0, modelPkgName.length() - ".vmfmodel".length());
+        this.packageName = modelPkgName.substring(0, modelPkgName.length() - ".vmfmodel".length());
+
+        for (Class<?> iWithPkgAnn : interfaces) {
+            // initialize model config
+            VMFModel modelAnn = iWithPkgAnn.getAnnotation(VMFModel.class);
+            if(modelAnn!=null) {
+
+                if(this.modelConfig!=null) {
+                    throw new RuntimeException("VMFModel annotation can only be defined once per model. Preferably at the top of the file.");
+                }
+
+                this.modelConfig = ModelConfig.fromAnnotation(modelAnn);
+            }
+        }
+
+        // if no annotation has been found, set config to default
+        if(modelConfig==null) {
+            this.modelConfig = ModelConfig.fromAnnotation(null);
+        }
 
         // PASS 0
         Set<String> packages = new HashSet<String>();
@@ -194,6 +209,10 @@ public class Model {
 
         } // end pass 7
 
+    }
+
+    public ModelConfig getModelConfig() {
+        return this.modelConfig;
     }
 
     /**

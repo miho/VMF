@@ -30,6 +30,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import eu.mihosoft.vmf.core.VMFEquals.EqualsType;
+
 /**
  * Created by miho on 06.01.2017.
  * 
@@ -68,7 +70,7 @@ public class ModelType {
     private final boolean immutable;
     private final boolean interfaceOnly;
 
-    private boolean equalsAndHashCode;
+    private EqualsType equalsAndHashCode;
 
     private boolean interfaceWithGettersOnly;
 
@@ -90,7 +92,13 @@ public class ModelType {
      * @return the equalsAndHashCode
      */
     public boolean isEqualsAndHashCode() {
-        return equalsAndHashCode;
+
+        if(this.equalsAndHashCode==null) {
+            this.equalsAndHashCode = getModel().getModelConfig().
+            getEqualsDefaultImpl();
+        }
+
+        return this.equalsAndHashCode!=EqualsType.INSTANCE;
     }
 
     private ModelType(Model model, Class<?> clazz, int typeId) {
@@ -104,7 +112,10 @@ public class ModelType {
         this.immutable = clazz.getAnnotation(Immutable.class) != null;
         this.interfaceOnly = clazz.getAnnotation(InterfaceOnly.class) != null;
 
-        this.equalsAndHashCode = clazz.getAnnotation(VMFEquals.class) != null;
+        VMFEquals equalsAnn = clazz.getAnnotation(VMFEquals.class);
+        if(equalsAnn != null) {
+            this.equalsAndHashCode = equalsAnn.value();
+        }
 
         intitCustomDocumentation(clazz);
 
