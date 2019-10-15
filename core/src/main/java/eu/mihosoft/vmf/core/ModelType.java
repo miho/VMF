@@ -101,6 +101,24 @@ public class ModelType {
         return this.equalsAndHashCode!=EqualsType.INSTANCE;
     }
 
+    public boolean isEqualsAndHashCodeALL() {
+        if(this.equalsAndHashCode==null) {
+            this.equalsAndHashCode = getModel().getModelConfig().
+            getEqualsDefaultImpl();
+        }
+
+        return this.equalsAndHashCode==EqualsType.ALL; 
+    }
+
+    public boolean isEqualsAndHashCodeCONTAINMENT_AND_EXTERNAL() {
+        if(this.equalsAndHashCode==null) {
+            this.equalsAndHashCode = getModel().getModelConfig().
+            getEqualsDefaultImpl();
+        }
+
+        return this.equalsAndHashCode==EqualsType.CONTAINMENT_AND_EXTERNAL; 
+    }
+
     private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
 

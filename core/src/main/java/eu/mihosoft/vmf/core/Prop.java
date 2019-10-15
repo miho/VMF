@@ -545,7 +545,29 @@ public class Prop {
         return name.substring(0, 1).toUpperCase() + name.substring(1);
     }
 
+    /**
+     * TODO should not change state, since it is a getter only!
+     * @return 
+     */
     public boolean isIgnoredForEquals() {
+
+        if(!ignoredForEquals) {
+
+            if(!isModelType()) {
+                return ignoredForEquals;
+            }
+
+            // check whether we should ignore by 
+            // equals setting, see VMFEquals.java and VMFModel.java
+            if(getType().isEqualsAndHashCodeCONTAINMENT_AND_EXTERNAL()) {
+
+                // if we are not contained, ignore this property
+                if(!isContained()) {
+                    ignoredForEquals = true;
+                }
+            }
+        }
+
         return ignoredForEquals;
     }
 
