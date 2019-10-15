@@ -471,7 +471,7 @@ public class Prop {
     // }
 
     public boolean isModelType() {
-        return getParent().getModel().isModelType(getPackageName() + "." + getTypeName());
+        return getType()!=null;//getParent().getModel().isModelType(getPackageName() + "." + getTypeName());
     }
 
     public String getTypeNameForInterface() {
@@ -554,12 +554,12 @@ public class Prop {
         if(!ignoredForEquals) {
 
             if(!isModelType()) {
-                return ignoredForEquals;
+                return false;
             }
 
             // check whether we should ignore by 
             // equals setting, see VMFEquals.java and VMFModel.java
-            if(getType().isEqualsAndHashCodeCONTAINMENT_AND_EXTERNAL()) {
+            if(getParent().isEqualsAndHashCodeCONTAINMENT_AND_EXTERNAL()) {
 
                 // if we are not contained, ignore this property
                 if(!isContained()) {

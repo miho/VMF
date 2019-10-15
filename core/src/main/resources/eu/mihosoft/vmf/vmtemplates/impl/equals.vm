@@ -89,6 +89,7 @@
         return #if($t.implementation.propertiesForEquals.isEmpty())true;#end
        
 #foreach ($prop in $type.implementation.propertiesForEquals)
+          // $prop.name : $prop.container : $prop.contained
           _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
 
 #end## for-each property

@@ -111,6 +111,7 @@ public class ModelType {
     }
 
     public boolean isEqualsAndHashCodeCONTAINMENT_AND_EXTERNAL() {
+
         if(this.equalsAndHashCode==null) {
             this.equalsAndHashCode = getModel().getModelConfig().
             getEqualsDefaultImpl();
