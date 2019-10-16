@@ -475,6 +475,8 @@
 // TODO do we still need this?    // fire property change event
 // TODO do we still need this?    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
 // TODO do we still need this?  }
+
+
 #end## end if containment property and no collection
 #end##------------------------------## end  (prop is collection type)
 #end## end for-each
