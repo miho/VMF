@@ -6,9 +6,13 @@ import eu.mihosoft.vmf.core.*;
         equalsDefaultImpl = VMFEquals.EqualsType.CONTAINMENT_AND_EXTERNAL
 )
 
-
-interface EqualsTestModel {
+//@InterfaceOnly
+interface WithName {
     String getName();
+}
+
+
+interface EqualsTestModel extends WithName {
 
     AReference getReference();
 
@@ -16,13 +20,32 @@ interface EqualsTestModel {
     Child getChild();
 }
 
-interface AReference {
-    String getName();
+interface AReference extends WithName {
 }
 
-interface Child {
-    String getName();
+interface Child extends WithName {
 
     @Container(opposite = "child")
     EqualsTestModel getParent();
+}
+
+interface EqualsTestModel2 extends WithName {
+
+    int getValue();
+}
+
+@VMFEquals(value = VMFEquals.EqualsType.ALL)
+interface EqualsTestModelAllEq extends WithName {
+
+    int getValue();
+
+    AReference getReference();
+}
+
+@VMFEquals(value = VMFEquals.EqualsType.INSTANCE)
+interface EqualsTestModelInstanceEq extends WithName {
+
+    int getValue();
+
+    AReference getReference();
 }

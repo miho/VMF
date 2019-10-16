@@ -559,7 +559,19 @@ public class Prop {
 
             // check whether we should ignore by 
             // equals setting, see VMFEquals.java and VMFModel.java
-            if(getParent().isEqualsAndHashCodeCONTAINMENT_AND_EXTERNAL()) {
+            if(getParent().isEqualsAndHashCodeCONTAINMENT_AND_EXTERNAL()
+                || !getParent().isEqualsAndHashCode()) {
+
+                // we check for containment if we set containment_and_external
+                // or if we didn't set a vmf specific implementation
+                // in this case containment_and_external is used for the _vmf_equals()
+                // method accessible via vobj.vmf().content().equals(other)
+                //
+                // that is, if we choose the public equals() methods to be
+                // instance based we set the vmf specific implementation to
+                // containment_and_external
+                //
+                // TODO 16.10.2019 do we actually need the ALL implementation?
 
                 // if we are not contained, ignore this property
                 if(!isContained()) {

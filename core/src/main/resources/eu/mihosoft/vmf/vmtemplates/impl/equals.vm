@@ -56,7 +56,7 @@
       // -- try our interface/implementation --
 
       // perform the actual comparison for each property
-      if (o instanceof ${type.implementation.typeName}) {
+      if (o.getClass() == ${type.implementation.typeName}.class) {
         $type.implementation.typeName other = ($type.implementation.typeName) o;
 
 ## // DEBUG begin ------------------
@@ -73,29 +73,31 @@
 #end## for-each property
       }
 
-      // -- try every implementation that implements our interface --
-#foreach ($t in $type.getModel().getAllTypesThatImplement($type))
-#if($t.interfaceOnly)
-
-      // -> type ${t.typeName} is interface-only and will be skipped
-
-#else## if($t.interfaceOnly)
-
-      // -> type ${t.typeName} is checked:
-
-      //   -> perform the actual comparison for each property
-      if (o instanceof ${t.implementation.typeName}) {
-        $t.implementation.typeName other = ($t.implementation.typeName) o;
-        return #if($t.implementation.propertiesForEquals.isEmpty())true;#end
-       
-#foreach ($prop in $type.implementation.propertiesForEquals)
-          // $prop.name : $prop.container : $prop.contained
-          _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
-
-#end## for-each property
-      }
-#end## if($t.interfaceOnly)       
-#end## for-each potential implementation
+// TODO 16.10.2019 should we allow mixed-type comparison? How should it be implemented? 
+##
+##       // -- try every implementation that implements our interface --
+## #foreach ($t in $type.getModel().getAllTypesThatImplement($type))
+## #if($t.interfaceOnly)
+## 
+##       // -> type ${t.typeName} is interface-only and will be skipped
+## 
+## #else## if($t.interfaceOnly)
+## 
+##       // -> type ${t.typeName} is checked:
+## 
+##       //   -> perform the actual comparison for each property
+##       if (o instanceof ${t.implementation.typeName}) {
+##         $t.implementation.typeName other = ($t.implementation.typeName) o;
+##         return #if($t.implementation.propertiesForEquals.isEmpty())true;#end
+##        
+## #foreach ($prop in $type.implementation.propertiesForEquals)
+##           // $prop.name : $prop.container : $prop.contained
+##           _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
+## 
+## #end## for-each property
+##       }
+## #end## if($t.interfaceOnly)       
+## #end## for-each potential implementation
 
       // no implementation matched. we end the comparison.
       return false;
