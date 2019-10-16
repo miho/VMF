@@ -35,7 +35,7 @@ interface EqualsTestModel2 extends WithName {
     int getValue();
 }
 
-@VMFEquals(value = ALL)
+@VMFEquals(ALL)
 interface EqualsTestModelAllEq extends WithName {
 
     int getValue();
@@ -43,7 +43,7 @@ interface EqualsTestModelAllEq extends WithName {
     AReference getReference();
 }
 
-@VMFEquals(value = INSTANCE)
+@VMFEquals(INSTANCE)
 interface EqualsTestModelInstanceEq extends WithName {
 
     int getValue();
