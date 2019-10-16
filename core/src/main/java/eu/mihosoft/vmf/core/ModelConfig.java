@@ -27,7 +27,7 @@ public class ModelConfig {
             return result;
         }
         
-        result.setEqualsDefaultImpl(modelAnn.equalsDefaultImpl());
+        result.setEqualsDefaultImpl(modelAnn.equality());
 
         System.out.println("   -> model config found. using the following defaults:");
         System.out.println("      -> equals-default-impl: " + result.getEqualsDefaultImpl());

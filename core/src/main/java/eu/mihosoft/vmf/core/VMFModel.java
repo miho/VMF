@@ -33,6 +33,8 @@ import java.lang.annotation.ElementType;
 
 
 /**
+ * Configures a VMF model. Only one annotation per model must exist.
+ *
  * <p>Created by miho on 07.01.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
@@ -40,5 +42,11 @@ import java.lang.annotation.ElementType;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface VMFModel {
-    EqualsType equalsDefaultImpl() default EqualsType.INSTANCE;
+    /**
+     * Defines which equality (and hashCode) implementation to use as default
+     * (i.e. if not delegated or overridden by {@link VMFEquals}). The default
+     * is identity {@link Object#equals(Object)} and  {@link Object#hashCode()}.
+     * @see {@link EqualsType}
+     */
+    EqualsType equality() default EqualsType.INSTANCE;
 }

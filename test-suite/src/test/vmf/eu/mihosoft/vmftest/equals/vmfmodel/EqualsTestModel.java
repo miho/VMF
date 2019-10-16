@@ -1,12 +1,13 @@
 package eu.mihosoft.vmftest.equals.vmfmodel;
 
 import eu.mihosoft.vmf.core.*;
+import static eu.mihosoft.vmf.core.VMFEquals.EqualsType.*;
 
 @VMFModel(
-        equalsDefaultImpl = VMFEquals.EqualsType.CONTAINMENT_AND_EXTERNAL
+    equality = CONTAINMENT_AND_EXTERNAL
 )
 
-//@InterfaceOnly
+
 interface WithName {
     String getName();
 }
@@ -34,7 +35,7 @@ interface EqualsTestModel2 extends WithName {
     int getValue();
 }
 
-@VMFEquals(value = VMFEquals.EqualsType.ALL)
+@VMFEquals(value = ALL)
 interface EqualsTestModelAllEq extends WithName {
 
     int getValue();
@@ -42,7 +43,7 @@ interface EqualsTestModelAllEq extends WithName {
     AReference getReference();
 }
 
-@VMFEquals(value = VMFEquals.EqualsType.INSTANCE)
+@VMFEquals(value = INSTANCE)
 interface EqualsTestModelInstanceEq extends WithName {
 
     int getValue();

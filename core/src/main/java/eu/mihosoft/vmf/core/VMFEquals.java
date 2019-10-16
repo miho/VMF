@@ -28,11 +28,19 @@ import java.lang.annotation.ElementType;
 @Target(ElementType.TYPE)
 public @interface VMFEquals {
 
-    public static enum EqualsType {
+    /**
+     * Defines the {@link Object#equals(Object)} and  {@link Object#hashCode()}
+     * implementation to use.
+     */
+    enum EqualsType {
         CONTAINMENT_AND_EXTERNAL,
         ALL,
         INSTANCE
     }
 
+    /**
+     * Defines the {@link Object#equals(Object)} and  {@link Object#hashCode()}
+     * implementation to use. The default is {@link EqualsType#INSTANCE}.
+     */
     EqualsType value() default EqualsType.CONTAINMENT_AND_EXTERNAL;
 }
