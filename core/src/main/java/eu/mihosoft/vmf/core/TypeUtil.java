@@ -26,8 +26,10 @@ package eu.mihosoft.vmf.core;
 import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.TypeVariable;
 import java.util.Collection;
 import java.util.List;
+import java.util.StringJoiner;
 
 /**
  * Created by miho on 21.03.2017.
@@ -49,7 +51,7 @@ public final class TypeUtil {
      * @param cls   class object to convert
      * @return the specified type as string
      */
-    public static String getTypeAsString(Model model, Class<?> cls) {
+    public static String getTypeAsString(Model model, Class<?> cls, boolean delegated, boolean vararg) {
         String packageName;
         String typeName;
 
@@ -58,14 +60,32 @@ public final class TypeUtil {
             packageName = "";
 
         } else if (Collection.class.isAssignableFrom(cls)) {
-            throw new RuntimeException(
-                    "Collections can only be specified with array syntax, i.e., '<Type>[]'");
+            if(delegated) {
+                throw new RuntimeException(
+                        "Collections can currently not be used as params in delegated methods. This will be fixed.");
+            } else {
+                throw new RuntimeException(
+                        "Collections can only be specified with array syntax, i.e., '<Type>[]'");
+            }
         } else if (cls.isArray()) {
-            Class<?> containedClazz = cls.getComponentType();
-            typeName = "VList<" + ModelType.primitiveToBoxedType(
-                    model.convertModelTypeToDestination(containedClazz)) + ">";
+            if(delegated) {
+                Class<?> containedClazz = cls.getComponentType();
+                typeName = containedClazz.getSimpleName();
+                packageName = model.
+                        convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+                if(vararg) {
+                    typeName +="...";
+                } else {
+                    typeName +="[]";
+                }
+                packageName = "";
+            } else {
+                Class<?> containedClazz = cls.getComponentType();
+                typeName = "VList<" + ModelType.primitiveToBoxedType(
+                        model.convertModelTypeToDestination(containedClazz)) + ">";
 
-            packageName = "eu.mihosoft.vcollections";
+                packageName = "eu.mihosoft.vcollections";
+            }
 
         } else {
             typeName = cls.getSimpleName();
@@ -137,18 +157,27 @@ public final class TypeUtil {
             packageName = "eu.mihosoft.vcollections";
 
         } else if (propClass.isArray()) {
-            Class<?> containedClazz = propClass.getComponentType();
-            typeName = "VList<" + ModelType.primitiveToBoxedType(
-                    model.
-                            convertModelTypeToDestination(containedClazz)) + ">";
-            // System.out.println("TYPENAME: " + typeName);
+            if(m.getName().startsWith("get") || m.getName().startsWith("is")) {
+                Class<?> containedClazz = propClass.getComponentType();
+                typeName = "VList<" + ModelType.primitiveToBoxedType(
+                        model.
+                                convertModelTypeToDestination(containedClazz)) + ">";
+                // System.out.println("TYPENAME: " + typeName);
 
-            packageName = "eu.mihosoft.vcollections";
+                packageName = "eu.mihosoft.vcollections";
 
+                    genericPackageName = model.
+                            convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+
+                genericTypeName = containedClazz.getSimpleName();
+            } else {
+                Class<?> containedClazz = propClass.getComponentType();
+                typeName =
+                        model.convertModelTypeToDestination(containedClazz) + "[]";
+                packageName = "";
                 genericPackageName = model.
                         convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
-
-            genericTypeName = containedClazz.getSimpleName();
+            }
         } else if (m.getGenericReturnType() != null) {
 
             ParameterizedType retType = null;

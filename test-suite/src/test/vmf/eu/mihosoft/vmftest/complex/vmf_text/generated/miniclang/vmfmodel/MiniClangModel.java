@@ -905,7 +905,8 @@ interface IntLiteral extends CodeElement {
 @InterfaceOnly
 interface ControlFlowChildNode {
     @DelegateTo(className="eu.mihosoft.vmftest.complex.vmf_text.generated.miniclang.ControlFlowChildNodeDelegate")
-    ControlFlowScope[] parentScopes();
+    //ControlFlowScope[] parentScopes();
+    eu.mihosoft.vcollections.VList<ControlFlowScope> parentScopes();
 }
 
 @InterfaceOnly

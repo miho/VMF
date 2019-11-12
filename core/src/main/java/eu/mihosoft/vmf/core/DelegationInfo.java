@@ -84,8 +84,11 @@ public class DelegationInfo {
         List<String> paramTypes = new ArrayList<>(m.getParameters().length);
         List<String> paramNames = new ArrayList<>(m.getParameters().length);
 
+        boolean delegated = !m.getName().startsWith("get") && !m.getName().startsWith("is");
+        boolean varargs   = m.isVarArgs();
+
         for(Parameter p : m.getParameters()) {
-            paramTypes.add(TypeUtil.getTypeAsString(model,p.getType()));
+            paramTypes.add(TypeUtil.getTypeAsString(model,p.getType(),delegated,varargs));
             paramNames.add(p.getName());
         }
 
@@ -117,11 +120,10 @@ public class DelegationInfo {
         List<String> paramTypes = new ArrayList<>();
         List<String> paramNames = new ArrayList<>();
 
-
         return newInstance(
                 delegation.className(),
                 "on"+clazz.getSimpleName()+"Instantiated",
-                TypeUtil.getTypeAsString(model,clazz),
+                TypeUtil.getTypeAsString(model,clazz,false,false),
                 paramTypes, paramNames, true, 
                 "" /*constructors are not documented because there's no public API for them*/);
     }

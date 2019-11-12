@@ -195,11 +195,14 @@ class VMFPlugin implements Plugin<Project> {
                 // potentially other dependencies needed to compile the model definitions
 
                 String configName = sourceSet.getTaskName("vmfCompile", "");
-                Dependency dep = project.dependencies.create(
+                Dependency dep1 = project.dependencies.create(
                         "eu.mihosoft.vmf:vmf:$VMF_VERSION")
+                Dependency dep2 = project.dependencies.create(
+                        "eu.mihosoft.vmf:vmf-runtime:$VMF_VERSION")
                 def conf = project.configurations.maybeCreate(configName)
                 conf.defaultDependencies { deps ->
-                    deps.add(dep)
+                    deps.add(dep1)
+                    deps.add(dep2)
                 }
 
                 // 1) Add a new 'vmf' virtual directory mapping
