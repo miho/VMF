@@ -16,7 +16,7 @@ apply plugin: 'java'
 apply from: 'gradle/publishing.gradle'
 
 wrapper {
-    gradleVersion = '5.3'
+    gradleVersion = '6.0'
 }
 
 sourceCompatibility = 1.8

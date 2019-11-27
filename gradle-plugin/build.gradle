@@ -11,7 +11,7 @@ ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 wrapper {
-    gradleVersion = '5.3'
+    gradleVersion = '6.0'
 }
 
 sourceCompatibility = '1.8'

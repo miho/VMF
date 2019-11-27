@@ -1,5 +1,1 @@
 rootProject.name = 'VMF-Gradle-Plugin'
-
-//include 'plugin-test'
-
-enableFeaturePreview('STABLE_PUBLISHING')

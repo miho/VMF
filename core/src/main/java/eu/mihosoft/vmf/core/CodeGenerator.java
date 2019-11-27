@@ -30,11 +30,15 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.exception.ResourceNotFoundException;
 import org.apache.velocity.runtime.RuntimeConstants;
+import org.apache.velocity.runtime.RuntimeServices;
+import org.apache.velocity.runtime.log.LogChute;
 import org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Writer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Default properties for the code generation engine.
@@ -123,6 +127,7 @@ public class CodeGenerator {
 
         engine.setProperty(RuntimeConstants.RESOURCE_LOADER, "vmf");
         engine.setProperty("vmf.resource.loader.instance", new VMFResourceLoader());
+        VMFDefaultLogger.registerVelocityDefaultLogger(engine);
 
         return engine;
     }
@@ -398,6 +403,59 @@ class VMFResourceLoader extends ClasspathResourceLoader {
         InputStream input = VMF.class.getResourceAsStream(name);
 
         return input;
+    }
+
+}
+
+class VMFDefaultLogger implements LogChute
+{
+
+    public static void registerVelocityDefaultLogger(VelocityEngine engine) {
+        VMFDefaultLogger logger = new VMFDefaultLogger();
+        engine.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM, logger );
+    }
+
+    private VMFDefaultLogger() {
+
+    }
+
+    /**
+     *  This init() will be invoked once by the LogManager
+     *  to give you the current RuntimeServices intance
+     */
+    public void init(RuntimeServices rsvc)
+    {
+        // do nothing
+    }
+
+    /**
+     *  This is the method that you implement for Velocity to
+     *  call with log messages.
+     */
+    public void log(int level, String message)
+    {
+        Logger.getLogger(this.getClass().getName()).
+                    log(Level.SEVERE, null, message);
+    }
+
+    /**
+     *  This is the method that you implement for Velocity to
+     *  call with log messages.
+     */
+    public void log(int level, String message, Throwable t)
+    {
+        Logger.getLogger(this.getClass().getName()).
+        log(Level.SEVERE, message, t);
+    }
+
+    /**
+     *  This is the method that you implement for Velocity to
+     *  check whether a specified log level is enabled.
+     */
+    public boolean isLevelEnabled(int level)
+    {
+        /*  do something useful */
+        return level > INFO_ID;
     }
 
 }
