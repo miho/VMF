@@ -407,6 +407,11 @@ class VMFResourceLoader extends ClasspathResourceLoader {
 
 }
 
+/**
+ * Dummy logger to prevent velocity from crashing if it is used in combination with other
+ * log4j configurations. We should consider updating from this old velocity release to 
+ * either a more modern version of velocity or switching to stringtemplates4.
+ */
 class VMFDefaultLogger implements LogChute
 {
 
@@ -434,8 +439,8 @@ class VMFDefaultLogger implements LogChute
      */
     public void log(int level, String message)
     {
-        Logger.getLogger(this.getClass().getName()).
-                    log(Level.SEVERE, null, message);
+        // Logger.getLogger(this.getClass().getName()).
+        //             log(Level.SEVERE, null, message);
     }
 
     /**
@@ -444,8 +449,8 @@ class VMFDefaultLogger implements LogChute
      */
     public void log(int level, String message, Throwable t)
     {
-        Logger.getLogger(this.getClass().getName()).
-        log(Level.SEVERE, message, t);
+        // Logger.getLogger(this.getClass().getName()).
+        // log(Level.SEVERE, message, t);
     }
 
     /**
@@ -454,8 +459,7 @@ class VMFDefaultLogger implements LogChute
      */
     public boolean isLevelEnabled(int level)
     {
-        /*  do something useful */
-        return level > INFO_ID;
+        return false;
     }
 
 }
