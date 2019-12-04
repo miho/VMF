@@ -10,8 +10,7 @@ VMF
 
 
 
-VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 8-12. (It even works with Java 13. But unfortunately, Gradle doesn't support it yet. So we’ll have to wait just a little longer until it’s conveniently usable via the Gradle plugin.)
-
+VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 8-13.
 It generates/supports:
 
 - getters and setters
@@ -89,7 +88,7 @@ buildscript {
 
 ### IDE
 
-Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2019) and build it
+Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2019) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line

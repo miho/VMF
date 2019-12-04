@@ -1,1 +1,5 @@
 rootProject.name = 'VMF-Gradle-Plugin'
+
+//include 'plugin-test'
+
+
