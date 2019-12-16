@@ -27,6 +27,9 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.Writer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
  * A file resource.
@@ -42,7 +45,7 @@ public class FileResource implements Resource {
     // thanks to Sam for designing this interface
     //
     private final File file;
-    private FileWriter fileWriter;
+    private PrintWriter writer;
 
     FileResource(File file) {
         this.file = file;
@@ -59,18 +62,27 @@ public class FileResource implements Resource {
     @Override
     public PrintWriter open() throws IOException {
 
+        if(writer!=null) {
+            throw new RuntimeException("Resource already opened ('" + file.getAbsolutePath() + ")");
+        }
+
         File folder = file.getParentFile();
 
         if (folder != null && !folder.exists() && !folder.mkdirs()) {
            throw new RuntimeException("Failed to create folder " + folder.getPath());
         }
 
-        return new PrintWriter(fileWriter = new FileWriter(file));
+        return this.writer = new PrintWriter(file, "UTF-8");
     }
 
     @Override
     public void close() throws IOException {
-        fileWriter.close();
+
+        if(writer==null) {
+            throw new RuntimeException("Resource cannot be closed. Open resource before closing it.");
+        }
+
+        this.writer.close();
     }
 
 }
