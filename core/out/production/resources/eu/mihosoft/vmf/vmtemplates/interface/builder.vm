@@ -1,0 +1,92 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+// --------------------------------------------------------------------
+// --- Builder methods
+// --------------------------------------------------------------------
+
+  public static interface Builder {
+
+#foreach( $prop in ${type.implementation.properties} )
+#if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}!="CONTAINER")
+    /**
+     * Sets the '<em><b>${prop.name}</b></em>' property of this builder.
+     * @param ${prop.name} value to set
+     * @return this builder
+     */
+#if($prop.propType == "COLLECTION")
+    public Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name});
+    /**
+     * Sets the '<em><b>${prop.name}</b></em>' property of this builder.
+     * @param ${prop.name} values to set
+     * @return this builder
+     */
+    public Builder with${prop.nameWithUpperCase}(${prop.genericPackageName}.${prop.genericTypeName}... ${prop.name});
+#else## #if($prop.propType == "COLLECTION")
+    public Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name});
+#end## #if($prop.propType == "COLLECTION")    
+#end## if type is no container or property is no containment type
+#end##end foreach property
+
+  /**
+   * Builds a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
+   * @return a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
+   */
+  public $type.typeName build();
+
+#if(!$type.immutable)
+    /**
+     * Defines whether to append collections rather than replacing them in the
+     * {@link #[[#]]#applyFrom($type.typeName)} and {@link #[[#]]#applyTo($type.typeName)} methods.
+     * @param value that indicates whether to append collections
+     * @return this builder
+     */
+    public Builder appendCollections(boolean value);
+
+    /**
+     * Applies all properties from the specified object to this builder.
+     * @param o object to apply properties from
+     * @return this builder
+     * @see #[[#]]#applyTo($type.typeName)
+     */
+    public Builder applyFrom($type.typeName o);
+
+    /**
+     * Applies all properties from this builder to the specified object.
+     * @param o object to apply properties to
+     * @return this builder
+     * @see #[[#]]#applyFrom($type.typeName)
+     */
+    public Builder applyTo($type.typeName o);
+#end## if type is not immutable
+
+  } // end class Builder
+
+  /**
+   * Returns a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
+   * @return a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
+   */
+  static Builder newBuilder() {
+    return __VMF__${type.typeName}_Creator.newBuilderInstance();
+  } // end newBuilder()
+

@@ -39,7 +39,15 @@ import eu.mihosoft.vmf.runtime.core.internal.ChangesImpl;
  * @see {@link Reflect}
  */
 public interface VMF {
-    
+    /**
+     * Returns the diffing feature for this object.
+     * @return the diffing feature for this object.
+     */
+    default Diffing diffing() {
+        this.diffing().setSource((VObject) this);
+        throw new UnsupportedOperationException("FIXME: unsupported method invoked. This should not happen :(");
+    }
+
     /**
      * Returns the content of this object.
      * @return the content of this object

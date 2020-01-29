@@ -243,7 +243,6 @@ public class ChangesImpl implements Changes {
 
     @SuppressWarnings("unchecked")
     private void registerChangeListener(VObject vObj, PropertyChangeListener objListener) {
-
         Iterator<VObject> it = vObj.vmf().content().iterator(VIterator.IterationStrategy.UNIQUE_NODE);
         while (it.hasNext()) {
 

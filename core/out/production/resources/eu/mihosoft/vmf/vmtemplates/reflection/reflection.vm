@@ -1,0 +1,302 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+  static final String[] _VMF_SUPER_TYPE_NAMES = {
+#foreach($tName in $type.implementz)    "$tName.fullTypeName"#if($foreach.hasNext),#end$newline#end
+  };
+
+  @Override
+  public String[] _vmf_getSuperTypeNames() {
+    return _VMF_SUPER_TYPE_NAMES;
+  }
+
+  static final String[] _VMF_PROPERTY_NAMES = {
+#foreach($prop in $type.implementation.properties)    "$prop.name"#if($foreach.hasNext),#end$newline#end
+  };
+
+  static final String[] _VMF_PROPERTY_TYPE_NAMES = {
+#foreach($prop in $type.implementation.properties)
+    "$prop.typeName"#if($foreach.hasNext),#else #end // type id $prop.typeId
+#end
+  };
+
+  static final int[] _VMF_PROPERTY_TYPES = {
+#foreach($prop in $type.implementation.properties)
+    ${StringUtil.alignRight($prop.typeId, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName
+#end
+  };
+
+
+  /**
+   * - indices of model objects as properties
+   * - parents, i.e., containers are skipped
+   * - only indices of reference properties and contained elements, i.e.,
+   *   children are listed here
+   */
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.type&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  /**
+   * - indices of lists that contain model objects as elements
+   */
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_ELEMENT_TYPES_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.genericType)    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  /**
+   * - indices of model objects as properties and model objects as
+   *   elements of lists
+   * - parents, i.e., containers are skipped
+   * - only indices of reference properties and contained elements, i.e.,
+   *   children are listed here
+   */
+  static final int[] _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType!="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  /**
+   * - indices of model children
+   * - parents, i.e., containers and pure references are skipped
+   * - only indices of contained elements, i.e.,
+   *   children are listed here
+   */
+  static final int[] _VMF_CHILDREN_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if(($prop.type||$prop.genericType)&&$prop.containmentInfo.containmentType=="CONTAINED")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  /**
+   * - indices of model parents
+   * - children, i.e., contained elements and pure references are skipped
+   * - only indices of container/parent elements, i.e.,
+   *   children are listed here
+   */
+  static final int[] _VMF_PARENT_INDICES = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.type && $prop.containmentInfo.containmentType=="CONTAINER")    ${StringUtil.alignRight($foreach.index, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName$newline#end
+#end
+  };
+
+  @Override
+  public String[] _vmf_getPropertyNames() {
+    return _VMF_PROPERTY_NAMES;
+  }
+
+  @Override
+  public int[] _vmf_getPropertyTypes() {
+    return _VMF_PROPERTY_TYPES;
+  }
+
+  @Override
+  public String[] _vmf_getPropertyTypeNames() {
+    return _VMF_PROPERTY_TYPE_NAMES;
+  }
+
+  @Override
+  public int[] _vmf_getIndicesOfPropertiesWithModelTypes() {
+    return _VMF_PROPERTIES_WITH_MODEL_TYPES_INDICES;
+  }
+
+  @Override
+  public int[] _vmf_getIndicesOfPropertiesWithModelElementTypes() {
+    return _VMF_PROPERTIES_WITH_MODEL_ELEMENT_TYPES_INDICES;
+  }
+
+  @Override
+  public int[] _vmf_getIndicesOfPropertiesWithModelTypeOrElementTypes() {
+    return _VMF_PROPERTIES_WITH_MODEL_TYPE_OR_ELEMENT_TYPES_INDICES;
+  }
+
+  @Override
+  public int[] _vmf_getChildrenIndices() {
+    return _VMF_CHILDREN_INDICES;
+  }
+
+  @Override
+  public int[] _vmf_getParentIndices() {
+    return _VMF_PARENT_INDICES;
+  }
+
+  @Override
+  public Object _vmf_getPropertyValueById(int propertyId) {
+
+    switch(propertyId) {
+#foreach($prop in $type.implementation.properties)
+      case $foreach.index:
+        // TODO check whether we can prevent lazy initialized properties from
+        //      being initialized just for iterating the object graph
+        return ${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end## for-each property
+    }
+
+    return null;
+  }
+
+  @Override
+  public int _vmf_getPropertyIdByName(String propertyName) {
+    switch(propertyName) {
+#foreach($prop in $type.implementation.properties)
+      case "$prop.name":
+        return $foreach.index;
+#end## for-each property
+      default:
+        return -1;
+    } // end switch
+  }
+
+#if(!$readOnlyVal)
+  @Override
+  public void _vmf_setPropertyValueById(int propertyId, Object value) {
+    switch(propertyId) {
+#foreach($prop in $type.implementation.properties)
+#if(!$prop.genericType)
+#if(${prop.propType}!="COLLECTION") ## && $prop.containmentInfo.containmentType!="CONTAINER"
+      case $foreach.index: // normal property (no collection)
+        set${prop.nameWithUpperCase}((${prop.typeName})value);
+        break;
+#elseif(${prop.propType}=="COLLECTION")
+      case $foreach.index: // collection property
+        get${prop.nameWithUpperCase}().clear();
+        get${prop.nameWithUpperCase}().addAll((${prop.typeName})value);
+        break;
+#end## end if !collection
+#end## end if !genericType
+#end## for-each property
+      default:
+            throw new RuntimeException("Cannot set property with id="+propertyId +": property is not writable.");
+    } // end switch
+  }
+#end## if !readOnlyVal
+
+  @Override
+  public Object _vmf_getDefaultValueById(int propertyId) {
+
+    switch(propertyId) {
+#foreach($prop in $type.implementation.properties)
+      case $foreach.index:
+        Object __vmf_default_value_tmp$prop.nameWithUpperCase = _VMF_DEFAULT_VALUES[$prop.getPropId()];
+#if(${prop.propType}=="PRIMITIVE")## if prop is primitive
+        if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
+            return
+#if(${prop.getDefaultValueAsString()}=="null")## if default is null
+            #if(${prop.typeName}=="boolean")false#else 0#end;
+#else## if default is null
+            ${prop.getDefaultValueAsString()};
+#end## if default is null
+        } else {
+            return __vmf_default_value_tmp$prop.nameWithUpperCase;
+        }    
+#else## if prop is primitive         
+        if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
+            return ${prop.getDefaultValueAsString()};
+        } else {
+            return __vmf_default_value_tmp$prop.nameWithUpperCase;
+        }
+#end## if prop is primitive
+
+#end## for-each property
+    } // end switch
+
+    return null;
+  }
+
+  @Override
+  public void _vmf_setDefaultValueById(int propertyId, Object defaultValue) {
+
+#foreach($prop in $type.implementation.properties)
+#if(${prop.containmentProperty})
+    // property ${prop.name}
+    if(propertyId == $foreach.index) {
+      throw new RuntimeException("Cannot set default value for property '${prop.name}' with id="+propertyId +": property is a containment property and not writable.");
+    }
+#end## if is containment
+#end##for each property    
+
+#if(!$readOnlyVal)
+    // if the value was previously unset then we need to update
+    // the value to the new default value
+    boolean isSetBeforeDefaultUpdate = _vmf_isSetById(propertyId);
+    _VMF_DEFAULT_VALUES[propertyId] = defaultValue;
+    if(!isSetBeforeDefaultUpdate) {
+      _vmf_unsetById(propertyId);
+    }
+#end## if !readOnlyVal
+  }
+
+  @Override
+  public boolean _vmf_isSetById(int propertyId) {
+    return !java.util.Objects.equals(_vmf_getDefaultValueById(propertyId), _vmf_getPropertyValueById(propertyId));
+  }
+
+#if(!$readOnlyVal)
+  @Override
+  public void _vmf_unsetById(int propertyId) {
+    _vmf_setPropertyValueById(propertyId, _vmf_getDefaultValueById(propertyId));
+  }
+#end## if !readOnlyVal
+
+  final Object[] _VMF_DEFAULT_VALUES = {
+#foreach($prop in $type.implementation.properties) 
+    null#if($foreach.hasNext),#else #end // type ${prop.name} #if(${prop.containmentProperty})(containment type, no defaut value possible)#end
+  
+#end## for each property
+  };
+
+  // ------ ANNOTATIONS ------
+
+  final static ${VMFPKG}.Annotation[] _VMF_OBJECT_ANNOTATIONS = {
+#foreach($annotation in $type.implementation.annotations) 
+    new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext),#else #end
+
+#end## for each pannotationroperty
+  };
+
+  final static ${VMFPKG}.Annotation[][] _VMF_PROPERTY_ANNOTATIONS = {
+#foreach($prop in $type.implementation.properties)
+    {
+#foreach($annotation in $prop.annotations) 
+      new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext),#else #end
+
+#end## for each annotation
+    }#if($foreach.hasNext),#else #end
+
+#end## for each property
+  };
+
+  @Override
+  public java.util.List<${VMFPKG}.Annotation> _vmf_getPropertyAnnotationsById(int propertyId) {
+    return java.util.Arrays.asList(_VMF_PROPERTY_ANNOTATIONS[propertyId]);
+  }
+
+  @Override
+  public java.util.List<${VMFPKG}.Annotation> _vmf_getAnnotations() {
+    return java.util.Arrays.asList(_VMF_OBJECT_ANNOTATIONS);
+  }

@@ -1,0 +1,482 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+#foreach( $prop in ${type.implementation.propertiesWithoutCollectionsBasedContainment} )
+#if(${prop.propType}=="COLLECTION")##  if   (prop is collection type)
+#else##-----------------------------## else (prop is collection type)
+#if(${prop.containmentProperty})## if (containmentProperty)
+#if(${prop.containmentInfo.withoutOpposite})## if (no opposite)
+// ----------------------------------------
+// - containment-prop:
+//   -> prop is ref to contained object
+//   -> prop:
+//      -> name:       ${prop.name}  
+//      -> propType:   ${prop.typeName}  
+//   -> opposite:      false, <none>
+// ----------------------------------------
+  @Override
+  public $prop.setterDeclaration {
+
+    // return early if identical value has been set
+    if (this.__vmf_prop_$prop.name == $prop.name) {
+      return;
+    }
+
+    // ----------------------------------------
+    // save the old value
+    // ----------------------------------------
+    ${prop.typeName} oldValue = this.__vmf_prop_$prop.name;
+    // ----------------------------------------
+
+    // release old container
+    if(oldValue!=null) {
+      ${VMFPKG_INT}.VObjectInternalModifiable oldValueInternal = 
+        (${VMFPKG_INT}.VObjectInternalModifiable)oldValue;
+      oldValueInternal._vmf_setContainer(null);
+    }
+
+    // release from old container & set new container
+    if($prop.name!=null) {
+
+#parse("${VMF_TEMPLATE_PATH}impl/remove-containment-opposites.vm")
+
+      // cast to internal vobject which allows us to access its container
+      ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = 
+        (${VMFPKG_INT}.VObjectInternalModifiable)$prop.name;
+
+      // finally, set 'this' as the container of the new value
+      valueInternal._vmf_setContainer(this);
+
+    } // if ($prop.name!=null)
+
+    // ----------------------------------------
+    // set the new value
+    // ----------------------------------------
+    this.__vmf_prop_$prop.name = $prop.name;
+    // ----------------------------------------
+
+    // ----------------------------------------
+    // we fire a change event now
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // ----------------------------------------
+
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "oldValue")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+  } // setterDeclaration (setter method)    
+#else##--------------------------------------else (no opposite)
+########################################################################################################################
+#if(${prop.containmentInfo.containmentType}=="CONTAINED")## if (prop is contained)   
+#if(${prop.containmentInfo.opposite.propType}=="COLLECTION")## if (opposite is collection)
+// ----------------------------------------
+// - containment-prop:
+//   -> prop is ref to contained object
+//   -> prop:
+//      -> name:       ${prop.name}  
+//      -> propType:   ${prop.typeName}  
+//   -> opposite:      true, ${prop.containmentInfo.opposite.typeName}.${prop.containmentInfo.opposite.name}
+//      -> propType:   ${prop.containmentInfo.opposite.typeName}
+//      -> collection: false
+// ----------------------------------------
+// FIXME: we cannot have a collection as parent container!
+#else##-----------------------------------------------------## else (opposite is collection)
+// ----------------------------------------
+// - containment-prop:
+//   -> prop is ref to contained object
+//   -> prop:
+//      -> name:       ${prop.name}  
+//      -> propType:   ${prop.typeName}  
+//   -> opposite:      true, ${prop.containmentInfo.opposite.typeName}.${prop.containmentInfo.opposite.name}
+//      -> propType:   ${prop.containmentInfo.opposite.typeName}
+//      -> collection: false
+// ----------------------------------------
+  @Override
+  public $prop.setterDeclaration {
+
+    // return early if identical value has been set
+    if (this.__vmf_prop_$prop.name == $prop.name) {
+      return;
+    }
+
+    // ----------------------------------------
+    // set the new value
+    // ----------------------------------------
+    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+    this.__vmf_prop_$prop.name = $prop.name;
+    // ----------------------------------------
+
+    // we fire a change event later after setting up the new child property and releasing the old child
+    // (if this property is a containment child / contained or cross ref)
+    // _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+
+    // ----------------------------------------
+    // containment property: 
+    // ----------------------------------------
+    // -> this is a single contained property (child)
+    // -> the opposite is a single container property (parent)
+    // ----------------------------------------
+
+    // 
+    // if previous container is present then release containment relation
+    if(oldValue!=null) {
+      //(($prop.typeName$VMF_IMPL_CLASS_EXT)oldValue)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(null);
+
+#set($disableFireEventValue=false)
+#set($propertyToModifyValue = "oldValue")
+#set($oppositeValue = "null")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+
+    }
+
+    // if new container is present then update containment relation
+    if($prop.name!=null) {
+      //(($prop.typeName$VMF_IMPL_CLASS_EXT)$prop.name)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(this);
+
+      // remove '${prop.name}' object that shall be set from its previous parent
+      // if it has one. for collections we perform this operation in the getter
+      // method which registers a change listener that does all the work.
+      if(${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+        ${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}().set${prop.nameWithUpperCase}(null);
+      }
+
+#set($disableFireEventValue=false)
+#set($propertyToModifyValue = "this.__vmf_prop_"+${prop.name})
+#set($oppositeValue = "this")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+
+
+#parse("${VMF_TEMPLATE_PATH}impl/remove-containment-opposites.vm")
+
+#if(${prop.containmentInfo.containmentType}=="CONTAINED")
+      // ----------------------------------------
+      // (fire now, this property is a containment child / contained)
+      // ----------------------------------------
+      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+      // ----------------------------------------
+#end## if contained      
+    }
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "oldValue")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+  } // setterDeclaration (setter method)    
+
+#end##------------------------------------------------------## end (opposite is collection)
+########################################################################################################################
+#else##--------------------------------------------------## else (prop is contained)
+#if(${prop.containmentInfo.opposite.propType}=="COLLECTION")## if (opposite is collection)
+// ----------------------------------------
+// - containment-prop:
+//   -> prop is ref to container object
+//   -> prop:
+//      -> name:       ${prop.name}  
+//      -> propType:   ${prop.typeName}  
+//   -> opposite:      true, ${prop.containmentInfo.opposite.typeName}.${prop.containmentInfo.opposite.name}
+//      -> propType:   ${prop.containmentInfo.opposite.typeName}
+//      -> collection: false
+// ----------------------------------------
+  @Override
+  public $prop.setterDeclaration {
+
+    // ----------------------------------------
+    // containment property: 
+    // ----------------------------------------
+    // -> this is a single property
+    // -> the opposite is a collection
+    // ----------------------------------------
+
+    // opposite is a collection type. we just need to add this to the
+    // opposite collection which will handle the containment just fine
+
+    // nothing to do, values are identical
+    if(this.__vmf_prop_$prop.name == $prop.name) {
+      return;
+    }
+
+    // remember the old value for change event generation
+    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+
+    // remove this from previous opposite
+    if(this.__vmf_prop_$prop.name!=null) {
+        this.__vmf_prop_$prop.name.${prop.containmentInfo.opposite.getterPrefix}${prop.containmentInfo.opposite.nameWithUpperCase}().remove(this);
+    }
+
+    // add this to new opposite
+    if($prop.name!=null) {
+        $prop.name.${prop.containmentInfo.opposite.getterPrefix}${prop.containmentInfo.opposite.nameWithUpperCase}().add(this);
+    }
+
+    // fire property change event
+    // _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+  }
+
+#else##-----------------------------------------------------## else (opposite is collection)
+// ----------------------------------------
+// - containment-prop:
+//   -> prop is ref to container object
+//   -> prop:
+//      -> name:       ${prop.name}  
+//      -> propType:   ${prop.typeName}  
+//   -> opposite:      true, ${prop.containmentInfo.opposite.typeName}.${prop.containmentInfo.opposite.name}
+//      -> propType:   ${prop.containmentInfo.opposite.typeName}
+//      -> collection: false
+// ----------------------------------------
+  @Override
+  public $prop.setterDeclaration {
+
+    // return early if identical value has been set
+    if (this.__vmf_prop_$prop.name == $prop.name) {
+      return;
+    }
+
+    // ----------------------------------------
+    // set the new value
+    // ----------------------------------------
+    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+    this.__vmf_prop_$prop.name = $prop.name;
+    // ----------------------------------------
+
+    // ----------------------------------------
+    // we fire a change event now
+    // (if this property is a normal property or a containment parent / container)
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // ----------------------------------------
+
+    // ----------------------------------------
+    // containment property: 
+    // ----------------------------------------
+    // -> this is a single container property (parent)
+    // -> the opposite is a single contained property (child)
+    // ----------------------------------------
+
+    // if previous container is present then release containment relation
+    if(oldValue!=null) {
+      // (($prop.typeName$VMF_IMPL_CLASS_EXT)oldValue)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(null);
+#set($disableFireEventValue=false)
+#set($propertyToModifyValue = "oldValue")
+#set($oppositeValue = "null")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+    }
+
+    // if new container is present then update containment relation
+    if($prop.name!=null) {
+      // (($prop.typeName$VMF_IMPL_CLASS_EXT)$prop.name)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(this);
+
+#set($disableFireEventValue=false)
+#set($propertyToModifyValue = "this.__vmf_prop_"+${prop.name})
+#set($oppositeValue = "this")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
+    }
+
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "oldValue")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+  } // setterDeclaration (setter method)
+
+#end##------------------------------------------------------## end (opposite is collection)
+#end##---------------------------------------end  (no opposite)
+########################################################################################################################
+#end##---------------------------------------------------## end (prop is contained)
+#else##----------------------------else (containmentProperty)
+#if(${prop.crossRefProperty})##--------------if (crossref prop)
+#if(${prop.referenceInfo.opposite.propType}=="COLLECTION")##---if (opposite is collection)
+// ----------------------------------------
+// - cross-ref:      
+//   -> prop:
+//      -> name:       ${prop.name}  
+//      -> propType:   ${prop.typeName}    
+//   -> opposite:      true, ${prop.referenceInfo.opposite.typeName}.${prop.referenceInfo.opposite.name}
+//      -> propType:   ${prop.referenceInfo.opposite.typeName}
+//      -> collection: true
+// ----------------------------------------
+  @Override
+  public $prop.setterDeclaration {
+
+    // return early if identical value has been set
+    if (this.__vmf_prop_$prop.name == $prop.name) {
+      return;
+    }
+
+    // ----------------------------------------
+    // store the old value ...
+    // ----------------------------------------
+    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+    
+    // ----------------------------------------
+    if(oldValue!=null) {
+      String eventInfo = oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+      oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+      oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().remove(this);
+      oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
+    }
+
+    // ----------------------------------------
+    // ... and set the new value
+    // ----------------------------------------
+    this.__vmf_prop_$prop.name = $prop.name;
+
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+
+    if(this.__vmf_prop_${prop.name}!=null) {
+      String eventInfo = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+      this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+      this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().add(this);
+      this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
+    }    
+
+    // ----------------------------------------
+    // we are a cross-ref property and need to fire after updating the other prop to allow event propagation
+    // fire property change event
+    // ----------------------------------------
+    if(oldValue!=this.__vmf_prop_$prop.name) {
+//      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    }
+    // ----------------------------------------
+
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "oldValue")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+  } // setterDeclaration (setter method)    
+#else##--------------------------------------------------##----else (opposite is collection)
+// ----------------------------------------
+// - cross-ref: 
+//   -> prop:
+//      -> name:       ${prop.name}  
+//      -> propType:   ${prop.typeName}      
+//   -> opposite:      true, ${prop.referenceInfo.opposite.typeName}.${prop.referenceInfo.opposite.name}
+//      -> propType:   ${prop.referenceInfo.opposite.typeName}
+//      -> collection: false
+// ----------------------------------------
+  @Override
+  public $prop.setterDeclaration {
+
+    // return early if identical value has been set
+    if (this.__vmf_prop_$prop.name == $prop.name) {
+      return;
+    }
+
+    // ----------------------------------------
+    // set the new value
+    // ----------------------------------------
+    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+    this.__vmf_prop_$prop.name = $prop.name;
+    // ----------------------------------------
+
+    if(oldValue!=null) {
+      oldValue.set${prop.referenceInfo.opposite.nameWithUpperCase}(null);
+    }
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    if(this.__vmf_prop_${prop.name}!=null) {
+      Object refOldVal = ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name}).__vmf_get_prop_${prop.referenceInfo.opposite.name}();
+      ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name}).__vmf_set_prop_${prop.referenceInfo.opposite.name}(this);
+      // fire property change event
+      if(refOldVal != this) {
+        ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name})._vmf_firePropertyChangeIfListenersArePresent("${prop.referenceInfo.opposite.name}", refOldVal, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+      }
+    }
+
+    // ----------------------------------------
+    // we are a cross-ref property and need to fire after updating the other prop to allow event propagation
+    // fire property change event
+    // ----------------------------------------
+    if(oldValue!=this.__vmf_prop_$prop.name) {
+//      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    }
+    // ----------------------------------------
+
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "oldValue")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+  } // setterDeclaration (setter method)
+#end##---------------------------------------------------##----end (opposite is collection)
+#else##--------------------------------------else (crossref prop)
+// ----------------------------------------
+// - normal prop:     
+//   -> prop:
+//      -> name:       ${prop.name}  
+//      -> propType:   ${prop.typeName}     
+//      -> collection: false, ${prop.propType}
+//   -> opposite:      false, <none>
+// ----------------------------------------
+  @Override
+  public $prop.setterDeclaration {
+
+    // return early if identical value has been set
+    if (this.__vmf_prop_$prop.name == $prop.name) {
+      return;
+    }
+
+    // ----------------------------------------
+    // set the new value
+    // ----------------------------------------
+    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+    this.__vmf_prop_$prop.name = $prop.name;
+    // ----------------------------------------
+    // ----------------------------------------
+    // we fire a change event now
+    // (if this property is a normal property or a containment parent / container)
+    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+    // ----------------------------------------
+#set($objectToAddReferenceOnValue="this")
+#set($referenceToAddValue = "this.__vmf_prop_"+${prop.name})
+#set($objectToRemoveReferenceOnValue = "this")
+#set($referenceToRemoveValue = "oldValue")
+#set($codeIndentValue = "      ")
+#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+  } // setterDeclaration (setter method)    
+#end##---------------------------------------end (crossref prop)
+#end##-----------------------------end (containmentProperty)
+
+#if($prop.containmentProperty && ${prop.propType}!="COLLECTION")
+// TODO do we still need this?  // internal API
+// TODO do we still need this?  void _vmf_set${prop.nameWithUpperCase}NoContainment($prop.typeName $prop.name) {
+// TODO do we still need this?    // set the new value
+// TODO do we still need this?    $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+// TODO do we still need this?    this.__vmf_prop_$prop.name = $prop.name;
+// TODO do we still need this?
+// TODO do we still need this?    // fire property change event
+// TODO do we still need this?    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+// TODO do we still need this?  }
+
+
+#end## end if containment property and no collection
+#end##------------------------------## end  (prop is collection type)
+#end## end for-each

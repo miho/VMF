@@ -1,0 +1,308 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+package ${type.readOnlyImplementation.packageName};
+
+// vmf imports
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
+//import ${VCOLL_PKG}.*;
+import ${type.packageName}.*;
+//import java.beans.PropertyChangeListener;
+
+// property types imports
+#foreach( $import in $type.implementation.imports )
+// import $import;
+#end
+
+// interface
+
+/**
+ * An read-only representation of the model object {@code $type.fullTypeName}.
+ */
+@SuppressWarnings("deprecation")
+class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName, ${VMFPKG_INT}.VObjectInternal, VCloneableInternal {
+
+  private final $type.typeName mutableObject;
+
+  // Read-only view for collection properties
+  // - properties with collection type (model & non-model collections)
+  // - we don't allow/provide setters for collection properties
+#foreach( $prop in $type.implementation.properties )
+#if($prop.propType == "COLLECTION")
+#if($prop.genericType)
+  private ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.name};
+#else
+  private ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name};
+#end ## if genericType
+#end ## if collection
+#end ## for each property
+
+  public ${type.readOnlyImplementation.typeName}($type.typeName mutableObject) {
+    this.mutableObject = mutableObject;
+  }
+
+#foreach( $prop in $type.implementation.properties )
+
+  @Override
+#if($prop.propType == "COLLECTION")
+#if($prop.genericType)
+  // generic type is a model-type
+  public ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+
+    // we return an unmodifiable mapped list that contains read-only versions of the list elements
+    // since read-only types and normal types are incompatible by design, we specify the lambda
+    // operation that converts an element into a read-only version of that element
+    if(this.${prop.name} == null) {
+      this.${prop.name} = ${VCOLL_PKG}.VMappedList.newUnmodifiableInstance(mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
+    }
+
+    return this.${prop.name};
+
+#else
+  public ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+
+    if(this.${prop.name} == null) {
+      this.${prop.name} = this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}();
+    }
+
+    return this.${prop.name};
+#end ## if generic type
+
+#elseif(${prop.type})
+#if($prop.type.immutable)
+  // property type is a model-type
+  public $prop.type.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+    if(this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}()!=null) {
+      return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}();
+    } else {
+      return null;
+    }
+#else## if prop type is immutable
+  // property type is a model-type
+  public $prop.type.readOnlyInterface.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+    if(this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}()!=null) {
+      return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}().asReadOnly();
+    } else {
+      return null;
+    }
+#end## if prop type is immutable
+#else
+  public $prop.typeName ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+    return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end
+  }
+
+#end // end for each property
+
+  @Override
+  public void addPropertyChangeListener(java.beans.PropertyChangeListener l) {
+    ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).addPropertyChangeListener(l);
+  }
+
+  @Override
+  public void removePropertyChangeListener(java.beans.PropertyChangeListener l) {
+    ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).removePropertyChangeListener(l);
+  }
+
+  @Override
+  public String toString() {
+    return this.mutableObject.toString();
+  }
+
+  @Override
+  public void __vmf_toString(StringBuilder sb, java.util.IdentityHashMap<Object, ?> identityMap) {
+    ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).__vmf_toString(sb, identityMap);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    return this.mutableObject.equals(o);
+  }
+
+  @Override
+  public int hashCode() {
+    return this.mutableObject.hashCode();
+  }
+
+  @Override
+  public boolean _vmf_equals(Object o) {
+    return ((${VMFPKG_INT}.VObjectInternal)this.mutableObject)._vmf_equals(o);
+  }
+
+  @Override
+  public int _vmf_hashCode() {
+    return ((${VMFPKG_INT}.VObjectInternal)this.mutableObject)._vmf_hashCode();
+  }
+
+  @Override
+  public $type.typeName _vmf_getMutableObject() {
+    return this.mutableObject;
+  }
+
+  @Override
+  public $type.readOnlyImplementation.typeName asReadOnly() {
+    return this;
+  }
+
+  // --------------------------------------------------------------------
+  // --- Cloning
+  // --------------------------------------------------------------------
+
+  @Override
+  public ${type.readOnlyInterface.typeName} clone() {
+    return this.mutableObject.clone().asReadOnly();
+  }
+
+  @Override
+  public ${type.typeName} asModifiable() {
+    return this.mutableObject.clone();
+  }
+
+  @Override
+  public ${type.typeName} _vmf_deepCopy(
+    java.util.IdentityHashMap<Object,Object> identityMap) {
+    return (${type.typeName})
+      ((VCloneableInternal)this.mutableObject)._vmf_deepCopy(
+        new java.util.IdentityHashMap<>());
+  }
+
+  @Override
+  public ${type.readOnlyInterface.typeName} _vmf_shallowCopy(
+    java.util.IdentityHashMap<Object,Object> identityMap) {
+    return (${type.readOnlyInterface.typeName})
+      ((VCloneableInternal)this.mutableObject)._vmf_shallowCopy(
+        new java.util.IdentityHashMap<>()).asReadOnly();
+  }
+
+  @Override
+  public void _vmf_setThreadLocalEquals(ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> threadlocalMap) {
+      ((${VMFPKG_INT}.VObjectInternal)this.mutableObject)._vmf_setThreadLocalEquals(threadlocalMap);
+  }
+
+  // --------------------------------------------------------------------
+  // --- Public VMF API
+  // --------------------------------------------------------------------
+
+  @Override
+  public ${VMFPKG}.VMF vmf() {
+    return new ${VMFPKG}.VMF() {
+      public ${VMFPKG}.Content content() {
+        return new ${VMFPKG}.Content() {
+          public ${VMFPKG}.VIterator iterator() {
+            return ${VMFPKG}.VIterator.of(${type.readOnlyImplementation.typeName}.this);
+          }
+          public java.util.stream.Stream<${VMFPKG}.VObject> stream() {
+            return ${VMFPKG}.VIterator.of(${type.readOnlyImplementation.typeName}.this).asStream();
+          }
+
+          public ${VMFPKG}.VIterator iterator(${VMFPKG}.VIterator.IterationStrategy strategy) {
+            return ${VMFPKG}.VIterator.of(${type.readOnlyImplementation.typeName}.this, strategy);
+          }
+          public java.util.stream.Stream<${VMFPKG}.VObject> stream(${VMFPKG}.VIterator.IterationStrategy strategy) {
+            return ${VMFPKG}.VIterator.of(${type.readOnlyImplementation.typeName}.this, strategy).asStream();
+          }
+          public <T extends ${VMFPKG}.VObject> java.util.stream.Stream<T> stream(Class<T> type) {
+            return stream().filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+          }
+          public <T extends ${VMFPKG}.VObject> java.util.stream.Stream<T> stream(Class<T> type, ${VMFPKG}.VIterator.IterationStrategy strategy) {
+            return stream(strategy).filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+          }
+          public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> referencedBy() {
+            return _vmf_referencedBy().asUnmodifiable();
+          }
+          public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> references() {
+            return _vmf_references().asUnmodifiable();
+          }
+
+          @Override
+          public ${type.readOnlyInterface.typeName} deepCopy() {
+            return (${type.readOnlyImplementation.typeName})
+              ((VCloneableInternal)${type.readOnlyImplementation.typeName}.this.mutableObject)._vmf_deepCopy(
+                new java.util.IdentityHashMap<>()).asReadOnly();
+          }
+
+          @Override
+          public ${type.readOnlyInterface.typeName} shallowCopy() {
+            return ${type.readOnlyImplementation.typeName}.
+              this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+          }
+        };
+      }
+
+      private ${VMFPKG_INT}.ReflectImpl reflect;
+
+      public ${VMFPKG}.Reflect reflect() {
+        if (reflect==null) {
+          reflect = new ${VMFPKG_INT}.ReflectImpl();
+          reflect.setModel(${type.readOnlyImplementation.typeName}.this);
+        }
+
+        return reflect;
+      }
+    }; // end vmf
+  }
+
+
+  // --------------------------------------------------------------------
+  // --- Reflection methods
+  // --------------------------------------------------------------------
+
+  // type id for improved reflection performance
+  public static final int _VMF_TYPE_ID = $type.readOnlyImplementation.typeId;
+
+  @Override
+  public int _vmf_getTypeId() {
+    return _VMF_TYPE_ID;
+  }
+
+  // Type info
+  @Override
+  public ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type _vmf_getType() {
+    return ${type.packageName}.${type.typeName}.type();
+  }
+
+#set($readOnlyVal=true)
+#parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
+
+  @Override
+  public boolean _vmf_isReadOnly() {
+    return true;
+  }
+
+  // --------------------------------------------------------------------
+  // --- Id related methods
+  // --------------------------------------------------------------------
+
+  // id management is currently not part of VMF (TODO how should we support this?)
+
+  // --------------------------------------------------------------------
+  // --- Reference methods
+  // --------------------------------------------------------------------
+
+  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_referencedBy() { return  ((${VMFPKG_INT}.VObjectInternalModifiable)this.mutableObject)._vmf_referencedBy();}
+
+  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_references() { return  ((${VMFPKG_INT}.VObjectInternalModifiable)this.mutableObject)._vmf_references();}
+}

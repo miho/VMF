@@ -1,0 +1,59 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+package ${type.implementation.packageName};
+
+// vmf imports
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+// TODO see issue #9 import ${VCOLL_PKG}.*; 
+
+
+// interface
+
+// Internal Interface which gives access to impl features used in a 'multi-inheritance' context.
+// Rationale:
+// - we cannot cast to the implementation class to get access to impl features
+//   such as direct/raw property access since we simulate multiple inheritance
+// - previously we just used reflection to circumvent the problem but this
+//   came at a huge performance cost
+// - this interface supports multiple inheritance of impl features and
+//   gives access to proerties without reflection which results in a huge
+//   performance improvement (up to 10x)
+interface __VMF_TYPE_${type.implementation.typeName} extends ${type.packageName}.${type.typeName}${type.vmfTypeIfaceImplementzString} {
+
+#foreach( $prop in ${type.implementation.properties})
+  // --- PROP '$prop.typeName'
+  void __vmf_set_prop_${prop.name}($prop.typeName obj);
+  $prop.typeName __vmf_get_prop_${prop.name}();
+#if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
+  java.util.List<${type.packageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
+#end## cross-ref collection
+#end
+
+  void _vmf_firePropertyChangeIfListenersArePresent(
+    String propertyName, Object oldValue, Object newValue
+  );
+
+}

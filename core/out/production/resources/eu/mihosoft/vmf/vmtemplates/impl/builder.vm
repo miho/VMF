@@ -1,0 +1,156 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+// --------------------------------------------------------------------
+// --- Builder methods
+// --------------------------------------------------------------------
+
+public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Builder {
+
+#foreach( $prop in ${type.implementation.properties})
+###if($type.immutable || $prop.propType != "COLLECTION")
+  private $prop.typeName __vmf_prop_$prop.name;
+###end## if type is immutable or property is no collection
+#end
+
+  private boolean appendCollections = true;
+
+  public Builder${VMF_IMPL_CLASS_EXT}() {
+     // --------------------------------------------------------------------
+     // --- initialization of default values
+     // --------------------------------------------------------------------
+ #foreach($prop in $type.implementation.properties)
+     // property ${foreach.index}
+ #if(${prop.getDefaultValueAsString()}!="null")
+     __vmf_prop_$prop.name = ${prop.getDefaultValueAsString()};
+ #else##if default is present
+     // -> no default value is present
+ #end## if default is present      
+ #end## for-each property
+  }
+
+#foreach( $prop in ${type.implementation.properties} )
+#if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}!="CONTAINER")
+#if($prop.propType == "COLLECTION")
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name}) {
+      // ensure that this collection property is really immutable
+      this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
+        java.util.Collections.
+        unmodifiableList(
+#if(${prop.genericType})
+          new java.util.ArrayList<${prop.genericType.typeName}>(${prop.name})
+#else## if genericType is modelType
+          new java.util.ArrayList<${prop.genericPackageName}.${prop.genericTypeName}>(${prop.name})
+#end## if genericType is modelType
+        )
+      );
+      return this;
+    }
+    public Builder with${prop.nameWithUpperCase}(${prop.genericPackageName}.${prop.genericTypeName}... ${prop.name}) {
+      return with${prop.nameWithUpperCase}(java.util.Arrays.asList(${prop.name}));
+    } 
+#else## if property is collection
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name}) {
+      this.__vmf_prop_${prop.name} = ${prop.name};
+      return this;
+    }
+#end## if property is collection
+#end## if type is no container or property is no containment type
+#end## foreach property
+  public Builder appendCollections(boolean value) {
+    this.appendCollections = value;
+    return this;
+  }
+
+  public $type.typeName build() {
+    ${type.implementation.typeName} result = new ${type.implementation.typeName}();
+#foreach( $prop in ${type.implementation.properties} )
+#if($type.immutable || $prop.propType != "COLLECTION")
+    result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+#if($prop.type)
+    // PROP: $prop.name
+    #set($objectToAddReferenceOnValue="result")
+    #set($referenceToAddValue = "result.__vmf_prop_"+${prop.name})
+    #set($objectToRemoveReferenceOnValue = false)
+    #set($referenceToRemoveValue = false)
+    #set($codeIndentValue = "      ")
+    #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+#end## if property is model-type
+#end## if type is immutable or property is no collection
+#if($prop.propType == "COLLECTION")
+    if(this.__vmf_prop_${prop.name} !=null) {
+      result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
+    }
+#end
+#end## foreach property
+    return result;
+  }
+
+  public Builder applyFrom(${type.typeName} o) {
+#foreach( $prop in ${type.implementation.properties} )
+###if($type.immutable || $prop.propType != "COLLECTION")
+#if($prop.propType == "COLLECTION")
+#if(${prop.genericType})
+#set($genericCollArg = "${prop.genericType.typeName}")
+#else## if genericType is modelType
+#set($genericCollArg = "${prop.genericPackageName}.${prop.genericTypeName}")
+#end## if genericType is modelType
+      if(!this.appendCollections||this.__vmf_prop_${prop.name}==null) {
+        // ensure that this collection property is really immutable
+        this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
+          java.util.Collections.
+          unmodifiableList(
+              new java.util.ArrayList<$genericCollArg>(o.${prop.getterPrefix}${prop.nameWithUpperCase}())
+          )
+        );
+      } else {
+        this.__vmf_prop_${prop.name}.addAll(o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+      }
+#else## if property is collection
+      this.__vmf_prop_${prop.name} = o.${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end## if property is collection
+###end## if type is immutable or property is no collection
+#end## foreach property
+
+    return this;
+  }
+#if(!$type.immutable)
+  public Builder applyTo(${type.typeName} o) {
+
+#foreach( $prop in ${type.implementation.properties} )
+#if($prop.propType == "COLLECTION")
+      if(!this.appendCollections) {
+        o.${prop.getterPrefix}${prop.nameWithUpperCase}().clear();
+      }
+      o.${prop.getterPrefix}${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
+#else## if property is collection
+#if(!$prop.containmentProperty)
+      o.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
+#end## if property is not containment property
+#end## if property is collection
+#end## foreach property
+
+    return this;
+  }
+#end## if type is not immutable
+} // end class Builder${VMF_IMPL_CLASS_EXT}

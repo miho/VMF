@@ -1,0 +1,91 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+#if($prop.propType == "COLLECTION")
+${codeIndentValue}Object oldOpposite = ${codeIndentValue}((${prop.genericPackageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)${propertyToModifyValue}).__vmf_get_prop_${prop.containmentInfo.opposite.name}();
+${codeIndentValue}((${prop.genericPackageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)${propertyToModifyValue}).__vmf_set_prop_${prop.containmentInfo.opposite.name}($oppositeValue);
+#if(!$disableFireEventValue)
+${codeIndentValue}((${prop.genericPackageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)${propertyToModifyValue})._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
+#else## if disableFireEventValue
+${codeIndentValue}// not generating change event (disableFireEventValue=$disableFireEventValue)
+#end## if disableFireEventValue
+#else## if prop type == COLLECTION
+${codeIndentValue}Object oldOpposite = ${codeIndentValue}((${prop.packageName}.impl.__VMF_TYPE_${prop.simpleTypeName}Impl)${propertyToModifyValue}).__vmf_get_prop_${prop.containmentInfo.opposite.name}();
+${codeIndentValue}((${prop.packageName}.impl.__VMF_TYPE_${prop.simpleTypeName}Impl)${propertyToModifyValue}).__vmf_set_prop_${prop.containmentInfo.opposite.name}($oppositeValue);
+#if(!$disableFireEventValue)
+${codeIndentValue}((${prop.packageName}.impl.__VMF_TYPE_${prop.simpleTypeName}Impl)${propertyToModifyValue})._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
+#else## if disableFireEventValue
+${codeIndentValue}// not generating change event (disableFireEventValue=$disableFireEventValue)
+#end## if disableFireEventValue
+#end##  if prop type == COLLECTION
+## sets opposite field via reflection
+## TODO since 18.02.2019 we try to use direct field access instead
+## ${codeIndentValue}try {
+## ${codeIndentValue}  java.lang.reflect.Field field =
+## ${codeIndentValue}    ${propertyToModifyValue}.getClass().getDeclaredField("__vmf_prop_${prop.containmentInfo.opposite.name}");
+## ${codeIndentValue}  field.setAccessible(true);
+## ${codeIndentValue}  Object oldOpposite = field.get(${propertyToModifyValue});
+## ${codeIndentValue}  field.set(${propertyToModifyValue}, $oppositeValue);
+## #if(!$disableFireEventValue)
+## ${codeIndentValue}  // generate change event (disableFireEventValue=$disableFireEventValue)
+## ${codeIndentValue}  java.lang.reflect.Method m = ${propertyToModifyValue}.getClass().getDeclaredMethod(
+## ${codeIndentValue}    "_vmf_firePropertyChangeIfListenersArePresent",
+## ${codeIndentValue}    String.class, Object.class, Object.class);
+## ${codeIndentValue}  m.setAccessible(true);
+## ${codeIndentValue}  m.invoke(${propertyToModifyValue},
+## ${codeIndentValue}    "${prop.containmentInfo.opposite.name}", oldOpposite, $oppositeValue);
+## #else## if disableFireEventValue
+## ${codeIndentValue}  // not generating change event (disableFireEventValue=$disableFireEventValue)
+## #end## if disableFireEventValue
+## ${codeIndentValue}} catch (Exception ex) {
+## ${codeIndentValue}    java.util.logging.Logger.getLogger(
+## ${codeIndentValue}        ${type.implementation.typeName}.class.getName()).
+## ${codeIndentValue}        log(java.util.logging.Level.SEVERE, null, ex);
+## ${codeIndentValue}    throw new RuntimeException("Reflection broken", ex);
+## ${codeIndentValue}}
+
+## ${codeIndentValue}} catch (NoSuchFieldException ex) {
+## ${codeIndentValue}  java.util.logging.Logger.getLogger(
+## ${codeIndentValue}     ${type.implementation.typeName}.class.getName()).
+## ${codeIndentValue}     log(java.util.logging.Level.SEVERE, null, ex);
+## ${codeIndentValue}} catch (SecurityException ex) {
+## ${codeIndentValue}  java.util.logging.Logger.getLogger(
+## ${codeIndentValue}     ${type.implementation.typeName}.class.getName()).
+## ${codeIndentValue}     log(java.util.logging.Level.SEVERE, null, ex);
+## ${codeIndentValue}} catch (IllegalArgumentException ex) {
+## ${codeIndentValue}  java.util.logging.Logger.getLogger(
+## ${codeIndentValue}     ${type.implementation.typeName}.class.getName()).
+## ${codeIndentValue}     log(java.util.logging.Level.SEVERE, null, ex);
+## ${codeIndentValue}} catch (IllegalAccessException ex) {
+## ${codeIndentValue}   java.util.logging.Logger.getLogger(
+## ${codeIndentValue}     ${type.implementation.typeName}.class.getName()).
+## ${codeIndentValue}     log(java.util.logging.Level.SEVERE, null, ex);
+## ${codeIndentValue}} catch (NoSuchMethodException ex) {
+## ${codeIndentValue}   java.util.logging.Logger.getLogger(
+## ${codeIndentValue}     ${type.implementation.typeName}.class.getName()).
+## ${codeIndentValue}     log(java.util.logging.Level.SEVERE, null, ex);
+## ${codeIndentValue}} catch (java.lang.reflect.InvocationTargetException ex) {
+## ${codeIndentValue}   java.util.logging.Logger.getLogger(
+## ${codeIndentValue}     ${type.implementation.typeName}.class.getName()).
+## ${codeIndentValue}     log(java.util.logging.Level.SEVERE, null, ex);
+## ${codeIndentValue}}

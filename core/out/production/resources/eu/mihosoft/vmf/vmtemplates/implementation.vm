@@ -1,0 +1,343 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+package ${type.implementation.packageName};
+
+// vmf imports
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
+//import ${VCOLL_PKG}.*;
+import ${type.packageName}.*;
+//import java.beans.PropertyChangeSupport;
+//import java.beans.PropertyChangeListener;
+//import java.util.Objects;
+//import java.util.Arrays;
+
+// property types imports
+#foreach( $import in $type.implementation.imports )
+import $import;
+#end
+
+// implementation
+
+/**
+ * An implementation of the model object {@code $type.fullTypeName}.
+ */
+@SuppressWarnings("deprecation")
+class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$type.implementation.typeName, ${VMFPKG_INT}.VObjectInternalModifiable, VCloneableInternal {
+
+  // --------------------------------------------------------------------
+  // --- declaration of member variables
+  // --------------------------------------------------------------------
+
+#parse("${VMF_TEMPLATE_PATH}impl/declare-props.vm")
+
+#parse("${VMF_TEMPLATE_PATH}impl/declare-delegates.vm")
+
+  private ${VMFPKG_INT}.VMFPropertyChangeSupport propertyChanges;
+
+  // // TODO 17.02.2019 feature deactivated due to huge memory consumption
+  // referenced by
+  // private final ${VCOLL_PKG}.VList<${VMFPKG}.VObject> referencedBy = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
+  // references
+  // private final ${VCOLL_PKG}.VList<${VMFPKG}.VObject> references = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
+
+  // --------------------------------------------------------------------
+  // --- public constructors
+  // --------------------------------------------------------------------
+
+  public ${type.implementation.typeName}() {
+#parse("${VMF_TEMPLATE_PATH}impl/constructor-delegates.vm")
+
+// --------------------------------------------------------------------
+// --- initialization of default values
+// --------------------------------------------------------------------
+#foreach($prop in $type.implementation.properties)
+    // ----------
+    // property id=${foreach.index} , name='${prop.name}'
+#if(${prop.getDefaultValueAsString()}!="null")
+    __vmf_prop_$prop.name = ${prop.getDefaultValueAsString()};
+    // TODO 26.01.2019 which one should we use? _vmf_setPropertyValueById(${foreach.index}, ${prop.getDefaultValueAsString()});
+#else##if default is present
+    // -> no default value is present
+#end## if default is present      
+#end## for-each property
+
+  }
+
+  // --------------------------------------------------------------------
+  // --- public getter methods for accessing properties
+  // --------------------------------------------------------------------
+
+#parse("${VMF_TEMPLATE_PATH}impl/getter.vm")
+
+  // --------------------------------------------------------------------
+  // --- public setter methods for setting properties
+  // --------------------------------------------------------------------
+
+#parse("${VMF_TEMPLATE_PATH}impl/setter.vm")
+
+  // --------------------------------------------------------------------
+  // --- Object methods (equals(), toString() etc.)
+  // --------------------------------------------------------------------
+
+#parse("${VMF_TEMPLATE_PATH}impl/to-string.vm")
+
+#parse("${VMF_TEMPLATE_PATH}impl/equals.vm")
+
+#parse("${VMF_TEMPLATE_PATH}impl/clone.vm")
+
+#parse("${VMF_TEMPLATE_PATH}impl/builder.vm")
+
+#parse("${VMF_TEMPLATE_PATH}impl/delegation-methods.vm")
+
+  // --------------------------------------------------------------------
+  // --- Utility methods
+  // --------------------------------------------------------------------
+
+  @Override
+  public void addPropertyChangeListener(java.beans.PropertyChangeListener l) {
+      _vmf_getPropertyChanges().addPropertyChangeListener(l);
+  }
+  @Override
+  public void removePropertyChangeListener(java.beans.PropertyChangeListener l) {
+      _vmf_getPropertyChanges().removePropertyChangeListener(l);
+
+      if(_vmf_getPropertyChanges().getPropertyChangeListeners().length==0) {
+          propertyChanges = null;
+      }
+  }
+
+  private ${VMFPKG_INT}.VMFPropertyChangeSupport _vmf_getPropertyChanges() {
+
+      if(propertyChanges==null) {
+          propertyChanges = ${VMFPKG_INT}.VMFPropertyChangeSupport.newInstance(this);
+      }
+
+      return propertyChanges;
+  }
+
+  private boolean _vmf_hasListeners() {
+      return propertyChanges!=null;
+  }
+
+  @Override
+  public void _vmf_firePropertyChangeIfListenersArePresent(
+    String propertyName, Object oldValue, Object newValue, String evtInfo) {
+      if(_vmf_hasListeners()) {
+          _vmf_getPropertyChanges().
+                  firePropertyChange(propertyName, oldValue, newValue, evtInfo);
+      }
+  }
+
+  // --------------------------------------------------------------------
+  // --- Public VMF API
+  // --------------------------------------------------------------------
+
+ private ${VMFPKG}.VMF vmf;
+
+  @Override
+  public ${VMFPKG}.VMF vmf() {
+    if(vmf==null) {
+      vmf = new ${VMFPKG}.VMF() {
+        public ${VMFPKG}.Content content() {
+          return new ${VMFPKG}.Content() {
+            public ${VMFPKG}.VIterator iterator() {
+              return ${VMFPKG}.VIterator.of(${type.implementation.typeName}.this);
+            }
+            public java.util.stream.Stream<${VMFPKG}.VObject> stream() {
+              return ${VMFPKG}.VIterator.of(${type.implementation.typeName}.this).asStream();
+            }
+
+            public ${VMFPKG}.VIterator iterator(${VMFPKG}.VIterator.IterationStrategy strategy) {
+              return ${VMFPKG}.VIterator.of(${type.implementation.typeName}.this, strategy);
+            }
+            public java.util.stream.Stream<${VMFPKG}.VObject> stream(${VMFPKG}.VIterator.IterationStrategy strategy) {
+              return ${VMFPKG}.VIterator.of(${type.implementation.typeName}.this, strategy).asStream();
+            }
+            public <T extends ${VMFPKG}.VObject> java.util.stream.Stream<T> stream(Class<T> type) {
+              return stream().filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+            }
+            public <T extends ${VMFPKG}.VObject> java.util.stream.Stream<T> stream(Class<T> type, ${VMFPKG}.VIterator.IterationStrategy strategy) {
+              return stream(strategy).filter(e->type.isAssignableFrom(e.getClass())).map(e->(T)e);
+            }
+            public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> referencedBy() {
+              return _vmf_referencedBy().asUnmodifiable();
+            }
+            public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> references() {
+              return _vmf_references().asUnmodifiable();
+            }
+
+            @Override
+            public ${type.typeName} deepCopy() {
+               java.util.IdentityHashMap<Object,Object> identityMap =
+               new java.util.IdentityHashMap<>();
+               return _vmf_deepCopy(identityMap);
+            }
+
+            @Override
+            public ${type.typeName} shallowCopy() {
+              return ${type.implementation.typeName}.
+                this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+            }
+
+            @Override
+            public boolean equals(Object o) {
+              // vmf object comparison
+              return ${type.implementation.typeName}.this._vmf_equals(o);
+            }
+
+            @Override
+            public int hashCode() {
+              // vmf object hash-code
+              return ${type.implementation.typeName}.this._vmf_hashCode();
+            }
+          }; // end of Content class
+          } // end of content()
+
+          private ${VMFPKG_INT}.ChangesImpl changes;
+
+          public ${VMFPKG}.Changes changes() {
+            if (changes==null) {
+              changes = new ${VMFPKG_INT}.ChangesImpl();
+              changes.setModel(${type.implementation.typeName}.this);
+            }
+
+            return changes;
+          }
+
+          private ${VMFPKG_INT}.ReflectImpl reflect;
+
+          public ${VMFPKG}.Reflect reflect() {
+            if (reflect==null) {
+              reflect = new ${VMFPKG_INT}.ReflectImpl();
+              reflect.setModel(${type.implementation.typeName}.this);
+            }
+
+            return reflect;
+          }
+
+
+        }; // end vmf
+      } // end if null
+
+      return vmf;
+  }
+
+  private ${type.readOnlyInterface.typeName} readOnlyInstance;
+
+  @Override
+  public ${type.readOnlyInterface.typeName} asReadOnly() {
+
+    if(readOnlyInstance==null) {
+      readOnlyInstance = new ${type.readOnlyImplementation.packageName}.
+        ${type.readOnlyImplementation.typeName}(this);
+    }
+
+    return readOnlyInstance;
+  }
+
+  // --------------------------------------------------------------------
+  // --- Reflection methods
+  // --------------------------------------------------------------------
+
+  // type id for improved reflection performance
+  public static final int _VMF_TYPE_ID = $type.typeId;
+
+  @Override
+  public int _vmf_getTypeId() {
+    return _VMF_TYPE_ID;
+  }
+
+  // Type info
+  @Override
+  public ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type _vmf_getType() {
+    return ${type.packageName}.${type.typeName}.type();
+  }
+
+#parse("${VMF_TEMPLATE_PATH}reflection/reflection.vm")
+
+  // --------------------------------------------------------------------
+  // --- Id related methods
+  // --------------------------------------------------------------------
+
+  // id management is currently not part of VMF (TODO how should we support this?)
+
+  // --------------------------------------------------------------------
+  // --- Reference methods
+  // --------------------------------------------------------------------
+
+  @Override
+  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_referencedBy() { 
+    // TODO 17.02.2019 feature deactivated due to huge memory consumption
+    // return this.referencedBy;
+    throw new UnsupportedOperationException("TODO 17.02.2019 feature deactivated due to huge memory consumption");
+  }
+  @Override
+  public ${VCOLL_PKG}.VList<${VMFPKG}.VObject> _vmf_references() { 
+    // TODO 17.02.2019 feature deactivated due to huge memory consumption
+    // return this.references;
+    throw new UnsupportedOperationException("TODO 17.02.2019 feature deactivated due to huge memory consumption");
+  }
+
+}
+
+// Internal Interface which gives access to impl features used in a 'multi-inheritance' context.
+// Rationale:
+// - we cannot cast to the implementation class to get access to impl features
+//   such as direct/raw property access since we simulate multiple inheritance
+// - previously we just used reflection to circumvent the problem but this
+//   came at a huge performance cost
+// - this interface supports multiple inheritance of impl features and
+//   gives access to properties without reflection which results in a huge
+//   performance improvement (up to 10x)
+interface __VMF_TYPE_${type.implementation.typeName} extends ${type.typeName}${type.vmfTypeIfaceImplementzString} {
+
+#foreach( $prop in ${type.implementation.properties})
+
+#if(${prop.isInheritedProp()})## if   inheritedprop
+// --- PROP '$prop.name : $prop.typeName' , Inherited from: '${prop.inheritedProp.parent.typeName}.${prop.inheritedProp.name}'
+  void __vmf_set_prop_${prop.name}(${prop.inheritedProp.typeName} obj);
+#else##------------------------- else inheritedprop
+// --- PROP '$prop.name : $prop.typeName'
+  void __vmf_set_prop_${prop.name}($prop.typeName obj);
+#end##-------------------------- end  inheritedprop
+  $prop.typeName __vmf_get_prop_${prop.name}();
+#if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
+  java.util.List<${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
+#end## cross-ref collection
+#end
+
+  default void _vmf_firePropertyChangeIfListenersArePresent(
+    String propertyName, Object oldValue, Object newValue
+  ) {
+    _vmf_firePropertyChangeIfListenersArePresent(propertyName, oldValue, newValue, "");
+  }
+  
+  void _vmf_firePropertyChangeIfListenersArePresent(
+    String propertyName, Object oldValue, Object newValue, String evtInfo
+  );
+
+}
