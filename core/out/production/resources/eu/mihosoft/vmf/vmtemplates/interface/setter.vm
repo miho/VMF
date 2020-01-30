@@ -1,0 +1,125 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+## we don't support setters for collection types
+#if(${prop.propType}!="COLLECTION" && (${prop.getterOnly} == false || (${type.immutable} == false && ${type.interfaceOnly} == false) ) )
+##
+#if(${prop.containmentInfo.containmentType}=="CONTAINER" && ${prop.containmentInfo.withoutOpposite} )##      ## if container / contained
+/**
+   * Sets the value of the '<em><b>${prop.name}</b></em>' container reference.
+   *
+   * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+   * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+   * <!-- vmf-end-model-doc -->
+   *
+   * @param $prop.name the value to set
+   * @see ${type.fullTypeName}#get${prop.nameWithUpperCase}($prop.typeName)
+   */
+   $prop.setterDeclaration;
+#elseif(${prop.containmentInfo.containmentType}=="CONTAINER")##      ## if container / contained
+#set($opposite = ${prop.containmentInfo.opposite})
+  /**
+   * Sets the value of the '<em><b>${prop.name}</b></em>' container reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${opposite.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+   * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+   * <!-- vmf-end-model-doc -->
+   *
+   * @param $prop.name the value to set
+   * @see ${type.fullTypeName}#get${prop.nameWithUpperCase}($prop.typeName)
+   */
+#elseif (${prop.containmentInfo.containmentType}=="CONTAINED")##  ## if container / contained
+  /**
+   * Sets the value of the '<em><b>${prop.name}</b></em>' containment reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+   * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+   * <!-- vmf-end-model-doc -->
+   *
+   * @param $prop.name the value to set
+   * @see ${type.fullTypeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+   */
+#elseif(${prop.isCrossRefProperty()})##       ## if container / contained
+#set($opposite = ${prop.referenceInfo.opposite})
+  /**
+   * Sets the value of the '<em><b>${prop.name}</b></em>' cross reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+   * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+   * <!-- vmf-end-model-doc -->
+   *
+   * @param $prop.name the value to set
+   * @see ${type.fullTypeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+   */
+#else##                                       ## if container / contained                         
+  /**
+   * Sets the value of the '<em>${prop.name}</em>' property.
+   *
+   * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+   * <p>${prop.customDocumentation}</p>
+#else
+   * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+   * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+   * <!-- vmf-end-model-doc -->
+   *
+   * @param $prop.name the value to set
+#if(!$type.immutable)
+   * @see ${type.fullTypeName}#${prop.getterPrefix}${prop.nameWithUpperCase}()
+#end## if type is not immutable
+   */
+#end##                                        ## if container / contained
+  $prop.setterDeclaration;
+#else##
+//  SKIPPING prop: ${prop.name}
+//  getter:    ${prop.getterOnly} 
+//  immutable: ${type.immutable}
+//  iface:     ${type.interfaceOnly}
+#end##

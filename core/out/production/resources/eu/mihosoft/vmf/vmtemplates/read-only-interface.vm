@@ -1,0 +1,141 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+package ${type.packageName};
+
+// vmf imports
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+// import ${VCOLL_PKG}.*;
+
+// property types imports
+#foreach( $import in $type.imports )
+// import $import;
+#end
+
+// interface
+
+/**
+ * An read-only representation of the model object {@code $type.fullTypeName}.
+ *
+ * <!-- vmf-begin-model-doc -->
+#if(${type.documented})
+ * <p>${type.customDocumentation}</p>
+#else
+ * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+ * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+ * <!-- vmf-end-model-doc -->
+ */
+public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type.readOnlyImplementsString, ${VMFPKG}.ReadOnly #if($type.interfaceOnlyWithGettersOnly && $type.allPropertyTypesAreInterfaceOnlyWithGettersOnlyOrImmutable()), $type.typeName #end{
+#foreach( $prop in $type.properties )
+
+#if(${prop.containmentInfo.containmentType}=="CONTAINER")
+#set($opposite = ${prop.containmentInfo.opposite})
+/**
+ * Returns the value of the '<em><b>${prop.name}</b></em>' container reference.
+ *
+ * It is bidirectional and its opposite is '{@link ${opposite.parent.readOnlyInterface.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+ *
+ * <!-- vmf-begin-model-doc -->
+ * <!-- vmf-end-model-doc -->
+ *
+ * @return the value of the '<em>${prop.name}</em>' container reference.
+ * @see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
+ */
+#elseif (${prop.containmentInfo.containmentType}=="CONTAINED")
+#if(${prop.propType}=="COLLECTION")
+#set($opposite = ${prop.containmentInfo.opposite})
+  /**
+   * Returns the value of the '<em>${prop.name}</em>' containment list.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.genericType.readOnlyInterface.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em>${prop.name}</em>' containment list.
+   */
+#else ## if collection
+#set($opposite = ${prop.containmentInfo.opposite})
+  /**
+   * Returns the value of the '<em><b>${prop.name}</b></em>' containment reference.
+   *
+   * It is bidirectional and its opposite is '{@link ${prop.type.readOnlyInterface.typeName}#${prop.getterPrefix}${opposite.nameWithUpperCase}() <em>${opposite.name}</em>}'.
+   *
+   * <!-- vmf-begin-model-doc -->
+   * <!-- vmf-end-model-doc -->
+   *
+   * @return the value of the '<em><b>${prop.name}</b></em>' containment reference.
+   * @see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
+   */
+#end ## if collection
+#else ## if container / contained
+ /**
+  * Returns the value of the '<em>${prop.name}</em>' property.
+  *
+  * <!-- vmf-begin-model-doc -->
+  * <!-- vmf-end-model-doc -->
+  *
+  * @return the value of the '<em>${prop.name}</em>' property.
+  * #if(${prop.propType}!="COLLECTION")@see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
+#end
+  */
+#end ## if container / contained
+#if($prop.propType == "COLLECTION")
+#if($prop.genericType)
+  // generic model type
+  public ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+//  public java.util.List<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+#else
+  public ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+//  public java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end ## if genericType
+#else
+  public #if($prop.type)#if($prop.type.immutable)$prop.type.typeName#else$prop.type.readOnlyInterface.typeName#end#else$prop.typeName#end ${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end ## if collection
+
+#end ## for each
+
+ /**
+  * Returns a deep clone of this object.
+  * @return a deep clone of this object
+  */
+  @Override
+  public ${type.readOnlyInterface.typeName} clone();
+
+  @Override
+  default ${type.readOnlyInterface.typeName} asReadOnly() {
+    return this;
+  }
+
+#if(!${type.isInterfaceOnly()})
+  /**
+   * Returns a modifiable deep clone of this object.
+   * @return a modifiable deep clone of this object
+   */
+  ${type.typeName} asModifiable();
+#end## if type is not interface-only type
+
+}

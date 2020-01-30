@@ -1,0 +1,58 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+#if(${type.containedWithoutOpposite})
+  // containment prop (for containments without specified opposite)
+  /*package private*/ ${VMFPKG}.VObject __vmf_internal_container;
+  @Override public ${VMFPKG}.VObject _vmf_getContainer() {return this.__vmf_internal_container;}
+  @Override public void _vmf_setContainer(${VMFPKG}.VObject container) {this.__vmf_internal_container = container;}
+#end
+
+#foreach( $prop in ${type.implementation.properties})
+  // --- PROP '$prop.typeName'
+  /*package private*/ $prop.typeName __vmf_prop_$prop.name;
+#if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
+  /*package private*/ java.util.List<${prop.genericTypeName}> __vmf_prop_${prop.name}__vmf_RawList;
+#end## cross-ref collection  
+#if(!$type.immutable) 
+#if(${prop.isInheritedProp()})## if   inheritedprop
+  //  -> prop is inherited from: '${prop.inheritedProp.parent.typeName}.${prop.inheritedProp.name}'
+  //  -> we have to stick to the parent method signature and do the necessary casting in the setter impl, see (*1*) 
+  @Override public void __vmf_set_prop_${prop.name}(${prop.inheritedProp.typeName} obj) {this.__vmf_prop_${prop.name} = /* (*1*) */($prop.typeName)obj;}
+#else##------------------------- else inheritedprop
+  @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_${prop.name} = obj;}
+#end##-------------------------- end  inheritedprop
+  //@Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_${prop.name} = obj;}
+  @Override public $prop.typeName __vmf_get_prop_${prop.name}() {return this.__vmf_prop_${prop.name};}
+#if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
+  @Override public java.util.List<${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList() {
+
+    if(this.__vmf_prop_${prop.name}__vmf_RawList==null) {
+  	  __vmf_prop_${prop.name}__vmf_RawList = new java.util.ArrayList<>();
+    }
+
+    return this.__vmf_prop_${prop.name}__vmf_RawList;
+  };
+#end## cross-ref collection
+#end## is not immutable  
+#end

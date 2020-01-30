@@ -45,6 +45,8 @@ dependencies {
     testCompile group: 'junit', name: 'junit', version: '4.12'
     compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3'
     compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3', classifier: 'sources'
+    compile files ('libs/apted-master.jar')
+    implementation 'eu.mihosoft.ext.apted:apted:0.1'
 }
 
 jar {

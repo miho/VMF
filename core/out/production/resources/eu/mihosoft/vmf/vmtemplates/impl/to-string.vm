@@ -1,0 +1,110 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+  // --------------------------- BEGIN TO_STRING -----------------------------
+#if(${type.isToStringMethodDelegated()})
+  // -> toString() method is delegated
+  public void __vmf_toString(StringBuilder sb, java.util.IdentityHashMap<Object, ?> _vmf_fToStringChecker) {
+    sb.append(toString());
+  }
+#else## #if(${type.isToStringMethodDelegated()})
+
+  @Override
+  public String toString() {
+    StringBuilder sb = new StringBuilder();
+    java.util.IdentityHashMap<Object, ?> _vmf_fToStringChecker = new java.util.IdentityHashMap<>();
+    __vmf_toString(sb, _vmf_fToStringChecker);
+    _vmf_fToStringChecker.clear();
+    _vmf_fToStringChecker = null;
+    return sb.toString();
+  }
+  
+  @Override
+  public void __vmf_toString(StringBuilder sb, java.util.IdentityHashMap<Object, ?> _vmf_fToStringChecker) {
+
+    { // begin
+        // test if "this" has been seen before
+        // implementation based on http://stackoverflow.com/a/11300376/1493549
+        boolean isImmutable = (this instanceof eu.mihosoft.vmf.runtime.core.Immutable);
+        if (!isImmutable && _vmf_fToStringChecker.containsKey(this)) {
+          sb.append("{skipping recursion}");
+          return;
+        } else {
+          if(!isImmutable) {
+            _vmf_fToStringChecker.put(this, null);
+          }
+        }
+
+        sb.append("{\"@type\":\"$type.typeName\"");
+
+#foreach ($prop in $type.implementation.properties)
+#if (${prop.isIgnoredForToString()} == false)
+#if (${prop.containmentInfo.containmentType} != "CONTAINER" )
+#if ( ${prop.propType} == "COLLECTION" )
+
+        // -- writing collection param '$prop.name'
+        //
+        sb.append(", \"$prop.name\": ");
+        if(this.__vmf_prop_${prop.name}==null) {
+          sb.append("[]");
+        } else {
+          sb.append("[");
+          for(int i = 0; i < this.__vmf_prop_${prop.name}.size(); i++) {
+            if(i>0) sb.append(", ");
+            Object lEntry = this.__vmf_prop_${prop.name}.get(i);
+            if(lEntry instanceof ${VMFPKG_INT}.VObjectInternal) {
+              ${VMFPKG_INT}.VObjectInternal lEntryVobj = (${VMFPKG_INT}.VObjectInternal) lEntry;
+              lEntryVobj.__vmf_toString(sb, _vmf_fToStringChecker);
+            } else {
+              sb.append(lEntry);
+            }
+          } // end for
+          sb.append("]");
+        }
+#else
+
+        // -- writing param '$prop.name'
+        {
+          
+          Object propObj = this.__vmf_prop_${prop.name};
+          sb.append(", \"$prop.name\": \"");
+          if(propObj instanceof ${VMFPKG_INT}.VObjectInternal) {
+              ${VMFPKG_INT}.VObjectInternal propVobj = (${VMFPKG_INT}.VObjectInternal) propObj;
+              propVobj.__vmf_toString(sb, _vmf_fToStringChecker);
+          } else {
+              sb.append(propObj);
+          }
+          sb.append("\"");
+        } // end param
+#end ## if contained and collection
+#end ## end if container type
+#end ## end if not ignore for toString
+#end ## for-each property
+        sb.append("}");
+
+    } // end
+  }
+
+  // end toString()
+#end## #if(${type.isToStringMethodDelegated()})
+  // ---------------------------- END TO_STRING ------------------------------

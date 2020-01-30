@@ -1,0 +1,127 @@
+#*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+package ${type.packageName};
+
+// vmf imports
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+//import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+//import ${VCOLL_PKG}.*;
+
+// property types imports
+#foreach( $import in $type.imports )
+import $import;
+#end
+
+// interface
+
+/**
+ *#if($type.interfaceOnly) An interface-only#else A#end representation of the immutable model object {@code $type.fullTypeName}.
+ *
+ * <!-- vmf-begin-model-doc -->
+#if(${type.documented})
+ * <p>${type.customDocumentation}</p>
+#else
+ * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+ * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+ * <!-- vmf-end-model-doc -->
+ *
+ */
+public interface $type.typeName extends ${VMFPKG}.VObject$type.immutableImplementsString, Cloneable, ${VMFPKG}.Immutable {
+#foreach( $prop in ${type.interface.properties} )
+
+#parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
+
+#end ## for each
+
+#if(!$type.interfaceOnly)
+
+  /**
+   * Returns the Type object of this model type.
+   * @return Type object
+   */
+  static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type type() {
+    return __VMF__${type.typeName}_Creator.getType();
+  }
+
+#parse("${VMF_TEMPLATE_PATH}interface/builder.vm")
+#end##if type interface only
+
+  /**
+   * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'. Since this model object is immutable
+   this method does not perform any conversion and returns this object in unmodified form.
+   * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
+   */
+  ${type.typeName} asReadOnly();
+
+  /**
+   * Returns a deep clone of this object.
+   * @return a deep clone of this object
+   */
+  @Override
+  $type.typeName clone() /*throws CloneNotSupportedException*/;
+
+}
+
+#if(!$type.interfaceOnly)
+class __VMF__${type.typeName}_Creator {
+
+  static Class<?> builderCls;
+  static java.lang.invoke.MethodHandles.Lookup lookup;
+  static java.lang.reflect.Constructor builderConstructor;
+  static java.lang.invoke.MethodHandle builderConstructorMH;
+
+  static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type type;
+
+  static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type getType() {
+      if(type ==null) {
+          type = ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type.newInstance(true, false, "${type.packageName}.$type.typeName", ${type.packageName}.${type.typeName}.class);
+      }
+      return type;
+  }
+
+  static ${type.typeName}.Builder newBuilderInstance() {
+      try {#set ( $dollar_sign = "$")
+
+          if(builderCls==null) {
+              builderCls = Class.forName("${type.implementation.packageName}.${type.implementation.typeName}${dollar_sign}Builder${VMF_IMPL_CLASS_EXT}");
+
+              if(lookup==null) { lookup = java.lang.invoke.MethodHandles.lookup(); }
+
+              builderConstructor = builderCls.getConstructor();
+              builderConstructor.setAccessible(true);
+
+              builderConstructorMH = lookup.unreflectConstructor(builderConstructor);
+          }
+
+          return (${type.typeName}.Builder) builderConstructorMH.invoke();
+
+      } catch (Throwable tr) {
+          throw new RuntimeException("Cannot instantiate \"${type.implementation.packageName}.${type.implementation.typeName}\"", tr);
+      }
+    }
+}
+
+#end##if type interface only
