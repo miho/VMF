@@ -71,12 +71,12 @@
               ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().remove(this);
               ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo); 
 
-#set($objectToAddReferenceOnValue=false)
-#set($referenceToAddValue = false)
-#set($objectToRemoveReferenceOnValue = "this")
-#set($referenceToRemoveValue = "e")
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+## #set($objectToAddReferenceOnValue=false)
+## #set($referenceToAddValue = false)
+## #set($objectToRemoveReferenceOnValue = "this")
+## #set($referenceToRemoveValue = "e")
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.removed()
       });
 
@@ -162,12 +162,12 @@
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 
 
-#set($objectToAddReferenceOnValue="this")
-#set($referenceToAddValue = "e")
-#set($objectToRemoveReferenceOnValue = false)
-#set($referenceToRemoveValue = false)
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+## #set($objectToAddReferenceOnValue="this")
+## #set($referenceToAddValue = "e")
+## #set($objectToRemoveReferenceOnValue = false)
+## #set($referenceToRemoveValue = false)
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.added()
 
             evt.removed().elements().forEach( (e) -> {
@@ -178,12 +178,12 @@
                 #set($disableFireEventValue=false)
 #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 
-#set($objectToAddReferenceOnValue=false)
-#set($referenceToAddValue = false)
-#set($objectToRemoveReferenceOnValue = "this")
-#set($referenceToRemoveValue = "e")
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+## #set($objectToAddReferenceOnValue=false)
+## #set($referenceToAddValue = false)
+## #set($objectToRemoveReferenceOnValue = "this")
+## #set($referenceToRemoveValue = "e")
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.removed()
             
         }); // end of change listener
@@ -249,12 +249,12 @@ valueInternal._vmf_setContainer(this);
 ##                 #set($disableFireEventValue=false)
 ## #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 
-#set($objectToAddReferenceOnValue="this")
-#set($referenceToAddValue = "e")
-#set($objectToRemoveReferenceOnValue = false)
-#set($referenceToRemoveValue = false)
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+## #set($objectToAddReferenceOnValue="this")
+## #set($referenceToAddValue = "e")
+## #set($objectToRemoveReferenceOnValue = false)
+## #set($referenceToRemoveValue = false)
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.added()
 
             evt.removed().elements().forEach( (e) -> {
@@ -271,12 +271,12 @@ valueInternal._vmf_setContainer(this);
 ##                 #set($disableFireEventValue=false)
 ## #parse("${VMF_TEMPLATE_PATH}impl/set-opposite-via-reflection.vm")
 
-#set($objectToAddReferenceOnValue=false)
-#set($referenceToAddValue = false)
-#set($objectToRemoveReferenceOnValue = "this")
-#set($referenceToRemoveValue = "e")
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+## #set($objectToAddReferenceOnValue=false)
+## #set($referenceToAddValue = false)
+## #set($objectToRemoveReferenceOnValue = "this")
+## #set($referenceToRemoveValue = "e")
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.removed()
             
         }); // end of change listener
@@ -289,30 +289,30 @@ valueInternal._vmf_setContainer(this);
     if(this.__vmf_prop_$prop.name==null) {
       this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
 #if($prop.type||$prop.genericType)
-      this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
-            evt.added().elements().forEach( (e) -> {
-              // nothing to do if e == null
-              if(e==null) return;
-#set($objectToAddReferenceOnValue="this")
-#set($referenceToAddValue = "e")
-#set($objectToRemoveReferenceOnValue = false)
-#set($referenceToRemoveValue = false)
-                #set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-            }); // end of evt.added()
+##       this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+##             evt.added().elements().forEach( (e) -> {
+##               // nothing to do if e == null
+##               if(e==null) return;
+## #set($objectToAddReferenceOnValue="this")
+## #set($referenceToAddValue = "e")
+## #set($objectToRemoveReferenceOnValue = false)
+## #set($referenceToRemoveValue = false)
+##                 #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+##             }); // end of evt.added()
 
-            evt.removed().elements().forEach( (e) -> {
-              // nothing to do if e == null
-              if(e==null) return;
-#set($objectToAddReferenceOnValue=false)
-#set($referenceToAddValue = false)
-#set($objectToRemoveReferenceOnValue = "this")
-#set($referenceToRemoveValue = "e")
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-            }); // end of evt.removed()
+##             evt.removed().elements().forEach( (e) -> {
+##               // nothing to do if e == null
+##               if(e==null) return;
+## #set($objectToAddReferenceOnValue=false)
+## #set($referenceToAddValue = false)
+## #set($objectToRemoveReferenceOnValue = "this")
+## #set($referenceToRemoveValue = "e")
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+##             }); // end of evt.removed()
 
-        }); // end of change listener
+##         }); // end of change listener
 #end## if is model type
     } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)
 #end
