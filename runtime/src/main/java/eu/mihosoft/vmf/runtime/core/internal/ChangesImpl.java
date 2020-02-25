@@ -107,9 +107,32 @@ public class ChangesImpl implements Changes {
                     registerChangeListener(newObjectToObserve, this);
                 }
 
+                // check whether old-val of property is container. in this case it is not removed
+                // from the object graph and no unregister method should be called
+                boolean oldValIsContainer = false;   
                 if (evt.getOldValue() instanceof VObject) {
-                    VObject objectToRemoveFromObservation = (VObject) evt.getOldValue();
-                    unregisterChangeListener(objectToRemoveFromObservation, this);
+
+                    VObjectInternal oldValInternal = (VObjectInternal)evt.getOldValue();
+
+                    if(evt.getSource() instanceof VObject) {
+                        VObject source = (VObject)evt.getSource();
+
+                        VObjectInternal sourceInternal = (VObjectInternal) source;
+
+                        int propId = sourceInternal._vmf_getPropertyIdByName(evt.getPropertyName());
+
+                        for(int parentId : sourceInternal._vmf_getParentIndices()) {
+                            if(propId == parentId) {
+                                oldValIsContainer=true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if(!oldValIsContainer) {
+                        VObject objectToRemoveFromObservation = (VObject) evt.getOldValue();
+                        unregisterChangeListener(objectToRemoveFromObservation, this);
+                    }
                 }
             }
         };
@@ -324,6 +347,7 @@ public class ChangesImpl implements Changes {
 
                 Subscription subscription = list.addChangeListener(
                         (evt) -> {
+                            
                             Change c = new ListChangeImpl(object, propName, evt);
 
                             fireChange(c, evt);
@@ -363,7 +387,9 @@ public class ChangesImpl implements Changes {
                 VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
 
                 if (listSubscriptions.containsKey(list)) {
-                    listSubscriptions.get(list).unsubscribe();
+                    Subscription listSubscription = listSubscriptions.get(list);
+                    listSubscriptions.remove(list);
+                    listSubscription.unsubscribe();
                 }
             }
         }
@@ -378,7 +404,9 @@ public class ChangesImpl implements Changes {
                 VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
 
                 if (nonRecursiveListSubscriptions.containsKey(list)) {
-                    nonRecursiveListSubscriptions.get(list).unsubscribe();
+                    Subscription listSubscription = nonRecursiveListSubscriptions.get(list);
+                    nonRecursiveListSubscriptions.remove(list);
+                    listSubscription.unsubscribe();
                 }
             }
         }
