@@ -50,12 +50,12 @@
               ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().add(this);
               ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo); 
 
-#set($objectToAddReferenceOnValue="this")
-#set($referenceToAddValue = "e")
-#set($objectToRemoveReferenceOnValue = false)
-#set($referenceToRemoveValue = false)
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+## #set($objectToAddReferenceOnValue="this")
+## #set($referenceToAddValue = "e")
+## #set($objectToRemoveReferenceOnValue = false)
+## #set($referenceToRemoveValue = false)
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.added()
 
             evt.removed().elements().forEach( (e) -> {
@@ -103,12 +103,12 @@
                 ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_set_prop_${oppositeRefProp.name}(this);
                 ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e)._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
 
-#set($objectToAddReferenceOnValue="this")
-#set($referenceToAddValue = "e")
-#set($objectToRemoveReferenceOnValue = false)
-#set($referenceToRemoveValue = false)
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+## #set($objectToAddReferenceOnValue="this")
+## #set($referenceToAddValue = "e")
+## #set($objectToRemoveReferenceOnValue = false)
+## #set($referenceToRemoveValue = false)
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.added()
 
             evt.removed().elements().forEach( (e) -> {
@@ -120,12 +120,12 @@
                 ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_set_prop_${oppositeRefProp.name}(null);   
                 ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e)._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
 
-#set($objectToAddReferenceOnValue=false)
-#set($referenceToAddValue = false)
-#set($objectToRemoveReferenceOnValue = "this")
-#set($referenceToRemoveValue = "e")
-#set($codeIndentValue = "                ")
-#parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+## #set($objectToAddReferenceOnValue=false)
+## #set($referenceToAddValue = false)
+## #set($objectToRemoveReferenceOnValue = "this")
+## #set($referenceToRemoveValue = "e")
+## #set($codeIndentValue = "                ")
+## #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
             }); // end of evt.removed()
         });
 #end## collection type  

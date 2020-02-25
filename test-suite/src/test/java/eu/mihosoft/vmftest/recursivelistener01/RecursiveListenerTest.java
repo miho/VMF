@@ -25,6 +25,7 @@
 package eu.mihosoft.vmftest.recursivelistener01;
 
 
+import eu.mihosoft.vmftest.recursivelistener01.nocontainment.NodeNoContainment;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -107,6 +108,56 @@ public class RecursiveListenerTest {
 
         nonRecursiveChanges.set(0);
         recursiveChanges.set(0);
+
+    }
+
+    @Test
+    public void registerUnregisterSimpleProperties() {
+
+        AtomicInteger changeCounter = new AtomicInteger();
+
+        NodeNoContainment root = NodeNoContainment.newInstance();
+
+        root.vmf().changes().addListener(change -> {
+            if("name".equals(change.propertyName())) {
+                changeCounter.incrementAndGet();
+            }
+        });
+
+        NodeNoContainment n1 = NodeNoContainment.newInstance();
+
+        root.setNode(n1);
+
+        // no event because not contained, just regular property
+        n1.setName("my name 0");
+
+        Assert.assertEquals(0, changeCounter.get());
+        changeCounter.set(0);
+
+        root.getChildren().add(n1);
+
+        // one event before releasing node as regular property (no containment, no cross-ref)
+        n1.setName("my name 1");
+
+        Assert.assertEquals(1, changeCounter.get());
+        changeCounter.set(0);
+
+        root.setNode(null);
+
+        // should be fired if still present on the object graph (path to root exists)
+        n1.setName("my name 2");
+        n1.setName("my name 3");
+
+        Assert.assertEquals(2, changeCounter.get());
+        changeCounter.set(0);
+
+        // should fire no event (not contained anymore)
+        n1.setParent(null);
+
+        n1.setName("my name 4");
+
+        Assert.assertEquals(0, changeCounter.get());
+        changeCounter.set(0);
 
     }
 }

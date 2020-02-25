@@ -83,6 +83,45 @@ public class ChangesImpl implements Changes {
 
     private ModelVersion modelVersion = new ModelVersionImpl(System.currentTimeMillis(), 0);
 
+    private boolean isOldContained(PropertyChangeEvent evt) {
+        if (evt.getOldValue() instanceof VObject) {
+
+            if (evt.getSource() instanceof VObject) {
+                VObject source = (VObject) evt.getSource();
+
+                VObjectInternal sourceInternal = (VObjectInternal) source;
+                int changedId = sourceInternal._vmf_getPropertyIdByName(evt.getPropertyName());
+
+                for (int propId : sourceInternal._vmf_getChildrenIndices()) {
+                    if (changedId == propId) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isNewContained(PropertyChangeEvent evt) {
+        if (evt.getNewValue() instanceof VObject) {
+            if (evt.getSource() instanceof VObject) {
+                VObject source = (VObject) evt.getSource();
+
+                VObjectInternal sourceInternal = (VObjectInternal) source;
+                int changedId = sourceInternal._vmf_getPropertyIdByName(evt.getPropertyName());
+
+                for (int propId : sourceInternal._vmf_getChildrenIndices()) {
+                    if (changedId == propId) {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     @SuppressWarnings({"deprecation"})
     public ChangesImpl() {
         objListener = new PropertyChangeListener() {
@@ -102,38 +141,16 @@ public class ChangesImpl implements Changes {
      
                 fireChange(c,evt);
 
-                if (evt.getNewValue() instanceof VObject) {
+                if (isNewContained(evt)) {
                     VObject newObjectToObserve = (VObject) evt.getNewValue();
                     registerChangeListener(newObjectToObserve, this);
                 }
-
-                // check whether old-val of property is container. in this case it is not removed
-                // from the object graph and no unregister method should be called
-                boolean oldValIsContainer = false;   
-                if (evt.getOldValue() instanceof VObject) {
-
-                    VObjectInternal oldValInternal = (VObjectInternal)evt.getOldValue();
-
-                    if(evt.getSource() instanceof VObject) {
-                        VObject source = (VObject)evt.getSource();
-
-                        VObjectInternal sourceInternal = (VObjectInternal) source;
-
-                        int propId = sourceInternal._vmf_getPropertyIdByName(evt.getPropertyName());
-
-                        for(int parentId : sourceInternal._vmf_getParentIndices()) {
-                            if(propId == parentId) {
-                                oldValIsContainer=true;
-                                break;
-                            }
-                        }
-                    }
                     
-                    if(!oldValIsContainer) {
-                        VObject objectToRemoveFromObservation = (VObject) evt.getOldValue();
-                        unregisterChangeListener(objectToRemoveFromObservation, this);
-                    }
+                if(isOldContained(evt)) {
+                    VObject objectToRemoveFromObservation = (VObject) evt.getOldValue();
+                    unregisterChangeListener(objectToRemoveFromObservation, this);
                 }
+                
             }
         };
 
@@ -267,7 +284,7 @@ public class ChangesImpl implements Changes {
     @SuppressWarnings("unchecked")
     private void registerChangeListener(VObject vObj, PropertyChangeListener objListener) {
 
-        Iterator<VObject> it = vObj.vmf().content().iterator(VIterator.IterationStrategy.UNIQUE_NODE);
+        Iterator<VObject> it = vObj.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
         while (it.hasNext()) {
 
             VObjectInternal obj = (VObjectInternal) it.next();
@@ -285,7 +302,7 @@ public class ChangesImpl implements Changes {
     @SuppressWarnings("unchecked")
     private void unregisterChangeListener(VObject vObj, PropertyChangeListener objListener) {
 
-        Iterator<VObject> it = vObj.vmf().content().iterator(VIterator.IterationStrategy.UNIQUE_NODE);
+        Iterator<VObject> it = vObj.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
         while (it.hasNext()) {
 
             VObjectInternal obj = (VObjectInternal) it.next();
