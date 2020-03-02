@@ -23,10 +23,12 @@
           && valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
 #end##---------------------------------## end (prop!=pOfType)      
         ${pOfType.parent.typeName} container = (${pOfType.parent.typeName})valueInternal._vmf_getContainer();
+        __VMF_TYPE_${pOfType.parent.typeName}Impl container_internal = (__VMF_TYPE_${pOfType.parent.typeName}Impl)valueInternal._vmf_getContainer();
 #if(${pOfType.propType}=="COLLECTION")##-- if    (is collection-type)
         container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
 #else##---------------------------------## else  (is collection-type)
-        container.set${pOfType.nameWithUpperCase}(null);
+        // container.set${pOfType.nameWithUpperCase}(null);
+        container_internal.__vmf_set_prop_${pOfType.name}(null);
 #end##----------------------------------## end   (is collection-type)
         // TODO 28.09.2019 maybe not allowed due to potential overlap // done = true;
       } // end if (${pOfType.parent.typeName}.${pOfType.name})
@@ -40,7 +42,7 @@
       // -- for-loop p : findAllPropsThatContainTypeWithOpposite() <begin>
       // ----------------------------------------
       { // scope <begin>
-      // indicates whether we found the prev property that contain this value
+      // indicates whether we found the prev property that contains this value
       boolean done = false;
       
 #foreach($pOfType in ${prop.type.findAllPropsThatContainTypeWithOpposite()})## // for-loop <begin>
@@ -48,7 +50,8 @@
       // CONTAINER: ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()
 #if(!${pOfType.equals(${prop})})##---- if (prop!=pOfType)
       if( !done
-          && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+          && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=null
+          && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}().get${pOfType.nameWithUpperCase}()==${prop.name}) {
 #else##--------------------------------## else (prop!=pOfType)  
       // -> prop is identical to this prop. Only remove if container instance 
       //    is different from 'this' reference
@@ -56,11 +59,13 @@
           && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=null
           && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=this) {
 #end##---------------------------------## end (prop!=pOfType)      
-        ${pOfType.parent.typeName} container = ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}();
+        ${pOfType.parent.typeName} container = (__VMF_TYPE_${pOfType.parent.typeName}Impl)${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}();
+        __VMF_TYPE_${pOfType.parent.typeName}Impl container_internal = (__VMF_TYPE_${pOfType.parent.typeName}Impl)${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}();
 #if(${pOfType.propType}=="COLLECTION")##-- if    (is collection-type)
         container.get${pOfType.nameWithUpperCase}().remove($prop.name);
 #else##---------------------------------## else  (is collection-type)
-        container.set${pOfType.nameWithUpperCase}(null);
+        // container.set${pOfType.nameWithUpperCase}(null);
+        container_internal.__vmf_set_prop_${pOfType.name}(null);
 #end##----------------------------------## end   (is collection-type)
         // TODO 28.09.2019 maybe not allowed due to potential overlap // done = true;
       } // end if (${pOfType.parent.typeName}.${pOfType.name})

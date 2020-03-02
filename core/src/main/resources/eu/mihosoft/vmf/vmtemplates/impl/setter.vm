@@ -157,9 +157,12 @@
       //(($prop.typeName$VMF_IMPL_CLASS_EXT)$prop.name)._vmf_set${prop.containmentInfo.opposite.nameWithUpperCase}NoContainment(this);
 
       // remove '${prop.name}' object that shall be set from its previous parent
-      // if it has one. for collections we perform this operation in the getter
+      // if it has one and if it is not identical to this. 
+      // for collections we perform this operation in the getter
       // method which registers a change listener that does all the work.
-      if(${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+      if(    ${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}() != null
+          && ${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}() != this
+      ) {
         ${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}().set${prop.nameWithUpperCase}(null);
       }
 
