@@ -149,7 +149,8 @@
 
                 // remove element from previous collection
                 // TODO use bulk operations if possible
-                if(e.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null) {
+                if(     e.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=null
+                     && e.get${prop.containmentInfo.opposite.nameWithUpperCase}()!=this) {
                   e.get${prop.containmentInfo.opposite.nameWithUpperCase}().get${prop.nameWithUpperCase}().remove(e);
                 }
                 

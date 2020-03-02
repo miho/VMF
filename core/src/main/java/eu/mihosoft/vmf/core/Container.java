@@ -62,5 +62,5 @@ public @interface Container {
    /**
      * Sets the opposite property of this containment relationship, e.g., <b>"child"</b> (short form) or <b>"ClassName.child"</b> (full property).
      */
-    String opposite();
+    String opposite() default "";
 }

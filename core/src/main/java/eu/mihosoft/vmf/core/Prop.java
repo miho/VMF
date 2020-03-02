@@ -97,6 +97,7 @@ public class Prop {
     private String genericTypeName;
     private CollectionType collectionType;
     private boolean getterOnly;
+    private boolean readOnly;
 
     private String defaultValueAsString;
 
@@ -291,25 +292,30 @@ public class Prop {
 
             String oppositeOfGetContainerProperty = container.opposite();
 
-            Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
+            if(oppositeOfGetContainerProperty.isEmpty()) {
+                this.readOnly = true;
+                this.containmentInfo = ContainmentInfo.newInstance(null, null, null, null, ContainmentType.CONTAINER);
+            } else {    
+                Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
 
-            // if opposite can't be found, try with full name
-            if (!opposite.isPresent()) {
-                if (isCollectionType()) {
-                    oppositeOfGetContainerProperty = getGenericTypeName() + "." + oppositeOfGetContainerProperty;
-                } else {
-                    oppositeOfGetContainerProperty = getTypeName() + "." + oppositeOfGetContainerProperty;
+                // if opposite can't be found, try with full name
+                if (!opposite.isPresent()) {
+                    if (isCollectionType()) {
+                        oppositeOfGetContainerProperty = getGenericTypeName() + "." + oppositeOfGetContainerProperty;
+                    } else {
+                        oppositeOfGetContainerProperty = getTypeName() + "." + oppositeOfGetContainerProperty;
+                    }
+
+                    opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
                 }
 
-                opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
-            }
-
-            if (opposite.isPresent()) {
-                this.containmentInfo = ContainmentInfo.newInstance(parent, this, opposite.get().getParent(),
-                        opposite.get(), ContainmentType.CONTAINER);
-            } else {
-                throw new RuntimeException(
-                        "Specified opposite property '" + oppositeOfGetContainerProperty + "' cannot be found");
+                if (opposite.isPresent()) {
+                    this.containmentInfo = ContainmentInfo.newInstance(parent, this, opposite.get().getParent(),
+                            opposite.get(), ContainmentType.CONTAINER);
+                } else {
+                    throw new RuntimeException(
+                            "Specified opposite property '" + oppositeOfGetContainerProperty + "' cannot be found");
+                }
             }
         } else if (contained != null) {
             // System.out.println("Contained: " + contained.opposite());
@@ -651,6 +657,9 @@ public class Prop {
 
     public boolean isGetterOnly() {
         return getterOnly;
+    }
+    public boolean isReadOnly() {
+        return readOnly;
     }
 
     /**

@@ -23,6 +23,8 @@
  *#
 #foreach( $prop in ${type.implementation.propertiesWithoutCollectionsBasedContainment} )
 #if(${prop.propType}=="COLLECTION")##  if   (prop is collection type)
+#elseif(${prop.readOnly} == true)  ##  elif (prop is read-only)
+public $prop.setterDeclaration { throw new RuntimeException("Cannot set read-only property'${prop.name}'."); }
 #else##-----------------------------## else (prop is collection type)
 #if(${prop.containmentProperty})## if (containmentProperty)
 #if(${prop.containmentInfo.withoutOpposite})## if (no opposite)
