@@ -23,12 +23,16 @@
           && valueInternal._vmf_getContainer() instanceof ${pOfType.parent.typeName}) {
 #end##---------------------------------## end (prop!=pOfType)      
         ${pOfType.parent.typeName} container = (${pOfType.parent.typeName})valueInternal._vmf_getContainer();
-        __VMF_TYPE_${pOfType.parent.typeName}Impl container_internal = (__VMF_TYPE_${pOfType.parent.typeName}Impl)valueInternal._vmf_getContainer();
+        __VMF_TYPE_${pOfType.parent.typeName}Impl container_internal = (__VMF_TYPE_${pOfType.parent.typeName}Impl)container;
 #if(${pOfType.propType}=="COLLECTION")##-- if    (is collection-type)
         container.get${pOfType.nameWithUpperCase}().remove(valueInternal);
 #else##---------------------------------## else  (is collection-type)
         // container.set${pOfType.nameWithUpperCase}(null);
+        Object oldValue_internal =  container_internal.__vmf_get_prop_${pOfType.name}();
         container_internal.__vmf_set_prop_${pOfType.name}(null);
+        if(oldValue_internal!=null) {
+            container_internal._vmf_firePropertyChangeIfListenersArePresent("${pOfType.name}", oldValue_internal, null);
+        }
 #end##----------------------------------## end   (is collection-type)
         // TODO 28.09.2019 maybe not allowed due to potential overlap // done = true;
       } // end if (${pOfType.parent.typeName}.${pOfType.name})
@@ -60,12 +64,16 @@
           && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=this) {
 #end##---------------------------------## end (prop!=pOfType)      
         ${pOfType.parent.typeName} container = (__VMF_TYPE_${pOfType.parent.typeName}Impl)${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}();
-        __VMF_TYPE_${pOfType.parent.typeName}Impl container_internal = (__VMF_TYPE_${pOfType.parent.typeName}Impl)${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}();
+        __VMF_TYPE_${pOfType.parent.typeName}Impl container_internal = (__VMF_TYPE_${pOfType.parent.typeName}Impl)container;
 #if(${pOfType.propType}=="COLLECTION")##-- if    (is collection-type)
         container.get${pOfType.nameWithUpperCase}().remove($prop.name);
 #else##---------------------------------## else  (is collection-type)
         // container.set${pOfType.nameWithUpperCase}(null);
+        Object oldValue_internal =  container_internal.__vmf_get_prop_${pOfType.name}();
         container_internal.__vmf_set_prop_${pOfType.name}(null);
+        if(oldValue_internal!=null) {
+            container_internal._vmf_firePropertyChangeIfListenersArePresent("${pOfType.name}", oldValue_internal, null);
+        }
 #end##----------------------------------## end   (is collection-type)
         // TODO 28.09.2019 maybe not allowed due to potential overlap // done = true;
       } // end if (${pOfType.parent.typeName}.${pOfType.name})
