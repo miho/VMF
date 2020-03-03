@@ -222,4 +222,58 @@ public class ContainmentTest {
         // ...should unregister from previous container
         assertThat(ca.getElement(), equalTo(null));
     }
+
+    @Test
+    public void containmentMultiplePropsTestMultipleOpposites() {
+
+        // containment should be unique among multiple properties
+        // of container instances of the same type
+
+        // ONE-TO-ONE:
+
+        // first register with first container instance
+        ContainerMultipleOpposites ca = ContainerMultipleOpposites.newInstance();
+        ElementMultipleOpposites e = ElementMultipleOpposites.newInstance();
+        ca.setElement(e);
+
+        // the element should be set to e
+        // the parent should be set to the first container
+        assertThat(ca.getElement(), equalTo(e));
+        assertThat(e.getParent(), equalTo(ca));
+
+        // if we set it to the second container instance...
+        ContainerMultipleOpposites cb = ContainerMultipleOpposites.newInstance();
+
+        // ...it should work like before and...
+        cb.setElement(e);
+
+        // ...should unregister from previous container
+        assertThat(ca.getElement(), equalTo(null));
+
+        // the parent should be set to the second container
+        assertThat(e.getParent(), equalTo(cb));
+
+        // ONE-TO-MANY:
+
+        ca.getElements().add(e);
+
+        // e should be unregistered from previous container
+        assertThat(cb.getElement(), equalTo(null));
+
+        // e's parent should be the first container
+        assertThat(e.getParent(), equalTo(ca));
+
+        // adding e to a list...
+        ca.getElements1().add(e);
+
+        // ... should remove it from the previous list
+        assertThat(e, not(isIn(ca.getElements())));
+        assertThat(e, isIn(ca.getElements1()));
+
+        // adding e to a single-valued property...
+        ca.setElement(e);
+
+        // ... should remove it from the previous list
+        assertThat(e, not(isIn(ca.getElements1())));
+    }
 }

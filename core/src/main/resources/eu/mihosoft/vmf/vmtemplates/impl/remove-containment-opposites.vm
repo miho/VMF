@@ -51,7 +51,7 @@
 #if(!${pOfType.equals(${prop})})##---- if (prop!=pOfType)
       if( !done
           && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}()!=null
-          && ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}().get${pOfType.nameWithUpperCase}()==${prop.name}) {
+          #if(${pOfType.propType}=="COLLECTION")#else&& ${prop.name}.get${pOfType.containmentInfo.opposite.nameWithUpperCase}().get${pOfType.nameWithUpperCase}()==${prop.name}#end) {
 #else##--------------------------------## else (prop!=pOfType)  
       // -> prop is identical to this prop. Only remove if container instance 
       //    is different from 'this' reference

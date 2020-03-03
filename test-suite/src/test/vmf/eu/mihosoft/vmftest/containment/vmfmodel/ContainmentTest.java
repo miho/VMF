@@ -44,3 +44,22 @@ interface Element {
     @Container(opposite = "elements2a")
     ContainerTwo getListParentTwo();
 }
+
+interface ContainerMultipleOpposites {
+    @Contains(opposite = "parent")
+    ElementMultipleOpposites getElement();
+
+    @Contains(opposite = "parent")
+    ElementMultipleOpposites getElement1();
+
+    @Contains(opposite = "parent")
+    ElementMultipleOpposites[] getElements();
+
+    @Contains(opposite = "parent")
+    ElementMultipleOpposites[] getElements1();
+}
+
+interface ElementMultipleOpposites {
+    @Container() // multiple opposites (unknown at compile-time)
+    ContainerMultipleOpposites getParent();
+}
