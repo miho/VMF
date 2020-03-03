@@ -178,7 +178,7 @@
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
 #if(!$prop.genericType)
-#if(${prop.propType}!="COLLECTION") ## && $prop.containmentInfo.containmentType!="CONTAINER"
+#if(${prop.propType}!="COLLECTION" && !${prop.readOnly}) ## && $prop.containmentInfo.containmentType!="CONTAINER"
       case $foreach.index: // normal property (no collection)
         set${prop.nameWithUpperCase}((${prop.typeName})value);
         break;
