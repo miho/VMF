@@ -68,5 +68,10 @@ public interface VObjectInternalModifiable extends VObjectInternal {
      */
     default void _vmf_setContainer(VObject container) {throw new RuntimeException("This type is not contained and this method shouldn't be called!");};
 
+    /**
+     * Unregisters 'this' from its current container.
+    */
+    default void _vmf_unregisterFromContainers() {}
+
 
 }
