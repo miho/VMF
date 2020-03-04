@@ -792,23 +792,45 @@ public class ModelType {
      * contain instance of this type. This includes types that extend this type.
      * @return properties that match the aforementioned criterions
      */
+
+    /**
+     * 
+     * @return
+     */
     public boolean isContainedWithoutOpposite() {
         return getModel().isContainedWithoutOpposite(this);
     }
 
     /**
-     * Determines whether this type is contained via {@code @Contains} without opposite.
-     * @return {@code true} if this type is contained; {@code false} otherwise
+     * Returns all properties of the model this type belongs to (searches in all properties of all model types) that
+     * contain instance of this type (without opposite). This includes types that extend this type.
+     * @return properties that match the aforementioned criterions
      */
-    public List<Prop> findAllPropsThatContainType() {
-        return getModel().findAllPropsThatContainType(this);
+    public List<Prop> findAllPropsThatContainTypeWithoutOpposite() {
+        return getModel().findAllPropsThatContainTypeWithoutOpposite(this);
     }
 
     /**
-     * Determines whether this type is contained via {@code @Contains} with opposite.
-     * @return {@code true} if this type is contained; {@code false} otherwise
+     * Returns all properties of the model this type belongs to (searches in all properties of all model types) that
+     * contain instance of this type (with opposite). This includes types that extend this type.
+     * @return properties that match the aforementioned criterions
      */
     public List<Prop> findAllPropsThatContainTypeWithOpposite() {
         return getModel().findAllPropsThatContainType(this, true);
     }
+
+    /**
+     * Returns all properties of the model this type belongs to (searches in all properties of all model types) that
+     * contain instance of this type. This includes types that extend this type.
+     * @return properties that match the aforementioned criterions
+     */
+    public List<Prop> findAllPropsThatContainType() {
+        List<Prop> result = new ArrayList<>();
+
+        result.addAll(findAllPropsThatContainTypeWithoutOpposite());
+        result.addAll(findAllPropsThatContainTypeWithOpposite());
+
+        return result;
+    }
+
 }

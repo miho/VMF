@@ -221,7 +221,7 @@ public class Model {
      * @param type type to analyze
      * @return properties that match the aforementioned criterions
      */
-    List<Prop> findAllPropsThatContainType(ModelType type) {
+    List<Prop> findAllPropsThatContainTypeWithoutOpposite(ModelType type) {
         return findAllPropsThatContainType(type, false);
     }
 
@@ -291,7 +291,7 @@ public class Model {
      * @return {@code true} if the specified type is contained; {@code false} otherwise
      */
     boolean isContainedWithoutOpposite(ModelType type) {
-        return !findAllPropsThatContainType(type).isEmpty();
+        return !findAllPropsThatContainTypeWithoutOpposite(type).isEmpty();
     }
 
     public String getPackageName() {
