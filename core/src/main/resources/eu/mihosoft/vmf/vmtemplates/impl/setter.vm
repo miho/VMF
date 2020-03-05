@@ -281,10 +281,14 @@ public $prop.setterDeclaration {
 
 @Override 
 public void _vmf_unregisterFromContainers() {
+
+// --------------------------------------------------------------------------------------------------------------------
+// UNREGISTERING from containers with opposite on both ends
+// --------------------------------------------------------------------------------------------------------------------
 #foreach( $container in ${type.implementation.properties} ) 
 #if(${container.containmentInfo.containmentType}=="CONTAINER" && !${container.containmentInfo.withoutOpposite})
     // ----------------------------------------------------------------------------------------------------------------
-    // UNREGISTERING from container: ${container.parent.typeName}.${container.name} : type: ${container.typeName}
+    // -> unregistering from container: ${container.parent.typeName}.${container.name} : type: ${container.typeName}
     // ----------------------------------------------------------------------------------------------------------------
 #if(${container.containmentInfo.opposite.propType}!="COLLECTION")##  if   (prop is no collection type) 
     if(this.__vmf_prop_${container.name} != null) {
@@ -322,11 +326,18 @@ public void _vmf_unregisterFromContainers() {
 #end##                                                               if   (prop is no collection type)  
 #else##  no container
 
-   // - > no container to unregister: ${container.name} : ${container.typeName}   
-   // - > opposite: #if(!${container.containmentInfo.withoutOpposite})${container.containmentInfo.opposite.name}#else<none>#end
+    // - > no container to unregister: ${container.name} : ${container.typeName}   
+    // - > opposite: #if(!${container.containmentInfo.withoutOpposite})${container.containmentInfo.opposite.name}#else<none>#end
 
 #end##   container 
 #end## for-each container
+// --------------------------------------------------------------------------------------------------------------------
+
+// --------------------------------------------------------------------------------------------------------------------
+// UNREGISTERING from containers without opposite on our end
+// --------------------------------------------------------------------------------------------------------------------
+
+// --------------------------------------------------------------------------------------------------------------------
 
 } // end unregister from containers
 
