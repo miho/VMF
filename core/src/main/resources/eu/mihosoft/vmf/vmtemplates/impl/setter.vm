@@ -276,6 +276,17 @@ public $prop.setterDeclaration {
   // ----------------------------------------
 } // end setterDeclaration (setter method) : $prop.setterDeclaration  
 #end                               ##  end  (prop is writable property)
+
+#if(!${prop.type.immutable})  
+  // ----------------------------------------
+  // register with new containers
+  // ----------------------------------------
+  if(this.__vmf_prop_${prop.name} != null)
+    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
+    void _vmf_register_WithContainer_${container.name}
+  }  
+  // ----------------------------------------
+#end
 #end## end for-each property
 
 
