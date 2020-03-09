@@ -55,14 +55,14 @@ import eu.mihosoft.vmf.core.Contains;
 interface Parent {
 
     @Contains(opposite = "parent")
-    MyChild[] getChildren();
+    Child[] getChildren();
 
     String getName();
 }
 
 interface Child {
     @Container(opposite="children")
-    MyParent getParent();
+    Parent getParent();
     
     int getValue();
 }
