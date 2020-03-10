@@ -324,7 +324,7 @@ public void _vmf_unregisterFromContainers() {
     // ----------------------------------------------------------------------------------------------------------------
 
 #end##                                                               if   (prop is no collection type)  
-#else##  no container
+#else##  no container or no opposite
 
     // - > no container to unregister: ${container.name} : ${container.typeName}   
     // - > opposite: #if(!${container.containmentInfo.withoutOpposite})${container.containmentInfo.opposite.name}#else<none>#end
@@ -346,8 +346,11 @@ public void _vmf_unregisterFromContainers() {
 #if(${container.containmentInfo.containmentType}=="CONTAINER" && !${container.containmentInfo.withoutOpposite})
 public void _vmf_register_WithContainer_${container.name}(${container.typeName} container) {
 
-    container.
+#foreach( $contained in ${container.type.implementation.properties} )
+#if(${contained.containmentInfo.containmentType}=="CONTAINED" && !${container.containmentInfo.opposite})
 
+#end## contained
+#end## for-each contained
 }
 #end## container
 #end## for-each container
@@ -370,7 +373,7 @@ public void _vmf_register_WithContainer_${container.name}(${container.typeName} 
   // ----------------------------------------
   // set the new value
   // ----------------------------------------
-  $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+  $prop.typeName oldValue = this.__vmf_prop_$prop.name; 
   this.__vmf_prop_$prop.name = $prop.name;
   // ----------------------------------------
 
