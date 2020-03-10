@@ -46,7 +46,7 @@ dependencies {
     // configurations.compile.extendsFrom(configurations.legacyVelocity)
     compile group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.4'
     compile group: 'io.github.classgraph', name: 'classgraph', version: '4.6.32'
-    compile group: 'org.mdkt.compiler', name: 'InMemoryJavaCompiler', version: '1.3.0'
+    compile group: 'eu.mihosoft.jcompiler', name: 'jcompiler', version: '0.2'
 }
 
 jar {
