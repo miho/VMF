@@ -23,6 +23,7 @@
  */
 package eu.mihosoft.vmf;
 
+import eu.mihosoft.jcompiler.JCompiler;
 import eu.mihosoft.vmf.core.CodeGenerator;
 import eu.mihosoft.vmf.core.TypeUtil;
 import eu.mihosoft.vmf.core.io.FileResourceSet;
@@ -134,16 +135,16 @@ public class VMF {
      */
     public static void generate(ResourceSet outputDir, ClassLoader classLoader, File... sourceFiles) throws IOException {
 
-        InMemoryJavaCompiler compiler = InMemoryJavaCompiler.newInstance();
+        JCompiler compiler = JCompiler.newInstance();
 
         if(classLoader!=null) {
-            compiler.useParentClassLoader(classLoader);
+            compiler.setParentClassLoader(classLoader);
         }
 
         for(File f : sourceFiles) {
             String code = new String(Files.readAllBytes(f.toPath()), Charset.forName("UTF-8"));
             try {
-                compiler.addSource(f.getName(), code);
+                compiler.addSource(code);
             } catch (Exception ex) {
                 throw new IOException("Cannot add source file '"+f+"'", ex);
             }
@@ -152,7 +153,7 @@ public class VMF {
         Map<String,Class<?>> modelClasses;
 
         try {
-            modelClasses = compiler.compileAll();
+            modelClasses = compiler.compileAll().checkNoErrors(true).loadClasses();
         } catch (Exception ex) {
             throw new IOException("Cannot compile model definitions.", ex);
         }
