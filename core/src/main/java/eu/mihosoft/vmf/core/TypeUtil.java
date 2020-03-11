@@ -23,13 +23,10 @@
  */
 package eu.mihosoft.vmf.core;
 
-import java.io.File;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.TypeVariable;
 import java.util.Collection;
 import java.util.List;
-import java.util.StringJoiner;
 
 /**
  * Created by miho on 21.03.2017.

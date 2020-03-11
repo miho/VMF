@@ -107,8 +107,7 @@ public class VMFTestShell {
         JCompiler compiler = JCompiler.newInstance();
         for (Map.Entry<String, MemoryResource> entry : getModelCodeField().getMemSet().entrySet()) {
             // convert /path/to/File.java to pkg.File
-            compiler.addSource(entry.getKey().replace('/','.').substring(0,entry.getKey().length()-5),
-                    entry.getValue().asString());
+            compiler.addSource(entry.getValue().asString());
         }
 
         Map<String, Class<?>> modelClasses = compiler.compileAll().checkNoErrors().loadClasses();
