@@ -23,32 +23,66 @@
  */
 package eu.mihosoft.vmf.core.io;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.CharArrayReader;
 import java.io.CharArrayWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 
 /**
- * Memory resource. This class can be used for writing to memory instead of a file.
+ * Memory resource. This class can be used for writing to memory instead of a
+ * file.
  *
  * @see FileResource
  * @author Sam
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
 public class MemoryResource implements Resource {
-
-    CharArrayWriter mem = new CharArrayWriter();
+    private ByteArrayOutputStream outputStream;
+    private CharArrayWriter mem = new CharArrayWriter();
 
     @Override
+    @Deprecated
     public PrintWriter open() throws IOException {
         return new PrintWriter(mem);
     }
 
     @Override
     public void close() throws IOException {
-        mem.close();
+
+        if(this.outputStream!=null) {
+            mem.append(new String(outputStream.toByteArray(), StandardCharsets.UTF_8));
+        }
+
+        this.outputStream = null;
     }
 
     public String asString() {
         return mem.toString();
+    }
+
+    @Override
+    public InputStream openForReading() {
+
+        if(this.outputStream!=null) {
+            mem.append(new String(outputStream.toByteArray(), StandardCharsets.UTF_8));
+        }
+
+        return new ByteArrayInputStream(mem.toString().getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Override
+    public OutputStream openForWriting() {
+        this.outputStream = new ByteArrayOutputStream();
+        return this.outputStream;
+    }
+
+    int size() {
+        return mem.size();
     }
 }

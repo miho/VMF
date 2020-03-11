@@ -24,6 +24,8 @@
 package eu.mihosoft.vmf.core.io;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 
 
@@ -39,11 +41,25 @@ public interface Resource extends AutoCloseable {
     //
 
     /**
-     * Opens this resource.
+     * Opens this resource for writing.
      * @return print writer for writing to this resource.
      * @throws IOException if an I/O related problem prevents this operation
      */
     PrintWriter open() throws IOException;
+
+    /**
+     * Opens this resource for reading.
+     * @return input stream to read from this resource
+     * @throws IOException if an I/O related problem prevents this operation
+     */
+    InputStream openForReading() throws IOException; 
+
+    /**
+     * Opens this resource for writing.
+     * @return output stream to write from this resource
+     * @throws IOException if an I/O related problem prevents this operation 
+     */
+    OutputStream openForWriting() throws IOException; 
 
     @Override
     void close() throws IOException;

@@ -23,9 +23,12 @@
  */
 package eu.mihosoft.vmf;
 
+import eu.mihosoft.jcompiler.JCompiler;
 import eu.mihosoft.vmf.core.CodeGenerator;
 import eu.mihosoft.vmf.core.TypeUtil;
 import eu.mihosoft.vmf.core.io.FileResourceSet;
+import eu.mihosoft.vmf.core.io.IOUtils;
+import eu.mihosoft.vmf.core.io.Resource;
 import eu.mihosoft.vmf.core.io.ResourceSet;
 import io.github.classgraph.ClassGraph;
 import org.mdkt.compiler.InMemoryJavaCompiler;
@@ -134,16 +137,16 @@ public class VMF {
      */
     public static void generate(ResourceSet outputDir, ClassLoader classLoader, File... sourceFiles) throws IOException {
 
-        InMemoryJavaCompiler compiler = InMemoryJavaCompiler.newInstance();
+        JCompiler compiler = JCompiler.newInstance();
 
         if(classLoader!=null) {
-            compiler.useParentClassLoader(classLoader);
+            compiler.setParentClassLoader(classLoader);
         }
 
         for(File f : sourceFiles) {
             String code = new String(Files.readAllBytes(f.toPath()), Charset.forName("UTF-8"));
             try {
-                compiler.addSource(f.getName(), code);
+                compiler.addSource(code);
             } catch (Exception ex) {
                 throw new IOException("Cannot add source file '"+f+"'", ex);
             }
@@ -152,7 +155,7 @@ public class VMF {
         Map<String,Class<?>> modelClasses;
 
         try {
-            modelClasses = compiler.compileAll();
+            modelClasses = compiler.compileAll().checkNoErrors(true).loadClasses();
         } catch (Exception ex) {
             throw new IOException("Cannot compile model definitions.", ex);
         }
@@ -171,6 +174,58 @@ public class VMF {
      */
     public static void generate(ResourceSet outputDir, File... sourceFiles) throws IOException {
         generate(outputDir,Thread.currentThread().getContextClassLoader(),sourceFiles);
+    }
+
+    /**
+     * Generates code for the specified model definition.
+     *
+     * @param outputDir output resource set for the generated code, e.g., '<em>main/java/src-gen</em>'
+     * @param classLoader the classloader that shall be used to locate the dependencies of the model interfaces
+     * @param resources resources that contain the interface definitions
+     *                    (all interfaces must be in the same package, package must end with '.vmfmodel')
+     * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the specified model is empty
+     */
+    public static void generate(ResourceSet outputDir, ClassLoader classLoader, Resource... resources) throws IOException {
+
+        JCompiler compiler = JCompiler.newInstance();
+
+        if(classLoader!=null) {
+            compiler.setParentClassLoader(classLoader);
+        }
+
+        for(Resource f : resources) {
+
+            String code = IOUtils.resourceToString(f);
+            try {
+                compiler.addSource(code);
+            } catch (Exception ex) {
+                throw new IOException("Cannot add source file '"+f+"'", ex);
+            }
+        }
+
+        Map<String,Class<?>> modelClasses;
+
+        try {
+            modelClasses = compiler.compileAll().checkNoErrors(true).loadClasses();
+        } catch (Exception ex) {
+            throw new IOException("Cannot compile model definitions.", ex);
+        }
+
+        generate(outputDir,modelClasses.values().toArray(new Class[modelClasses.values().size()]));
+    }
+
+    /**
+     * Generates code for the specified model definition.
+     *
+     * @param outputDir output resource set for the generated code, e.g., '<em>main/java/src-gen</em>'
+     * @param resources resources that contain the interface definitions
+     *                    (all interfaces must be in the same package, package must end with '.vmfmodel')
+     * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the specified model is empty
+     */
+    public static void generate(ResourceSet outputDir, Resource... resources) throws IOException {
+        generate(outputDir,Thread.currentThread().getContextClassLoader(),resources);
     }
 
     /**

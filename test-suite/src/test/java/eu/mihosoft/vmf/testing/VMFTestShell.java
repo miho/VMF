@@ -24,6 +24,7 @@
  */
 package eu.mihosoft.vmf.testing;
 
+import eu.mihosoft.jcompiler.JCompiler;
 import eu.mihosoft.vmf.VMF;
 import eu.mihosoft.vmf.core.InterfaceOnly;
 import eu.mihosoft.vmf.core.TypeUtil;
@@ -103,40 +104,40 @@ public class VMFTestShell {
      * @throws Throwable
      */
     public void setupModelFromCode() throws Throwable  {
-        InMemoryJavaCompiler compiler = InMemoryJavaCompiler.newInstance();//.ignoreWarnings();
+        JCompiler compiler = JCompiler.newInstance();
         for (Map.Entry<String, MemoryResource> entry : getModelCodeField().getMemSet().entrySet()) {
             // convert /path/to/File.java to pkg.File
-            compiler.addSource(entry.getKey().replace('/','.').substring(0,entry.getKey().length()-5),
-                    entry.getValue().asString());
+            compiler.addSource(entry.getValue().asString());
         }
 
-        Map<String, Class<?>> modelClasses = compiler.compileAll();
+        Map<String, Class<?>> modelClasses = compiler.compileAll().checkNoErrors().loadClasses();
 
         Class[] modelClassesArray = modelClasses.values().toArray(new Class[modelClasses.size()]);
 
         VMF.generate(getCodeField(), modelClassesArray);
 
-        InMemoryJavaCompiler generatedModelCompiler = InMemoryJavaCompiler.newInstance().ignoreWarnings();
+        JCompiler generatedModelCompiler = JCompiler.newInstance();
         for (Map.Entry<String, MemoryResource> entry : getCodeField().getMemSet().entrySet()) {
-            // convert /path/to/File.java to pkg.File
-            generatedModelCompiler.addSource(entry.getKey().replace('/','.').substring(0,entry.getKey().length()-5),
-                    entry.getValue().asString());
+            generatedModelCompiler.addSource(entry.getValue().asString()); 
         }
-        Map<String, Class<?>> classes = generatedModelCompiler.compileAll();
+
+        Map<String, Class<?>> classes = generatedModelCompiler.compileAll().checkNoErrors(true).loadClasses();
+
         Class[] classesArray = classes.values().toArray(new Class[classes.size()]);
         shell = new GroovyShell(generatedModelCompiler.getClassloader());
         for (Class cls : modelClassesArray) {
-            shell.setVariable("a" + cls.getSimpleName(), vmfNewInstance(generatedModelCompiler.getClassloader(), cls).getValue());
+            shell.setVariable("a" + cls.getSimpleName(), 
+            vmfNewInstance(generatedModelCompiler.getClassloader(), cls).
+            getValue());
         }
     }
 
     public void setUp(Class... classes) throws Throwable {
         VMF.generate(getCodeField(), classes);
-        InMemoryJavaCompiler compiler = InMemoryJavaCompiler.newInstance().ignoreWarnings();
+        JCompiler compiler = JCompiler.newInstance();
         for (Map.Entry<String, MemoryResource> entry : getCodeField().getMemSet().entrySet()) {
             // convert /path/to/File.java to pkg.File
-            compiler.addSource(entry.getKey().replace('/','.').substring(0,entry.getKey().length()-5),
-                    entry.getValue().asString());
+            compiler.addSource(entry.getValue().asString());
         }
 
         compiler.compileAll();

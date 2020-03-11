@@ -24,8 +24,12 @@
 package eu.mihosoft.vmf.core.io;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
@@ -45,6 +49,8 @@ public class FileResource implements Resource {
     // thanks to Sam for designing this interface
     //
     private final File file;
+    private InputStream inputStream;
+    private OutputStream outputStream;
     private PrintWriter writer;
 
     FileResource(File file) {
@@ -53,6 +59,7 @@ public class FileResource implements Resource {
 
     /**
      * Returns the file object associated with this resource set.
+     * 
      * @return file object
      */
     public File getFile() {
@@ -62,14 +69,14 @@ public class FileResource implements Resource {
     @Override
     public PrintWriter open() throws IOException {
 
-        if(writer!=null) {
+        if (writer != null) {
             throw new RuntimeException("Resource already opened ('" + file.getAbsolutePath() + ")");
         }
 
         File folder = file.getParentFile();
 
         if (folder != null && !folder.exists() && !folder.mkdirs()) {
-           throw new RuntimeException("Failed to create folder " + folder.getPath());
+            throw new RuntimeException("Failed to create folder " + folder.getPath());
         }
 
         return this.writer = new PrintWriter(file, "UTF-8");
@@ -77,12 +84,64 @@ public class FileResource implements Resource {
 
     @Override
     public void close() throws IOException {
+        if(this.writer!=null) this.writer.close();
+        this.writer = null;
+        IOException iox = null;
+        if(this.inputStream!=null) {
+            try {
+                this.inputStream.close();
+            } catch (IOException e) {
+                iox = new IOException("Cannot close input stream",e);
+            }
+        }
+        if(this.outputStream!=null) {
+            try {
+                this.outputStream.close();
+            } catch (IOException e) {
+            
+                IOException iox2 = new IOException("Cannot close output stream", e);
 
-        if(writer==null) {
-            throw new RuntimeException("Resource cannot be closed. Open resource before closing it.");
+                if(iox!=null) {
+                    iox2.addSuppressed(iox);
+                }
+
+                iox = iox2;
+            }
         }
 
-        this.writer.close();
+        if(iox!=null) {
+            throw iox;
+        }
+    }
+
+    @Override
+    public InputStream openForReading() throws IOException {
+        if (writer != null || outputStream!=null) {
+            throw new RuntimeException("Resource already opened for writing('" + file.getAbsolutePath() + ")");
+        }
+
+        if (inputStream != null) {
+            throw new RuntimeException("Resource already opened for reading('" + file.getAbsolutePath() + ")");
+        }
+
+        this.inputStream = new FileInputStream(this.file);
+
+        return this.inputStream;
+    }
+
+    @Override
+    public OutputStream openForWriting() throws IOException {
+        if (inputStream != null) {
+            throw new RuntimeException("Resource already opened for reading('" + file.getAbsolutePath() + ")");
+        }
+
+        if (writer != null || outputStream!=null) {
+            throw new RuntimeException("Resource already opened for writing('" + file.getAbsolutePath() + ")");
+        }
+
+        this.outputStream = new FileOutputStream(this.file);
+
+        return this.outputStream;
     }
 
 }

@@ -68,7 +68,7 @@ public class MemoryResourceSet implements ResourceSet {
         out.println("Resource count: " + memSet.keySet().size());
         out.println("Resource urls: ");
         for (String url : memSet.keySet()) {
-            out.println("- " + url + " (" + memSet.get(url).mem.size() + ")");
+            out.println("- " + url + " (" + memSet.get(url).size() + ")");
         }
     }
 }
