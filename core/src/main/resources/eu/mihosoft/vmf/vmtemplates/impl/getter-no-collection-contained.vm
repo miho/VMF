@@ -1,0 +1,6 @@
+#if($prop.propType != "COLLECTION" && !${prop.container} && ${prop.contained} && !${prop.crossRefProperty})
+    // this property holds a reference to a contained of this instance (${type.typeName})
+
+    // return the contained object
+    return this.__vmf_prop_$prop.name;
+#end

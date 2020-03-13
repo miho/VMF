@@ -21,11 +21,19 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
-#if(${type.containedWithoutOpposite})
-  // containment prop (for containments without specified opposite)
-  /*package private*/ ${VMFPKG}.VObject __vmf_internal_container;
+#if(${type.contained})
+
+  //--------------------------------------------------------------------------------
+  // this type is contained:
+  // containment prop (for storing reference to container)
+  //--------------------------------------------------------------------------------
+  /*TODO make private package private*/ ${VMFPKG}.VObject __vmf_internal_container;
   @Override public ${VMFPKG}.VObject _vmf_getContainer() {return this.__vmf_internal_container;}
   @Override public void _vmf_setContainer(${VMFPKG}.VObject container) {this.__vmf_internal_container = container;}
+  @Override public int _vmf_getContainerPropertyId() {return this.__vmf_internal_container_prop_id;}
+  @Override public void _vmf_setContainerPropertyId(int id) {this.__vmf_internal_container_prop_id=id;}
+  private int __vmf_internal_container_prop_id;
+  //--------------------------------------------------------------------------------
 #end
 
 #foreach( $prop in ${type.implementation.properties})

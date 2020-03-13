@@ -1,0 +1,7 @@
+#if($prop.propType != "COLLECTION" && !$prop.container && !$prop.contained && !$prop.crossRefProperty)
+    // this property holds a regular reference
+    // -> neither a container nor contained nor cross-referenced
+    
+    // return the object
+    return this.__vmf_prop_$prop.name;
+#end

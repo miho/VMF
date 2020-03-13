@@ -1,0 +1,11 @@
+#if(${prop.container} && !${prop.contained} && !${prop.crossRefProperty})
+    // this property holds a reference to a container of this instance (${type.typeName})
+
+    // if the current container is this property (ids match) then return the container
+    if( _vmf_getContainerPropertyId() == ${prop.propId} ) {
+        return (${prop.typeName}) this._vmf_getContainer();
+    }
+    
+    // return null, since the container is not set to this property
+    return null;
+#end##

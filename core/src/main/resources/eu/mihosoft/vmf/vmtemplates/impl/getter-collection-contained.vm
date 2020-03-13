@@ -1,0 +1,14 @@
+#if($prop.propType == "COLLECTION" && $prop.contained && !$prop.crossRefProperty)##      COLLECTION PROP
+    // this property holds a collection of objects that are contained in this instance (${type.typeName})
+
+    // perform lazy initialization
+    if(this.__vmf_prop_$prop.name==null) {
+      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
+
+###if($prop.type||$prop.genericType)
+###end## if is model type
+    } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)
+
+    // return the collection
+    return this.__vmf_prop_$prop.name;
+#end##                                                                                    COLLECTION PROP

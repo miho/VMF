@@ -1,0 +1,6 @@
+#if($prop.propType != "COLLECTION" && !$prop.container && !$prop.contained && $prop.crossRefProperty)
+    // this property holds a (cross-)reference which is indicated by the @Refers annotation (see model type ${type.typeName})
+    
+    // return the object
+    return this.__vmf_prop_$prop.name;
+#end

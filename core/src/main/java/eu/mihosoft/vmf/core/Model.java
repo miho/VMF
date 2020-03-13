@@ -288,10 +288,34 @@ public class Model {
     /**
      * Determines whether the specified type is contained via {@code @Contains} without opposite.
      * @param type type to check
-     * @return {@code true} if the specified type is contained; {@code false} otherwise
+     * @return {@code true} if the specified type is contained without opposite; {@code false} otherwise
      */
     boolean isContainedWithoutOpposite(ModelType type) {
         return !findAllPropsThatContainTypeWithoutOpposite(type).isEmpty();
+    }
+
+    /**
+     * Determines whether the specified type is contained via {@code @Contains} (with or without opposite).
+     * @param type type to check
+     * @return {@code true} if the specified type is contained; {@code false} otherwise
+     */
+    boolean isContained(ModelType type) {
+        boolean containedWithoutOpposite = !findAllPropsThatContainTypeWithoutOpposite(type).isEmpty();
+        boolean containedWithOpposite = !findAllPropsThatContainType(type, true).isEmpty();
+
+        return containedWithOpposite || containedWithoutOpposite;
+    }
+
+        /**
+     * Determines whether the specified type is contained via {@code @Contains} with opposite.
+     * @param type type to check
+     * @return {@code true} if the specified type is contained with opposite; {@code false} otherwise
+     */
+    boolean isContainedWithOpposite(ModelType type) {
+        boolean containedWithoutOpposite = !findAllPropsThatContainTypeWithoutOpposite(type).isEmpty();
+        boolean containedWithOpposite = !findAllPropsThatContainType(type, true).isEmpty();
+
+        return containedWithOpposite || containedWithoutOpposite;
     }
 
     public String getPackageName() {

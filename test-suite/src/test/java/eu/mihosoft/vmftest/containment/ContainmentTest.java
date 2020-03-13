@@ -3,12 +3,11 @@ package eu.mihosoft.vmftest.containment;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.Matchers.isIn;
-
-import java.util.Arrays;
-
 import org.junit.Test;
 
+
 public class ContainmentTest {
+
     @Test
     public void containmentTest() {
 

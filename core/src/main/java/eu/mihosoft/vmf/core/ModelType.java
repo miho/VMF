@@ -787,18 +787,29 @@ public class ModelType {
         }
     }
 
-    /**
-     * Returns all properties of the model this type belongs to (searches in all properties of all model types) that
-     * contain instance of this type. This includes types that extend this type.
-     * @return properties that match the aforementioned criterions
-     */
 
-    /**
-     * 
-     * @return
+   /**
+     * Determines whether the specified type is contained via {@code @Contains} without opposite.
+     * @return {@code true} if the specified type is contained without opposite; {@code false} otherwise
      */
     public boolean isContainedWithoutOpposite() {
-        return getModel().isContainedWithoutOpposite(this);
+        return !getModel().isContainedWithoutOpposite(this);
+    }
+
+    /**
+     * Determines whether the specified type is contained via {@code @Contains} (with or without opposite).
+     * @return {@code true} if the specified type is contained; {@code false} otherwise
+     */
+    public boolean isContained() {
+        return getModel().isContained(this);
+    }
+
+    /**
+     * Determines whether the specified type is contained via {@code @Contains} with opposite.
+     * @return {@code true} if the specified type is contained with opposite; {@code false} otherwise
+     */
+    public boolean isContainedWithOpposite() {
+        return getModel().isContainedWithOpposite(this);
     }
 
     /**

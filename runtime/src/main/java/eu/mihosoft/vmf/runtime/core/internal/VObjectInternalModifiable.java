@@ -27,10 +27,7 @@
 package eu.mihosoft.vmf.runtime.core.internal;
 
 import eu.mihosoft.vmf.runtime.core.Changes;
-import eu.mihosoft.vmf.runtime.core.VIterator;
 import eu.mihosoft.vmf.runtime.core.VObject;
-
-import java.util.Objects;
 
 /**
  * Don't rely on this API. Seriously, <b>don't</b> rely on it!
@@ -63,10 +60,26 @@ public interface VObjectInternalModifiable extends VObjectInternal {
     }
 
     /**
-     * Sets current unnamed container (named containers are represented via the specified properties instead).
+     * Sets current container.
      * @param container container to set
      */
     default void _vmf_setContainer(VObject container) {throw new RuntimeException("This type is not contained and this method shouldn't be called!");};
+
+    /**
+     * Gets current container.
+     */
+    default VObject _vmf_getContainer() {throw new RuntimeException("This type is not contained and this method shouldn't be called!");};
+
+    /**
+     * Returns the id of the container property that the container property is currently assigned to.
+     * @return the id of the container property that the container property is currently assigned to
+     */
+    default int _vmf_getContainerPropertyId() {throw new RuntimeException("This type is not contained and this method shouldn't be called!");}
+
+    /**
+     * Sets the id of the container property that the container property is currently assigned to.
+     */  
+    default void _vmf_setContainerPropertyId(int id) {throw new RuntimeException("This type is not contained and this method shouldn't be called!");}
 
     /**
      * Unregisters 'this' from its current container.

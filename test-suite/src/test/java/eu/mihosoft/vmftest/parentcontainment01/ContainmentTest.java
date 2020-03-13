@@ -25,9 +25,15 @@
 package eu.mihosoft.vmftest.parentcontainment01;
 
 import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.Timeout;
 
 public class ContainmentTest {
+
+    @Rule
+    public Timeout globalTimeout = Timeout.seconds(10); 
+
     @Test
     public void testContainmentBehaviorGetParent() {
         OperatorExpression operatorExpression = OperatorExpression.newInstance();
