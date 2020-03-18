@@ -7,16 +7,25 @@
   }
   // ----------------------------------------
 
-#if(${prop.containmentInfo.containmentType}=="CONTAINED")##    prop is contained and mutable     
   // ----------------------------------------
   // unregister from previous containers
   // ----------------------------------------
   if(this.__vmf_prop_${prop.name} != null) {
     ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
-    value_internal._vmf_unregisterFromContainers();
+    //value_internal._vmf_unregisterFromContainers();
+
+    if(value_internal._vmf_getContainer()!=null) {
+
+      ${VMFPKG_INT}.VObjectInternalModifiable container_internal = ( ${VMFPKG_INT}.VObjectInternalModifiable)value_internal._vmf_getContainer();
+
+      $prop.typeName oldValue = container_internal.__vmf_prop_${prop.name};
+
+      if(oldValue!=null) {
+        container_internal._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+      }
+    }    
   }  
   // ----------------------------------------
-#end##                                                         prop is contained and mutable 
 
   // ----------------------------------------
   // set the new value
@@ -28,18 +37,23 @@
   // ----------------------------------------
   // fire property changed event
   // ----------------------------------------
-  this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", oldValue, this.__vmf_prop_$prop.name);
+  this._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, this.__vmf_prop_$prop.name);
   //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
   // ----------------------------------------
-
-#if(${prop.containmentInfo.containmentType}=="CONTAINED")##    prop is contained and mutable        
+       
   // ----------------------------------------
-  // register with new containers
+  // register with new container (container name: ${container.name})
   // ----------------------------------------
   if(this.__vmf_prop_${prop.name} != null) {
     ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
-    //void _vmf_register_WithContainer_${container.name}
+    ${VMFPKG}.VObject oldContainer = value_internal._vmf_getContainer(); 
+    value_internal._vmf_setContainer(this);
+#if(${prop.containmentInfo.opposite})## opposite
+    value_internal._vmf_setContainerPropertyId(${prop.containmentInfo.opposite.propId});
+    this._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+#else##                                      ## opposite
+    this._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+#end##                                       ## opposite
   }  
-  // ----------------------------------------
-#end##                                                         prop is contained and mutable     
+  // ----------------------------------------  
 #end
