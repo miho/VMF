@@ -30,49 +30,11 @@ public $prop.setterDeclaration { throw new RuntimeException("Cannot set read-onl
 @Override
 public $prop.setterDeclaration {
 
-  // ----------------------------------------
-  // return early if identical value has been set
-  // ----------------------------------------
-  if (this.__vmf_prop_$prop.name == $prop.name) {
-    return;
-  }
-  // ----------------------------------------
+#parse("${VMF_TEMPLATE_PATH}impl/setter-no-collection-simple.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/setter-no-collection-container.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/setter-no-collection-contained.vm")
+#parse("${VMF_TEMPLATE_PATH}impl/setter-no-collection-cross-reference.vm")
 
-#if(${prop.containmentInfo.containmentType}=="CONTAINED")##    prop is contained and mutable     
-  // ----------------------------------------
-  // unregister from previous containers
-  // ----------------------------------------
-  if(this.__vmf_prop_${prop.name} != null) {
-    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
-    value_internal._vmf_unregisterFromContainers();
-  }  
-  // ----------------------------------------
-#end##                                                         prop is contained and mutable 
-
-  // ----------------------------------------
-  // set the new value
-  // ----------------------------------------
-  $prop.typeName oldValue = this.__vmf_prop_$prop.name;
-  this.__vmf_prop_$prop.name = $prop.name;
-  // ----------------------------------------
-
-  // ----------------------------------------
-  // fire property changed event
-  // ----------------------------------------
-  this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", oldValue, this.__vmf_prop_$prop.name);
-  //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
-  // ----------------------------------------
-
-#if(${prop.containmentInfo.containmentType}=="CONTAINED")##    prop is contained and mutable        
-  // ----------------------------------------
-  // register with new containers
-  // ----------------------------------------
-  if(this.__vmf_prop_${prop.name} != null) {
-    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
-    //void _vmf_register_WithContainer_${container.name}
-  }  
-  // ----------------------------------------
-#end##                                                         prop is contained and mutable     
 } // end setterDeclaration (setter method) : $prop.setterDeclaration     
 #end##                                  end  (prop is writable property)
 #end## end for-each property

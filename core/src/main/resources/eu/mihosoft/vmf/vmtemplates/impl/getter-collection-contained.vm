@@ -11,4 +11,4 @@
 
     // return the collection
     return this.__vmf_prop_$prop.name;
-#end##                                                                                    COLLECTION PROP
+#end##                                                                                   COLLECTION PROP
