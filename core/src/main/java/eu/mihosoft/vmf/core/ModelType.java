@@ -844,4 +844,31 @@ public class ModelType {
         return result;
     }
 
+    /**
+     * Returns all types of the model this type belongs to (searches in all properties of all model types) that
+     * contain instance of this type. This includes types that extend this type.
+     * @return types that match the aforementioned criterions
+     */
+    public List<ModelType> findAllTypesThatContainType() {
+        return findAllPropsThatContainType().stream().map(p->p.getType()).distinct().collect(Collectors.toList());
+    }
+
+    /**
+     * Returns all types of the model this type belongs to (searches in all properties of all model types) that
+     * contain instance of this type. This includes types that extend this type.
+     * @return types that match the aforementioned criterions
+     */
+    public List<ModelType> findAllTypesThatContainTypeWithoutOpposite() {
+        return findAllPropsThatContainTypeWithoutOpposite().stream().map(p->p.getParent()).distinct().collect(Collectors.toList());
+    }
+
+    /**
+     * Returns all types of the model this type belongs to (searches in all properties of all model types) that
+     * contain instance of this type. This includes types that extend this type.
+     * @return types that match the aforementioned criterions
+     */
+    public List<ModelType> findAllTypesThatContainTypeWithOpposite() {
+        return findAllPropsThatContainTypeWithOpposite().stream().map(p->p.getParent()).distinct().collect(Collectors.toList());
+    }    
+
 }

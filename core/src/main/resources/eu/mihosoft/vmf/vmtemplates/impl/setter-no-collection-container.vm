@@ -13,7 +13,7 @@
   // ----------------------------------------
   if(this.__vmf_prop_${prop.name} != null) {
     ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
-    value_internal._vmf_unregisterFromContainers();
+    // value_internal._vmf_unregisterFromContainers();    
   }  
   // ----------------------------------------
 #end##                                                         prop is contained and mutable 

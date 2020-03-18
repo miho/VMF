@@ -86,5 +86,4 @@ public interface VObjectInternalModifiable extends VObjectInternal {
     */
     default void _vmf_unregisterFromContainers() {}
 
-
 }
