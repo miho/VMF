@@ -50,10 +50,12 @@ public void _vmf_unregisterFromContainers() {
       ${VMFPKG_INT}.VObjectInternalModifiable container = (${VMFPKG_INT}.VObjectInternalModifiable)this._vmf_getContainer();
 
       boolean found = false;
+
 #foreach( $container in ${type.findAllTypesThatContainTypeWithOpposite()} )
       // ----------------------------------------
-      // containing type: $container.typeName
+      // unregistering from instances of containing type: $container.typeName
       // ----------------------------------------
+
 #foreach( $contained in ${container.implementation.properties} )
 #if(${contained.containmentInfo.containmentType}=="CONTAINED" && ${contained.typeName} == ${type.fullTypeName})
       // -- > prop: ${contained.name}, type: ${contained.typeName}
@@ -67,7 +69,7 @@ public void _vmf_unregisterFromContainers() {
           }
           found = true;
         }
-      }
+      } 
 
 #end## contained and types match
 #end## for each contained
