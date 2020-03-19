@@ -21,9 +21,9 @@
                 valueInternal._vmf_setContainer(this);
 #if(${prop.containmentInfo.opposite})## opposite
                 valueInternal._vmf_setContainerPropertyId(${prop.containmentInfo.opposite.propId});
-                this._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+                ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #else##                                      ## opposite
-                this._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+                ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #end##                                       ## opposite                
                 
             }); // end of evt.added()     

@@ -52,8 +52,14 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.packageName}
 #end## cross-ref collection
 #end
 
-  void _vmf_firePropertyChangeIfListenersArePresent(
+  default void _vmf_firePropertyChangeIfListenersArePresent(
     String propertyName, Object oldValue, Object newValue
+  ) {
+    _vmf_firePropertyChangeIfListenersArePresent(propertyName, oldValue, newValue, "");
+  }
+  
+  void _vmf_firePropertyChangeIfListenersArePresent(
+    String propertyName, Object oldValue, Object newValue, String evtInfo
   );
 
 }

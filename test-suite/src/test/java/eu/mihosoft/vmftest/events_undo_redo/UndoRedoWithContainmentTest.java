@@ -35,14 +35,14 @@ public class UndoRedoWithContainmentTest {
         // add the child to the containment collection which sets the parent
         parent.getChildren().add(child);
 
-        assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
+        assertThat("there's exactly one property 'parent' change", numChanges.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
-        assertThat("there is one changes in total (second is only fired locally)", numChanges.get(), equalTo(1));
+        assertThat("there is one change in total (second in child is fired only internally)", numChanges.get(), equalTo(1));
 
         // set a child property and see if changes are recorded in parent
         child.setName("my new name");
 
-        assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
+        assertThat("there are exactly two undoable change in the list", parent.vmf().changes().all().size(), equalTo(2));
     }
 
     @Test
@@ -182,7 +182,7 @@ public class UndoRedoWithContainmentTest {
         assertThat("there are exactly two undoable changes in the list", parent.vmf().changes().all().size(), equalTo(2));
     }
 
-    
+
 
 
 
