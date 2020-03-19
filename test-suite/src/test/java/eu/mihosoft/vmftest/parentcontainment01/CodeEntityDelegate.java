@@ -38,6 +38,8 @@ public class CodeEntityDelegate implements DelegatedBehavior<CodeEntity> {
     public void onCodeEntityInstantiated() {
         codeEntity.vmf().changes().addListener( l -> {
 
+            System.out.println("> prop-name: " + l.propertyName());
+
             if(l.object() != codeEntity || "parent".equals(l.propertyName())) {
                 return;
             }

@@ -567,7 +567,6 @@ public class VMFGenerateRuns extends VMFTestShell {
             setupModelFromCode();
             
         } catch (Exception ex) {
-            System.err.println("!!!");
             ex.printStackTrace();
             Assert.fail("Should not throw an exception! " +ex + ": " + ex.getMessage());
         }

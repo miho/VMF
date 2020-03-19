@@ -5,7 +5,7 @@
   // ----------------------------------------
   // return early if identical value has been set
   // ----------------------------------------
-  if (this.__vmf_prop_$prop.name == $prop.name) {
+  if (this.__vmf_prop_${prop.name} == ${prop.name}) {
     return;
   }
   // ----------------------------------------
@@ -13,14 +13,14 @@
   // ----------------------------------------
   // set the new value
   // ----------------------------------------
-  $prop.typeName oldValue = this.__vmf_prop_$prop.name;
-  this.__vmf_prop_$prop.name = $prop.name;
+  ${prop.typeName} oldValue = this.__vmf_prop_${prop.name};
+  this.__vmf_prop_${prop.name} = ${prop.name};
   // ----------------------------------------
 
   // ----------------------------------------
   // fire property changed event
   // ----------------------------------------
-  this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", oldValue, this.__vmf_prop_$prop.name);
+  this._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, this.__vmf_prop_${prop.name});
   //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
   // ----------------------------------------
 #end
