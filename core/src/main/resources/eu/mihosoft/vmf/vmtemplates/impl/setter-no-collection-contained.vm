@@ -8,41 +8,19 @@
   // ----------------------------------------
 
   // ----------------------------------------
-  // unregister from previous containers
+  // unregister current value from previous container
   // ----------------------------------------
   if(this.__vmf_prop_${prop.name} != null) {
     ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
-    //value_internal._vmf_unregisterFromContainers(); TODO ADD this to unregister method
-
-    if(value_internal._vmf_getContainer()!=null) {
-
-     ${VMFPKG_INT}.VObjectInternalModifiable container = (${VMFPKG_INT}.VObjectInternalModifiable)value_internal._vmf_getContainer();
-
-      boolean found = false;
-#foreach( $container in ${prop.type.findAllTypesThatContainTypeWithOpposite()} )
-      // containing type: $container.typeName
-#foreach( $contained in ${container.implementation.properties} )
-#if(${contained.containmentInfo.containmentType}=="CONTAINED" && ${contained.typeName} == ${prop.typeName})
-      // -- > prop: ${contained.name}
-      if(!found && container instanceof __VMF_TYPE_${container.typeName}Impl) {
-      __VMF_TYPE_${container.typeName}Impl container_internal = (__VMF_TYPE_${container.typeName}Impl)container;
-        ${prop.typeName} oldValue = container_internal.__vmf_get_prop_${contained.name}();
-        if(oldValue == this.__vmf_prop_${prop.name}) {
-          if(oldValue!=null) {
-            container_internal.__vmf_set_prop_${contained.name}(null);
-            container_internal._vmf_firePropertyChangeIfListenersArePresent("${contained.name}", oldValue, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
-          }
-          found = true;
-        }
-      }
-#end## contained and types match
-#end## for each contained
-#end## for each container
-
-
-    } // end if getContainer!=null  
+    value_internal._vmf_unregisterFromContainers();
   } // end if ${prop.name} != null      
   // ----------------------------------------
+  // unregister new value from previous containers
+  // ----------------------------------------
+  if($prop.name != null) {
+    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)$prop.name;
+    value_internal._vmf_unregisterFromContainers();    
+  }
 
   // ----------------------------------------
   // set the new value

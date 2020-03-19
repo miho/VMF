@@ -42,89 +42,37 @@ public $prop.setterDeclaration {
 
 @Override 
 public void _vmf_unregisterFromContainers() {
+   // --------------------------------------------------------------------------------
+   // release container property from this
+   // --------------------------------------------------------------------------------
+   if(this._vmf_getContainer()!=null) {
 
-// --------------------------------------------------------------------------------------------------------------------
-// UNREGISTERING from containers with opposite on both ends
-// --------------------------------------------------------------------------------------------------------------------
-#foreach( $container in ${type.implementation.properties} ) 
-#if(${container.containmentInfo.containmentType}=="CONTAINER" && !${container.containmentInfo.withoutOpposite})
-    // ----------------------------------------------------------------------------------------------------------------
-    // -> unregistering from container: ${container.parent.typeName}.${container.name} : type: ${container.typeName}
-    // ----------------------------------------------------------------------------------------------------------------
-    if(this.__vmf_prop_${container.name} != null) {
-      __VMF_TYPE_${container.type.typeName}Impl container_internal = (__VMF_TYPE_${container.type.typeName}Impl)this.__vmf_prop_${container.name};
-      
-      // --------------------------------------------------------------------------------
-      // release container property '${container.name}' from this
-      // --------------------------------------------------------------------------------
-      this.__vmf_prop_${container.name} = null;
-      this._vmf_firePropertyChangeIfListenersArePresent("${container.name}", container_internal, null);
-      // --------------------------------------------------------------------------------
+      ${VMFPKG_INT}.VObjectInternalModifiable container = (${VMFPKG_INT}.VObjectInternalModifiable)this._vmf_getContainer();
 
-#if(${container.containmentInfo.opposite.propType}!="COLLECTION")##  if   (prop is no collection type) 
-
-      // --------------------------------------------------------------------------------
-      // release 'this' from container property '${container.typeName}.${container.containmentInfo.opposite.name}'
-      // --------------------------------------------------------------------------------
-      Object oldValue = container_internal.__vmf_get_prop_${container.containmentInfo.opposite.name}();
-      if(oldValue != null) {
-        container_internal.__vmf_set_prop_${container.containmentInfo.opposite.name}(null);
-        container_internal._vmf_firePropertyChangeIfListenersArePresent("${container.containmentInfo.opposite.name}", oldValue, null);
+      boolean found = false;
+#foreach( $container in ${type.findAllTypesThatContainTypeWithOpposite()} )
+      // ----------------------------------------
+      // containing type: $container.typeName
+      // ----------------------------------------
+#foreach( $contained in ${container.implementation.properties} )
+#if(${contained.containmentInfo.containmentType}=="CONTAINED" && ${contained.typeName} == ${type.fullTypeName})
+      // -- > prop: ${contained.name}, type: ${contained.typeName}
+      if(!found && container instanceof __VMF_TYPE_${container.typeName}Impl) {
+        __VMF_TYPE_${container.typeName}Impl container_internal = (__VMF_TYPE_${container.typeName}Impl)container;
+        ${contained.typeName} oldValue = container_internal.__vmf_get_prop_${contained.name}();
+        if(oldValue == this) {
+          if(oldValue!=null) {
+            container_internal.__vmf_set_prop_${contained.name}(null);
+            container_internal._vmf_firePropertyChangeIfListenersArePresent("${contained.name}", oldValue, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+          }
+          found = true;
+        }
       }
-      // --------------------------------------------------------------------------------
 
-      return; // unregistered -> skip other properties
-#else##                                                              if   (prop is no collection type)  
-      // --------------------------------------------------------------------------------
-      // release 'this' from container property list '${container.typeName}.${container.containmentInfo.opposite.name}'
-      // --------------------------------------------------------------------------------
-      String eventInfo = container_internal.get${container.containmentInfo.opposite.nameWithUpperCase}().getEventInfo();
-      container_internal.get${container.containmentInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
-      boolean removed = container_internal.get${container.containmentInfo.opposite.nameWithUpperCase}().remove(this);
-      container_internal.get${container.containmentInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
-      if(removed) {
-        return; // unregistered -> skip other properties
-      }
-      
-      // --------------------------------------------------------------------------------
-#end##                                                               if   (prop is no collection type)  
-    // ----------------------------------------------------------------------------------------------------------------
-    } // end if (this.__vmf_prop_${container.name} != null)
-#else##  no container or no opposite
+#end## contained and types match
+#end## for each contained
+#end## for each container
 
-    // - > no container to unregister: ${container.name} : ${container.typeName}   
-    // - > opposite: #if(!${container.containmentInfo.withoutOpposite})${container.containmentInfo.opposite.name}#else<none>#end
+    } // end if getContainer!=null  
+} // end _vmf_unregisterFromContainers
 
-
-#end##   container 
-#end## for-each container
-// --------------------------------------------------------------------------------------------------------------------
-
-// --------------------------------------------------------------------------------------------------------------------
-// UNREGISTERING from containers without opposite on our end
-// --------------------------------------------------------------------------------------------------------------------
-#if(${type.ContainedWithoutOpposite})
-if(_vmf_getContainer()!=null) {
-  ${VMFPKG_INT}.VObjectInternalModifiable container_internal = (${VMFPKG_INT}.VObjectInternalModifiable)_vmf_getContainer();
-
-  
-} // end if anonymous container present
-#end##contained without opposite
-
-// --------------------------------------------------------------------------------------------------------------------
-
-} // end unregister from containers
-
-
-#foreach( $container in ${type.implementation.properties} ) 
-#if(${container.containmentInfo.containmentType}=="CONTAINER" && !${container.containmentInfo.withoutOpposite})
-public void _vmf_register_WithContainer_${container.name}(${container.typeName} container) {
-
-#foreach( $contained in ${container.type.implementation.properties} )
-#if(${contained.containmentInfo.containmentType}=="CONTAINED" && !${container.containmentInfo.opposite})
-
-#end## contained
-#end## for-each contained
-} // end register with container
-#end## container
-#end## for-each container
