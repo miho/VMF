@@ -46,11 +46,11 @@ public class ContainmentTest {
         // if we set it to the second container instance...
         ContainerTwo cb = ContainerTwo.newInstance();
 
-        // ...should work like before and...
+        // ...it should work like before and...
         cb.setElement2(e);
         assertThat(e.getParentTwo(), equalTo(cb));
 
-        // ...should unregister from previous container
+        // ...should unregister from its previous container
         assertThat(ca.getElement1(), equalTo(null));
     }
 
@@ -70,10 +70,10 @@ public class ContainmentTest {
         // if we set it to the second container instance...
         ContainerTwo cb = ContainerTwo.newInstance();
 
-        // ...should work like before, i.e.,
+        // ...it should work like before, i.e.,
         cb.setElement(e);
 
-        // ...should unregister from previous container
+        // ...it should unregister from its previous container
         assertThat(ca.getElement1(), equalTo(null));
     }
 

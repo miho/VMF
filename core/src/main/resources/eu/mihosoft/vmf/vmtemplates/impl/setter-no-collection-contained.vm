@@ -40,7 +40,7 @@
   // register with new container (container name: ${container.name})
   // ----------------------------------------
   if(this.__vmf_prop_${prop.name} != null) {
-    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
+    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_${prop.name};
     ${VMFPKG}.VObject oldContainer = value_internal._vmf_getContainer(); 
     value_internal._vmf_setContainer(this);
 #if(${prop.containmentInfo.opposite})## opposite

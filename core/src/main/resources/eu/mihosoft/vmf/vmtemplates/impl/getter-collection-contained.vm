@@ -3,10 +3,45 @@
 
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
-      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
+        this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
 
-###if($prop.type||$prop.genericType)
-###end## if is model type
+        this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+            evt.added().elements().forEach( (e) -> {
+
+                if(e==null || ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(evt.eventInfo())) return;
+
+                // unregister from previous container
+                ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
+                //if(valueInternal._vmf_getContainer()!=this) {
+                    valueInternal._vmf_unregisterFromContainers();
+                //}
+
+                // register with this container
+                ${VMFPKG}.VObject oldContainer = valueInternal._vmf_getContainer(); 
+                valueInternal._vmf_setContainer(this);
+#if(${prop.containmentInfo.opposite})## opposite
+                valueInternal._vmf_setContainerPropertyId(${prop.containmentInfo.opposite.propId});
+                this._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+#else##                                      ## opposite
+                this._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+#end##                                       ## opposite                
+                
+            }); // end of evt.added()     
+
+            evt.removed().elements().forEach( (e) -> {
+
+                if(e==null || ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(evt.eventInfo())) return;
+
+                // unregister from previous container
+                ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
+                //if(valueInternal._vmf_getContainer()!=this) {
+                    valueInternal._vmf_unregisterFromContainers();
+                //}           
+                
+            }); // end of evt.added()     
+        }); // end of addChangeListener
+             
+
     } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)
 
     // return the collection

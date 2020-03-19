@@ -1,52 +1,35 @@
 #if($prop.propType != "COLLECTION" && $prop.container && !$prop.contained && !$prop.crossRefProperty)
+#if(!${prop.containmentInfo.opposite})
+ERROR: THIS SHOULD NOT HAPPEN (INTERNAL VMF CODE GENERATION BUG). 
+ERROR: NOTIFY VMF DEVS (https://github.com/miho/VMF/issues). 
+ERROR: @DEVS: ONLY USE THIS 'setter-no-collection-container' FOR PROPERTIES WITH OPPOSITE.
+#end
   // ----------------------------------------
-  // return early if identical value has been set
+  // return early if identical container value has been set
   // ----------------------------------------
-  if (this.__vmf_prop_$prop.name == $prop.name) {
+  if (
+       this._vmf_getContainer()           == ${prop.name}
+    && this._vmf_getContainerPropertyId() == ${prop.propId}
+  ) {
     return;
   }
   // ----------------------------------------
 
-#if(${prop.containmentInfo.containmentType}=="CONTAINED")##    prop is contained and mutable     
-  // ----------------------------------------
-  // unregister current value from previous containers
-  // ----------------------------------------
-  if(this.__vmf_prop_${prop.name} != null) {
-    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
-    value_internal._vmf_unregisterFromContainers();    
+  if(${prop.name}==null) {
+    // ----------------------------------------
+    // unregister this from current container
+    // ----------------------------------------  
+    this._vmf_unregisterFromContainers();   
+  } else {
+    // ----------------------------------------
+    // (un)register this from/with old/new container
+    // ----------------------------------------
+  #if(${prop.containmentInfo.opposite.propType} != "COLLECTION")## collection opposite
+    ${prop.name}.set${prop.containmentInfo.opposite.nameWithUpperCase}(this);
+  #else##                                                       ## collection opposite
+    ${prop.name}.get${prop.containmentInfo.opposite.nameWithUpperCase}().add(this);
+  #end##                                                        ## collection opposite
   }  
   // ----------------------------------------
-  // ----------------------------------------
-  // unregister new value from previous containers
-  // ----------------------------------------
-  if($prop.name != null) {
-    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)$prop.name;
-    value_internal._vmf_unregisterFromContainers();    
-  }  
-#end##                                                         prop is contained and mutable 
 
-  // ----------------------------------------
-  // set the new value
-  // ----------------------------------------
-  $prop.typeName oldValue = this.__vmf_prop_$prop.name;
-  this.__vmf_prop_$prop.name = $prop.name;
-  // ----------------------------------------
-
-  // ----------------------------------------
-  // fire property changed event
-  // ----------------------------------------
-  this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", oldValue, this.__vmf_prop_$prop.name);
-  //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
-  // ----------------------------------------
-
-#if(${prop.containmentInfo.containmentType}=="CONTAINED")##    prop is contained and mutable        
-  // ----------------------------------------
-  // register with new containers
-  // ----------------------------------------
-  if(this.__vmf_prop_${prop.name} != null) {
-    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_$prop.name;
-    //void _vmf_register_WithContainer_${container.name}
-  }  
-  // ----------------------------------------
-#end##                                                         prop is contained and mutable     
 #end

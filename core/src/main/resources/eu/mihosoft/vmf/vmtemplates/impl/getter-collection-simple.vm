@@ -3,7 +3,7 @@
 
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
-      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
+      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
 
 ###if($prop.type||$prop.genericType)
 ###end## if is model type

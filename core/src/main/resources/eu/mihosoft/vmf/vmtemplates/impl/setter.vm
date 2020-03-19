@@ -52,29 +52,37 @@ public void _vmf_unregisterFromContainers() {
       boolean found = false;
 
 #foreach( $container in ${type.findAllTypesThatContainTypeWithOpposite()} )
-      // ----------------------------------------
+      // ------------------------------------------------------------
       // unregistering from instances of containing type: $container.typeName
-      // ----------------------------------------
+      // ------------------------------------------------------------
 
 #foreach( $contained in ${container.implementation.properties} )
-#if(${contained.containmentInfo.containmentType}=="CONTAINED" && ${contained.typeName} == ${type.fullTypeName})
+#if(${contained.containmentInfo.containmentType}=="CONTAINED" && (${contained.typeName} == ${type.fullTypeName} || ${contained.genericTypeName} == ${type.typeName}))
       // -- > prop: ${contained.name}, type: ${contained.typeName}
       if(!found && container instanceof __VMF_TYPE_${container.typeName}Impl) {
         __VMF_TYPE_${container.typeName}Impl container_internal = (__VMF_TYPE_${container.typeName}Impl)container;
+#if(${contained.propType}=="COLLECTION")## contained prop is collection
+        //found = container_internal.__vmf_get_prop_${contained.name}__vmf_RawList().remove(this);
+        String evtInfo = container_internal.get${contained.nameWithUpperCase}().getEventInfo();
+        container_internal.get${contained.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+        found = container_internal.get${contained.nameWithUpperCase}().remove(this);
+        container_internal.get${contained.nameWithUpperCase}().setEventInfo(evtInfo);
+#else##                                    contained prop is collection
         ${contained.typeName} oldValue = container_internal.__vmf_get_prop_${contained.name}();
+        // if old value is this contained instance then unregister from the container
         if(oldValue == this) {
-          if(oldValue!=null) {
-            container_internal.__vmf_set_prop_${contained.name}(null);
-            container_internal._vmf_firePropertyChangeIfListenersArePresent("${contained.name}", oldValue, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
-          }
-          found = true;
+          container_internal.__vmf_set_prop_${contained.name}(null);
+          container_internal._vmf_firePropertyChangeIfListenersArePresent("${contained.name}", oldValue, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+          found = true; // unregistered
         }
-      } 
+#end##                                     contained prop is collection
+      } // if not already found and if container instance is of correct type
 
 #end## contained and types match
 #end## for each contained
 #end## for each container
-
-    } // end if getContainer!=null  
+      this._vmf_setContainer(null);
+      this._vmf_firePropertyChangeIfListenersArePresent("${container.name}", container, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);      
+    } // end if getContainer!=null
 } // end _vmf_unregisterFromContainers
 
