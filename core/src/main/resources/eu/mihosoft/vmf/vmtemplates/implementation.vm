@@ -326,7 +326,7 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.typeName}${t
 #end##-------------------------- end  inheritedprop
   $prop.typeName __vmf_get_prop_${prop.name}();
 #if(${prop.propType} == "COLLECTION")
-  java.util.List<${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
+  java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
 #end## collection
 #end
 

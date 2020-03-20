@@ -111,7 +111,7 @@ public class UndoRedoWithContainmentTest {
 
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
-        assertThat("there is one changes in total (second is only fired locally)", numChanges.get(), equalTo(1));
+        assertThat("there are two changes in total", numChanges.get(), equalTo(2));
 
         // set a child property and see if changes are recorded in parent
         child.setName("my new name");
@@ -148,7 +148,7 @@ public class UndoRedoWithContainmentTest {
 
         assertThat("there's exactly one property 'parent' change", numChangesProp.get(), equalTo(1));
         assertThat("there's exactly one undoable change", parent.vmf().changes().all().size(), equalTo(1));
-        assertThat("there is one changes in total (second is only fired locally)", numChanges.get(), equalTo(1));
+        assertThat("there are two changes in total", numChanges.get(), equalTo(2));
 
         // set a child property and see if changes are recorded in parent
         child.setName("my new name");

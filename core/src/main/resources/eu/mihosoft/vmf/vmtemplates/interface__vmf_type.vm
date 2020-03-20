@@ -47,9 +47,9 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.packageName}
   // --- PROP '$prop.typeName'
   void __vmf_set_prop_${prop.name}($prop.typeName obj);
   $prop.typeName __vmf_get_prop_${prop.name}();
-#if(${prop.crossRefProperty} && ${prop.propType} == "COLLECTION")
-  java.util.List<${type.packageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
-#end## cross-ref collection
+#if(${prop.propType} == "COLLECTION")
+  java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
+#end## collection
 #end
 
   default void _vmf_firePropertyChangeIfListenersArePresent(
