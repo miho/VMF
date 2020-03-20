@@ -23,6 +23,22 @@
   }
 
   // ----------------------------------------
+  // register with new container (container name: ${container.name})
+  // ----------------------------------------
+  if(${prop.name} != null) {
+    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)${prop.name};
+    ${VMFPKG}.VObject oldContainer = value_internal._vmf_getContainer(); 
+    value_internal._vmf_setContainer(this);
+#if(${prop.containmentInfo.opposite})## opposite
+    value_internal._vmf_setContainerPropertyId(${prop.containmentInfo.opposite.propId});
+    ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+#else##                                      ## opposite
+    ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+#end##                                       ## opposite
+  }  
+  // ----------------------------------------  
+
+  // ----------------------------------------
   // set the new value
   // ----------------------------------------
   ${prop.typeName} oldValue = this.__vmf_prop_${prop.name};
@@ -35,20 +51,4 @@
   this._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, this.__vmf_prop_${prop.name});
   //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
   // ----------------------------------------
-       
-  // ----------------------------------------
-  // register with new container (container name: ${container.name})
-  // ----------------------------------------
-  if(this.__vmf_prop_${prop.name} != null) {
-    ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)this.__vmf_prop_${prop.name};
-    ${VMFPKG}.VObject oldContainer = value_internal._vmf_getContainer(); 
-    value_internal._vmf_setContainer(this);
-#if(${prop.containmentInfo.opposite})## opposite
-    value_internal._vmf_setContainerPropertyId(${prop.containmentInfo.opposite.propId});
-    ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
-#else##                                      ## opposite
-    ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
-#end##                                       ## opposite
-  }  
-  // ----------------------------------------  
 #end
