@@ -1,4 +1,6 @@
 #if(${prop.propType} != "COLLECTION" && !${prop.container} && !${prop.contained} && ${prop.crossRefProperty})
+  // this property holds a (cross-)reference which is indicated by the @Refers annotation (see model type ${type.typeName})
+
   // ----------------------------------------
   // return early if identical value has been set
   // ----------------------------------------
@@ -20,4 +22,4 @@
   this._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, this.__vmf_prop_${prop.name});
   //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
   // ----------------------------------------
-#end    
+#end
