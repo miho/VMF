@@ -833,6 +833,7 @@ public class ModelType {
     /**
      * Returns all properties of the model this type belongs to (searches in all properties of all model types) that
      * contain instance of this type. This includes types that extend this type.
+     * TODO: potentially broken in some cases
      * @return properties that match the aforementioned criterions
      */
     public List<Prop> findAllPropsThatContainType() {

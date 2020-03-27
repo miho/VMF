@@ -24,29 +24,37 @@
   // ----------------------------------------
   // store the old value ...
   // ----------------------------------------
-  $prop.typeName oldValue = this.__vmf_prop_$prop.name;
+  ${prop.typeName} oldValue = this.__vmf_prop_${prop.name};
+  // ----------------------------------------
 
   // ----------------------------------------
   // remove this object as reference from old value 
   // ----------------------------------------
   if(oldValue!=null) {
-    String eventInfo = oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
-    oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+## String eventInfo = oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+## oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
     oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().remove(this);
-    oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
+## oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
   }
+  // ----------------------------------------
 
   // ----------------------------------------
-  // ... and set the new value
+  // set the new value + fire change event
   // ----------------------------------------
   this.__vmf_prop_$prop.name = $prop.name;
-    _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+  _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
+  // ----------------------------------------
+
+  // ----------------------------------------
+  // registering with the opposite collection
+  // ----------------------------------------
   if(this.__vmf_prop_${prop.name}!=null) {
     String eventInfo = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
     this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
     this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().add(this);
     this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
   }    
+  // ----------------------------------------
 #else##                                                        collection opposite
   // ----------------------------------------
   // set the new value
@@ -64,7 +72,7 @@
   // ----------------------------------------
 
   // ----------------------------------------
-  // fire event
+  // fire property change event
   // ----------------------------------------
   _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
 
@@ -82,4 +90,4 @@
   // ----------------------------------------
 #end##                                                         collection opposite 
 
-#end
+#end##

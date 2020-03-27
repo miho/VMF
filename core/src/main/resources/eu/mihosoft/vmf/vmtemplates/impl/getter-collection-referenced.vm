@@ -4,12 +4,71 @@
 
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
-      this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
+        this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
 
-###if($prop.type||$prop.genericType)
-###end## if is model type
+        this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+            evt.added().elements().forEach( (e) -> {
+
+                if(e==null || ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF.equals(evt.eventInfo())) return;
+
+#if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
+                // opposite is collection. we just remove the element from its opposite collection
+                String eventInfo = ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().add(this);
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo); 
+#elseif(${prop.referenceInfo.opposite.propType} != "COLLECTION" )
+                // the opposite is no collection
+                // only look for duplicates if not triggered by cross-ref
+                if (!java.util.Objects.equals(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF, this.__vmf_prop_${prop.name}.getEventInfo())) {
+                    // we remove entry e if it is already referenced 
+                    // to detect we don't directly count the number of elements (must be < 2)
+                    // but first check whether the new opposite is equal to the previous one
+                    // which indicates that e has been added already
+                    if(this==((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}()) {
+                        if(this.__vmf_prop_${prop.name}.stream().filter(el->el==e).count() > 1) this.__vmf_prop_${prop.name}.remove(e); // removed e since it has been already added
+                    }
+                }
+
+                // remove reference to opposite and set 'this' as new opposite
+#set($oppositeRefProp=${prop.referenceInfo.opposite})
+                Object refOldVal = ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}();
+                if(refOldVal!=null) {
+                    ${oppositeRefProp.typeName} oldOpposite = (${oppositeRefProp.typeName})((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)refOldVal).__vmf_get_prop_${oppositeRefProp.name}();
+
+                    if(oldOpposite!=null) {
+                        oldOpposite.get${prop.nameWithUpperCase}().remove(e);
+                    }
+                }
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_set_prop_${oppositeRefProp.name}(this);
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e)._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+#end
+                
+            }); // end of evt.added()     
+
+            evt.removed().elements().forEach( (e) -> {
+
+                if(e==null || ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF.equals(evt.eventInfo())) return;
+
+#if(${prop.referenceInfo.opposite.propType} == "COLLECTION" )
+#set($oppositeRefProp=${prop.referenceInfo.opposite})  
+                String eventInfo = ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().remove(this);
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo); 
+#elseif(${prop.referenceInfo.opposite.propType} != "COLLECTION" )
+#set($oppositeRefProp=${prop.referenceInfo.opposite})
+                Object refOldVal = ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_get_prop_${oppositeRefProp.name}();
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e).__vmf_set_prop_${oppositeRefProp.name}(null);   
+                ((${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl)e)._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+#end
+                
+            }); // end of evt.removed()     
+        }); // end of addChangeListener
+             
+
     } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)
-
+    
     // return the collection
     return this.__vmf_prop_$prop.name;
 #end##                                                                                    COLLECTION PROP
