@@ -200,11 +200,11 @@
   public Object _vmf_getDefaultValueById(int propertyId) {
 
     switch(propertyId) {
-#foreach($prop in $type.implementation.properties)
-      case $foreach.index:
-        Object __vmf_default_value_tmp$prop.nameWithUpperCase = _VMF_DEFAULT_VALUES[$prop.getPropId()];
+#foreach($prop in ${type.implementation.properties})
+      case ${foreach.index}:
+        Object __vmf_default_value_tmp${prop.nameWithUpperCase} = _VMF_DEFAULT_VALUES[${foreach.index}];
 #if(${prop.propType}=="PRIMITIVE")## if prop is primitive
-        if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
+        if(__vmf_default_value_tmp${prop.nameWithUpperCase}==null) {
             return
 #if(${prop.getDefaultValueAsString()}=="null")## if default is null
             #if(${prop.typeName}=="boolean")false#else 0#end;
@@ -212,13 +212,13 @@
             ${prop.getDefaultValueAsString()};
 #end## if default is null
         } else {
-            return __vmf_default_value_tmp$prop.nameWithUpperCase;
+            return __vmf_default_value_tmp${prop.nameWithUpperCase};
         }    
 #else## if prop is primitive         
-        if(__vmf_default_value_tmp$prop.nameWithUpperCase==null) {
+        if(__vmf_default_value_tmp${prop.nameWithUpperCase}==null) {
             return ${prop.getDefaultValueAsString()};
         } else {
-            return __vmf_default_value_tmp$prop.nameWithUpperCase;
+            return __vmf_default_value_tmp${prop.nameWithUpperCase};
         }
 #end## if prop is primitive
 
@@ -231,10 +231,10 @@
   @Override
   public void _vmf_setDefaultValueById(int propertyId, Object defaultValue) {
 
-#foreach($prop in $type.implementation.properties)
+#foreach($prop in ${type.implementation.properties})
 #if(${prop.containmentProperty})
     // property ${prop.name}
-    if(propertyId == $foreach.index) {
+    if(propertyId == ${foreach.index}) {
       throw new RuntimeException("Cannot set default value for property '${prop.name}' with id="+propertyId +": property is a containment property and not writable.");
     }
 #end## if is containment
@@ -264,8 +264,8 @@
 #end## if !readOnlyVal
 
   final Object[] _VMF_DEFAULT_VALUES = {
-#foreach($prop in $type.implementation.properties) 
-    null#if($foreach.hasNext),#else #end // type ${prop.name} #if(${prop.containmentProperty})(containment type, no defaut value possible)#end
+#foreach($prop in ${type.implementation.properties}) 
+    null#if(${foreach.hasNext}),#else #end // type ${prop.name} #if(${prop.containmentProperty})(containment type, no defaut value possible)#end
   
 #end## for each property
   };

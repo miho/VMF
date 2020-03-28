@@ -2,7 +2,7 @@
     // this property holds a reference to a container of this instance (${type.typeName})
 
     // if the current container is this property (ids match) then return the container
-    if( _vmf_getContainerPropertyId() == ${prop.propId} ) {
+    if( _vmf_getContainerPropertyId() == ${foreach.index} /*${prop.propId}*/) {
         return (${prop.typeName}) this._vmf_getContainer();
     }
     

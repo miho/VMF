@@ -110,15 +110,15 @@ public class Model {
             t.initImplements();
         }
 
+        // PASS 5
+        for (ModelType t : types.values()) {
+            t.getImplementation().initPropertiesImportsAndDelegates();
+        }
+        
         // PASS 4
         for(ModelType t : types.values()) {
             t.initSyncInfos();
             t.initPropIds();
-        }
-
-        // PASS 5
-        for (ModelType t : types.values()) {
-            t.getImplementation().initPropertiesImportsAndDelegates();
         }
 
         // PASS 6
@@ -126,6 +126,7 @@ public class Model {
             t.getInterface().initProperties();
             t.initAllInheritedTypes();
         }
+
 
         // PASS 7
         for (ModelType t : types.values()) {

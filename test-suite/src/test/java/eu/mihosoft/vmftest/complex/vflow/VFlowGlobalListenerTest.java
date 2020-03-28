@@ -36,6 +36,8 @@ public class VFlowGlobalListenerTest {
 
         Assert.assertEquals(3, nodesEvtCounter.get());
 
+        System.out.println(" -- ");
+
         nodesEvtCounter.set(0);
 
         flow.getNodes().remove(n1);

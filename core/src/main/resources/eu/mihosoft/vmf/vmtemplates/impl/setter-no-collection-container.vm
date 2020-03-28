@@ -1,4 +1,4 @@
-#if($prop.propType != "COLLECTION" && $prop.container && !$prop.contained && !$prop.crossRefProperty)
+#if(${prop.propType} != "COLLECTION" && $prop.container && !$prop.contained && !$prop.crossRefProperty)
 #if(!${prop.containmentInfo.opposite})
 ERROR: THIS SHOULD NOT HAPPEN (INTERNAL VMF CODE GENERATION BUG). 
 ERROR: NOTIFY VMF DEVS (https://github.com/miho/VMF/issues). 
@@ -9,7 +9,7 @@ ERROR: @DEVS: ONLY USE THIS 'setter-no-collection-container' FOR PROPERTIES WITH
   // ----------------------------------------
   if (
        this._vmf_getContainer()           == ${prop.name}
-    && this._vmf_getContainerPropertyId() == ${prop.propId}
+    && this._vmf_getContainerPropertyId() == ${foreach.index}
   ) {
     return;
   }

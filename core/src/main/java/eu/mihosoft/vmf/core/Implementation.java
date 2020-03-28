@@ -141,7 +141,8 @@ public final class Implementation {
 
             List<Prop> computerProps = computeImplementedProperties(t);
             result.addAll(computerProps);
-            result.addAll(t.getProperties());
+            // add a copy of all props of type t
+            result.addAll(t.getProperties().stream().map(p->new Prop(p)).collect(Collectors.toList()));
         }
 
         return result;

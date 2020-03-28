@@ -74,7 +74,7 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
 // --------------------------------------------------------------------
 // --- initialization of default values
 // --------------------------------------------------------------------
-#foreach($prop in $type.implementation.properties)
+#foreach($prop in ${type.implementation.properties})
     // ----------
     // property id=${foreach.index} , name='${prop.name}'
 #if(${prop.getDefaultValueAsString()}!="null")

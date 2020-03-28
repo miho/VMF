@@ -129,6 +129,34 @@ public class Prop {
         initType(parent.getModel(), getterMethod);
     }
 
+    Prop(Prop other) {
+        this.getterMethod = other.getterMethod;
+        this.name = other.name;
+        this.packageName = other.packageName;
+        this.typeName = other.typeName;
+        this.simpleTypeName = other.simpleTypeName;
+        this.parent = other.parent;
+        this.customOrderIndex = other.customOrderIndex;
+        this.containmentInfo = other.containmentInfo;
+        this.referenceInfo = other.referenceInfo;
+        this.syncInfo = other.syncInfo;
+        this.required = other.required;
+        this.ignoredForEquals = other.ignoredForEquals;
+        this.ignoredForToString = other.ignoredForToString;
+        this.getterPrefix = other.getterPrefix;
+        this.propType = other.propType;
+        this.type = other.type;
+        this.genericPackageName = other.genericPackageName;
+        this.genericTypeName = other.genericTypeName;
+        this.collectionType = other.collectionType;
+        this.getterOnly = other.getterOnly;
+        this.readOnly = other.readOnly;
+        this.defaultValueAsString = other.defaultValueAsString;
+        this.annotations.addAll(other.getAnnotations());
+        this.propId = other.propId;
+        this.customDocumentation=other.getCustomDocumentation();
+    }
+
     void initType(Model m, Method getterMethod) {
 
         Class<?> propClass = getterMethod.getReturnType();
@@ -276,9 +304,46 @@ public class Prop {
         this.propId = propId;
     }
 
-    public int getPropId() {
-        return this.propId;
-    }
+   public int getPropId() {
+       return this.propId;
+   }
+
+//   /**
+//    * Returns this property and reinterprets it as property of the specified type (only by name).
+//    * Only use this methods on types that this property's parent inherits from.
+//    * @param t type to reinterpret this property to
+//    * @return this property and reinterprets it as property of the specified type (only by name)
+//    * @throws RuntimeException if the property cannot be found in the specified type
+//    */
+//    public Prop mapToPropertyOfType(ModelType t) {
+//        return t.getImplementation().getProperties().stream().
+//            filter(p->getName().equals(p.getName())).findFirst().
+//                orElseThrow(()->new RuntimeException(
+//                    "Cannot find property '"+getName()+"' in type '"+t.getFullTypeName()+"'")
+//            );
+//    }
+//
+//   /**
+//    * Returns this property and reinterprets it as property of the specified type (only reinterprets by name).
+//    * Only use this methods on types that this property's parent inherits from.
+//    * @param typeName name of the type to reinterpret this property to
+//    * @return this property and reinterprets it as property of the specified type (only reinterprets by name).
+//    * @throws RuntimeException if the property cannot be found in the specified type
+//    */
+//    public Prop mapToPropertyOfTypeByTypeName(String typeName) {
+//
+//        ModelType t = getParent().getModel().getTypes().stream().
+//            filter(type->Objects.equals(typeName, type.getTypeName())
+//                || Objects.equals(typeName, type.getFullTypeName())).findAny().
+//              orElseThrow(()->new RuntimeException(
+//                    "Cannot find type '"+typeName+"' in this model"));
+//
+//        return t.getImplementation().getProperties().stream().
+//            filter(p->getName().equals(p.getName())).findFirst().
+//                orElseThrow(()->new RuntimeException(
+//                    "Cannot find property '"+getName()+"' in type '"+t.getFullTypeName()+"'")
+//            );
+//    }
 
     void initContainment() {
 

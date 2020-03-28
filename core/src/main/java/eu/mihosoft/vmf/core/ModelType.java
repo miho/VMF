@@ -781,7 +781,9 @@ public class ModelType {
 
     public void initPropIds() {
         int i = 0;
+        // System.out.println("!!!Type: " + getTypeName());
         for(Prop p : getImplementation().getProperties()) {
+            // System.out.println("  -> !!!p: " + p.getName() + ", id: " + i);
             p.setPropId(i);
             i++;
         }

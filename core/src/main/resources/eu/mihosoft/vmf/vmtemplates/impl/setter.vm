@@ -21,7 +21,7 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
-#foreach( $prop in ${type.implementation.propertiesWithoutCollectionsBasedContainment} )
+#foreach( $prop in ${type.implementation.properties} )
 #if(${prop.propType}=="COLLECTION")##  if   (prop is collection type)
 #elseif(${prop.readOnly} == true)  ##  elif (prop is read-only)
 public $prop.setterDeclaration { throw new RuntimeException("Cannot set read-only property'${prop.name}'."); }
@@ -83,7 +83,8 @@ public void _vmf_unregisterFromContainers() {
 #end## for each container with opposites
       // finally, set the container to 'null' and fire the corresponding event
       this._vmf_setContainer(null);
-      this._vmf_firePropertyChangeIfListenersArePresent("${container.name}", container, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);      
+      System.out.println("!!!"+this._vmf_getPropertyNames()[this._vmf_getContainerPropertyId()]);
+      this._vmf_firePropertyChangeIfListenersArePresent(this._vmf_getPropertyNames()[this._vmf_getContainerPropertyId()], container, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);      
     } // end if getContainer!=null
 } // end _vmf_unregisterFromContainers
 
