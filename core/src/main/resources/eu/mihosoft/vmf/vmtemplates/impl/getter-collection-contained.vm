@@ -34,9 +34,9 @@
 
                 // unregister from previous container
                 ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
-                //if(valueInternal._vmf_getContainer()!=this) {
-                    valueInternal._vmf_unregisterFromContainers();
-                //}           
+
+                // finally, set the container to 'null' and fire the corresponding event
+                valueInternal._vmf_unregisterFromContainers();      
                 
             }); // end of evt.added()     
         }); // end of addChangeListener

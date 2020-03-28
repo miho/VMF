@@ -17,9 +17,10 @@ public class VFlowGlobalListenerTest {
         VFlow flow = VFlow.newInstance();
 
         AtomicInteger nodesEvtCounter = new AtomicInteger(0);
+        AtomicInteger parentEvtCounter = new AtomicInteger(0);
 
         flow.vmf().changes().addListener((change)->{
-            System.out.println("change: " + change.propertyName());
+            System.out.println("change[p]: " + change.propertyName());
 
             if("nodes".equals(change.propertyName())) {
                 nodesEvtCounter.incrementAndGet();
@@ -30,11 +31,37 @@ public class VFlowGlobalListenerTest {
         VNode n2 = VNode.newBuilder().withName("my-name 2").build();
         VNode n3 = VNode.newBuilder().withName("my-name 3").build();
 
+
+        n1.vmf().changes().addListener((change)->{
+            System.out.println("change[n1]: " + change.propertyName());
+
+            if("parent".equals(change.propertyName())) {
+                parentEvtCounter.incrementAndGet();
+            }
+        });
+
+        n2.vmf().changes().addListener((change)->{
+            System.out.println("change[n2]: " + change.propertyName());
+
+            if("parent".equals(change.propertyName())) {
+                parentEvtCounter.incrementAndGet();
+            }
+        });
+
+        n3.vmf().changes().addListener((change)->{
+            System.out.println("change[n3]: " + change.propertyName());
+
+            if("parent".equals(change.propertyName())) {
+                parentEvtCounter.incrementAndGet();
+            }
+        });
+
         flow.getNodes().add(n1);
         flow.getNodes().add(n2);
         flow.getNodes().add(n3);
 
         Assert.assertEquals(3, nodesEvtCounter.get());
+        Assert.assertEquals(3, parentEvtCounter.get());
 
         System.out.println(" -- ");
 

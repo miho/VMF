@@ -62,7 +62,6 @@ public void _vmf_unregisterFromContainers() {
       if(!found && container instanceof __VMF_TYPE_${container.typeName}Impl) {
         __VMF_TYPE_${container.typeName}Impl container_internal = (__VMF_TYPE_${container.typeName}Impl)container;
 #if(${contained.propType}=="COLLECTION")## contained prop is collection
-        //found = container_internal.__vmf_get_prop_${contained.name}__vmf_RawList().remove(this);
         String evtInfo = container_internal.get${contained.nameWithUpperCase}().getEventInfo();
         container_internal.get${contained.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
         found = container_internal.get${contained.nameWithUpperCase}().remove(this);
@@ -83,7 +82,7 @@ public void _vmf_unregisterFromContainers() {
 #end## for each container with opposites
       // finally, set the container to 'null' and fire the corresponding event
       this._vmf_setContainer(null);
-      this._vmf_firePropertyChangeIfListenersArePresent(this._vmf_getPropertyNames()[this._vmf_getContainerPropertyId()], container, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);      
+      this._vmf_firePropertyChangeIfListenersArePresent(this._vmf_getPropertyNames()[this._vmf_getContainerPropertyId()], container, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
     } // end if getContainer!=null
 } // end _vmf_unregisterFromContainers
 
