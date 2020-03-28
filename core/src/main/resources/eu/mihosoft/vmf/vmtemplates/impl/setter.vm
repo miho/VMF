@@ -83,7 +83,6 @@ public void _vmf_unregisterFromContainers() {
 #end## for each container with opposites
       // finally, set the container to 'null' and fire the corresponding event
       this._vmf_setContainer(null);
-      System.out.println("!!!"+this._vmf_getPropertyNames()[this._vmf_getContainerPropertyId()]);
       this._vmf_firePropertyChangeIfListenersArePresent(this._vmf_getPropertyNames()[this._vmf_getContainerPropertyId()], container, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);      
     } // end if getContainer!=null
 } // end _vmf_unregisterFromContainers
