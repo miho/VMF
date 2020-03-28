@@ -1,0 +1,54 @@
+name: VMF CI
+
+on: [push, pull_request]
+
+jobs:
+  
+  build-linux:
+    strategy:
+      matrix:
+        jdkVersion: [8, 11, 14]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up JDK ${{ matrix.jdkVersion }}
+      uses: actions/setup-java@v1
+      with:
+        java-version: ${{ matrix.jdkVersion }}
+        architecture: x64 # (x64 or x86)
+    
+    - name: Build and test with Gradle/JUnit
+      run:  sh ./build-and-test-all.sh
+
+      
+  build-macos-latest:
+    strategy:
+      matrix:
+        jdkVersion: [8, 11, 14]
+    runs-on: [macos-latest]
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up JDK ${{ matrix.jdkVersion }}
+      uses: actions/setup-java@v1
+      with:
+        java-version: ${{ matrix.jdkVersion }}
+        architecture: x64 # (x64 or x86)
+        
+    - name: Build and test with Gradle/JUnit
+      run:  sh ./build-and-test-all.sh 
+   
+  build-windows-latest:
+    strategy:
+      matrix:
+        jdkVersion: [8, 11, 14]
+    runs-on: [windows-latest]
+    steps:
+    - uses: actions/checkout@v1
+    - name: Set up JDK ${{ matrix.jdkVersion }}
+      uses: actions/setup-java@v1
+      with:
+        java-version: ${{ matrix.jdkVersion }}
+        architecture: x64 # (x64 or x86)
+   
+    - name: Build and test with Gradle/JUnit
+      run:  ./build-and-test-all.bat
