@@ -31,7 +31,7 @@
 #if($delegate.documented)
    * <p>${delegate.customDocumentation}</p>
 #end## is documented   
-   * <p><b>Note:</b> The behavior of this method is defined by '{@link ${delegate.fullTypeName}}'.</p>
+   * <p><b>Note:</b> The default behavior of this method is defined by '{@link ${delegate.fullTypeName}}'.</p>
    */
   $delegate.methodDeclaration;
 #end## #if($delegate.methodName != "clone")

@@ -91,7 +91,24 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString,
    * @return a deep clone of this object
    */
   @Override
-  $type.typeName clone() /*throws CloneNotSupportedException*/;
+  ${type.typeName} clone() /*throws CloneNotSupportedException*/;
+
+  /**
+   * Behavior interface.
+   */
+  static interface Behavior extends ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.DelegatedBehavior<${VMFPKG}.VObject>${type.behaviorExtendsString} {
+#foreach( $delegate in ${type.methodDelegations})
+#if($delegate.methodName != "clone")
+      /**
+#if($delegate.documented)
+       * <p>${delegate.customDocumentation}</p>
+#end## is documented   
+       * <p><b>Note:</b> The default behavior of this method is defined by '{@link ${delegate.fullTypeName}}'.</p>
+       */
+  $delegate.methodDeclaration;
+#end## #if($delegate.methodName != "clone")
+#end## for each delegate
+  }
 
 }
 

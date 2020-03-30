@@ -31,6 +31,11 @@
 #foreach( $delegate in ${type.implementation.methodDelegations})
   $delegate.methodDeclaration {
 
+    if(this.__vmf_dynamicBehavior!=null) {
+      #if(!${delegate.isVoid()})return#end this.__vmf_dynamicBehavior.${delegate.methodName}(#foreach($p in ${delegate.paramNames})$p#if($foreach.hasNext), #end #end); 
+      #if(${delegate.isVoid()})return;#end 
+    }
+
     if($delegate.varName==null) {
       $delegate.varName = new ${delegate.fullTypeName}();
       ${delegate.varName}.setCaller(this);

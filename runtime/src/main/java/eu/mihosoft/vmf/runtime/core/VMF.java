@@ -63,5 +63,13 @@ public interface VMF {
     default Reflect reflect() {
         throw new UnsupportedOperationException("FIXME: unsupported method invoked. This should not happen :(");
     }
+
+    /**
+     * Returns the behavior API of this object.
+     * @return the behavior API of this object
+     */
+    default <T extends VObject> Behavior<T> behavior() {
+        throw new UnsupportedOperationException("FIXME: unsupported method invoked. This should not happen :(");
+    }
     
 }

@@ -162,6 +162,20 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
   public ${VMFPKG}.VMF vmf() {
     if(vmf==null) {
       vmf = new ${VMFPKG}.VMF() {
+        public ${VMFPKG}.Behavior<${VMFPKG}.VObject> behavior() {
+          return new ${VMFPKG}.Behavior<${VMFPKG}.VObject>() {
+              public ${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> getBehavior() {return ${type.implementation.typeName}.this.__vmf_dynamicBehavior;}
+              public void setBehavior(${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> delegate) {
+
+                if(delegate instanceof ${type.typeName}.Behavior) {
+                  ${type.implementation.typeName}.this.__vmf_dynamicBehavior = (${type.typeName}.Behavior)delegate;
+                  ${type.implementation.typeName}.this.__vmf_dynamicBehavior.setCaller(${type.implementation.typeName}.this);
+                } else {
+                  throw new RuntimeException("The specified behavior instance does not implement the required behavior interface '${type.typeName}.Behavior'");
+                }
+              }
+          };    
+        }
         public ${VMFPKG}.Content content() {
           return new ${VMFPKG}.Content() {
             public ${VMFPKG}.VIterator iterator() {

@@ -36,6 +36,11 @@
   //--------------------------------------------------------------------------------
 #end
 
+#if(!${type.immutable})
+  // dynamic behavior
+  private ${type.typeName}.Behavior __vmf_dynamicBehavior;
+#end
+
 #foreach( $prop in ${type.implementation.properties})
   // --- PROP '$prop.typeName'
   /*package private*/ $prop.typeName __vmf_prop_$prop.name;

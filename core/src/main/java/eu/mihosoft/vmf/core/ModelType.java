@@ -26,7 +26,6 @@ package eu.mihosoft.vmf.core;
 import java.lang.reflect.Method;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -57,6 +56,7 @@ public class ModelType {
 
     private final String ext3ndsString;
     private final String implementzString;
+    private final String behaviorExtendsString;
     // internal interface inside impl class that allows to access raw properties without reflection
     private final String vmfTypeIfaceImplementzString;
     private final List<String> implementsList = new ArrayList<>();
@@ -148,6 +148,7 @@ public class ModelType {
 
         this.ext3ndsString = generateExtendsString(getModel(), clazz);
         this.implementzString = generateImplementsString(getModel(), clazz);
+        this.behaviorExtendsString = generateBehaviorExtendsString(getModel(), clazz);
         this.vmfTypeIfaceImplementzString = generateVmfTypeIfaceImplementsString(getModel(), clazz);
         this.writableImplementzString = generateWritableImplementsString(getModel(), clazz);
         this.readOnlyImplementzString = generateReadOnlyImplementsString(getModel(), clazz);
@@ -472,6 +473,21 @@ public class ModelType {
         return String.join(",", ext3nds);
     }
 
+    private static String generateBehaviorExtendsString(Model model, Class<?> clazz) {
+        List<String> ext3nds = new ArrayList<String>();
+        for (Class<?> ifs : clazz.getInterfaces()) {
+
+            String ifsName = model.convertModelTypeToDestination(ifs);
+
+            if (ifsName.startsWith(model.getPackageName())) {
+                ext3nds.add(ifsName+".Behavior");
+            }
+        }
+
+        return String.join(",", ext3nds);
+    }
+
+
     private static String generateVmfTypeIfaceImplementsString(Model model, Class<?> clazz) {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
@@ -569,6 +585,15 @@ public class ModelType {
             return "";
         } else {
             return ", " + implementzString;
+        }
+    }
+
+    public String getBehaviorExtendsString() {
+
+        if (behaviorExtendsString.isEmpty()) {
+            return "";
+        } else {
+            return ", " + behaviorExtendsString;
         }
     }
 
