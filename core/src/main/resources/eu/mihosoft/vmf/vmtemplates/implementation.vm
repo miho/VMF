@@ -164,8 +164,8 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
       vmf = new ${VMFPKG}.VMF() {
         public ${VMFPKG}.Behavior<${VMFPKG}.VObject> behavior() {
           return new ${VMFPKG}.Behavior<${VMFPKG}.VObject>() {
-              public ${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> getBehavior() {return ${type.implementation.typeName}.this.__vmf_dynamicBehavior;}
-              public void setBehavior(${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> delegate) {
+              public ${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> get() {return ${type.implementation.typeName}.this.__vmf_dynamicBehavior;}
+              public void set(${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> delegate) {
 
                 if(delegate instanceof ${type.typeName}.Behavior) {
                   ${type.implementation.typeName}.this.__vmf_dynamicBehavior = (${type.typeName}.Behavior)delegate;
