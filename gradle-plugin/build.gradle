@@ -1,5 +1,5 @@
 plugins {
-    id "com.gradle.plugin-publish" version "0.9.10"
+    id "com.gradle.plugin-publish" version "0.11.0"
     id 'com.github.hierynomus.license' version '0.14.0'
     id 'maven-publish'
     id 'net.nemerosa.versioning' version '2.7.1'
