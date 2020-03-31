@@ -114,7 +114,7 @@ public class Model {
         for (ModelType t : types.values()) {
             t.getImplementation().initPropertiesImportsAndDelegates();
         }
-        
+
         // PASS 4
         for(ModelType t : types.values()) {
             t.initSyncInfos();

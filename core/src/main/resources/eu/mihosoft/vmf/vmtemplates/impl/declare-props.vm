@@ -21,10 +21,9 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
-#if(${type.contained})
+#if(!${type.immutable})
 
   //--------------------------------------------------------------------------------
-  // this type is contained:
   // containment prop (for storing reference to container)
   //--------------------------------------------------------------------------------
   /*TODO make private package private*/ ${VMFPKG}.VObject __vmf_internal_container;

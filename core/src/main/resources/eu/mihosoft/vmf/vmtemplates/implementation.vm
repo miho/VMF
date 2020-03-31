@@ -164,15 +164,24 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
       vmf = new ${VMFPKG}.VMF() {
         public ${VMFPKG}.Behavior<${VMFPKG}.VObject> behavior() {
           return new ${VMFPKG}.Behavior<${VMFPKG}.VObject>() {
-              public ${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> get() {return ${type.implementation.typeName}.this.__vmf_dynamicBehavior;}
+              public ${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> get() {
+#if(${type.immutable})## if immutable              
+                return null;              
+#else##                  if immutable
+                return ${type.implementation.typeName}.this.__vmf_dynamicBehavior;
+#end##                   if immutable              
+              }
               public void set(${VMFPKG}.DelegatedBehavior<${VMFPKG}.VObject> delegate) {
-
+#if(${type.immutable})## if immutable
+                throw new RuntimeException("This type is immutable and cannot change its behavior at runtime.");
+#else##                  if immutable  
                 if(delegate instanceof ${type.typeName}.Behavior) {
                   ${type.implementation.typeName}.this.__vmf_dynamicBehavior = (${type.typeName}.Behavior)delegate;
                   ${type.implementation.typeName}.this.__vmf_dynamicBehavior.setCaller(${type.implementation.typeName}.this);
                 } else {
                   throw new RuntimeException("The specified behavior instance does not implement the required behavior interface '${type.typeName}.Behavior'");
                 }
+#end##                   if immutable                 
               }
           };    
         }
