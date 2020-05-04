@@ -306,7 +306,7 @@ public class ModelType {
             if(d!=null) {
                 delegations.add(d);
                 methodDelegations.add(d);
-            } else {
+            } else if(!isInterfaceOnly()) {
                 throw new RuntimeException(
                         "Custom method '"
                                 +m.getDeclaringClass().getName()+"."+m.getName()
