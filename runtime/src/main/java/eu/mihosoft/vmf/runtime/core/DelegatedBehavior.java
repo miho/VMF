@@ -32,6 +32,7 @@ package eu.mihosoft.vmf.runtime.core;
  *
  * @author Michael Hoffer <info@michaelhoffer.de>
  * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-08/README.md">Tutorial on Custom Behavior & Delegation</a>
+ * @see DelegatedBehaviorBase
  */
 public interface DelegatedBehavior<T extends VObject> {
 
