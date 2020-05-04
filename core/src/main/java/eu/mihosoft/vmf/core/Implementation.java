@@ -58,6 +58,7 @@ public final class Implementation {
         this.properties.addAll(type.getProperties());
     }
 
+
     void initPropertiesImportsAndDelegates() {
 
         collectAndSetProperties();
@@ -70,12 +71,20 @@ public final class Implementation {
         // Method delegations
         List<DelegationInfo> methodDelegations = new ArrayList<>(type.getMethodDelegations());
         methodDelegations.addAll(computeImplementedMethodDelegations(type));
-        this.methodDelegations.addAll(methodDelegations.stream().distinct().collect(Collectors.toList()));
+        // only use one delegation info per method signature (if declared again in concrete type,
+        // overwrite earlier occurrences)
+        this.methodDelegations.addAll(methodDelegations.stream().
+                filter(distinctByKey(mD->mD.getMethodSignature())).
+                distinct().collect(Collectors.toList()));
 
         // Constructor delegations
         List<DelegationInfo> constructorDelegations = new ArrayList<>(type.getConstructorDelegations());
         constructorDelegations.addAll(computeImplementedConstructorDelegations(type));
-        this.constructorDelegations.addAll(constructorDelegations.stream().distinct().collect(Collectors.toList()));
+        // only use one delegation info per constructor signature (if declared again in concrete type,
+        // overwrite earlier occurrences)
+        this.constructorDelegations.addAll(constructorDelegations.stream().
+                filter(distinctByKey(mD->mD.getMethodSignature()))
+                .distinct().collect(Collectors.toList()));
 
         // set all annotations (distinct)
         List<AnnotationInfo> allAnnotations = new ArrayList<>(type.getAnnotations());

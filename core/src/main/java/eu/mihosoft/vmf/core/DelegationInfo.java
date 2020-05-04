@@ -70,6 +70,16 @@ public class DelegationInfo {
         this.customDocumentation = customDocumentation;
     }
 
+    /**
+     * Returns the method signature in the form of {@code methodName(paramTypeName1;paramTypeName2;...;paramTypeNameN)} or
+     * {@code constructor-(paramTypeName1;paramTypeName2;...;paramTypeNameN)} if this delegation info represents a constructor
+     * delegation
+     * @return the method signature in the form of {@code methodName(paramTypeName1;paramTypeName2;...;paramTypeNameN)}
+     */
+    public String getMethodSignature() {
+        return (constructor==true?"constructor-":methodName)+"("+String.join(";",paramTypes)+")";
+    }
+
     public static DelegationInfo newInstance(String className, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor, String customDocumentation) {
         return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames, constructor, customDocumentation);
     }
