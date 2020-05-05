@@ -9,7 +9,7 @@ VMF
 
 
 
-VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 8-13.
+VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 8-14.
 It generates/supports:
 
 - getters and setters
@@ -87,7 +87,7 @@ buildscript {
 
 ### IDE
 
-Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2019) and build it
+Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2020) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
@@ -106,7 +106,7 @@ Navigate to the `VMF` core [Gradle](http://www.gradle.org/) project (i.e., `path
 
 ### IDE
 
-Open the `VMF` runtime [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
+Open the `VMF` runtime [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2020) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
@@ -125,7 +125,7 @@ Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `p
 
 ### IDE
 
-Open the `VMF` [Gradle](http://www.gradle.org/) plugin project in your favourite IDE (tested with NetBeans 8.2 and IntelliJ 2018) and build it
+Open the `VMF` [Gradle](http://www.gradle.org/) plugin project in your favourite IDE (tested with IntelliJ 2020) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
