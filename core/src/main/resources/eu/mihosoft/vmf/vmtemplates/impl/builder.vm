@@ -86,7 +86,11 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     ${type.implementation.typeName} result = new ${type.implementation.typeName}();
 #foreach( $prop in ${type.implementation.properties} )
 #if($type.immutable || $prop.propType != "COLLECTION")
+#if($type.immutable)
     result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+#else
+    result.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
+#end
 #if($prop.type)
     // PROP: $prop.name
     #set($objectToAddReferenceOnValue="result")

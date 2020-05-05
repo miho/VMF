@@ -9,6 +9,14 @@ import org.junit.Test;
 public class ContainmentTest {
 
     @Test
+    public void containmentWithBuilderTest() {
+        // check that containment works with builder (i.e. that builder calls containment methods)
+        ContainerOne ca = ContainerOne.newBuilder().withElement1(Element.newInstance()).build();
+        Element e = ca.getElement1();
+        assertThat(e.getParentOne(), equalTo(ca));
+    }
+
+    @Test
     public void containmentTest() {
 
         // containment should be unique
