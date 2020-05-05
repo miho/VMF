@@ -88,7 +88,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #if($type.immutable || $prop.propType != "COLLECTION")
 #if($type.immutable)
     result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
-#else
+#elseif(!$prop.readOnly)
     result.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
 #end
 #if($prop.type)
