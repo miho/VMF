@@ -29,6 +29,7 @@
 ## // CONSTRUCTOR:         ${type.implementation.constructorDelegations.size()}
 ## // ONE_FOR_EACH_TYPE:   ${type.implementation.delegationsOneForEachType.size()}
 #foreach( $delegate in ${type.implementation.methodDelegations})
+#if(!$delegate.exclusivelyForInterfaceOnlyTypes)## not interface-only
   $delegate.methodDeclaration {
 
 #if(!${type.immutable})## if mutable
@@ -47,6 +48,6 @@
 
     #if(!${delegate.isVoid()})return#end $delegate.varName.${delegate.methodName}(#foreach($p in ${delegate.paramNames})$p#if($foreach.hasNext), #end#end);
   }
-
+#end##                                          ## not interface-only
 #end## for each delegate
 

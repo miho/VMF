@@ -26,5 +26,7 @@
 // --------------------------------------------------------------------
 
 #foreach( $delegate in ${type.implementation.delegationsOneForEachType})
+#if(!$delegate.exclusivelyForInterfaceOnlyTypes)
   private $delegate.fullTypeName $delegate.varName;
+#end
 #end

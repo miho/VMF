@@ -71,6 +71,13 @@ public class DelegationInfo {
     }
 
     /**
+     * Indicates whether to use this delegation info only for interface-only types.
+     */
+    public boolean isExclusivelyForInterfaceOnlyTypes() {
+        return getFullTypeName().trim().isEmpty();
+    }
+
+    /**
      * Returns the method signature in the form of {@code methodName(paramTypeName1;paramTypeName2;...;paramTypeNameN)} or
      * {@code constructor-(paramTypeName1;paramTypeName2;...;paramTypeNameN)} if this delegation info represents a constructor
      * delegation
@@ -87,9 +94,11 @@ public class DelegationInfo {
     public static DelegationInfo newInstance(Model model, Method m) {
         DelegateTo delegation = m.getAnnotation(DelegateTo.class);
 
-        if(delegation==null) {
-            return null;
-        }
+        String className = delegation==null?"":delegation.className();
+
+//        if(delegation==null) {
+//            return null;
+//        }
 
         List<String> paramTypes = new ArrayList<>(m.getParameters().length);
         List<String> paramNames = new ArrayList<>(m.getParameters().length);
@@ -113,7 +122,7 @@ public class DelegationInfo {
         }
 
         return newInstance(
-                delegation.className(),
+                className,
                 m.getName(),
                 TypeUtil.getReturnTypeAsString(model,m),
                 paramTypes, paramNames, false, customDocumentation);

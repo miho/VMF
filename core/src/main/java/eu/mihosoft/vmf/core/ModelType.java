@@ -303,10 +303,10 @@ public class ModelType {
         for(Method m : list) {
             DelegationInfo d = DelegationInfo.newInstance(model, m);
 
-            if(d!=null) {
+            if((d.isExclusivelyForInterfaceOnlyTypes() && isInterfaceOnly())||!d.getFullTypeName().isEmpty()) {
                 delegations.add(d);
                 methodDelegations.add(d);
-            } else if(!isInterfaceOnly()) {
+            } else {
                 throw new RuntimeException(
                         "Custom method '"
                                 +m.getDeclaringClass().getName()+"."+m.getName()
