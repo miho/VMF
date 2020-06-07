@@ -31,10 +31,10 @@ import eu.mihosoft.vmf.core.io.IOUtils;
 import eu.mihosoft.vmf.core.io.Resource;
 import eu.mihosoft.vmf.core.io.ResourceSet;
 import io.github.classgraph.ClassGraph;
-import org.mdkt.compiler.InMemoryJavaCompiler;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URLClassLoader;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.util.*;
@@ -135,7 +135,7 @@ public class VMF {
      * @throws IOException if the code generation fails due to I/O related problems
      * @throws IllegalArgumentException if the specified model is empty
      */
-    public static void generate(ResourceSet outputDir, ClassLoader classLoader, File... sourceFiles) throws IOException {
+    public static void generate(ResourceSet outputDir, URLClassLoader classLoader, File... sourceFiles) throws IOException {
 
         JCompiler compiler = JCompiler.newInstance();
 
@@ -173,7 +173,13 @@ public class VMF {
      * @throws IllegalArgumentException if the specified model is empty
      */
     public static void generate(ResourceSet outputDir, File... sourceFiles) throws IOException {
-        generate(outputDir,Thread.currentThread().getContextClassLoader(),sourceFiles);
+
+        URLClassLoader contextLoader = null;
+        if(Thread.currentThread().getContextClassLoader() instanceof URLClassLoader) {
+            contextLoader = (URLClassLoader) Thread.currentThread().getContextClassLoader();
+        }
+
+        generate(outputDir,contextLoader,sourceFiles);
     }
 
     /**
@@ -186,7 +192,7 @@ public class VMF {
      * @throws IOException if the code generation fails due to I/O related problems
      * @throws IllegalArgumentException if the specified model is empty
      */
-    public static void generate(ResourceSet outputDir, ClassLoader classLoader, Resource... resources) throws IOException {
+    public static void generate(ResourceSet outputDir, URLClassLoader classLoader, Resource... resources) throws IOException {
 
         JCompiler compiler = JCompiler.newInstance();
 
@@ -225,7 +231,13 @@ public class VMF {
      * @throws IllegalArgumentException if the specified model is empty
      */
     public static void generate(ResourceSet outputDir, Resource... resources) throws IOException {
-        generate(outputDir,Thread.currentThread().getContextClassLoader(),resources);
+
+        URLClassLoader contextLoader = null;
+        if(Thread.currentThread().getContextClassLoader() instanceof URLClassLoader) {
+            contextLoader = (URLClassLoader) Thread.currentThread().getContextClassLoader();
+        }
+
+        generate(outputDir,contextLoader,resources);
     }
 
     /**
@@ -238,7 +250,9 @@ public class VMF {
      * @throws IOException if the code generation fails due to I/O related problems
      * @throws IllegalArgumentException if the specified model is empty
      */
-    public static void generate(File outputDir, ClassLoader classLoader, File... sourceFiles) throws IOException {
+    public static void generate(File outputDir, URLClassLoader classLoader, File... sourceFiles) throws IOException {
+        // url classloader is used since java compiler api is limited to classpath based configuration which is not
+        // possible without 
         generate(new FileResourceSet(outputDir),classLoader,sourceFiles);
     }
 
