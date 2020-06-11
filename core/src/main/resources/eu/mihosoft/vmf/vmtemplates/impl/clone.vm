@@ -32,7 +32,10 @@
     ${type.implementation.typeName} other,
     boolean deepCopy, java.util.IdentityHashMap<Object,Object> identityMap
   ) {
-    identityMap.put(other,this);
+
+      this(); // default constructor
+
+      identityMap.put(other,this);
 
 #foreach ($prop in $type.implementation.properties)
 #if(!$prop.container)
