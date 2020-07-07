@@ -368,16 +368,16 @@ public class ModelType {
     }
 
     void initAllInheritedTypes() {
-        allInheritedTypes.addAll(compiteInheritedTypes(this));
+        allInheritedTypes.addAll(computeInheritedTypes(this));
     }
 
-    private List<ModelType> compiteInheritedTypes(ModelType type) {
+    private List<ModelType> computeInheritedTypes(ModelType type) {
         List<ModelType> result = new ArrayList<>();
 
         result.addAll(type.getImplementz());
 
         for(ModelType t : type.getImplementz()) {
-            result.addAll(compiteInheritedTypes(t));
+            result.addAll(computeInheritedTypes(t));
         }
 
         result = result.stream().distinct().collect(Collectors.toList());
@@ -560,7 +560,7 @@ public class ModelType {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
 
-            String implClsName = model.convertModelPackageToDestination(
+            String implClsName = model.convertModelPackageToDestination(ifs.getSimpleName(),
                     TypeUtil.getPackageName(ifs)) + "."
                     + VMFEngineProperties.VMF_IMPL_PKG_EXT + "." + ifs.getSimpleName()
                     + VMFEngineProperties.VMF_IMPL_CLASS_EXT;

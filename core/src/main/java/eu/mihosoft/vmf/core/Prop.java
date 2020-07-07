@@ -201,7 +201,9 @@ public class Prop {
                 if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
                     genericPackageName = "";
                 } else {
-                    genericPackageName = m.convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+                    genericPackageName = m.convertModelPackageToDestination(
+                            containedClazz.getSimpleName(),
+                            TypeUtil.getPackageName(containedClazz));
                 }
 
                 genericTypeName = containedClazz.getSimpleName();
@@ -226,7 +228,9 @@ public class Prop {
             if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
                 genericPackageName = "";
             } else {
-                genericPackageName = m.convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+                genericPackageName = m.convertModelPackageToDestination(
+                        containedClazz.getSimpleName(),
+                        TypeUtil.getPackageName(containedClazz));
             }
 
             // System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
@@ -244,7 +248,7 @@ public class Prop {
             simpleTypeName = propClass.getSimpleName();
 
             this.packageName = getParent().getModel()
-                    .convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
+                    .convertModelPackageToDestination(propClass.getSimpleName(), TypeUtil.getPackageName(propClass));
 
             typeName = this.packageName + "." + propClass.getSimpleName();
         }

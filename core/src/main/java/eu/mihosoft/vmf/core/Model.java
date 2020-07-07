@@ -36,20 +36,20 @@ public class Model {
     private final String packageName;
     private ModelConfig modelConfig;
     private final Map<String, ModelType> types = new HashMap<>();
-    private Class<?>[] interfaces;
+    private final Map<String, ExternalType> extTypes = new HashMap<>();
+    private final List<Class<?>> interfaces = new ArrayList<>();
 
     public static Model newInstance(Class<?>... interfaces) {
         return new Model(interfaces);
     }
 
-    private Model(Class<?>... interfaces) {
+    private Model(Class<?>... interfacesRaw) {
 
-        if (interfaces == null || interfaces.length == 0) {
+        if (interfacesRaw == null || interfacesRaw.length == 0) {
             throw new IllegalArgumentException("At least one interface is required for building a valid model.");
         }
 
-        this.interfaces = interfaces;
-        String modelPkgName = TypeUtil.getPackageName(interfaces[0]);
+        String modelPkgName = TypeUtil.getPackageName(interfacesRaw[0]);
 
         if (!modelPkgName.endsWith(".vmfmodel")) {
             throw new IllegalArgumentException("Model interfaces should be in subpackage 'vmfmodel'."
@@ -58,7 +58,9 @@ public class Model {
 
         this.packageName = modelPkgName.substring(0, modelPkgName.length() - ".vmfmodel".length());
 
-        for (Class<?> iWithPkgAnn : interfaces) {
+
+
+        for (Class<?> iWithPkgAnn : interfacesRaw) {
             // initialize model config
             VMFModel modelAnn = iWithPkgAnn.getAnnotation(VMFModel.class);
             if(modelAnn!=null) {
@@ -76,7 +78,19 @@ public class Model {
             this.modelConfig = ModelConfig.fromAnnotation(null);
         }
 
-        // PASS 0
+
+        // PASS 0.0
+        this.interfaces.clear();
+        for (Class<?> clzz : interfacesRaw) {
+            ExternalType externalType = clzz.getAnnotation(ExternalType.class);
+            if(externalType!=null) {
+                extTypes.put(clzz.getSimpleName(), externalType);
+            } else {
+                this.interfaces.add(clzz);
+            }
+        }
+
+        // PASS 0.1
         Set<String> packages = new HashSet<String>();
         int typeId = 0;
         for (Class<?> clzz : interfaces) {
@@ -404,11 +418,11 @@ public class Model {
 
     public boolean isModelType(String type) {
         for (Class<?> clazz : interfaces) {
-            if (convertModelPackageToDestination(clazz.getName()).equals(type)) {
+            if (convertModelPackageToDestination(clazz.getSimpleName(), TypeUtil.getPackageName(clazz)).equals(type)) {
                 return true;
             }
             for (Class<?> ifc : clazz.getInterfaces()) {
-                if (convertModelPackageToDestination(ifc.getName()).equals(type)) {
+                if (convertModelPackageToDestination(ifc.getSimpleName(),TypeUtil.getPackageName(ifc)).equals(type)) {
                     return true;
                 }
             }
@@ -417,9 +431,17 @@ public class Model {
         return false;
     }
 
-    String convertModelPackageToDestination(String srcPkg) {
+    String convertModelPackageToDestination(String simpleName, String srcPkg) {
+
         if (Objects.equals(getPackageName() + ".vmfmodel", srcPkg)) {
-            return getPackageName();
+
+            String packageName =  getPackageName();
+            ExternalType externalType = extTypes.get(simpleName);
+            if(externalType!=null) {
+                packageName = externalType.pkgName();
+            }
+
+            return packageName;
         } else {
             return srcPkg;
         }
@@ -427,11 +449,17 @@ public class Model {
 
     String convertModelTypeToDestination(Class<?> srcType) {
         String srcPackage =  TypeUtil.getPackageName(srcType);
+        String simpleName = srcType.getSimpleName();
+
+        ExternalType externalType = extTypes.get(simpleName);
+        if(externalType!=null) {
+            srcPackage = externalType.pkgName();
+        }
 
         if (Objects.equals(getPackageName() + ".vmfmodel", srcPackage)) {
-            return getPackageName() + "." + srcType.getSimpleName();
+            return getPackageName() + "." + simpleName;
         } else {
-            return srcType.getName();
+            return srcPackage + "." + simpleName;
         }
     }
 
@@ -443,4 +471,11 @@ public class Model {
     public List<ModelType> getAllTypesThatImplement(ModelType mT) {
         return getTypes().stream().filter(t->t.getImplementz().contains(mT)).distinct().collect(Collectors.toList());
     }
+
+    public boolean isExternalType(String implClsName) {
+        String simpleName = TypeUtil.getShortNameFromFullClassName(implClsName);
+        ExternalType externalType = extTypes.get(simpleName);
+        return externalType!=null;
+    }
+
 }

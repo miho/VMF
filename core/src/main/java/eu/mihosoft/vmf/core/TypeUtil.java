@@ -68,8 +68,10 @@ public final class TypeUtil {
             if(delegated) {
                 Class<?> containedClazz = cls.getComponentType();
                 typeName = containedClazz.getSimpleName();
+
                 packageName = model.
-                        convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+                        convertModelPackageToDestination(containedClazz.getSimpleName(),
+                                TypeUtil.getPackageName(containedClazz));
                 if(vararg) {
                     typeName +="...";
                 } else {
@@ -87,7 +89,7 @@ public final class TypeUtil {
         } else {
             typeName = cls.getSimpleName();
             packageName = model.
-                    convertModelPackageToDestination(TypeUtil.getPackageName(cls));
+                    convertModelPackageToDestination(cls.getSimpleName(), TypeUtil.getPackageName(cls));
         }
 
         if (!packageName.isEmpty()) {
@@ -143,7 +145,7 @@ public final class TypeUtil {
             } else {
 
                 genericPackageName = model.
-                            convertModelPackageToDestination(
+                            convertModelPackageToDestination(containedClazz.getSimpleName(),
                                     TypeUtil.getPackageName(containedClazz));
 
                 genericTypeName = containedClazz.getSimpleName();
@@ -164,7 +166,8 @@ public final class TypeUtil {
                 packageName = "eu.mihosoft.vcollections";
 
                     genericPackageName = model.
-                            convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+                            convertModelPackageToDestination(containedClazz.getSimpleName(),
+                                    TypeUtil.getPackageName(containedClazz));
 
                 genericTypeName = containedClazz.getSimpleName();
             } else {
@@ -173,7 +176,8 @@ public final class TypeUtil {
                         model.convertModelTypeToDestination(containedClazz) + "[]";
                 packageName = "";
                 genericPackageName = model.
-                        convertModelPackageToDestination(TypeUtil.getPackageName(containedClazz));
+                        convertModelPackageToDestination(containedClazz.getSimpleName(),
+                                TypeUtil.getPackageName(containedClazz));
             }
         } else if (m.getGenericReturnType() != null) {
 
@@ -197,12 +201,12 @@ public final class TypeUtil {
                 typeName = propClass.getSimpleName();
 
                 packageName = model.
-                        convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
+                        convertModelPackageToDestination(propClass.getSimpleName(), TypeUtil.getPackageName(propClass));
             } else {
 
 
                 genericPackageName = model.
-                            convertModelPackageToDestination(
+                            convertModelPackageToDestination(containedClazz.getSimpleName(),
                                     TypeUtil.getPackageName(containedClazz));
 
 
@@ -210,14 +214,15 @@ public final class TypeUtil {
 
                 typeName = m.getReturnType().getSimpleName() + "<" + model.
                         convertModelTypeToDestination(containedClazz) + ">";
-                packageName = model.convertModelPackageToDestination(TypeUtil.getPackageName(m.getReturnType()));
+                packageName = model.convertModelPackageToDestination(m.getReturnType().getSimpleName(),
+                        TypeUtil.getPackageName(m.getReturnType()));
             }
 
         } else {
             typeName = propClass.getSimpleName();
 
             packageName = model.
-                    convertModelPackageToDestination(TypeUtil.getPackageName(propClass));
+                    convertModelPackageToDestination(propClass.getSimpleName(), TypeUtil.getPackageName(propClass));
         }
 
         if (!packageName.isEmpty()) {
