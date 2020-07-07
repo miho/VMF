@@ -30,12 +30,28 @@ import java.lang.annotation.Target;
 
 /**
  * Declares an interface as being external. That is, it is not included in the code generator. Only its fully qualified
- * name is used for method signatures and properties.
+ * name is used for method signatures and properties. The following sample model adds the external type {@code Vector3d}
+ * to the model without the necessity to add it to the classpath of the code generator.
+ *
+ * <pre><code>
+ * package eu.mihosoft.vmf.tutorial15.vmfmodel;
+ *
+ * import eu.mihosoft.vmf.core.*;
+ *
+ * {@literal @}ExternalType(pkgName="eu.mihosoft.vvecmath")
+ * interface Vector3d {}
+ *
+ *
+ * interface MyModel {
+ *     Vector3d getLocation();
+ * }
+ * </code></pre>
  *
  * @author Michael Hoffer <info@michaelhoffer.de>
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-15/README.md">Tutorial on External Types</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.METHOD, ElementType.TYPE})
+@Target({ElementType.TYPE})
 public @interface ExternalType {
     String pkgName();
 }
