@@ -207,7 +207,9 @@ public class ChangesImpl implements Changes {
 
     private void fireChange(Change c, Object evt) {
 
-        for (ChangeListener cl : changeListeners) {
+        List<ChangeListener> lList = new ArrayList<>(changeListeners);
+
+        for (ChangeListener cl : lList) {
             cl.onChange(c);
         }
 
@@ -238,7 +240,9 @@ public class ChangesImpl implements Changes {
 
     private void fireChangeForNonRecursive(Change c, Object evt) {
 
-        for (ChangeListener cl : nonRecursiveChangeListeners) {
+        List<ChangeListener> lList = new ArrayList<>(nonRecursiveChangeListeners);
+
+        for (ChangeListener cl : lList) {
             cl.onChange(c);
         }
 
