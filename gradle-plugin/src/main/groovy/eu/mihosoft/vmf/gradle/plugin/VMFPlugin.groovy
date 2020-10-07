@@ -26,6 +26,7 @@ package eu.mihosoft.vmf.gradle.plugin
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Dependency
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.compile.JavaCompile
 
 import org.gradle.api.Plugin
@@ -273,16 +274,18 @@ class VMFPlugin implements Plugin<Project> {
                         vmfTask.group = "vmf"
                         vmfTask.inputFiles = vmfDirectoryDelegate.getVMF() as FileCollection;
                         vmfTask.outputFolder = outputDirectory;
-                        vmfTask.sourceSet = sourceSet;
+                        vmfTask.sourceSetCompileClassPath = sourceSet.compileClasspath;
                         vmfTask.sourceDirectorySet = sourceDirectorySet;
                         vmfTask.outputDirectoryModelDef = outputDirectoryModelDef;
+                        vmfTask.vmfClassPath = resolveClassPath.call();
                     }
                 });
 
-                // resolve classpath after it's initialized
-                vmfTask.doFirst {
-                    vmfTask.vmfClassPath = resolveClassPath.call();
-                }
+//                // resolve classpath after it's initialized
+//                // TODO check whether this is still valid and necessary for Gradle >= 7
+//                vmfTask.doFirst {
+//                    vmfTask.vmfClassPath = resolveClassPath.call();
+//                }
 
                 vmfTask.dependsOn(compileVMFModelDefTask)
 
@@ -341,12 +344,16 @@ class CompileVMFTask extends DefaultTask {
     @OutputDirectory
     File outputFolder;
 
-    SourceSet sourceSet;
+    @InputFiles
+    FileCollection sourceSetCompileClassPath;
+
+    @InputFiles
     SourceDirectorySet sourceDirectorySet;
 
     @OutputDirectory
     File outputDirectoryModelDef;
 
+    @InputFiles
     FileCollection vmfClassPath
 
     // Class<?> vmfClass;
@@ -389,7 +396,7 @@ class CompileVMFTask extends DefaultTask {
 
         // load VMF class (depending on version)
         def vmfCompileModelClassPath = []
-        sourceSet.compileClasspath.each { entry ->
+        sourceSetCompileClassPath.each { entry ->
             vmfCompileModelClassPath.add(entry.toURI().toURL())
         }
         vmfCompileModelClassPath.add(outputDirectoryModelDef.toURI().toURL())
