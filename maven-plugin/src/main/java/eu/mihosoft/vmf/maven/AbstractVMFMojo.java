@@ -5,7 +5,9 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
@@ -34,8 +36,9 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 			return;
 		}
 		File[] sourceFiles = getSourceFiles(sourceDirectory);
+		Map<File, List<File>> sourceModel = getSourceModel(sourceFiles);
 		// do nothing if no source files found
-		if (sourceFiles.length == 0) {
+		if (sourceModel.size() == 0) {
 			log.info("Nothing to do, no source files found in "
 				+ sourceDirectory);
 			return;
@@ -59,8 +62,13 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 			+ targetDirectory);
 		addToSources(targetDirectory.getAbsolutePath());
 		// generate VMF sources
+		File[] packages = sourceModel.keySet().toArray(new File[sourceModel.size()]);
 		try {
-			VMF.generate(targetDirectory, sourceFiles);
+			for (File packageName : packages) {
+				List<File> sourceFileList = sourceModel.get(packageName);
+				File[] sourceFileArray = sourceFileList.toArray(new File[sourceFileList.size()]);
+				VMF.generate(targetDirectory, sourceFileArray);
+			}
 		} catch (IOException e) {
 			StringBuffer sb = new StringBuffer();
 			sb.append(e.getMessage());
@@ -76,6 +84,25 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 		}
 	}
 
+	private Map<File, List<File>> getSourceModel(File[] sourceFiles) {
+		Map<File, List<File>> packageMap = new HashMap<File, List<File>>();
+		for (File sourceFile : sourceFiles) {
+			File file = sourceFile.getAbsoluteFile();
+			File parentFile = file.getParentFile();
+			if (!parentFile.getName().equals("vmfmodel")) {
+				System.out.println("Warning, wrong package ignored: " + parentFile.getName());
+				continue;
+			}
+			List<File> fileList = packageMap.get(parentFile);
+			if (fileList == null) {
+				fileList = new ArrayList<File>();
+				packageMap.put(parentFile, fileList);
+			}
+			fileList.add(sourceFile);
+		}
+		return packageMap;
+	}
+	
 	/**
 	 * Gets all source files from a source directory.
 	 * 
