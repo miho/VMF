@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	Usages:
+		mvn com.okta.example:example-maven-plugin:version
+		mvn example:version
+		mvn package -Dgit.command="echo Huhu"
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>eu.mihosoft.vmf</groupId>
+	<artifactId>vmf-maven-plugin-test</artifactId>
+	<version>0.1</version>
+	<packaging>jar</packaging>
+	<properties>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>eu.mihosoft.vmf</groupId>
+			<artifactId>vmf</artifactId>
+			<version>0.2.7.15</version>
+		</dependency>
+		<dependency>
+			<groupId>eu.mihosoft.vmf</groupId>
+			<artifactId>vmf-runtime</artifactId>
+			<version>0.2.7.15</version>
+		</dependency>
+	</dependencies>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>eu.mihosoft.vmf</groupId>
+				<artifactId>vmf-maven-plugin</artifactId>
+				<version>0.1</version>
+				<configuration>
+				</configuration>
+				<executions>
+					<execution>
+						<id>vmf-sources</id>
+						<goals>
+							<goal>vmf</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>vmf-test-sources</id>
+						<goals>
+							<goal>vmf-test</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>
