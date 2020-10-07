@@ -324,7 +324,7 @@ class VMFPlugin implements Plugin<Project> {
         });
 
         project.dependencies {
-            compile group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: VMF_VERSION
+            implementation group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: VMF_VERSION
         }
 
     }

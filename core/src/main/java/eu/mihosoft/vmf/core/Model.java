@@ -69,7 +69,7 @@ public class Model {
                     throw new RuntimeException("VMFModel annotation can only be defined once per model. Preferably at the top of the file. Annotated Interface: '" + iWithPkgAnn.getName()+"'");
                 }
 
-                System.out.println("-> @VMFModel found in interface '" + iWithPkgAnn.getName()+"'");
+                System.out.println("   -> @VMFModel found in interface '" + iWithPkgAnn.getName()+"'");
 
                 this.modelConfig = ModelConfig.fromAnnotation(modelAnn);
             }

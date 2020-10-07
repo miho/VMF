@@ -29,7 +29,7 @@ apply plugin: 'eu.mihosoft.vmf'
 idea {
     module {
         dependencies {
-            compile group: 'eu.mihosoft.vmf', name: 'vmf', version: commonProps.get("publication.version")
+            implementation group: 'eu.mihosoft.vmf', name: 'vmf', version: commonProps.get("publication.version")
         }
     }
 }
@@ -48,7 +48,7 @@ if (!hasProperty('mainClass')) {
 }
 
 wrapper {
-    gradleVersion = '6.5'
+    gradleVersion = '6.6'
 }
 
 repositories {
@@ -59,19 +59,19 @@ repositories {
 
 dependencies {
 
-    testCompile('junit:junit:4.12'){
+    testImplementation('junit:junit:4.12'){
         exclude group: 'org.hamcrest'
     }
 
-    testCompile 'org.hamcrest:hamcrest-library:1.3'
+    testImplementation 'org.hamcrest:hamcrest-library:1.3'
 
-    testCompile group: 'eu.mihosoft.vmf', name: 'vmf', version: commonProps.get("publication.version")
+    testImplementation group: 'eu.mihosoft.vmf', name: 'vmf', version: commonProps.get("publication.version")
 
-    compile group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: commonProps.get("publication.version")
-    compile group: 'eu.mihosoft.jcompiler', name: 'jcompiler', version: '0.4'
-    compile group: 'org.codehaus.groovy', name: 'groovy-console', version: '2.0.1'
-    
-    compile 'commons-jxpath:commons-jxpath:1.3'
+    implementation group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: commonProps.get("publication.version")
+    implementation group: 'eu.mihosoft.jcompiler', name: 'jcompiler', version: '0.4'
+    implementation group: 'org.codehaus.groovy', name: 'groovy-console', version: '2.0.1'
+
+    implementation 'commons-jxpath:commons-jxpath:1.3'
 }
 
 task run(type: JavaExec) {
