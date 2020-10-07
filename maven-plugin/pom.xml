@@ -5,7 +5,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.mihosoft.vmf</groupId>
 	<artifactId>vmf-maven-plugin</artifactId>
-	<version>0.1</version>
+	<version>0.3-SNAPSHOT</version>
 	<packaging>maven-plugin</packaging>
 	<url>http://www.mihosoft.eu</url>
 	<name>VMF Maven Plugin</name>
@@ -96,12 +96,12 @@
 		<dependency>
 			<groupId>eu.mihosoft.vmf</groupId>
 			<artifactId>vmf</artifactId>
-			<version>0.2.7.15</version>
+			<version>0.3-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>eu.mihosoft.vmf</groupId>
 			<artifactId>vmf-runtime</artifactId>
-			<version>0.2.7.15</version>
+			<version>0.3-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
