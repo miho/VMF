@@ -344,6 +344,7 @@ class CompileVMFTask extends DefaultTask {
     SourceSet sourceSet;
     SourceDirectorySet sourceDirectorySet;
 
+    @OutputDirectory
     File outputDirectoryModelDef;
 
     FileCollection vmfClassPath
