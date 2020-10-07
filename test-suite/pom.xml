@@ -5,9 +5,10 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.mihosoft.vmf</groupId>
 	<artifactId>test-suite</artifactId>
-	<version>0.1</version>
+	<version>${revision}</version>
 	<packaging>jar</packaging>
 	<properties>
+		<revision>0.0</revision>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -16,22 +17,17 @@
 		<dependency>
 			<groupId>eu.mihosoft.vmf</groupId>
 			<artifactId>vmf-runtime</artifactId>
-			<version>0.3-SNAPSHOT</version>
+			<version>${revision}</version>
 		</dependency>
 		<dependency>
 			<groupId>eu.mihosoft.vmf</groupId>
 			<artifactId>vmf</artifactId>
-			<version>0.3-SNAPSHOT</version>
+			<version>${revision}</version>
 		</dependency>
 		<dependency>
 			<groupId>eu.mihosoft.jcompiler</groupId>
 			<artifactId>jcompiler</artifactId>
 			<version>0.4</version>
-		</dependency>
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
-			<version>4.12</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
@@ -59,7 +55,7 @@
 			<plugin>
 				<groupId>eu.mihosoft.vmf</groupId>
 				<artifactId>vmf-maven-plugin</artifactId>
-				<version>0.3-SNAPSHOT</version>
+				<version>${revision}</version>
 				<configuration>
 				</configuration>
 				<executions>

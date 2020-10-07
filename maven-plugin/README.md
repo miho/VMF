@@ -32,7 +32,7 @@ Just add the plugin to use it with maven (get the latest version from [here](htt
 </build>
 ```
 
-and remember to refernce VMF jar files to use it:
+and remember to reference VMF jar files to use it:
 
 ```xml
 <dependencies>
@@ -51,8 +51,44 @@ and remember to refernce VMF jar files to use it:
 
 ## Building the VMF Maven Plugin
 
-### Maven
+Switch to the plugin directory in a shell on your system (bash or command). Then execute the comman given below.
+
+### Unix
 
 ```bash
-mvn install
+cd maven-plugin
+./maven.sh install
 ```
+
+### Windows
+
+```bat
+cd maven-plugin
+maven.bat install
+```
+
+## Prerequisites
+
+If not already done you must install VMF core and VM runtime into your local Maven repository before you can build the plugin.
+
+Switch to the core directory and invoke the corresponding Gradle task. Repeat this step after switching to the runtime directory.
+
+### Unix
+
+```bash
+cd core
+./maven.sh install
+cd ../runtime
+./maven.sh install
+```
+
+### Windows
+
+```bat
+cd core
+maven.bat install
+cd ..\runtime
+maven.bat install
+```
+
+You should be able to install the Maven plugin succesfully afterwards.

@@ -1,3 +1,27 @@
+/*
+ * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ * Copyright 2017 Samuel Michaelis. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ */
 package eu.mihosoft.vmf.maven;
 
 import java.io.File;
@@ -19,11 +43,13 @@ import org.apache.maven.project.MavenProject;
 import eu.mihosoft.vmf.VMF;
 
 /**
- * This abstract class is the base for the VMFMojos used to generate sources during Maven build.
+ * This abstract class is the base for the VMFMojos used to generate sources
+ * during Maven build.
  */
 public abstract class AbstractVMFMojo extends AbstractMojo {
 	/** The maven project. */
-	@Parameter(defaultValue = "${project}", required = true, readonly = true) protected MavenProject project;
+	@Parameter(defaultValue = "${project}", required = true, readonly = true)
+	protected MavenProject project;
 
 	@Override
 	public void execute() throws MojoExecutionException, MojoFailureException {
@@ -31,42 +57,37 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 		File sourceDirectory = getSourceDirectory();
 		// do nothing in case of missing source directory
 		if (!sourceDirectory.exists()) {
-			log.info("Source folder ignored as it does not exist:"
-				+ sourceDirectory);
+			log.info("Source folder ignored as it does not exist " + sourceDirectory);
 			return;
 		}
 		File[] sourceFiles = getSourceFiles(sourceDirectory);
 		Map<File, List<File>> sourceModel = getSourceModel(sourceFiles);
 		// do nothing if no source files found
 		if (sourceModel.size() == 0) {
-			log.info("Nothing to do, no source files found in "
-				+ sourceDirectory);
+			log.info("Nothing to do, no source files found in " + sourceDirectory);
 			return;
 		}
 		File targetDirectory = getTargetDirectory();
 		// create non-existant target directory
 		if (!targetDirectory.exists()) {
-			log.info("Creating VMF ouput directory for generated Java classes: "
-				+ targetDirectory);
+			log.info("Creating VMF ouput directory for generated Java classes " + targetDirectory);
 			boolean success = targetDirectory.mkdirs();
 			if (!success) {
-				log.error("VMF generation ignored, could not create vmf destination directory: "
-					+ targetDirectory);
+				log.error("VMF generation ignored, could not create vmf destination directory " + targetDirectory);
 				return;
 			}
 		}
-		// log some infos for user
-		log.info("Generating Java classes from vmf model: "
-			+ sourceDirectory
-			+ " => "
-			+ targetDirectory);
+		log.info("Generating source files from " + sourceFiles.length + " model file" + ((sourceFiles.length == 1) ? "" : "s") + " to "
+				+ targetDirectory);
 		addToSources(targetDirectory.getAbsolutePath());
 		// generate VMF sources
-		File[] packages = sourceModel.keySet().toArray(new File[sourceModel.size()]);
+		File[] packageFiles = sourceModel.keySet().toArray(new File[sourceModel.size()]);
 		try {
-			for (File packageName : packages) {
-				List<File> sourceFileList = sourceModel.get(packageName);
+			for (File packageFile : packageFiles) {
+				List<File> sourceFileList = sourceModel.get(packageFile);
 				File[] sourceFileArray = sourceFileList.toArray(new File[sourceFileList.size()]);
+				// log some infos for user
+				log.info("Generating Java classes from vmf model for package in " + packageFile.getParent());
 				VMF.generate(targetDirectory, sourceFileArray);
 			}
 		} catch (IOException e) {
@@ -90,7 +111,10 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 			File file = sourceFile.getAbsoluteFile();
 			File parentFile = file.getParentFile();
 			if (!parentFile.getName().equals("vmfmodel")) {
-				System.out.println("Warning, wrong package ignored: " + parentFile.getName());
+				Log log = getLog();
+				log.info("Warning, source files in directory " + parentFile.getParentFile().getPath()
+						+ " ignored (residing in wrong parent directory " + parentFile.getName()
+						+ ", expected vmfmodel)");
 				continue;
 			}
 			List<File> fileList = packageMap.get(parentFile);
@@ -102,7 +126,7 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 		}
 		return packageMap;
 	}
-	
+
 	/**
 	 * Gets all source files from a source directory.
 	 * 
@@ -119,7 +143,7 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 	 * Gets all source files from a source directory.
 	 * 
 	 * @param directory the source directory.
-	 * @param fileList file list where source files are added to.
+	 * @param fileList  file list where source files are added to.
 	 */
 	private void getSourceFiles(File directory, List<File> fileList) {
 		File[] sourceFiles = directory.listFiles(new FileFilter() {

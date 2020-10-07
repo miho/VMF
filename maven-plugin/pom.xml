@@ -1,11 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+Copyright 2017 Samuel Michaelis. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+If you use this software for scientific research then please cite the following publication(s):
+
+M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+a framework for declarative GUI programming on the Java platform.
+Computing and Visualization in Science, 2013, 16(4),
+181–192. http://doi.org/10.1007/s00791-014-0230-y
+-->
+
 <project xmlns="http://maven.apache.org/POM/4.0.0"
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>eu.mihosoft.vmf</groupId>
 	<artifactId>vmf-maven-plugin</artifactId>
-	<version>0.3-SNAPSHOT</version>
+	<version>${revision}</version>
 	<packaging>maven-plugin</packaging>
 	<url>http://www.mihosoft.eu</url>
 	<name>VMF Maven Plugin</name>
@@ -18,6 +44,7 @@
 		</license>
 	</licenses>
 	<properties>
+		<revision>0.0</revision>
 		<mojo.java.target>1.8</mojo.java.target>
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
@@ -31,7 +58,8 @@
 				<artifactId>maven-plugin-plugin</artifactId>
 				<version>3.6.0</version>
 				<configuration>
-					<!-- define the prefix for maven, goals can be addressed with vmf:goal syntax. -->
+					<!-- define the prefix for maven, goals can be addressed with vmf:goal 
+						syntax. -->
 					<goalPrefix>vmf</goalPrefix>
 					<skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
 				</configuration>
@@ -51,10 +79,8 @@
 					</execution>
 				</executions>
 			</plugin>
-			<!--
-			How to avoid error with maven site: java.lang.ClassNotFoundException: org.apache.maven.doxia.siterenderer.DocumentContent
-			from: https://mkyong.com/maven/mvn-site-java-lang-classnotfoundexception-org-apache-maven-doxia-siterenderer-documentcontent/
-			-->
+			<!-- How to avoid error with maven site: java.lang.ClassNotFoundException: 
+				org.apache.maven.doxia.siterenderer.DocumentContent from: https://mkyong.com/maven/mvn-site-java-lang-classnotfoundexception-org-apache-maven-doxia-siterenderer-documentcontent/ -->
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-site-plugin</artifactId>
@@ -96,12 +122,12 @@
 		<dependency>
 			<groupId>eu.mihosoft.vmf</groupId>
 			<artifactId>vmf</artifactId>
-			<version>0.3-SNAPSHOT</version>
+			<version>${revision}</version>
 		</dependency>
 		<dependency>
 			<groupId>eu.mihosoft.vmf</groupId>
 			<artifactId>vmf-runtime</artifactId>
-			<version>0.3-SNAPSHOT</version>
+			<version>${revision}</version>
 		</dependency>
 		<dependency>
 			<groupId>junit</groupId>
