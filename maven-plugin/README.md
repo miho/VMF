@@ -165,3 +165,10 @@ maven.bat install
 ```
 
 The VMF Maven Plugin should be installed into your local Maven repository by this.
+
+---
+**NOTE**
+
+We use script files here (maven.bat and maven.sh) in order to ensure that the right project version (from ../config/common.properties) is parsed in order to replace the dummy project version in our pom.
+
+---
