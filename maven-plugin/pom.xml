@@ -38,7 +38,6 @@ Computing and Visualization in Science, 2013, 16(4),
 	<description>Generates Java implementation classes from VMF model definitions. VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations.</description>
 	<licenses>
 		<license>
-			<!-- to be clarified! -->
 			<name>The Apache Software License, Version 2.0</name>
 			<url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
 		</license>

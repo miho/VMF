@@ -45,6 +45,49 @@ import eu.mihosoft.vmf.VMF;
 /**
  * This abstract class is the base for the VMFMojos used to generate sources
  * during Maven build.
+ * 
+ * There are two sub classes of this class
+ * <ul>
+ *   <li>GenerateVMFSourcesMojo - generates classes from models in project source tree</li>
+ *   <li>GenerateVMFTestSourcesMojo - generates classes from models in project test tree</li>
+ * </ul>
+ * 
+ * <p> The plugin execution is invoked with a
+ * <ul>
+ *   <li>source folder - the folder containing the model files (Java source files)</li>
+ *   <li>target folder - the destination folder where generated code is written to</li>
+ * </ul>
+ * 
+ * <p> The source folder with its sub directories is scanned for model files with extension .java.
+ * By convention the parent directory of a model file must be named "vmfmodel".
+ * All other model files are ignored and a warning is logged.
+ * 
+ * <p>After collecting all model files below the source directory they are grouped by their
+ * parent directory.
+ * 
+ * <ul>
+ *   <li>VMF/test-suite/src/test/vmf/eu/mihosoft/vmftest/complex/account/vmfmodel
+ *     <ul>
+ *       <li>Account.java</li>
+ *     </ul>
+ *   </li>
+ *   <li>VMF/test-suite/src/test/vmf/eu/mihosoft/vmftest/annotations/vmfmodel
+ *     <ul>
+ *       <li>AnnotatedModel.java</li>
+ *     </ul>
+ *   </li>
+ *   <li>VMF/test-suite/src/test/vmf/eu/mihosoft/vmftest/complex/unparsermodel/vmfmodel
+ *     <ul>
+ *       <li>GrammarLangModel.java</li>
+ *       <li>UnparserModel.java</li>
+ *     </ul>
+ *   </il>
+ * </ul>
+ * 
+ * <p>For every group code (model directory) code generation is executed.
+ * 
+ * <p>The generated target folder is added to the list of the Java source folders of the project afterwards.
+ * 
  */
 public abstract class AbstractVMFMojo extends AbstractMojo {
 	/** The maven project. */
@@ -54,12 +97,14 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 	@Override
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		Log log = getLog();
+		// get source directory
 		File sourceDirectory = getSourceDirectory();
 		// do nothing in case of missing source directory
 		if (!sourceDirectory.exists()) {
 			log.info("Source folder ignored as it does not exist " + sourceDirectory);
 			return;
 		}
+		// get all source files from source directory
 		File[] sourceFiles = getSourceFiles(sourceDirectory);
 		Map<File, List<File>> sourceModel = getSourceModel(sourceFiles);
 		// do nothing if no source files found
@@ -67,6 +112,7 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 			log.info("Nothing to do, no source files found in " + sourceDirectory);
 			return;
 		}
+		// get target directory
 		File targetDirectory = getTargetDirectory();
 		// create non-existant target directory
 		if (!targetDirectory.exists()) {
@@ -77,13 +123,17 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 				return;
 			}
 		}
+		// start generation
 		log.info("Generating source files from " + sourceFiles.length + " model file" + ((sourceFiles.length == 1) ? "" : "s") + " to "
 				+ targetDirectory);
-		addToSources(targetDirectory.getAbsolutePath());
+		// add target folder to project sources
+		addGeneratedFolderToProject(getTargetDirectory().getAbsolutePath());
 		// generate VMF sources
+		// iterate over all packages an run generation process
 		File[] packageFiles = sourceModel.keySet().toArray(new File[sourceModel.size()]);
 		try {
 			for (File packageFile : packageFiles) {
+				// run generation process fpr package
 				List<File> sourceFileList = sourceModel.get(packageFile);
 				File[] sourceFileArray = sourceFileList.toArray(new File[sourceFileList.size()]);
 				// log some infos for user
@@ -105,6 +155,13 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 		}
 	}
 
+	/**
+	 * Converts the list of source files to a model map.
+	 * <p>For every model directory all contained model sources
+	 * are collected and stored with the model directory as key.
+	 * @param sourceFiles the complete list of all source file.
+	 * @return map with model directory and corresponding model sources.
+	 */
 	private Map<File, List<File>> getSourceModel(File[] sourceFiles) {
 		Map<File, List<File>> packageMap = new HashMap<File, List<File>>();
 		for (File sourceFile : sourceFiles) {
@@ -195,10 +252,9 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 	/**
 	 * Adds the target directory with Java source files to the compile path.
 	 * 
-	 * @param sourcePath the target directory with Java source files to the compile
-	 *                   path.
+	 * @param folder the generated folder path.
 	 */
-	protected abstract void addToSources(String sourcePath);
+	protected abstract void addGeneratedFolderToProject(String folder);
 
 	/**
 	 * Gets the Maven project.

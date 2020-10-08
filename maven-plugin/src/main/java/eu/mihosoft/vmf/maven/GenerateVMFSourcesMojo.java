@@ -76,7 +76,7 @@ public class GenerateVMFSourcesMojo extends AbstractVMFMojo {
 	}
 
 	@Override
-	protected void addToSources(String sourcePath) {
-		getProject().addCompileSourceRoot(sourcePath);
+	protected void addGeneratedFolderToProject(String folder) {
+		getProject().addTestCompileSourceRoot(folder);
 	}
 }

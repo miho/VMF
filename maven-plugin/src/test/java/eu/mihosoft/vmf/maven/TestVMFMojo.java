@@ -53,7 +53,7 @@ public class TestVMFMojo {
 		mojo.setTargetDirectory(targetDirectory);
 		mojo.setProject(new MavenProject());
 		mojo.execute();
-		List<String> compileSourceRoots = mojo.getProject().getCompileSourceRoots();
+		List<String> compileSourceRoots = mojo.getProject().getTestCompileSourceRoots();
 		assertEquals("Unexpected number of source roots encountered", 1, compileSourceRoots.size());
 		assertEquals("Wrong source directory found", compileSourceRoots.get(0), targetDirectory.getAbsolutePath());
 	}
