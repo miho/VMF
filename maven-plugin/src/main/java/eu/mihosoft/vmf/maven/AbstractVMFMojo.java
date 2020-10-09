@@ -250,7 +250,7 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 	protected abstract void setTargetDirectory(File targetDirectory);
 
 	/**
-	 * Adds the target directory with Java source files to the compile path.
+	 * Adds the target directory with generated Java source files to the compile path.
 	 * 
 	 * @param folder the generated folder path.
 	 */

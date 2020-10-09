@@ -39,7 +39,7 @@ import org.apache.maven.plugins.annotations.Parameter;
  * <li>vmf.testSourceDirectory - the vmf model test source directory (default:
  * ${basedir}/src/test/vmf)</li>
  * <li>vmf.testTargetDirectory - the directory with generated Java test files (default:
- * ${project.build.directory}/generated-sources/test-vmf)</li>
+ * ${project.build.directory}/generated-test-sources/test-vmf)</li>
  * </ul>
  * </p>
  * 

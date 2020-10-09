@@ -33,7 +33,7 @@ Computing and Visualization in Science, 2013, 16(4),
 	<artifactId>vmf-maven-plugin</artifactId>
 	<version>${revision}</version>
 	<packaging>maven-plugin</packaging>
-	<url>http://www.mihosoft.eu</url>
+	<url>https://github.com/miho/VMF</url>
 	<name>VMF Maven Plugin</name>
 	<description>Generates Java implementation classes from VMF model definitions. VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations.</description>
 	<licenses>
@@ -57,8 +57,7 @@ Computing and Visualization in Science, 2013, 16(4),
 				<artifactId>maven-plugin-plugin</artifactId>
 				<version>3.6.0</version>
 				<configuration>
-					<!-- define the prefix for maven, goals can be addressed with vmf:goal 
-						syntax. -->
+					<!-- define the prefix for maven, goals can be addressed with vmf:goal syntax. -->
 					<goalPrefix>vmf</goalPrefix>
 					<skipErrorNoDescriptorsFound>true</skipErrorNoDescriptorsFound>
 				</configuration>

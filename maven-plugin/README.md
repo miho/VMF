@@ -55,41 +55,99 @@ A full example can be found in the test suite folder of the VMF project.
 
 ## Getting Help
 
-The Apache Maven Help Plugin can be used to get a full description of the available goals and the usage of
-the VMF Maven Plugin:
+The Apache Maven Help Plugin can be used to get a full description of the available goals and the usage of the VMF Maven Plugin:
 
-	mvn help:describe -DgroupId=eu.mihosoft.vmf -DartifactId=vmf-maven-plugin -Dversion=0.2.8.0
-	[INFO] VMF Maven Plugin 0.2.8.0
-	  Generates Java implementation classes from VMF model definitions. VMF is a
-	  lightweight modeling framework. It conveniently translates annotated Java
-	  interfaces into powerful implementations.
+	mvn help:describe -DgroupId=eu.mihosoft.vmf -DartifactId=vmf-maven-plugin -Dversion=0.2.8.0 -Ddetail=true
+	Name: VMF Maven Plugin
+	Description: Generates Java implementation classes from VMF model
+	  definitions. VMF is a lightweight modeling framework. It conveniently
+	  translates annotated Java interfaces into powerful implementations.
+	Group Id: eu.mihosoft.vmf
+	Artifact Id: vmf-maven-plugin
+	Version: 0.2.8.0
+	Goal Prefix: vmf
+
+	This plugin has 3 goals:
+
+	vmf:help
+	  Description: Display help information on vmf-maven-plugin.
+	    Call mvn vmf:help -Ddetail=true -Dgoal=<goal-name> to display parameter
+	    details.
+	  Implementation: eu.mihosoft.vmf.maven.HelpMojo
+	  Language: java
+
+	  Available parameters:
+
+	    detail (Default: false)
+	      User property: detail
+	      If true, display all settable properties for each goal.
+
+	    goal
+	      User property: goal
+	      The name of the goal for which to show help. If unspecified, all goals
+	      will be displayed.
+
+	    indentSize (Default: 2)
+	      User property: indentSize
+	      The number of spaces per indentation level, should be positive.
+
+	    lineLength (Default: 80)
+	      User property: lineLength
+	      The maximum length of a display line, should be positive.
 
 	vmf:vmf
-	  Generates Java implementation classes from source files in VMF model
-	  definition during Maven build.
-	  Parameters:
-	  
-	  - vmf.sourceDirectory - the vmf model source directory (default:
-	    ${basedir}/src/main/vmf)
-	  - vmf.targetDirectory - the directory with generated Java files (default:
-	    ${project.build.directory}/generated-sources/java-vmf)
+	  Description: Generates Java implementation classes from source files in VMF
+	    model definition during Maven build.
+	    Parameters:
+	    
+	    - vmf.sourceDirectory - the vmf model source directory (default:
+	      ${basedir}/src/main/vmf)
+	    - vmf.targetDirectory - the directory with generated Java files (default:
+	      ${project.build.directory}/generated-sources/java-vmf)
+	  Implementation: eu.mihosoft.vmf.maven.GenerateVMFSourcesMojo
+	  Language: java
+	  Bound to phase: generate-sources
 
 	  Available parameters:
 
 	    sourceDirectory (Default: ${basedir}/src/main/vmf)
-	      Source directory containing the vmf model files.
 	      User property: vmf.sourceDirectory
+	      Source directory containing the vmf model files.
 
 	    targetDirectory (Default:
 	    ${project.build.directory}/generated-sources/java-vmf)
-	      The target folder where the generated Java classes will be saved to.
 	      User property: vmf.targetDirectory
+	      The target folder where the generated Java classes will be saved to.
+
+	vmf:vmf-test
+	  Description: Generates Java implementation classes from test source files
+	    in VMF model definition during Maven build.
+	    Parameters:
+	    
+	    - vmf.testSourceDirectory - the vmf model test source directory (default:
+	      ${basedir}/src/test/vmf)
+	    - vmf.testTargetDirectory - the directory with generated Java test files
+	      (default: ${project.build.directory}/generated-sources/test-vmf)
+	  Implementation: eu.mihosoft.vmf.maven.GenerateVMFTestSourcesMojo
+	  Language: java
+	  Bound to phase: generate-test-sources
+
+	  Available parameters:
+
+	    sourceDirectory (Default: ${basedir}/src/test/vmf)
+	      User property: vmf.testSourceDirectory
+	      The source directory containing the vmf test model files.
+
+	    targetDirectory (Default:
+	    ${project.build.directory}/generated-test-sources/java-vmf)
+	      User property: vmf.testTargetDirectory
+	      The target folder where the generated Java test classes will be saved to.
 
 ## FAQ
 
 ### Generating Eclipse .classpath File
 
-I am currently facing a problem when using the Apache Maven Eclipse Plugin to generate Eclipse Classpath. When models are located in the test source tree of a Maven project the generated target folder is not added to the Eclipse classpath by default. An invocation of
+When using the Apache Maven Eclipse Plugin to generate Eclipse Classpath there is a problem with the test source tree. For models located in the test source tree of a Maven project the generated target folder is not added to the Eclipse classpath by default. An invocation of
 
 	mvn eclipse:eclipse
 
@@ -107,7 +165,7 @@ Eclipse might complain about compile errors in the generated code like
 
 	The target type of this expression is not a well formed parameterized type due to bound(s) mismatch	OwnerImpl.java	/test-suite/target/generated-test-sources/java-vmf/eu/mihosoft/vmftest/complex/horses/impl	line 118	Java Problem
 
-I found several links to a similar problem 
+Several links to a similar problem can be found
 
 * the [Eclipse issue 425278](https://bugs.eclipse.org/bugs/show_bug.cgi?id=425278 "425278")
 * with a reference to an [Open JDK bug JDK-8033810](https://bugs.openjdk.java.net/browse/JDK-8033810 "JDK-8033810")
