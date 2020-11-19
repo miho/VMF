@@ -7,3 +7,5 @@
 /**/.project
 /**/.settings/
 /**/.vscode/
+
+/maven-plugin/target/

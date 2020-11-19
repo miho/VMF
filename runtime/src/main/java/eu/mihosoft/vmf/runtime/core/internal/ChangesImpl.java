@@ -47,6 +47,7 @@ public class ChangesImpl implements Changes {
     private final VList<ChangeListener> changeListeners = VList.newInstance(new ArrayList<>());
     private final VList<ChangeListener> nonRecursiveChangeListeners = VList.newInstance(new ArrayList<>());
 
+    private VList<Change> transactionChanges;
 
     private final VList<Change> all = VList.newInstance(new ArrayList<>());
     private final VList<Change> unmodifiableAll
@@ -449,7 +450,7 @@ public class ChangesImpl implements Changes {
         private final List<Change> changes;
 
         public TransactionImpl(List<Change> changes) {
-            this.changes = changes;
+            this.changes = new ArrayList<>(changes);
 
             // try to reduce property changes
             // TODO 14.10.2019
