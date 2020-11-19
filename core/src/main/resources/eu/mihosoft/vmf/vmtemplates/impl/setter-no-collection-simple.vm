@@ -5,9 +5,28 @@
   // ----------------------------------------
   // return early if identical value has been set
   // ----------------------------------------
+#if(
+    (${prop.typeName}=="boolean")
+  ||(${prop.typeName}=="byte")
+  ||(${prop.typeName}=="char")
+  ||(${prop.typeName}=="short")
+  ||(${prop.typeName}=="int")
+  ||(${prop.typeName}=="long")
+  ||(${prop.typeName}=="float")
+  ||(${prop.typeName}=="double")
+)
+  // check for value changes: primitive value (using '==')
+  // type: ${prop.typeName}
   if (this.__vmf_prop_${prop.name} == ${prop.name}) {
     return;
   }
+#else
+  // check for value changes: regular object value (using equals)
+  // type: ${prop.typeName}
+  if ((this.__vmf_prop_${prop.name} == null)? ${prop.name} == null : this.__vmf_prop_${prop.name}.equals(${prop.name})) {
+    return;
+  }
+#end  
   // ----------------------------------------
 
   // ----------------------------------------
