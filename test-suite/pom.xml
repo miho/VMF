@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!--
+Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+Copyright 2017 Samuel Michaelis. All rights reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+If you use this software for scientific research then please cite the following publication(s):
+
+M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+a framework for declarative GUI programming on the Java platform.
+Computing and Visualization in Science, 2013, 16(4),
+181–192. http://doi.org/10.1007/s00791-014-0230-y
+-->
+
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>eu.mihosoft.vmf</groupId>
+	<artifactId>test-suite</artifactId>
+	<version>${revision}</version>
+	<packaging>jar</packaging>
+	<properties>
+		<revision>0.0</revision>
+		<maven.compiler.source>1.8</maven.compiler.source>
+		<maven.compiler.target>1.8</maven.compiler.target>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+	<dependencies>
+		<dependency>
+			<groupId>eu.mihosoft.vmf</groupId>
+			<artifactId>vmf-runtime</artifactId>
+			<version>${revision}</version>
+		</dependency>
+		<dependency>
+			<groupId>eu.mihosoft.vmf</groupId>
+			<artifactId>vmf</artifactId>
+			<version>${revision}</version>
+		</dependency>
+		<dependency>
+			<groupId>eu.mihosoft.jcompiler</groupId>
+			<artifactId>jcompiler</artifactId>
+			<version>0.4</version>
+		</dependency>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.12</version>
+		</dependency>
+		<dependency>
+			<groupId>org.hamcrest</groupId>
+			<artifactId>hamcrest-library</artifactId>
+			<version>1.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.codehaus.groovy</groupId>
+			<artifactId>groovy-console</artifactId>
+			<version>2.0.1</version>
+		</dependency>
+		<dependency>
+			<groupId>commons-jxpath</groupId>
+			<artifactId>commons-jxpath</artifactId>
+			<version>1.3</version>
+		</dependency>
+	</dependencies>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>eu.mihosoft.vmf</groupId>
+				<artifactId>vmf-maven-plugin</artifactId>
+				<version>${revision}</version>
+				<configuration>
+				</configuration>
+				<executions>
+					<execution>
+						<id>vmf-sources</id>
+						<goals>
+							<goal>vmf</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>vmf-test-sources</id>
+						<goals>
+							<goal>vmf-test</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>
