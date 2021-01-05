@@ -9,3 +9,4 @@
 /**/.vscode/
 
 /maven-plugin/target/
+/test-suite/target/

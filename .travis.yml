@@ -45,6 +45,10 @@ script:
     - cd gradle-plugin
     - sh ./gradlew clean test publishToMavenLocal
     - cd $CWD
+    - cd maven-plugin
+    - sh ./maven.sh install
+    - cd $CWD
     - cd test-suite
     - sh ./gradlew clean test --stacktrace
+    - sh ./maven.sh test
     - cd $CWD
