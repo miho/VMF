@@ -71,4 +71,9 @@ class ModelVersionImpl implements ModelVersion {
         result = 31 * result + (int) (modelVersion ^ (modelVersion >>> 32));
         return result;
     }
+
+    @Override
+    public String toString() {
+        return String.format("ModelVersion{version: %d, timestamp: %d}", modelVersion, timestamp);
+    }
 }
