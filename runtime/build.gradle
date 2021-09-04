@@ -11,11 +11,11 @@ plugins {
 ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply from: 'gradle/publishing.gradle'
 
 wrapper {
-  gradleVersion = '6.7'
+  gradleVersion = '7.2'
 }
 
 sourceCompatibility = '1.8'
@@ -42,9 +42,9 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.13.1'
-    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3'
-    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3', classifier: 'sources'
+    testImplementation group: 'junit', name: 'junit', version: '4.13.1'
+    api group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3'
+    implementation group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3', classifier: 'sources'
 }
 
 jar {
