@@ -126,7 +126,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     // map event to read-only (source, oldValue, newValue)
     java.beans.PropertyChangeListener readOnlyListener = evt -> {
       l.propertyChange(new java.beans.PropertyChangeEvent(
-        evt.getSource() instanceof ${VMFPKG}.VObject ? ((${VMFPKG}.VObject)evt.getSource()).asReadOnly() : evt.getSource(),
+        evt.getSource()   instanceof ${VMFPKG}.VObject ? ((${VMFPKG}.VObject)evt.getSource()).asReadOnly()   : evt.getSource(),
         evt.getPropertyName(),
         evt.getOldValue() instanceof ${VMFPKG}.VObject ? ((${VMFPKG}.VObject)evt.getOldValue()).asReadOnly() : evt.getOldValue(),
         evt.getNewValue() instanceof ${VMFPKG}.VObject ? ((${VMFPKG}.VObject)evt.getNewValue()).asReadOnly() : evt.getNewValue()

@@ -32,14 +32,32 @@
     /**
      * Sets the '<em><b>${prop.name}</b></em>' property of this builder.
      * @param ${prop.name} value to set
+     * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+     * <p>${prop.customDocumentation}</p>
+#else
+     * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+     * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+     * <!-- vmf-end-model-doc -->
      * @return this builder
+     * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
      */
 #if($prop.propType == "COLLECTION")
     public Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name});
     /**
      * Sets the '<em><b>${prop.name}</b></em>' property of this builder.
      * @param ${prop.name} values to set
+     * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+     * <p>${prop.customDocumentation}</p>
+#else
+     * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+     * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+     * <!-- vmf-end-model-doc -->
      * @return this builder
+     * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
      */
     public Builder with${prop.nameWithUpperCase}(${prop.genericPackageName}.${prop.genericTypeName}... ${prop.name});
 #else## #if($prop.propType == "COLLECTION")
