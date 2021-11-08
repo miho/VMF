@@ -117,14 +117,32 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
 #end // end for each property
 
+  private final java.util.Map<java.beans.PropertyChangeListener, java.beans.PropertyChangeListener>
+    readOnlyListenerMap = new java.util.HashMap<>();
+
   @Override
   public void addPropertyChangeListener(java.beans.PropertyChangeListener l) {
-    ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).addPropertyChangeListener(l);
+
+    // map event to read-only (source, oldValue, newValue)
+    java.beans.PropertyChangeListener readOnlyListener = evt -> {
+      l.propertyChange(new java.beans.PropertyChangeEvent(
+        evt.getSource() instanceof ${VMFPKG}.VObject ? ((${VMFPKG}.VObject)evt.getSource()).asReadOnly() : evt.getSource(),
+        evt.getPropertyName(),
+        evt.getOldValue() instanceof ${VMFPKG}.VObject ? ((${VMFPKG}.VObject)evt.getOldValue()).asReadOnly() : evt.getOldValue(),
+        evt.getNewValue() instanceof ${VMFPKG}.VObject ? ((${VMFPKG}.VObject)evt.getNewValue()).asReadOnly() : evt.getNewValue()
+      ));
+    };
+
+    readOnlyListenerMap.put(l, readOnlyListener);
+    ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).addPropertyChangeListener(readOnlyListener);
   }
 
   @Override
   public void removePropertyChangeListener(java.beans.PropertyChangeListener l) {
-    ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).removePropertyChangeListener(l);
+    java.beans.PropertyChangeListener readOnlyListener = readOnlyListenerMap.get(l);
+    if(readOnlyListener!=null) {
+      ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).removePropertyChangeListener(readOnlyListener);
+    }
   }
 
   @Override
@@ -250,6 +268,18 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
               this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
           }
         };
+      }
+
+      private ${VMFPKG_INT}.ChangesImpl changes;
+
+      @Override
+      public eu.mihosoft.vmf.runtime.core.Changes changes() {
+        if (changes==null) {
+          changes = new ${VMFPKG_INT}.ChangesImpl();
+          changes.setModel(${type.readOnlyImplementation.typeName}.this);
+        }
+
+        return changes;
       }
 
       private ${VMFPKG_INT}.ReflectImpl reflect;
