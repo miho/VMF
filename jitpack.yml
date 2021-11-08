@@ -5,5 +5,5 @@ before_install:
 install:
    - echo "Running the install command"
    - ./build-and-test-all.sh
-env:
-  #  MYVAR: "custom environment variable"
+#env:
+#  MYVAR: "custom environment variable"
