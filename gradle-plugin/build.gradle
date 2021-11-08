@@ -21,7 +21,7 @@ apply plugin: 'groovy'
 apply from: 'gradle/publishing.gradle'
 
 repositories {
-    jcenter()
+    maven { url 'https://jitpack.io' }
     mavenCentral()
     mavenLocal()
 }
@@ -59,7 +59,7 @@ task writeVersionInfo() {
         buildInfoCode.getParentFile().mkdirs()
         buildInfoCode.write("package eu.mihosoft.vmf.gradle.plugin.constants;\n"
                 + "public class Constants {\n"
-                + "  public static final String VMF_VERSION = \"${project.commonProps.get("publication.version")}\";\n"
+                + "  public static String VMF_VERSION = \"${project.commonProps.get("publication.version")}\";\n"
                 + "}\n"
         )
     }
