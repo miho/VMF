@@ -2,6 +2,7 @@ VMF
 =======
 
 [![Javadocs](https://www.javadoc.io/badge/eu.mihosoft.vmf/vmf.svg?color=blue&label=javadoc-core)](https://www.javadoc.io/doc/eu.mihosoft.vmf/vmf) [![Javadocs](https://www.javadoc.io/badge/eu.mihosoft.vmf/vmf-runtime.svg?color=blue&label=javadoc-runtime)](https://www.javadoc.io/doc/eu.mihosoft.vmf/vmf-runtime)
+[![](https://jitpack.io/v/miho/VMF.svg)](https://jitpack.io/#miho/VMF)
 ![VMF CI](https://github.com/miho/VMF/workflows/VMF%20CI/badge.svg)
 [![Join the chat at https://gitter.im/VMF_/Lobby](https://badges.gitter.im/VMF_/Lobby.svg)](https://gitter.im/VMF_/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 <a href="https://foojay.io/today/works-with-openjdk">
