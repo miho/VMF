@@ -1,9 +1,0 @@
-jdk:
-  - openjdk11
-before_install:
-   - echo "Running the pre-install commands"
-install:
-   - echo "Running the install command"
-   - ./build-and-test-all.sh
-#env:
-#  MYVAR: "custom environment variable"
