@@ -1,23 +1,23 @@
 // -----------------------------------------------------------------------------
 // publishing information
 // -----------------------------------------------------------------------------
-ext.publishing.artifactId =  'vmf-gradle-plugin'
-ext.publishing.groupId    =  'eu.mihosoft.vmf'
-ext.publishing.versionId  =  ext.commonProps.get("publication.version")
+ext.publishingInfo.artifactId =  'vmf-gradle-plugin'
+ext.publishingInfo.groupId    =  'eu.mihosoft.vmf'
+ext.publishingInfo.versionId  =  ext.commonProps.get("publication.version")
 
-ext.publishing.developerName         = 'Michael Hoffer'
-ext.publishing.developerAlias        = 'miho'
-ext.publishing.developerEmail        = 'info@michaelhoffer.de'
-ext.publishing.inceptionYear         = '2018'
+ext.publishingInfo.developerName         = 'Michael Hoffer'
+ext.publishingInfo.developerAlias        = 'miho'
+ext.publishingInfo.developerEmail        = 'info@michaelhoffer.de'
+ext.publishingInfo.inceptionYear         = '2018'
 
-ext.publishing.desc                  = 'VMF Gradle Plugin'
-ext.publishing.license               = 'Apache-2.0'
-ext.publishing.licenseUrl            = 'https://github.com/miho/VMF/blob/master/LICENSE'
-ext.publishing.labels                = ['vmf', 'modeling', 'vmf', 'modeling framework', 'data model', 'vrl']
-ext.publishing.websiteUrl            = 'https://github.com/miho/VMF'
-ext.publishing.issueTrackerUrl       = 'https://github.com/miho/VMF/issues'
-ext.publishing.vcsUrl                = 'https://github.com/miho/VMF.git'
+ext.publishingInfo.desc                  = 'VMF Gradle Plugin'
+ext.publishingInfo.license               = 'Apache-2.0'
+ext.publishingInfo.licenseUrl            = 'https://github.com/miho/VMF/blob/master/LICENSE'
+ext.publishingInfo.labels                = ['vmf', 'modeling', 'vmf', 'modeling framework', 'data model', 'vrl']
+ext.publishingInfo.websiteUrl            = 'https://github.com/miho/VMF'
+ext.publishingInfo.issueTrackerUrl       = 'https://github.com/miho/VMF/issues'
+ext.publishingInfo.vcsUrl                = 'https://github.com/miho/VMF.git'
 
-ext.publishing.gitHubMavenRepo       = "https://maven.pkg.github.com/miho/vmf"
+ext.publishingInfo.gitHubMavenRepo       = "https://maven.pkg.github.com/miho/vmf"
 
-ext.publishing.pomName               =  ext.publishing.artifactId
+ext.publishingInfo.pomName               =  ext.publishingInfo.artifactId

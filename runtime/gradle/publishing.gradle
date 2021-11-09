@@ -1,9 +1,9 @@
 // -----------------------------------------------------------------------------
 // Collect publishing information
 // -----------------------------------------------------------------------------
-ext.publishing = [:]
+ext.publishingInfo = [:]
 
-ext.publishing.pomName =  ext.publishing.artifactId
+ext.publishingInfo.pomName =  ext.publishingInfo.artifactId
 
 apply from: "gradle/project-info.gradle"
 apply plugin: 'signing'
@@ -53,26 +53,26 @@ jar {
 
 
 def pomConfig = {
-    name ext.publishing.pomName
-    description ext.publishing.desc
-    url ext.publishing.websiteUrl
-    inceptionYear ext.publishing.inceptionYear
+    name ext.publishingInfo.pomName
+    description ext.publishingInfo.desc
+    url ext.publishingInfo.websiteUrl
+    inceptionYear ext.publishingInfo.inceptionYear
     licenses {
         license([:]) {
-            name ext.publishing.license
-            url ext.publishing.licenseUrl
+            name ext.publishingInfo.license
+            url ext.publishingInfo.licenseUrl
             distribution 'repo'
         }
     }
     scm {
-        url ext.publishing.vcsUrl
-        connection ext.publishing.vcsUrl
-        developerConnection ext.publishing.vcsUrl
+        url ext.publishingInfo.vcsUrl
+        connection ext.publishingInfo.vcsUrl
+        developerConnection ext.publishingInfo.vcsUrl
     }
     developers {
         developer {
-            id ext.publishing.developerNameAlias
-            name ext.publishing.developerName
+            id ext.publishingInfo.developerNameAlias
+            name ext.publishingInfo.developerName
         }
     }
 }
@@ -92,7 +92,7 @@ publishing {
             // Replace OWNER and REPOSITORY with your GitHub username/repository
             // (must be both lowercase according to the documenations)
             // url = uri("https://maven.pkg.github.com/OWNER/REPOSITORY")
-            url = uri(ext.publishing.gitHubMavenRepo)
+            url = uri(project.findProperty('publishingInfo').gitHubMavenRepo)
             credentials {
                 // Make sure to generate a token with write-packages and read-packages permission:
                 // https://github.com/settings/tokens/new
@@ -137,42 +137,33 @@ publishing {
 
     publications {
         mavenJava(MavenPublication) {
-            groupId publishing.groupId
-            artifactId publishing.artifactId
-            version publishing.versionId
+            groupId publishingInfo.groupId
+            artifactId publishingInfo.artifactId
+            version publishingInfo.versionId
             from components.java
             artifact sourcesJar
             artifact javadocJar
 
             pom.withXml {
                 def root = asNode()
-                root.appendNode 'description', publishing.desc
+                root.appendNode 'description', publishingInfo.desc
                 root.children().last() + pomConfig
             }
         }
     }
 }
 
-// TODO for some reason 'sign publications.publishing' is null, we search for publications manually
+// TODO for some reason 'sign publishing.publications' is null, we search for publications manually
 if(
-project.findProperty("signing.secretKeyRingFile")
+        project.findProperty("signing.secretKeyRingFile")
         && project.findProperty("signing.password")
         && project.findProperty("signing.keyId")
 ) {
-    afterEvaluate {
-        // find publications
-        def myPublications = [];
-        tasks.withType(PublishToMavenRepository) { task ->
-            if (!myPublications.contains(task.publication))
-                myPublications.add(task.publication)
-        }
 
-        signing {
-            myPublications.each {
-                sign it
-            }
-        }
+    signing {
+        sign publishing.publications
     }
+
 } else {
     println "> skipping signing, provide\n" +
             "  - 'signing.secretKeyRingFile'\n" +
