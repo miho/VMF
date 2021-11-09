@@ -2,7 +2,6 @@
 // Collect publishing information
 // -----------------------------------------------------------------------------
 ext.publishing = [:]
-ext.publishing.bintray = [:]
 
 ext.publishing.pomName =  ext.publishing.artifactId
 
@@ -39,15 +38,15 @@ ext {
 jar {
     manifest {
         attributes(
-          'Built-By': System.properties['user.name'],
-          'Created-By': System.properties['java.version'] + " (" + System.properties['java.vendor'] + " " + System.properties['java.vm.version'] + ")",
-          'Build-Date': project.buildDate,
-          'Build-Time': project.buildTime,
-          'Build-Revision': versioning.info.commit,
-          'Specification-Title': project.name,
-          'Specification-Version': project.version,
-          'Implementation-Title': project.name,
-          'Implementation-Version': project.version
+                'Built-By': System.properties['user.name'],
+                'Created-By': System.properties['java.version'] + " (" + System.properties['java.vendor'] + " " + System.properties['java.vm.version'] + ")",
+                'Build-Date': project.buildDate,
+                'Build-Time': project.buildTime,
+                'Build-Revision': versioning.info.commit,
+                'Specification-Title': project.name,
+                'Specification-Version': project.version,
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version
         )
     }
 }
@@ -93,7 +92,7 @@ publishing {
             // Replace OWNER and REPOSITORY with your GitHub username/repository
             // (must be both lowercase according to the documenations)
             // url = uri("https://maven.pkg.github.com/OWNER/REPOSITORY")
-            url = uri("https://maven.pkg.github.com/miho/vmf")
+            url = uri(ext.publishing.gitHubMavenRepo)
             credentials {
                 // Make sure to generate a token with write-packages and read-packages permission:
                 // https://github.com/settings/tokens/new
@@ -155,18 +154,29 @@ publishing {
 }
 
 // TODO for some reason 'sign publications.publishing' is null, we search for publications manually
-afterEvaluate {
-    // find publications
-    def myPublications = [];
-    tasks.withType(PublishToMavenRepository) { task ->
-        if(!myPublications.contains(task.publication))
-            myPublications.add(task.publication)
-    }
+if(
+project.findProperty("signing.secretKeyRingFile")
+        && project.findProperty("signing.password")
+        && project.findProperty("signing.keyId")
+) {
+    afterEvaluate {
+        // find publications
+        def myPublications = [];
+        tasks.withType(PublishToMavenRepository) { task ->
+            if (!myPublications.contains(task.publication))
+                myPublications.add(task.publication)
+        }
 
-    signing {
-        myPublications.each {
-            sign it
+        signing {
+            myPublications.each {
+                sign it
+            }
         }
     }
+} else {
+    println "> skipping signing, provide\n" +
+            "  - 'signing.secretKeyRingFile'\n" +
+            "  - 'signing.password'\n" +
+            "  - 'signing.keyId'\n" +
+            " to activate it\n"
 }
-
