@@ -29,6 +29,7 @@ artifacts {
     archives javadocJar
     archives sourcesJar
 }
+
 Date buildTimeAndDate = new Date()
 ext {
     buildDate = new java.text.SimpleDateFormat('yyyy-MM-dd').format(buildTimeAndDate)
@@ -77,9 +78,66 @@ def pomConfig = {
     }
 }
 
+
+
 publishing {
+
+    repositories {
+        // --------------------------------------------------------------------------------
+        // Destination Repository 'GitHubPackages'
+        // -> call task 'publishMavenJavaPublicationToGitHubPackagesRepository' to publish
+        // --------------------------------------------------------------------------------
+        maven {
+            name = "GitHubPackages"
+            // see https://levelup.gitconnected.com/publish-a-maven-package-to-github-with-gradle-fabc6de24d6
+            // Replace OWNER and REPOSITORY with your GitHub username/repository
+            // (must be both lowercase according to the documenations)
+            // url = uri("https://maven.pkg.github.com/OWNER/REPOSITORY")
+            url = uri("https://maven.pkg.github.com/miho/vmf")
+            credentials {
+                // Make sure to generate a token with write-packages and read-packages permission:
+                // https://github.com/settings/tokens/new
+                // You can either store the username and token in
+                //   ~/.gradle/gradle.properties (use the gpr.user and gpr.key keys)
+                // Or you can store them as environment variables e.g. in ~/.bash_profile or ~/.zsh
+                // depending on your shell (GITHUB_USERNAME and GITHUB_TOKEN keys)
+                // Or you pass them via CLI: gradle publish -Pgpr.user=username -Pgpr.key=token
+                // See at EOF for examples on how to store the credentials
+                username = project.findProperty("gpr.user") ?: System.getenv("GITHUB_USERNAME")
+                password = project.findProperty("gpr.key") ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
+
+        // --------------------------------------------------------------------------------
+        // Destination Repository 'OSSRH'
+        // telling gradle to publish artifact to local directory
+        // -> call task 'publishMavenJavaPublicationToOSSRHRepository' to publish
+        // -> go to https://oss.sonatype.org/#stagingRepositories, click 'close', drink coffee and then click 'release'
+        //    if closing was successful
+        // --------------------------------------------------------------------------------
+        maven {
+            name = "OSSRH"
+            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            credentials {
+                username = project.findProperty("oss.user") ?: System.getenv("OSS_USERNAME")
+                password = project.findProperty("oss.pwd") ?: System.getenv("OSS_PWD")
+            }
+        }
+
+        // --------------------------------------------------------------------------------
+        // Destination Repository 'BuildDir'
+        // telling gradle to publish artifact to local directory
+        // -> call task 'publishMavenJavaPublicationToBuildDirRepository' to publish
+        // --------------------------------------------------------------------------------
+        maven {
+            name = "BuildDir"
+            url "file:/${buildDir}/artifacts"
+        }
+    }
+
+
     publications {
-        mavenCustom(MavenPublication) {
+        mavenJava(MavenPublication) {
             groupId publishing.groupId
             artifactId publishing.artifactId
             version publishing.versionId
@@ -96,40 +154,19 @@ publishing {
     }
 }
 
+// TODO for some reason 'sign publications.publishing' is null, we search for publications manually
+afterEvaluate {
+    // find publications
+    def myPublications = [];
+    tasks.withType(PublishToMavenRepository) { task ->
+        if(!myPublications.contains(task.publication))
+            myPublications.add(task.publication)
+    }
 
-signing {
-    sign configurations.archives
+    signing {
+        myPublications.each {
+            sign it
+        }
+    }
 }
 
-//signing {
-//    useInMemoryPgpKeys(findProperty("signingKey"), findProperty("signingPassword"))
-//    sign configurations.archives
-//}
-
-
-
-//if (!project.hasProperty('bintrayUsername')) ext.bintrayUsername = ''
-//if (!project.hasProperty('bintrayApiKey')) ext.bintrayApiKey = ''
-//
-//bintray {
-//    user = project.bintrayUsername
-//    key = project.bintrayApiKey
-//    publications = ['mavenCustom']
-//    pkg {
-//        repo                  = publishing.bintray.repo
-//        userOrg               = publishing.bintray.userOrg
-//        name                  = publishing.bintray.name
-//        desc                  = publishing.desc
-//        licenses              = [publishing.license]
-//        labels                = publishing.labels
-//        websiteUrl            = publishing.websiteUrl
-//        issueTrackerUrl       = publishing.issueTrackerUrl
-//        vcsUrl                = publishing.vcsUrl
-//        publicDownloadNumbers = true
-//
-//        version {
-//            name              = publishing.versionId
-//            vcsTag            = 'v' + publishing.versionId
-//        }
-//    }
-//}
