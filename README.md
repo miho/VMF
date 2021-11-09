@@ -129,7 +129,7 @@ Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `p
 
 ### IDE
 
-Open the `VMF` [Gradle](http://www.gradle.org/) plugin project in your favourite IDE (tested with IntelliJ 2020) and build it
+Open the `VMF` [Gradle](http://www.gradle.org/) plugin project in your favourite IDE (tested with IntelliJ 2021) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
