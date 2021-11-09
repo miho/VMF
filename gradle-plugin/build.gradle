@@ -13,8 +13,8 @@ wrapper {
     gradleVersion = '7.2'
 }
 
-sourceCompatibility = '11'
-targetCompatibility = '11'
+sourceCompatibility = '8'
+targetCompatibility = '8'
 
 apply plugin: 'groovy'
 apply from: 'gradle/publishing.gradle'
