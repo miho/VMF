@@ -43,7 +43,7 @@ VMF comes with excellent Gradle support. Just add the plugin like so (get the la
 
 ```gradle
 plugins {
-  id "eu.mihosoft.vmf" version "0.2.6.1" // use latest version
+  id "eu.mihosoft.vmf" version "0.2.8.1" // use latest version
 }
 ```
 
