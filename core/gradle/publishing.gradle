@@ -153,7 +153,7 @@ publishing {
     }
 }
 
-// TODO for some reason 'sign publishing.publications' is null, we search for publications manually
+
 if(
         project.findProperty("signing.secretKeyRingFile")
         && project.findProperty("signing.password")
