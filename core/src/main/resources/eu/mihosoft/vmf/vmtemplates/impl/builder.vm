@@ -102,9 +102,15 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #end## if property is model-type
 #end## if type is immutable or property is no collection
 #if($prop.propType == "COLLECTION")
+#if($type.immutable)
+    // as immutable we set this collection directly instead of adding to an existing collection
+    // this list is a vlist wrapping an unmodifiable list
+    result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+#else
     if(this.__vmf_prop_${prop.name} !=null) {
       result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
     }
+#end    
 #end
 #end## foreach property
     return result;
