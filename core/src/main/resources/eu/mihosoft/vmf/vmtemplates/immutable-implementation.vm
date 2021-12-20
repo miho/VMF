@@ -84,6 +84,7 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
         java.util.Collections.emptyList()
       );
     }
+    return this.__vmf_prop_${prop.name};
   #else## if is collection type
     return this.__vmf_prop_${prop.name};
   #end## if is collection type  
