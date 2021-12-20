@@ -14,7 +14,7 @@ apply plugin: 'java-library'
 apply from: 'gradle/publishing.gradle'
 
 wrapper {
-  gradleVersion = '7.2'
+  gradleVersion = '7.3.2'
 }
 
 sourceCompatibility = '11'
