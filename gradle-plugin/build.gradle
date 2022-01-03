@@ -3,7 +3,6 @@ plugins {
     id 'com.github.hierynomus.license' version '0.14.0'
     id 'maven-publish'
     id 'net.nemerosa.versioning' version '2.7.1'
-    id 'com.jfrog.bintray' version '1.8.4'
     id 'com.github.ben-manes.versions' version '0.13.0'
 }
 
@@ -11,17 +10,17 @@ ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 wrapper {
-    gradleVersion = '6.7'
+    gradleVersion = '7.3.2'
 }
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+sourceCompatibility = '8'
+targetCompatibility = '8'
 
 apply plugin: 'groovy'
 apply from: 'gradle/publishing.gradle'
 
 repositories {
-    jcenter()
+    maven { url 'https://jitpack.io' }
     mavenCentral()
     mavenLocal()
 }
@@ -37,8 +36,8 @@ dependencies {
 // The configuration example below shows the minimum required properties
 // configured to publish your plugin to the plugin portal
 pluginBundle {
-    group = ext.publishing.groupId
-    version = ext.publishing.versionId
+    group = ext.publishingInfo.groupId
+    version = ext.publishingInfo.versionId
     website = 'https://github.com/miho/VMF-Gradle-Plugin'
     vcsUrl = 'https://github.com/miho/VMF-Gradle-Plugin'
     description = 'Gradle VMF plugin'
@@ -59,7 +58,7 @@ task writeVersionInfo() {
         buildInfoCode.getParentFile().mkdirs()
         buildInfoCode.write("package eu.mihosoft.vmf.gradle.plugin.constants;\n"
                 + "public class Constants {\n"
-                + "  public static final String VMF_VERSION = \"${project.commonProps.get("publication.version")}\";\n"
+                + "  public static String VMF_VERSION = \"${project.commonProps.get("publication.version")}\";\n"
                 + "}\n"
         )
     }

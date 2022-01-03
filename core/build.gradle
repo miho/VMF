@@ -4,7 +4,6 @@ plugins {
     id 'com.github.hierynomus.license' version '0.14.0'
     id 'maven-publish'
     id 'net.nemerosa.versioning' version '2.7.1'
-    id 'com.jfrog.bintray' version '1.8.4'
     id 'com.github.ben-manes.versions' version '0.13.0'
 }
 
@@ -12,15 +11,15 @@ ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply from: 'gradle/publishing.gradle'
 
 wrapper {
-    gradleVersion = '6.7'
+    gradleVersion = '7.3.2'
 }
 
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+sourceCompatibility = '11'
+targetCompatibility = '11'
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
 tasks.withType(Javadoc) {
@@ -39,14 +38,14 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.13.1'
+    testImplementation group: 'junit', name: 'junit', version: '4.13.1'
 
     // compile group: 'org.apache.velocity', name: 'velocity', version: '1.7'
     // legacyVelocity group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.4'
     // configurations.compile.extendsFrom(configurations.legacyVelocity)
-    compile group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.4'
-    compile group: 'io.github.classgraph', name: 'classgraph', version: '4.6.32'
-    compile group: 'eu.mihosoft.jcompiler', name: 'jcompiler', version: '0.4'
+    implementation group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.4'
+    implementation group: 'io.github.classgraph', name: 'classgraph', version: '4.6.32'
+    implementation group: 'eu.mihosoft.jcompiler', name: 'jcompiler', version: '0.4'
 }
 
 jar {

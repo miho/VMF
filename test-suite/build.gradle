@@ -48,7 +48,7 @@ if (!hasProperty('mainClass')) {
 }
 
 wrapper {
-    gradleVersion = '6.7'
+    gradleVersion = '7.3.2'
 }
 
 repositories {

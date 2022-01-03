@@ -4,22 +4,21 @@ plugins {
     id 'com.github.hierynomus.license' version '0.14.0'
     id 'maven-publish'
     id 'net.nemerosa.versioning' version '2.7.1'
-    id 'com.jfrog.bintray' version '1.8.4'
     id 'com.github.ben-manes.versions' version '0.13.0'
 }
 
 ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
-apply plugin: 'java'
+apply plugin: 'java-library'
 apply from: 'gradle/publishing.gradle'
 
 wrapper {
-  gradleVersion = '6.7'
+  gradleVersion = '7.3.2'
 }
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+sourceCompatibility = '11'
+targetCompatibility = '11'
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
 tasks.withType(JavaCompile) {
@@ -42,9 +41,9 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.13.1'
-    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3'
-    compile group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3', classifier: 'sources'
+    testImplementation group: 'junit', name: 'junit', version: '4.13.1'
+    api group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3'
+    implementation group: 'eu.mihosoft.vcollections', name: 'vcollections', version: '0.3.3', classifier: 'sources'
 }
 
 jar {

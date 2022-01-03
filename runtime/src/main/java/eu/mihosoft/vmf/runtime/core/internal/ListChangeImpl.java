@@ -59,7 +59,7 @@ class ListChangeImpl implements ChangeInternal {
         this.propertyName = propertyName;
         this.evt = evt;
         
-        VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
+        VObjectInternal internal = (VObjectInternal) object;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         list = (VList) internal._vmf_getPropertyValueById(propId);
         
@@ -73,7 +73,7 @@ class ListChangeImpl implements ChangeInternal {
         this.propertyName = propertyName;
         this.evt = evt;
         
-        VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
+        VObjectInternal internal = (VObjectInternal) object;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         list = (VList) internal._vmf_getPropertyValueById(propId);
         
@@ -87,7 +87,7 @@ class ListChangeImpl implements ChangeInternal {
         this.propertyName = propertyName;
         this.evt = evt;
 
-        VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
+        VObjectInternal internal = (VObjectInternal) object;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         list = (VList) internal._vmf_getPropertyValueById(propId);
 
@@ -114,7 +114,7 @@ class ListChangeImpl implements ChangeInternal {
     @SuppressWarnings("unchecked")
     public void apply(VObject obj) {
 
-        VObjectInternalModifiable internal = (VObjectInternalModifiable) obj;
+        VObjectInternal internal = (VObjectInternal) obj;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         VList list = (VList) internal._vmf_getPropertyValueById(propId);
         if(evt.wasSet()) {

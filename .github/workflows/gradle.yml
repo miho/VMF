@@ -7,7 +7,7 @@ jobs:
   build-linux:
     strategy:
       matrix:
-        jdkVersion: [8, 11, 13]
+        jdkVersion: [11]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -24,7 +24,7 @@ jobs:
   build-macos-latest:
     strategy:
       matrix:
-        jdkVersion: [8, 11, 13]
+        jdkVersion: [11]
     runs-on: [macos-latest]
     steps:
     - uses: actions/checkout@v1
@@ -40,7 +40,7 @@ jobs:
   build-windows-latest:
     strategy:
       matrix:
-        jdkVersion: [8, 11, 13]
+        jdkVersion: [11, 17]
     runs-on: [windows-latest]
     steps:
     - uses: actions/checkout@v1

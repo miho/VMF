@@ -1,15 +1,19 @@
 VMF
 =======
 
-[ ![Download](https://api.bintray.com/packages/miho/VMF/VMF/images/download.svg) ](https://bintray.com/miho/VMF/VMF/_latestVersion)
 [![Javadocs](https://www.javadoc.io/badge/eu.mihosoft.vmf/vmf.svg?color=blue&label=javadoc-core)](https://www.javadoc.io/doc/eu.mihosoft.vmf/vmf) [![Javadocs](https://www.javadoc.io/badge/eu.mihosoft.vmf/vmf-runtime.svg?color=blue&label=javadoc-runtime)](https://www.javadoc.io/doc/eu.mihosoft.vmf/vmf-runtime)
 ![VMF CI](https://github.com/miho/VMF/workflows/VMF%20CI/badge.svg)
 [![Join the chat at https://gitter.im/VMF_/Lobby](https://badges.gitter.im/VMF_/Lobby.svg)](https://gitter.im/VMF_/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+<a href="https://foojay.io/today/works-with-openjdk">
+   <img align="right" 
+        src="https://github.com/foojayio/badges/raw/main/works_with_openjdk/Works-with-OpenJDK.png"   
+        width="100">
+</a>
+
+<br>
 
 
-
-
-VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 8-14.
+VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 11-17.
 It generates/supports:
 
 - getters and setters
@@ -27,7 +31,7 @@ It generates/supports:
 - reflection
 - ...
 
-A VMF model consists of annotated Java interfaces. We could call this "wannabe" code. We just specify the interface and its properties and get a rich implementation that implements the property setters and getters, builders and much more. Even for a simple model VMF generated a lot of useful API:
+A VMF model consists of annotated Java interfaces. We could call this "wannabe" code. Just specify the interface and its properties and get a fully functional  implementation including property setters and getters, builders, iterators, and much more. Even for a simple model VMF provides a lot of useful APIs:
 
 <img src="resources/img/vmf-01.svg">
 
@@ -39,7 +43,7 @@ VMF comes with excellent Gradle support. Just add the plugin like so (get the la
 
 ```gradle
 plugins {
-  id "eu.mihosoft.vmf" version "0.2.6.1" // use latest version
+  id "eu.mihosoft.vmf" version "0.2.8.1" // use latest version
 }
 ```
 
@@ -81,13 +85,13 @@ buildscript {
 
 ### Requirements
 
-- Java >= 1.8
+- Java >= 11
 - Internet connection (dependencies are downloaded automatically)
 - IDE: [Gradle](http://www.gradle.org/) Plugin (not necessary for command line usage)
 
 ### IDE
 
-Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2020) and build it
+Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2021) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
@@ -106,7 +110,7 @@ Navigate to the `VMF` core [Gradle](http://www.gradle.org/) project (i.e., `path
 
 ### IDE
 
-Open the `VMF` runtime [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2020) and build it
+Open the `VMF` runtime [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2021) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
@@ -125,7 +129,7 @@ Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `p
 
 ### IDE
 
-Open the `VMF` [Gradle](http://www.gradle.org/) plugin project in your favourite IDE (tested with IntelliJ 2020) and build it
+Open the `VMF` [Gradle](http://www.gradle.org/) plugin project in your favourite IDE (tested with IntelliJ 2021) and build it
 by calling the `publishToMavenLocal` task.
 
 ### Command Line
