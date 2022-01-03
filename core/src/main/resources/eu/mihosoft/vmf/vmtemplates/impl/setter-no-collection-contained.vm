@@ -23,7 +23,7 @@
   }
 
   // ----------------------------------------
-  // register with new container (container name: ${container.name})
+  // register with new container (container name: ${prop.containmentInfo.opposite.name})
   // ----------------------------------------
   if(${prop.name} != null) {
     ${VMFPKG_INT}.VObjectInternalModifiable value_internal = (${VMFPKG_INT}.VObjectInternalModifiable)${prop.name};
