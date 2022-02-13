@@ -136,12 +136,18 @@ public final class Implementation {
 
         // only add properties that are not already present in properties
         this.properties.addAll(
-                implProperties.stream().filter(p -> !properties.contains(p)).distinct().collect(Collectors.toList()));
+                implProperties.stream().filter(p -> !properties.stream()
+                        .map(myP->myP.getName())
+                        .filter(myPName->myPName.equals(p.getName()))
+                        .findAny().isPresent()
+                    )
+                        .distinct().collect(Collectors.toList())
+        );
 
-        // filter out duplicates (considering overloaded properties)
-        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
-        this.properties.clear();
-        this.properties.addAll(distinctProperties);
+//        // filter out duplicates (considering overloaded properties)
+//        List<Prop> distinctProperties = Prop.filterDuplicateProps(type, properties, false);
+//        this.properties.clear();
+//        this.properties.addAll(distinctProperties);
     }
 
     private static List<Prop> computeImplementedProperties(ModelType type) {

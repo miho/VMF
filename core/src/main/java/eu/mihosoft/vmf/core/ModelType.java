@@ -169,17 +169,18 @@ public class ModelType {
 
         List<Method> list = new ArrayList<Method>();
         for (Method m : clazz.getDeclaredMethods()) {
-            if (m.getName().startsWith("get")
+            if(!m.isBridge()) {
+                if (m.getName().startsWith("get")
                     || (m.getName().startsWith("is")
                     && Objects.equals(m.getReturnType(), boolean.class))) {
-                list.add(m);
+                    list.add(m);
+                }
             }
         }
 
         boolean hasPropertyWithoutCustomOrder = false;
         for (Method m : list) {
             Prop p = Prop.newInstance(this, m);
-
             properties.add(p);
 
             if(p.getCustomOrderIndex()!=null) {
@@ -206,7 +207,7 @@ public class ModelType {
                 } 
             };
             
-            // find potential duplicates
+            // find potential duplicate order indices
             long numDuplicates = properties.stream().filter(distinctByName).
                     collect(Collectors.groupingBy(p -> p.getCustomOrderIndex(),
                             Collectors.counting())).values().stream().filter(frequency -> frequency > 1).count();
@@ -216,10 +217,6 @@ public class ModelType {
                         "(indices must be unique)");
             }
         }
-
-        List<Prop> distinctProperties = Prop.filterDuplicateProps(properties, false);
-        this.properties.clear();
-        this.properties.addAll(distinctProperties);
 
         sortProperties(properties, customPropertyOrderPresent);
     }

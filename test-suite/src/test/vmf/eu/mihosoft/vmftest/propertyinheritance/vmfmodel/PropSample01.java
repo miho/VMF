@@ -21,6 +21,7 @@ interface WithXY extends WithX, WithY {
 
 }
 
+
 interface Location {
 
 }
@@ -80,17 +81,17 @@ interface PropSample01 {
 }
 
 interface GCode1 extends WithLocationXY {
-
+    LocationXY getLocation();
 }
 
 interface GCode2 extends WithLocationX {
-
+    LocationX getLocation();
 }
 
 interface GCode3 extends WithLocationY {
-
+    LocationY getLocation();
 }
 
 interface GCode4 extends WithLocation {
-
+    Location getLocation();
 }

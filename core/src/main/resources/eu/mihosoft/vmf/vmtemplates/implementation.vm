@@ -342,10 +342,10 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.typeName}${t
 
 #if(${prop.isInheritedProp()})## if   inheritedprop
 // --- PROP '$prop.name : $prop.typeName' , Inherited from: '${prop.inheritedProp.parent.typeName}.${prop.inheritedProp.name}'
-  void __vmf_set_prop_${prop.name}(${prop.inheritedProp.typeName} obj);
+  default void __vmf_set_prop_${prop.name}(${prop.inheritedProp.typeName} obj) { throw new UnsupportedOperationException("Should never be called."); }
 #else##------------------------- else inheritedprop
 // --- PROP '$prop.name : $prop.typeName'
-  void __vmf_set_prop_${prop.name}($prop.typeName obj);
+  default void __vmf_set_prop_${prop.name}($prop.typeName obj) { throw new UnsupportedOperationException("Should never be called."); }
 #end##-------------------------- end  inheritedprop
   $prop.typeName __vmf_get_prop_${prop.name}();
 #if(${prop.propType} == "COLLECTION")

@@ -58,13 +58,24 @@ public final class Interface {
             throw new RuntimeException("Properties of '" + getName() + "' already initialized!");
         }
 
-        List<Prop> allProps = new ArrayList<>();
-        allProps.addAll(type.getProperties());
-        allProps.addAll(computeImplementedProperties(type));
+        properties.addAll(type.getProperties());
 
-        // filter out duplicates (considering overloaded properties)
-        List<Prop> distinctProperties = Prop.filterDuplicateProps(allProps, false);
-        this.properties.addAll(distinctProperties);
+        List<Prop> implProperties = new ArrayList<>();
+        implProperties.addAll(computeImplementedProperties(type));
+
+        // only add properties that are not already present in properties
+        this.properties.addAll(
+            implProperties.stream().filter(p -> !properties.stream()
+                    .map(myP->myP.getName())
+                    .filter(myPName->myPName.equals(p.getName()))
+                    .findAny().isPresent()
+                )
+                .distinct().collect(Collectors.toList())
+        );
+
+//        // filter out duplicates (considering overloaded properties)
+//        List<Prop> distinctProperties = Prop.filterDuplicateProps(type, allProps, false);
+//        this.properties.addAll(distinctProperties);
 
         this.propertiesWithoutCollectionsBasedContainment.addAll(
                 ModelType.propertiesWithoutCollectionsBasedContainment(
