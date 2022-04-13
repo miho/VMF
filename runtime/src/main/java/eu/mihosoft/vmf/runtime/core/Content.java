@@ -132,8 +132,6 @@ public interface Content {
      * Returns the hash-code for this VMF object. It uses VMFs hashCode
      * implementation which takes all properties into account unless
      * they are ignored explicitly via annotation.
-     * @param o object to compare
-     * @param o object to compare
      * @return {@code } if equals; {@code false} otherwise
      */
     @Override

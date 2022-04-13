@@ -25,7 +25,7 @@
 // --- Builder methods
 // --------------------------------------------------------------------
 
-  public static interface Builder {
+  public static interface Builder extends ${VMFPKG}.Builder {
 
 #foreach( $prop in ${type.implementation.properties} )
 #if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}!="CONTAINER")
@@ -45,6 +45,25 @@
      */
 #if($prop.propType == "COLLECTION")
     public Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name});
+
+#if(${prop.type} || ${prop.genericType})
+    /**
+    * Sets the '<em><b>${prop.name}</b></em>' property of this builder (builder object instead of instantiated object).
+    * @param ${prop.name} value to set
+    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+    * <p>${prop.customDocumentation}</p>
+#else
+    * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+    * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+    * <!-- vmf-end-model-doc -->
+    * @return this builder
+    * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
+    */
+    public Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}.Builder> ${prop.name}, ${VMFPKG}.ErasureIsStupid... eis);
+#end## generic type (model type)
+
     /**
      * Sets the '<em><b>${prop.name}</b></em>' property of this builder.
      * @param ${prop.name} values to set
@@ -60,8 +79,47 @@
      * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
      */
     public Builder with${prop.nameWithUpperCase}(${prop.genericPackageName}.${prop.genericTypeName}... ${prop.name});
+
+
+#if(${prop.type} || ${prop.genericType})
+    /**
+    * Sets the '<em><b>${prop.name}</b></em>' property of this builder (builder object instead of instantiated object).
+    * @param ${prop.name} values to set
+    * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+    * <p>${prop.customDocumentation}</p>
+#else
+    * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+    * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+    * <!-- vmf-end-model-doc -->
+    * @return this builder
+    * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
+    */
+    public Builder with${prop.nameWithUpperCase}(${prop.genericPackageName}.${prop.genericTypeName}.Builder... ${prop.name});
+#end## generic type (model type)
+
 #else## #if($prop.propType == "COLLECTION")
     public Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name});
+
+#if(${prop.type} || ${prop.genericType})
+    /**
+     * Sets the '<em><b>${prop.name}</b></em>' property of this builder.
+     * @param ${prop.name} value to set
+     * <!-- vmf-begin-model-doc -->
+#if(${prop.documented})
+     * <p>${prop.customDocumentation}</p>
+#else
+     * <!-- NO CUSTOM DOCUMENTATION PROVIDED! -->
+     * <!-- NOTE: use the @Doc("your doc") annotation to provide a custom documentation -->
+#end
+     * <!-- vmf-end-model-doc -->
+     * @return this builder
+     * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
+     */
+     public Builder with${prop.nameWithUpperCase}(${prop.typeName}.Builder ${prop.name});
+#end## generic type (model type)
+
 #end## #if($prop.propType == "COLLECTION")    
 #end## if type is no container or property is no containment type
 #end##end foreach property
