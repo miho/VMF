@@ -81,9 +81,11 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
         )
       );
 
+#if(${prop.type} || ${prop.genericType})
       // we set already initialized objects
       // -> remove builder alternative
       this.__vmf_prop__builder_${prop.name} = null;
+#end## if genericType is modelType
 
       return this;
     }
@@ -154,18 +156,22 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #foreach( $prop in ${type.implementation.properties} )
 #if($type.immutable || $prop.propType != "COLLECTION")
 #if($type.immutable)
-    if(#if($prop.propType != "PRIMITIVE") this.__vmf_prop_${prop.name}!=null && #end )this.__vmf_prop__builder_${prop.name} == null) {
+    #if(${prop.type} || ${prop.genericType})
+    if( this.__vmf_prop__builder_${prop.name} == null){
         result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
-    } else if(#if($prop.propType != "PRIMITIVE") this.__vmf_prop_${prop.name}==null && #end this.__vmf_prop__builder_${prop.name} != null) {
-        result.__vmf_prop_${prop.name} = this.__vmf_prop__builder_${prop.name}.build();
+    } else if( this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
+        result.__vmf_prop_${prop.name} = (${prop.typeName})this.__vmf_prop__builder_${prop.name}.build();
     }
+    #else
+        result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+    #end
 #elseif(!$prop.readOnly)
 
 #if(${prop.type} || ${prop.genericType})
-    if(#if($prop.propType != "PRIMITIVE") this.__vmf_prop_${prop.name}!=null && #end this.__vmf_prop__builder_${prop.name} == null) {
+    if( this.__vmf_prop__builder_${prop.name} == null) {
         result.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
-    } else if(#if($prop.propType != "PRIMITIVE") this.__vmf_prop_${prop.name}==null && #end this.__vmf_prop__builder_${prop.name} != null) {
-        result.set${prop.nameWithUpperCase}(this.__vmf_prop__builder_${prop.name}.build());
+    } else if( this.__vmf_prop_${prop.name}==null #if(${prop.type}) && this.__vmf_prop__builder_${prop.name} != null#end ) {
+        result.set${prop.nameWithUpperCase}((${prop.typeName})this.__vmf_prop__builder_${prop.name}.build());
     }
 #else
     result.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
@@ -192,7 +198,8 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
         result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
     } else if(this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
         result.__vmf_prop_${prop.name} = this.__vmf_prop__builder_${prop.name}
-            .stream().map(bObj->bObj==null?null:bObj.build()).collect(java.util.stream.Collectors.toList());
+            .stream().map(bObj->bObj==null?null:(${prop.genericPackageName}.${prop.genericTypeName}))bObj.build())
+                .collect(java.util.stream.Collectors.toList());
     }
 #else## if genericType is modelType
     // as immutable we set this collection directly instead of adding to an existing collection
@@ -209,7 +216,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
         }
     } else if(this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
         result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop__builder_${prop.name}
-            .stream().map(bObj->bObj==null?null:bObj.build()).collect(java.util.stream.Collectors.toList()));
+            .stream().map(bObj->bObj==null?null:(${prop.genericPackageName}.${prop.genericTypeName})bObj.build()).collect(java.util.stream.Collectors.toList()));
     }
 #else
     if(this.__vmf_prop_${prop.name} !=null) {
@@ -218,7 +225,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #end
 
 #end## immutable
-#end
+#end## collection
 #end## foreach property
     return result;
   }
