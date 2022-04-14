@@ -154,15 +154,16 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public $type.typeName build() {
     ${type.implementation.typeName} result = new ${type.implementation.typeName}();
 #foreach( $prop in ${type.implementation.properties} )
-#if($type.immutable || $prop.propType != "COLLECTION")
+#if($prop.propType != "COLLECTION")
 #if($type.immutable)
     #if(${prop.type} || ${prop.genericType})
-    if( this.__vmf_prop__builder_${prop.name} == null){
-        result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
-    } else if( this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
-        result.__vmf_prop_${prop.name} = (${prop.typeName})this.__vmf_prop__builder_${prop.name}.build();
-    }
+        if( this.__vmf_prop__builder_${prop.name} == null){
+            result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+        } else if( this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
+            result.__vmf_prop_${prop.name} = (${prop.typeName})this.__vmf_prop__builder_${prop.name}.build();
+        }
     #else
+        //
         result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
     #end
 #elseif(!$prop.readOnly)
