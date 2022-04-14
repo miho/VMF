@@ -28,11 +28,12 @@ interface Device extends Processor {
     void produce();
 }
 
+@DelegateTo(className="eu.mihosoft.vmftest.delegationinherit.CircuitDeviceDelegate")
 interface CircuitDevice extends Device {
 
-    @DelegateTo(className="eu.mihosoft.vmftest.delegationinherit.CircuitDeviceDelegate")
+    // uses constructor delegation info
     void process();
-    @DelegateTo(className="eu.mihosoft.vmftest.delegationinherit.CircuitDeviceDelegate")
+    // uses constructor delegation info
     void consume();
     @DelegateTo(className="eu.mihosoft.vmftest.delegationinherit.CircuitDeviceDelegate")
     void produce();

@@ -91,10 +91,10 @@ public class DelegationInfo {
         return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames, constructor, customDocumentation);
     }
 
-    public static DelegationInfo newInstance(Model model, Method m) {
+    public static DelegationInfo newInstance(Model model, Method m, DelegationInfo constructorDelegationInfo) {
         DelegateTo delegation = m.getAnnotation(DelegateTo.class);
 
-        String className = delegation==null?"":delegation.className();
+        String className = delegation==null?(constructorDelegationInfo==null?"":constructorDelegationInfo.fullTypeName):delegation.className();
 
 //        if(delegation==null) {
 //            return null;
