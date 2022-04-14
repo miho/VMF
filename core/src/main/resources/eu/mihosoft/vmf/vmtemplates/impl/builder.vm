@@ -154,47 +154,58 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public $type.typeName build() {
     ${type.implementation.typeName} result = new ${type.implementation.typeName}();
 #foreach( $prop in ${type.implementation.properties} )
+
+
+    // --------------------------------------------------------------------------------
+    // PROP '${prop.name}' of type '${prop.typeName}'
+    // --------------------------------------------------------------------------------
+
 #if($prop.propType != "COLLECTION")
 #if($type.immutable)
     #if(${prop.type} || ${prop.genericType})
+        // no collection, immutable model type
+        // set property via property or builder
         if( this.__vmf_prop__builder_${prop.name} == null){
             result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
         } else if( this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
             result.__vmf_prop_${prop.name} = (${prop.typeName})this.__vmf_prop__builder_${prop.name}.build();
         }
     #else
-        //
+        // no collection, no model type (assumed immutable), set directly
         result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
     #end
 #elseif(!$prop.readOnly)
-
 #if(${prop.type} || ${prop.genericType})
+    // no collection, model type
+    // set property via property or builder
     if( this.__vmf_prop__builder_${prop.name} == null) {
         result.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
     } else if( this.__vmf_prop_${prop.name}==null #if(${prop.type}) && this.__vmf_prop__builder_${prop.name} != null#end ) {
         result.set${prop.nameWithUpperCase}((${prop.typeName})this.__vmf_prop__builder_${prop.name}.build());
     }
 #else
+    // no collection, no model type (assumed mutable), set directly
     result.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
-#end
-
-
-#end
-#if(${prop.type})
-    // PROP: ${prop.name}
-    #set($objectToAddReferenceOnValue="result")
-    #set($referenceToAddValue = "result.__vmf_prop_"+${prop.name})
-    #set($objectToRemoveReferenceOnValue = false)
-    #set($referenceToRemoveValue = false)
-    #set($codeIndentValue = "      ")
-    #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-#end## if property is model-type
+#end## if genericType is modelType
+#end## immutable
+###if(${prop.type})
+##    #set($objectToAddReferenceOnValue="result")
+##    #set($referenceToAddValue = "result.__vmf_prop_"+${prop.name})
+##    #set($objectToRemoveReferenceOnValue = false)
+##    #set($referenceToRemoveValue = false)
+##    #set($codeIndentValue = "      ")
+##    #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+###end## if property is model-type
 #end## if type is immutable or property is no collection
 #if($prop.propType == "COLLECTION")
 #if($type.immutable)
 #if(${prop.type} || ${prop.genericType})
+    // collection, immutable model type
+
     // as immutable we set this collection directly instead of adding to an existing collection
     // this list is a vlist wrapping an unmodifiable list
+
+    // set via builder or directly
     if(this.__vmf_prop_${prop.name}!=null && this.__vmf_prop__builder_${prop.name} == null) {
         result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
     } else if(this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
@@ -203,14 +214,17 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
                 .collect(java.util.stream.Collectors.toList());
     }
 #else## if genericType is modelType
+    // collection, external type (assumed immutable)
+
     // as immutable we set this collection directly instead of adding to an existing collection
     // this list is a vlist wrapping an unmodifiable list
     result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
 #end## if genericType is modelType
 #else## immutable
-
 #if(${prop.type} || ${prop.genericType})
+    // collection, model type (assumed mutable)
 
+    // set via builder or directly
     if(this.__vmf_prop_${prop.name}!=null && this.__vmf_prop__builder_${prop.name} == null) {
         if(this.__vmf_prop_${prop.name} !=null) {
           result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
@@ -219,12 +233,12 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
         result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop__builder_${prop.name}
             .stream().map(bObj->bObj==null?null:(${prop.genericPackageName}.${prop.genericTypeName})bObj.build()).collect(java.util.stream.Collectors.toList()));
     }
-#else
+#else## if genericType is modelType
+    // collection, external type (assumed mutable)
     if(this.__vmf_prop_${prop.name} !=null) {
         result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
     }
-#end
-
+#end## if genericType is modelType
 #end## immutable
 #end## collection
 #end## foreach property
