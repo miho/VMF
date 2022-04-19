@@ -16,7 +16,7 @@ jobs:
       with:
         java-version: ${{ matrix.jdkVersion }}
         architecture: x64 # (x64 or x86)
-        distribution: liberica
+        distribution: temurin
     
     - name: Build and test with Gradle/JUnit
       run:  sh ./build-and-test-all.sh
@@ -33,7 +33,7 @@ jobs:
       uses: actions/setup-java@v3
       with:
         java-version: ${{ matrix.jdkVersion }}
-        distribution: liberica
+        distribution: temurin
         architecture: x64 # (x64 or x86)
         
     - name: Build and test with Gradle/JUnit
@@ -50,7 +50,7 @@ jobs:
       uses: actions/setup-java@v3
       with:
         java-version: ${{ matrix.jdkVersion }}
-        distribution: liberica
+        distribution: temurin
         architecture: x64 # (x64 or x86)
    
     - name: Build and test with Gradle/JUnit
