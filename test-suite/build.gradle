@@ -7,7 +7,6 @@ buildscript {
 
     repositories {
         mavenCentral()
-        jcenter()
         mavenLocal()
     }
 
@@ -34,8 +33,8 @@ idea {
     }
 }
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
+sourceCompatibility = '11'
+targetCompatibility = '11'
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
 tasks.withType(Javadoc) {
@@ -48,12 +47,11 @@ if (!hasProperty('mainClass')) {
 }
 
 wrapper {
-    gradleVersion = '7.3.2'
+    gradleVersion = '7.4.2'
 }
 
 repositories {
     mavenCentral()
-    jcenter()
     mavenLocal()
 }
 

@@ -10,13 +10,9 @@ plugins {
 ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
-
 apply plugin: 'java-library'
 apply from: 'gradle/publishing.gradle'
 
-wrapper {
-    gradleVersion = '7.3.2'
-}
 
 sourceCompatibility = '11'
 targetCompatibility = '11'

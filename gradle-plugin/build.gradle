@@ -9,9 +9,6 @@ plugins {
 ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
-wrapper {
-    gradleVersion = '7.3.2'
-}
 
 sourceCompatibility = '8'
 targetCompatibility = '8'

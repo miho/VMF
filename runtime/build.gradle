@@ -13,9 +13,6 @@ file(new File(projectDir.parentFile,"config/common.properties")).withInputStream
 apply plugin: 'java-library'
 apply from: 'gradle/publishing.gradle'
 
-wrapper {
-  gradleVersion = '7.3.2'
-}
 
 sourceCompatibility = '11'
 targetCompatibility = '11'
