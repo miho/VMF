@@ -13,7 +13,7 @@ VMF
 <br>
 
 
-VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 11-17.
+VMF is a lightweight modeling framework. It conveniently translates annotated Java interfaces into powerful implementations. It writes all the inevitable but boring boilerplate code for you and provides a modern and stable API. It is designed to work with the newest versions of Java as soon as they are released. It works well with Java 11-18.
 It generates/supports:
 
 - getters and setters
@@ -43,7 +43,7 @@ VMF comes with excellent Gradle support. Just add the plugin like so (get the la
 
 ```gradle
 plugins {
-  id "eu.mihosoft.vmf" version "0.2.8.1" // use latest version
+  id "eu.mihosoft.vmf" version "0.2.8.4" // use latest version
 }
 ```
 
