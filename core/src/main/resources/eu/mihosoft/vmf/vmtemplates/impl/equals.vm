@@ -127,7 +127,7 @@
 
     // since we support lazy initialization for collections,
     // uninitialized empty collection values are defined as equal to null
-    // otherwise we would have to initialize these values, which would then
+    // otherwise, we would have to initialize these values, which would then
     // neutralize or even negate the positive effect of lazy initialization
     if(oneAndOnlyOneIsNull && collectionType) {
       if(o1==null) {
@@ -177,11 +177,39 @@
       }
 
       if(useVMFEquals) {
+
         return ((${VMFPKG_INT}.VObjectInternal)o1)._vmf_equals(o2);
+
+      } else if(collectionType){
+
+        ${VCOLL_PKG}.VList l1 = (${VCOLL_PKG}.VList)o1;
+        ${VCOLL_PKG}.VList l2 = (${VCOLL_PKG}.VList)o2;
+
+        return vmf_list_equals(threadLocalEqualsMap, l1, l2);
+
       } else {
         return java.util.Objects.equals(o1,o2);
       }
     }
+  }
+
+
+  private static boolean vmf_list_equals(ThreadLocal<java.util.Map<${VMFPKG_INT}.VObjectInternal.EqualsPair, ?>> threadLocalEqualsMap, ${VCOLL_PKG}.VList l1, ${VCOLL_PKG}.VList l2) {
+
+      // switch to vmf equals if list elements are of type vobj
+
+        int n = l1.size();
+
+        for(int i = 0; i < n; i++) {
+
+          Object l1e = l1.get(i);
+          Object l2e = l2.get(i);
+
+          if(!_vmf_equals_helper(threadLocalEqualsMap, l1e,l2e)) return false;
+
+        }
+
+        return true;
   }
 
   @Override

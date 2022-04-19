@@ -297,8 +297,15 @@ public class ModelType {
 
         Collections.sort(list, (m1, m2) -> m1.getName().compareTo(m2.getName()));
 
+        // constructor delegations
+        DelegationInfo cD = DelegationInfo.newInstance(model, clazz);
+        if(cD!=null) {
+            delegations.add(cD);
+            constructorDelegations.add(cD);
+        }
+
         for(Method m : list) {
-            DelegationInfo d = DelegationInfo.newInstance(model, m);
+            DelegationInfo d = DelegationInfo.newInstance(model, m, cD);
 
             if((d.isExclusivelyForInterfaceOnlyTypes() && isInterfaceOnly())||!d.getFullTypeName().isEmpty()) {
                 delegations.add(d);
@@ -306,17 +313,11 @@ public class ModelType {
             } else {
                 throw new RuntimeException(
                         "Custom method '"
-                                +m.getDeclaringClass().getName()+"."+m.getName()
-                                +"(...)' does not define a delegation class.");
+                            + m.getDeclaringClass().getName() + "." + m.getName()
+                            + "(...)' does not define a delegation class.");
             }
         }
 
-        // constructor delegations
-        DelegationInfo cD = DelegationInfo.newInstance(model, clazz);
-        if(cD!=null) {
-            delegations.add(cD);
-            constructorDelegations.add(cD);
-        }
     }
 
     void initSyncInfos() {

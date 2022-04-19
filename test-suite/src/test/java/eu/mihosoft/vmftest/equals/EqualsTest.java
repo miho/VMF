@@ -276,4 +276,60 @@ public class EqualsTest {
         }
     }
 
+    @Test
+    public void testEqualContainmentEq() {
+
+        // we use CONTAINMENT_AND_EXTERNAL equals implementation
+        {
+            EqualsTestContainmentEqList model1 = EqualsTestContainmentEqList.newBuilder()
+                    .withName("my name1")
+                    .withChildren(
+                            EqualsTestContainmentEqListChild.newBuilder()
+                                    .withName("Child 1")
+                                    .build(),
+                            EqualsTestContainmentEqListChild.newBuilder()
+                                    .withName("Child 2")
+                                    .build()
+                    )
+                    .build();
+
+            EqualsTestContainmentEqList model2 = model1.vmf().content().deepCopy();
+
+            Assert.assertEquals(model1, model2);
+        }
+    }
+
+    @Test
+    public void testEqualInstanceEq() {
+
+        // we use CONTAINMENT_AND_EXTERNAL equals implementation
+        {
+            EqualsTestInstanceEqList model1 = EqualsTestInstanceEqList.newBuilder()
+                    .withName("my name1")
+                    .withChildren(
+                            EqualsTestInstanceEqListChild.newBuilder()
+                                    .withName("Child 1")
+                                    .build(),
+                            EqualsTestInstanceEqListChild.newBuilder()
+                                    .withName("Child 2")
+                                    .build()
+                    )
+                    .build();
+
+            EqualsTestInstanceEqList model2 = model1.vmf().content().deepCopy();
+
+            // they are not the same instance
+            Assert.assertNotEquals(
+                    "model references are not referencing the same instance",
+                    model1, model2
+            );
+
+            // but the content is identical
+            Assert.assertTrue(
+                    "we use vmf_equals(). therefore, models should be equal",
+                    model1.vmf().content().equals(model2)
+            );
+        }
+    }
+
 }

@@ -29,7 +29,17 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 
 #foreach( $prop in ${type.implementation.properties})
 ###if($type.immutable || $prop.propType != "COLLECTION")
-  private $prop.typeName __vmf_prop_$prop.name;
+#if(${prop.type} || ${prop.genericType})
+    private $prop.typeName __vmf_prop_$prop.name;
+#if($prop.propType == "COLLECTION")
+    private ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}.Builder> __vmf_prop__builder_$prop.name;
+#else
+    private ${prop.typeName}.Builder __vmf_prop__builder_$prop.name;
+#end
+#else##generic type
+    private $prop.typeName __vmf_prop_$prop.name;
+#end##generic type
+
 ###end## if type is immutable or property is no collection
 #end
 
@@ -42,7 +52,13 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
  #foreach($prop in $type.implementation.properties)
      // property ${foreach.index}
  #if(${prop.getDefaultValueAsString()}!="null")
-     __vmf_prop_$prop.name = ${prop.getDefaultValueAsString()};
+
+ #if(${prop.type} || ${prop.genericType})
+     __vmf_prop_${prop.name} = ${prop.getDefaultValueAsString()};
+     __vmf_prop__builder_${prop.name} = null;
+ #else##generic type
+     __vmf_prop_${prop.name} = ${prop.getDefaultValueAsString()};
+ #end##generic type
  #else##if default is present
      // -> no default value is present
  #end## if default is present      
@@ -57,23 +73,76 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
       this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
         java.util.Collections.
         unmodifiableList(
-#if(${prop.genericType})
+#if(${prop.type} || ${prop.genericType})
           new java.util.ArrayList<${prop.genericType.typeName}>(${prop.name})
 #else## if genericType is modelType
           new java.util.ArrayList<${prop.genericPackageName}.${prop.genericTypeName}>(${prop.name})
 #end## if genericType is modelType
         )
       );
+
+#if(${prop.type} || ${prop.genericType})
+      // we set already initialized objects
+      // -> remove builder alternative
+      this.__vmf_prop__builder_${prop.name} = null;
+#end## if genericType is modelType
+
       return this;
     }
     public Builder with${prop.nameWithUpperCase}(${prop.genericPackageName}.${prop.genericTypeName}... ${prop.name}) {
       return with${prop.nameWithUpperCase}(java.util.Arrays.asList(${prop.name}));
-    } 
-#else## if property is collection
-    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name}) {
-      this.__vmf_prop_${prop.name} = ${prop.name};
+    }
+
+#if(${prop.type} || ${prop.genericType})
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}.Builder> ${prop.name}, ${VMFPKG}.ErasureIsStupid... eis) {
+      // ensure that this collection property is really immutable
+      this.__vmf_prop__builder_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
+        java.util.Collections.
+        unmodifiableList(
+          new java.util.ArrayList<${prop.genericType.typeName}.Builder>(${prop.name})
+        )
+      );
+
+      // we set object builders
+      // -> remove already initialized objects
+      this.__vmf_prop_${prop.name} = null;
+
       return this;
     }
+    public Builder with${prop.nameWithUpperCase}(${prop.genericPackageName}.${prop.genericTypeName}.Builder... ${prop.name}) {
+      return with${prop.nameWithUpperCase}(java.util.Arrays.asList(${prop.name}));
+    }
+#end## if genericType is modelType
+
+#else## if property is collection
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(${prop.typeName} ${prop.name}) {
+
+        this.__vmf_prop_${prop.name} = ${prop.name};
+#if(${prop.type} || ${prop.genericType})
+
+        // we set already initialized objects
+        // -> remove builder alternative
+        this.__vmf_prop__builder_${prop.name} = null;
+#end## if genericType is modelType
+
+        return this;
+    }
+
+
+#if(${prop.type} || ${prop.genericType})
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(${prop.typeName}.Builder ${prop.name}) {
+
+        this.__vmf_prop__builder_${prop.name} = ${prop.name};
+
+        // we set object builders
+        // -> remove already initialized objects
+        this.__vmf_prop_${prop.name} = null;
+
+        return this;
+    }
+#end## if genericType is modelType
+
+
 #end## if property is collection
 #end## if type is no container or property is no containment type
 #end## foreach property
@@ -85,33 +154,93 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public $type.typeName build() {
     ${type.implementation.typeName} result = new ${type.implementation.typeName}();
 #foreach( $prop in ${type.implementation.properties} )
-#if($type.immutable || $prop.propType != "COLLECTION")
+
+
+    // --------------------------------------------------------------------------------
+    // PROP '${prop.name}' of type '${prop.typeName}'
+    // --------------------------------------------------------------------------------
+
+#if($prop.propType != "COLLECTION")
 #if($type.immutable)
-    result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+    #if(${prop.type} || ${prop.genericType})
+        // no collection, immutable model type
+        // set property via property or builder
+        if( this.__vmf_prop__builder_${prop.name} == null){
+            result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+        } else if( this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
+            result.__vmf_prop_${prop.name} = (${prop.typeName})this.__vmf_prop__builder_${prop.name}.build();
+        }
+    #else
+        // no collection, no model type (assumed immutable), set directly
+        result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+    #end
 #elseif(!$prop.readOnly)
+#if(${prop.type} || ${prop.genericType})
+    // no collection, model type
+    // set property via property or builder
+    if( this.__vmf_prop__builder_${prop.name} == null) {
+        result.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
+    } else if( this.__vmf_prop_${prop.name}==null #if(${prop.type}) && this.__vmf_prop__builder_${prop.name} != null#end ) {
+        result.set${prop.nameWithUpperCase}((${prop.typeName})this.__vmf_prop__builder_${prop.name}.build());
+    }
+#else
+    // no collection, no model type (assumed mutable), set directly
     result.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});
-#end
-#if($prop.type)
-    // PROP: $prop.name
-    #set($objectToAddReferenceOnValue="result")
-    #set($referenceToAddValue = "result.__vmf_prop_"+${prop.name})
-    #set($objectToRemoveReferenceOnValue = false)
-    #set($referenceToRemoveValue = false)
-    #set($codeIndentValue = "      ")
-    #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
-#end## if property is model-type
+#end## if genericType is modelType
+#end## immutable
+###if(${prop.type})
+##    #set($objectToAddReferenceOnValue="result")
+##    #set($referenceToAddValue = "result.__vmf_prop_"+${prop.name})
+##    #set($objectToRemoveReferenceOnValue = false)
+##    #set($referenceToRemoveValue = false)
+##    #set($codeIndentValue = "      ")
+##    #parse("${VMF_TEMPLATE_PATH}impl/set-references.vm")
+###end## if property is model-type
 #end## if type is immutable or property is no collection
 #if($prop.propType == "COLLECTION")
 #if($type.immutable)
+#if(${prop.type} || ${prop.genericType})
+    // collection, immutable model type
+
+    // as immutable we set this collection directly instead of adding to an existing collection
+    // this list is a vlist wrapping an unmodifiable list
+
+    // set via builder or directly
+    if(this.__vmf_prop_${prop.name}!=null && this.__vmf_prop__builder_${prop.name} == null) {
+        result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
+    } else if(this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
+        result.__vmf_prop_${prop.name} = this.__vmf_prop__builder_${prop.name}
+            .stream().map(bObj->bObj==null?null:(${prop.genericPackageName}.${prop.genericTypeName}))bObj.build())
+                .collect(java.util.stream.Collectors.toList());
+    }
+#else## if genericType is modelType
+    // collection, external type (assumed immutable)
+
     // as immutable we set this collection directly instead of adding to an existing collection
     // this list is a vlist wrapping an unmodifiable list
     result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
-#else
-    if(this.__vmf_prop_${prop.name} !=null) {
-      result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
+#end## if genericType is modelType
+#else## immutable
+#if(${prop.type} || ${prop.genericType})
+    // collection, model type (assumed mutable)
+
+    // set via builder or directly
+    if(this.__vmf_prop_${prop.name}!=null && this.__vmf_prop__builder_${prop.name} == null) {
+        if(this.__vmf_prop_${prop.name} !=null) {
+          result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
+        }
+    } else if(this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
+        result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop__builder_${prop.name}
+            .stream().map(bObj->bObj==null?null:(${prop.genericPackageName}.${prop.genericTypeName})bObj.build()).collect(java.util.stream.Collectors.toList()));
     }
-#end    
-#end
+#else## if genericType is modelType
+    // collection, external type (assumed mutable)
+    if(this.__vmf_prop_${prop.name} !=null) {
+        result.get${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
+    }
+#end## if genericType is modelType
+#end## immutable
+#end## collection
 #end## foreach property
     return result;
   }

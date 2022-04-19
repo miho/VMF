@@ -78,6 +78,12 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString,
   static ${type.typeName} newInstance() {
     return __VMF__${type.typeName}_Creator.newInstance();
   }
+#else
+  public static final class Builder implements ${VMFPKG}.Builder {
+    private Builder() {
+        throw new AssertionError("Don't instantiate me!");
+    }
+  }
 #end##if type interface only
 
   /**
