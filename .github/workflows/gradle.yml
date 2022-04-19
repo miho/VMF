@@ -7,12 +7,12 @@ jobs:
   build-linux:
     strategy:
       matrix:
-        jdkVersion: [11, 17, 18]
+        jdkVersion: [11, 17, 18, 19-ea]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Set up JDK ${{ matrix.jdkVersion }}
-      uses: actions/setup-java@v1
+      uses: actions/setup-java@v3
       with:
         java-version: ${{ matrix.jdkVersion }}
         architecture: x64 # (x64 or x86)
@@ -27,9 +27,9 @@ jobs:
         jdkVersion: [11]
     runs-on: [macos-latest]
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Set up JDK ${{ matrix.jdkVersion }}
-      uses: actions/setup-java@v1
+      uses: actions/setup-java@v3
       with:
         java-version: ${{ matrix.jdkVersion }}
         architecture: x64 # (x64 or x86)
@@ -40,12 +40,12 @@ jobs:
   build-windows-latest:
     strategy:
       matrix:
-        jdkVersion: [11, 17, 18]
+        jdkVersion: [11, 17, 18, 19-ea]
     runs-on: [windows-latest]
     steps:
-    - uses: actions/checkout@v1
+    - uses: actions/checkout@v3
     - name: Set up JDK ${{ matrix.jdkVersion }}
-      uses: actions/setup-java@v1
+      uses: actions/setup-java@v3
       with:
         java-version: ${{ matrix.jdkVersion }}
         architecture: x64 # (x64 or x86)
