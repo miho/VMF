@@ -3,7 +3,8 @@
 echo "------------------------------------------"
 echo "BUILDING (CORE, RUNTIME, GRADLE-PLUGIN)..."
 echo "------------------------------------------"
-sh ./gradlew clean test publishtoMavenLocal --no-daemon || { echo 'building vmf failed' ; exit 1; }
+sh ./gradlew clean publishtoMavenLocal --no-daemon || { echo 'building vmf failed' ; exit 1; }
+sh ./gradlew test --no-daemon || { echo 'testing vmf failed' ; exit 1; }
 
 echo "------------------------------------------"
 echo "BUILDING PLUGIN (MAVEN)..."
