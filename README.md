@@ -81,7 +81,7 @@ buildscript {
 }
 ```
 
-## Building VMF (Core)
+## Building VMF (Core, Runtime and Plugin)
 
 ### Requirements
 
@@ -91,12 +91,12 @@ buildscript {
 
 ### IDE
 
-Open the `VMF` core [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2021) and build it
-by calling the `publishToMavenLocal` task.
+Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2021) and build it
+by executing the `publishToMavenLocal` task.
 
 ### Command Line
 
-Navigate to the `VMF` core [Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/core`) and enter the following command
+Navigate to the `VMF`[Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/`) and enter the following command
 
 #### Bash (Linux/macOS/Cygwin/other Unix shell)
 
@@ -106,47 +106,12 @@ Navigate to the `VMF` core [Gradle](http://www.gradle.org/) project (i.e., `path
 
     gradlew publishToMavenLocal
     
-## Building VMF (Runtime)
-
-### IDE
-
-Open the `VMF` runtime [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2021) and build it
-by calling the `publishToMavenLocal` task.
-
-### Command Line
-
-Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/runtime`) and enter the following command
-
-#### Bash (Linux/macOS/Cygwin/other Unix shell)
-
-    bash gradlew publishToMavenLocal
+> **NOTE:** to execute the tests within the VMF project (basic tests) execute the `test` task after executing `publishToMavenLocal`.    
     
-#### Windows (CMD)
-
-    gradlew publishToMavenLocal    
     
-## Building VMF (Gradle Plugin)
-
-### IDE
-
-Open the `VMF` [Gradle](http://www.gradle.org/) plugin project in your favourite IDE (tested with IntelliJ 2021) and build it
-by calling the `publishToMavenLocal` task.
-
-### Command Line
-
-Navigate to the `VMF` runtime [Gradle](http://www.gradle.org/) project (i.e., `path/to/VMF/gradle-project`) and enter the following command
-
-#### Bash (Linux/macOS/Cygwin/other Unix shell)
-
-    bash gradlew publishToMavenLocal
-    
-#### Windows (CMD)
-
-    gradlew publishToMavenLocal 
-
 ## Testing VMF (Core, Runtime & Plugin)
 
-To execute the test suite, navigate to the test project (i.e., `path/to/VMF/test-suite`) and enter the following command
+To execute the full test suite, navigate to the test project (i.e., `path/to/VMF/test-suite`) and enter the following command
 
 #### Bash (Linux/macOS/Cygwin/other Unix shell)
 
