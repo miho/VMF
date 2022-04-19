@@ -21,7 +21,7 @@ import java.lang.annotation.ElementType;
  * 
  * @see {@link IgnoreEquals}
  * @see <a
- *      href="@see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-10/README.md#ignoring-properties-for-equals">Tutorial
+ *      href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-10/README.md#ignoring-properties-for-equals">Tutorial
  *      on Equals & HashCode</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
