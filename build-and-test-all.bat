@@ -3,7 +3,8 @@ echo ------------------------------------------
 echo BUILDING (CORE, RUNTIME, GRADLE-PLUGIN)...
 echo ------------------------------------------
 
-cmd /c "gradlew.bat" clean test publishtoMavenLocal --no-daemon || exit /b %ERRORLEVEL%;
+cmd /c "gradlew.bat" clean publishtoMavenLocal --no-daemon || exit /b %ERRORLEVEL%;
+cmd /c "gradlew.bat" test --no-daemon || exit /b %ERRORLEVEL%;
 
 echo ------------------------------------------
 echo BUILDING PLUGIN (MAVEN)...
