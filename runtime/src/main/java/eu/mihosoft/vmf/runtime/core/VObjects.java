@@ -22,6 +22,7 @@ public final class VObjects {
      * @param o2 second object to compare
      * @return {@code true} if the arguments are equal to each other; {@code false} otherwise.
      */
+    @SuppressWarnings("deprecation")
     public static boolean equals(Object o1, Object o2) {
         if(o1 instanceof VObject && o2 instanceof VObject) {
             return ((VObjectInternal)o1)._vmf_equals(o2);
