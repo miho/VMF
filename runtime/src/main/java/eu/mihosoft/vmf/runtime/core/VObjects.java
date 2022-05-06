@@ -2,6 +2,7 @@ package eu.mihosoft.vmf.runtime.core;
 
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -17,7 +18,8 @@ public final class VObjects {
 
     /**
      * Returns {@code true} if the arguments are equal to each other; {@code false} otherwise. If
-     * the specified objects are model instances then the VMF {@code equals} method is used.
+     * the specified objects are model instances then the VMF {@code equals} method is used. If the specified
+     * objects are collections which contain model instances then the VMF {@code equals} method is used element-wise.
      * @param o1 first object to compare
      * @param o2 second object to compare
      * @return {@code true} if the arguments are equal to each other; {@code false} otherwise.
@@ -26,9 +28,9 @@ public final class VObjects {
     public static boolean equals(Object o1, Object o2) {
         if(o1 instanceof VObject && o2 instanceof VObject) {
             return ((VObjectInternal)o1)._vmf_equals(o2);
-        } else if(o1 instanceof List && o2 instanceof List) {
-            List l1 = (List) o1;
-            List l2 = (List) o2;
+        } else if(o1 instanceof Collection && o2 instanceof Collection) {
+            Collection l1 = (Collection) o1;
+            Collection l2 = (Collection) o2;
 
             if(l1.size()!=l2.size()) {
                 return false;
@@ -36,9 +38,14 @@ public final class VObjects {
 
             int n = l1.size();
 
+            var l1It = l1.iterator();
+            var l2It = l2.iterator();
+
+            // compare element-wise
             for(int i = 0; i < n; i++) {
-                Object e1 = l1.get(i);
-                Object e2 = l2.get(i);
+
+                Object e1 = l1It.next();
+                Object e2 = l2It.next();
 
                 if(!equals(e1,e2)) return false;
             }
