@@ -209,9 +209,13 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     if(this.__vmf_prop_${prop.name}!=null && this.__vmf_prop__builder_${prop.name} == null) {
         result.__vmf_prop_${prop.name} = this.__vmf_prop_${prop.name};
     } else if(this.__vmf_prop_${prop.name}==null && this.__vmf_prop__builder_${prop.name} != null) {
-        result.__vmf_prop_${prop.name} = this.__vmf_prop__builder_${prop.name}
-            .stream().map(bObj->bObj==null?null:(${prop.genericPackageName}.${prop.genericTypeName}))bObj.build())
-                .collect(java.util.stream.Collectors.toList());
+        result.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
+            java.util.Collections.unmodifiableList(
+                this.__vmf_prop__builder_${prop.name}.stream()
+                .map(bObj->bObj==null?null:(${prop.genericPackageName}.${prop.genericTypeName})bObj.build())
+                .collect(java.util.stream.Collectors.toList())
+            )
+        );
     }
 #else## if genericType is modelType
     // collection, external type (assumed immutable)
