@@ -59,7 +59,9 @@ import org.gradle.api.reflect.HasPublicType;
 import org.gradle.api.reflect.TypeOf
 import org.gradle.api.tasks.incremental.IncrementalTaskInputs
 import org.gradle.plugins.ide.idea.IdeaPlugin;
-import org.gradle.util.ConfigureUtil;
+import org.gradle.util.ConfigureUtil
+import org.gradle.work.InputChanges;
+
 import javax.inject.Inject
 import java.util.stream.Collectors;
 import groovy.grape.Grape;
@@ -359,14 +361,14 @@ class CompileVMFTask extends DefaultTask {
     // Class<?> vmfClass;
 
     @TaskAction
-    void vmfGenModelSources(IncrementalTaskInputs inputs) {
+    void vmfGenModelSources(InputChanges inputChanges) {
 
 
-//        // directory set
-//        println(" -> directories:")
-//        for(File f : sourceDirectorySet.srcDirs) {
-//            println("   --> dir:  " + f)
-//        }
+        // directory set
+        println(" -> directories:")
+        for(File f : sourceDirectorySet.srcDirs) {
+            println("   --> dir:  " + f)
+        }
 //
 //        // all inputs
 //        println(" -> all inputs:")
@@ -387,7 +389,9 @@ class CompileVMFTask extends DefaultTask {
 
         // println(" -> out-of-date inputs:")
 
-        inputs.outOfDate {
+        FileCollection inputFiles = sourceDirectorySet.sourceDirectories.asFileTree
+
+        inputChanges.getFileChanges(inputFiles).each { it ->
             if (it.file.isFile() && it.file.absolutePath.toLowerCase().endsWith(".java")) {
                 // println("   --> file: " + it.file)
                 filesOutOfDate.add(it.file)
