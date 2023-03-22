@@ -56,7 +56,7 @@ jar {
 }
 
 license {
-    header = rootProject.file('config/HEADER')
+    header = rootProject.file('core/config/HEADER')
     strictCheck = true
     ignoreFailures = true
     mapping {

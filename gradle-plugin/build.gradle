@@ -1,9 +1,9 @@
 plugins {
     id "com.gradle.plugin-publish" version "0.11.0"
-    id 'com.github.hierynomus.license' version '0.14.0'
+    id 'com.github.hierynomus.license' version '0.16.1'
     id 'maven-publish'
-    id 'net.nemerosa.versioning' version '2.7.1'
-    id 'com.github.ben-manes.versions' version '0.13.0'
+    id 'net.nemerosa.versioning' version '3.0.0'
+    id 'com.github.ben-manes.versions' version '0.44.0'
 }
 
 ext.commonProps = new Properties()
@@ -70,7 +70,7 @@ compileGroovy {
 }
 
 license {
-    header = rootProject.file('config/HEADER')
+    header = rootProject.file('gradle-plugin/config/HEADER')
     strictCheck = true
     ignoreFailures = true
     mapping {

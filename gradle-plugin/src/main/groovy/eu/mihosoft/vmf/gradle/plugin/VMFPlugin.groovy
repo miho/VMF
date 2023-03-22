@@ -1,6 +1,6 @@
 /*
- * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
- * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ * Copyright 2017-2023 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2023 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,14 @@
  */
 package eu.mihosoft.vmf.gradle.plugin
 
-import org.gradle.api.Plugin
-import org.gradle.api.Project
-import org.gradle.api.artifacts.Dependency
-import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.compile.JavaCompile
 
-import org.gradle.api.Plugin
-import org.gradle.api.Project
+import org.gradle.api.artifacts.Dependency
+import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.provider.Property
+
 import org.gradle.api.file.FileCollection
 import org.gradle.api.plugins.JavaPlugin
-import org.gradle.api.plugins.JavaPluginConvention
+
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.SourceSet
@@ -41,30 +38,23 @@ import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.compile.JavaCompile
 
 
-import org.gradle.api.Plugin;
-import org.gradle.api.internal.*;
-import org.gradle.api.internal.file.*;
-import org.gradle.api.internal.file.collections.*;
 import org.gradle.api.internal.tasks.*;
 import org.gradle.api.internal.plugins.DslObject;
 import org.gradle.api.*;
-import org.codehaus.groovy.runtime.InvokerHelper;
+
 
 //
-import groovy.lang.Closure;
-import org.gradle.api.Action;
 import org.gradle.api.file.SourceDirectorySet;
-import org.gradle.api.internal.file.SourceDirectorySetFactory;
+
 import org.gradle.api.reflect.HasPublicType;
 import org.gradle.api.reflect.TypeOf
-import org.gradle.api.tasks.incremental.IncrementalTaskInputs
-import org.gradle.plugins.ide.idea.IdeaPlugin;
-import org.gradle.util.ConfigureUtil
-import org.gradle.work.InputChanges;
 
-import javax.inject.Inject
-import java.util.stream.Collectors;
-import groovy.grape.Grape;
+import org.gradle.plugins.ide.idea.IdeaPlugin;
+
+import org.gradle.work.Incremental
+import org.gradle.work.InputChanges
+
+import javax.inject.Inject;
 
 import static org.gradle.api.reflect.TypeOf.typeOf;
 
@@ -188,7 +178,9 @@ class VMFPlugin implements Plugin<Project> {
         // get version from generated Constants.groovy
         String VMF_VERSION = eu.mihosoft.vmf.gradle.plugin.constants.Constants.VMF_VERSION;
 
-        project.getConvention().getPlugin(JavaPluginConvention.class).getSourceSets().all(new Action<SourceSet>() {
+        // project.getConvention().getPlugin(JavaPluginConvention.class)
+
+        project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().all(new Action<SourceSet>() {
             public void execute(final SourceSet sourceSet) {
 
                 // For each source set we will:
@@ -219,9 +211,9 @@ class VMFPlugin implements Plugin<Project> {
                 );
                 // 1.5 Add the source directory set 'vmf' to the source set
                 final String srcDir = "src/" + sourceSet.getName() + "/vmf";
-                SourceDirectorySet sourceDirectorySet = vmfDirectoryDelegate.getVMF();
-                sourceDirectorySet.srcDir(srcDir);
-                sourceSet.getAllSource().source(sourceDirectorySet);
+                SourceDirectorySet sourceDirectorySetVMF = vmfDirectoryDelegate.getVMF();
+                sourceDirectorySetVMF.srcDir(srcDir);
+                sourceSet.getAllSource().source(sourceDirectorySetVMF);
 
                 // 2) Create a VMFTask for this sourceSet following the gradle
                 //    naming conventions via call to sourceSet.getTaskName()
@@ -255,9 +247,9 @@ class VMFPlugin implements Plugin<Project> {
                 }
 
                 JavaCompile compileVMFModelDefTask = project.task(compileModelDefTaskName, type: JavaCompile) {
-                    source = sourceDirectorySet
+                    source = sourceDirectorySetVMF
                     classpath = project.configurations.getByName(configName)
-                    destinationDir = outputDirectoryModelDef
+                    destinationDirectory = outputDirectoryModelDef
                     // dependencyCacheDir = file('.')
                     // sourceCompatibility = '1.7'
                     // targetCompatibility = '1.7'
@@ -274,12 +266,12 @@ class VMFPlugin implements Plugin<Project> {
                                         + sourceSet.getName() + " source set."
                         );
                         vmfTask.group = "vmf"
-                        vmfTask.inputFiles = vmfDirectoryDelegate.getVMF() as FileCollection;
-                        vmfTask.outputFolder = outputDirectory;
-                        vmfTask.sourceSetCompileClassPath = sourceSet.compileClasspath;
-                        vmfTask.sourceDirectorySet = sourceDirectorySet;
-                        vmfTask.outputDirectoryModelDef = outputDirectoryModelDef;
-                        vmfTask.vmfClassPath = resolveClassPath.call();
+                        vmfTask._inputFiles = vmfDirectoryDelegate.getVMF() as FileCollection;
+                        vmfTask._outputFolder = outputDirectory;
+                        vmfTask._sourceSetCompileClassPath = sourceSet.compileClasspath;
+                        vmfTask._sourceDirectorySet.set(sourceDirectorySetVMF)
+                        vmfTask._outputDirectoryModelDef = outputDirectoryModelDef;
+                        vmfTask._vmfClassPath = resolveClassPath.call();
                     }
                 });
 
@@ -341,45 +333,47 @@ class VMFPlugin implements Plugin<Project> {
 class CompileVMFTask extends DefaultTask {
 
     @InputFiles
-    FileCollection inputFiles;
+    FileCollection _inputFiles;
 
     @OutputDirectory
-    File outputFolder;
+    File _outputFolder;
 
     @InputFiles
-    FileCollection sourceSetCompileClassPath;
+    FileCollection _sourceSetCompileClassPath;
 
     @InputFiles
-    SourceDirectorySet sourceDirectorySet;
+    @Incremental
+    // just creates the property, setting as before
+    final Property<SourceDirectorySet> _sourceDirectorySet = project.objects.property(SourceDirectorySet)
+
 
     @OutputDirectory
-    File outputDirectoryModelDef;
+    File _outputDirectoryModelDef;
 
     @InputFiles
-    FileCollection vmfClassPath
+    FileCollection _vmfClassPath
 
     // Class<?> vmfClass;
 
     @TaskAction
     void vmfGenModelSources(InputChanges inputChanges) {
 
-
         // directory set
         println(" -> directories:")
-        for(File f : sourceDirectorySet.srcDirs) {
+        for(File f : _sourceDirectorySet.get().srcDirs) {
             println("   --> dir:  " + f)
         }
 //
-//        // all inputs
-//        println(" -> all inputs:")
-//        for (File f : inputFiles) {
-//            println("   --> file: " + f)
-//        }
-//
-//
-//        // output directory
-//        println(" -> output directory:")
-//        println("   --> folder: " + outputFolder)
+        // all inputs
+        println(" -> all inputs:")
+        for (File f : _inputFiles) {
+            println("   --> file: " + f)
+        }
+
+
+        // output directory
+        println(" -> output directory:")
+        println("   --> folder: " + _outputFolder)
 
         checkValidFileStructure();
 
@@ -389,25 +383,23 @@ class CompileVMFTask extends DefaultTask {
 
         // println(" -> out-of-date inputs:")
 
-        FileCollection inputFiles = sourceDirectorySet.sourceDirectories.asFileTree
-
-        inputChanges.getFileChanges(inputFiles).each { it ->
+        inputChanges.getFileChanges(_sourceDirectorySet).each { it ->
             if (it.file.isFile() && it.file.absolutePath.toLowerCase().endsWith(".java")) {
-                // println("   --> file: " + it.file)
+                println("   --> file: " + it.file)
                 filesOutOfDate.add(it.file)
             }
         }
 
         // load VMF class (depending on version)
         def vmfCompileModelClassPath = []
-        sourceSetCompileClassPath.each { entry ->
+        _sourceSetCompileClassPath.each { entry ->
             vmfCompileModelClassPath.add(entry.toURI().toURL())
         }
-        vmfCompileModelClassPath.add(outputDirectoryModelDef.toURI().toURL())
+        vmfCompileModelClassPath.add(_outputDirectoryModelDef.toURI().toURL())
 
 
         // add vmf base classes (from core package and manual definitions in build.gradle dependencies {})
-        vmfClassPath.each { entry ->
+        _vmfClassPath.each { entry ->
             vmfCompileModelClassPath.add(entry.toURI().toURL())
         }
 
@@ -438,7 +430,7 @@ class CompileVMFTask extends DefaultTask {
 
             // generate code
             vmfClass.generate(
-                    outputFolder,
+                    _outputFolder,
                     classLoader,
                     vmfModelPath
             )
@@ -448,7 +440,7 @@ class CompileVMFTask extends DefaultTask {
     void checkValidFileStructure() {
         Map<String, List<String>> numFilesPerPackageName = new HashMap<>();
 
-        for (File f : inputFiles) {
+        for (File f : _inputFiles) {
 
             String filePath = f.absolutePath;
             String key = getPackageNameFromFile(f);
@@ -488,7 +480,7 @@ class CompileVMFTask extends DefaultTask {
         // - remove the front part, e.g., '/Users/myname/path/to/project/src/main/vmf'
         // - remove the file name from end of the remaining string, e.g., 'MyFile.java
         // - the result is the package name
-        for (File dir : sourceDirectorySet.srcDirs) {
+        for (File dir : _sourceDirectorySet.get().srcDirs) {
 
             String absolutePath = dir.absolutePath;
             String packageName = file.absolutePath;
