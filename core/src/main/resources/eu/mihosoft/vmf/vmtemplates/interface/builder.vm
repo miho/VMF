@@ -130,7 +130,6 @@
    */
   public $type.typeName build();
 
-#if(!$type.immutable)
     /**
      * Defines whether to append collections rather than replacing them in the
      * {@link #[[#]]#applyFrom($type.typeName)} and {@link #[[#]]#applyTo($type.typeName)} methods.
@@ -147,6 +146,7 @@
      */
     public Builder applyFrom($type.typeName o);
 
+#if(!$type.immutable)
     /**
      * Applies all properties from this builder to the specified object.
      * @param o object to apply properties to
