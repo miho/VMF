@@ -105,7 +105,7 @@ Computing and Visualization in Science, 2013, 16(4),
 		<dependency>
 			<groupId>org.apache.maven</groupId>
 			<artifactId>maven-core</artifactId>
-			<version>3.6.3</version>
+			<version>3.8.1</version>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.maven</groupId>
