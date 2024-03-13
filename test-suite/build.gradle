@@ -47,7 +47,7 @@ if (!hasProperty('mainClass')) {
 }
 
 wrapper {
-    gradleVersion = '7.6'
+    gradleVersion = '8.6'
 }
 
 repositories {
@@ -67,7 +67,7 @@ dependencies {
 
     implementation group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: commonProps.get("publication.version")
     implementation group: 'eu.mihosoft.jcompiler', name: 'jcompiler', version: '0.4'
-    implementation group: 'org.codehaus.groovy', name: 'groovy-console', version: '2.0.1'
+    implementation group: 'org.codehaus.groovy', name: 'groovy-console', version: '2.4.21'
 
     implementation 'commons-jxpath:commons-jxpath:1.3'
 }

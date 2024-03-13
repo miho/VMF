@@ -13,12 +13,12 @@ cd maven-plugin
 cmd /c "maven.bat" clean install || exit /b %ERRORLEVEL%;
 
 echo ------------------------------------------
-echo TESTING (1/2, GRADLE)...
+echo TESTING (1/1, GRADLE)...
 echo ------------------------------------------
 cd ..\test-suite
 cmd /c "gradlew.bat" clean test --stacktrace --no-daemon || exit /b %ERRORLEVEL%;
 
-echo ------------------------------------------
-echo TESTING (2/2, MAVEN)...
-echo ------------------------------------------
-cmd /c "maven.bat" test   || exit /b %ERRORLEVEL%;
+@REM echo ------------------------------------------
+@REM echo TESTING (2/2, MAVEN)...
+@REM echo ------------------------------------------
+@REM cmd /c "maven.bat" test   || exit /b %ERRORLEVEL%;

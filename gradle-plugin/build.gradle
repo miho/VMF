@@ -10,8 +10,8 @@ ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 
-sourceCompatibility = '8'
-targetCompatibility = '8'
+sourceCompatibility = '11'
+targetCompatibility = '11'
 
 apply plugin: 'groovy'
 apply from: 'gradle/publishing.gradle'
@@ -88,6 +88,11 @@ license {
     ext.author3 = 'Samuel Michaelis'
 
     exclude '**/*.svg'
+}
+
+// required on JDK 17 and later
+tasks.withType(Test) {
+    jvmArgs('--add-opens=java.base/java.lang=ALL-UNNAMED')
 }
 
 

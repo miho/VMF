@@ -13,7 +13,7 @@ cd maven-plugin
 #sh ./maven.sh clean install || { echo 'building maven plugin failed' ; exit 1; }
 
 echo "------------------------------------------"
-echo "TESTING  (1/2, GRADLE)..."
+echo "TESTING  (1/1, GRADLE)..."
 echo "------------------------------------------"
 cd ../test-suite
 sh ./gradlew clean test --stacktrace --no-daemon --warning-mode all || { echo 'building and/or running test-suite failed' ; exit 1; }
