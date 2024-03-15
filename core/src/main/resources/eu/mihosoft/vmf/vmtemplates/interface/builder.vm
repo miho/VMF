@@ -124,11 +124,13 @@
 #end## if type is no container or property is no containment type
 #end##end foreach property
 
+#if(!$type.interfaceOnly)
   /**
    * Builds a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
    * @return a new '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
    */
   public $type.typeName build();
+#end## if type is not interface only
 
     /**
      * Defines whether to append collections rather than replacing them in the
@@ -155,6 +157,14 @@
      */
     public Builder applyTo($type.typeName o);
 #end## if type is not immutable
+
+    /**
+      * Returns a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance.
+      * @return a new builder for creating a '{@link $type.fullTypeName <em><b>${type.typeName}</b></em>}' instance
+      */
+    public static final Builder newInstance() {
+      return __VMF__${type.typeName}_Creator.newBuilderInstance();
+    }
 
   } // end class Builder
 

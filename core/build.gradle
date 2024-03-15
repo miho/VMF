@@ -30,7 +30,7 @@ configurations {
 
 repositories {
     mavenCentral()
-    jcenter()
+//    mavenLocal()
 }
 
 dependencies {
@@ -39,7 +39,7 @@ dependencies {
     // compile group: 'org.apache.velocity', name: 'velocity', version: '1.7'
     // legacyVelocity group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.4'
     // configurations.compile.extendsFrom(configurations.legacyVelocity)
-    implementation group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.4'
+    implementation group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.5'
     implementation group: 'io.github.classgraph', name: 'classgraph', version: '4.8.60'
     implementation group: 'eu.mihosoft.jcompiler', name: 'jcompiler', version: '0.4'
 }
