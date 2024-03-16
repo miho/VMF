@@ -43,7 +43,7 @@ VMF comes with excellent Gradle support. Just add the plugin like so (get the la
 
 ```gradle
 plugins {
-  id "eu.mihosoft.vmf" version "0.2.8.6" // use latest version
+  id "eu.mihosoft.vmf" version "0.2.8.7" // use latest version
 }
 ```
 
@@ -91,7 +91,7 @@ buildscript {
 
 ### IDE
 
-Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2022) and build it
+Open the `VMF` [Gradle](http://www.gradle.org/) project in your favourite IDE (tested with IntelliJ 2023) and build it
 by executing the `publishToMavenLocal` task.
 
 ### Command Line
