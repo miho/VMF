@@ -30,11 +30,16 @@ idea {
         dependencies {
             implementation group: 'eu.mihosoft.vmf', name: 'vmf', version: commonProps.get("publication.version")
         }
+
+        sourceDirs += file('src/main/java')
     }
 }
 
-sourceCompatibility = '11'
-targetCompatibility = '11'
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
 
 tasks.withType(Javadoc) {
