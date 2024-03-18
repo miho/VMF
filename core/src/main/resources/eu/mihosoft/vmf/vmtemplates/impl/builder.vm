@@ -249,6 +249,48 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     return result;
   }
 
+#foreach( $t in $type.allInheritedTypes )
+    public Builder applyFrom(${t.typeName} o) {
+#foreach( $prop in ${t.implementation.properties} )
+
+    ### now, set "p.name" to "prop.name" of "type.name", because in "t.name" they are potentially more generic
+    ### search by "prop.name" name by another foreach
+    #foreach( $pOfType in ${type.implementation.properties} )
+    #if($pOfType.name == $prop.name)
+    #set($p = $pOfType)
+    #end
+    #end ## foreach property
+
+    // we cast types to the type of the property in the current class (runtime exception if not possible)
+
+    ###if($type.immutable || $prop.propType != "COLLECTION")
+    #if($prop.propType == "COLLECTION")
+        #if(${prop.genericType})
+            #set($genericCollArg = "${prop.genericType.typeName}")
+        #else## if genericType is modelType
+            #set($genericCollArg = "${prop.genericPackageName}.${prop.genericTypeName}")
+        #end## if genericType is modelType
+    if(!this.appendCollections||this.__vmf_prop_${prop.name}==null) {
+      // ensure that this collection property is really immutable
+      this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
+        java.util.Collections.
+      unmodifiableList(
+        new java.util.ArrayList<$genericCollArg>( (${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}())
+      )
+      );
+    } else {
+      this.__vmf_prop_${prop.name}.addAll( (${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+    }
+    #else## if property is collection
+    this.__vmf_prop_${prop.name} = (${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}();
+    #end## if property is collection
+    ###end## if type is immutable or property is no collection
+#end## foreach property
+
+    return this;
+  }
+#end ## foreach inherited type
+
   public Builder applyFrom(${type.typeName} o) {
 #foreach( $prop in ${type.implementation.properties} )
 ###if($type.immutable || $prop.propType != "COLLECTION")
@@ -277,6 +319,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 
     return this;
   }
+
 #if(!$type.immutable)
   public Builder applyTo(${type.typeName} o) {
 

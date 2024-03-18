@@ -148,6 +148,16 @@
      */
     public Builder applyFrom($type.typeName o);
 
+#foreach( $t in $type.allInheritedTypes )
+    /**
+     * Applies all properties from the specified object to this builder.
+     * @param o object to apply properties from
+     * @return this builder
+     * @see #[[#]]#applyTo($type.typeName)
+     */
+    public Builder applyFrom($t.typeName o);
+#end##end foreach inherited type
+
 #if(!$type.immutable)
     /**
      * Applies all properties from this builder to the specified object.
