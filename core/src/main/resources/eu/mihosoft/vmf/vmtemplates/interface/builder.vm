@@ -151,6 +151,14 @@
 #foreach( $t in $type.allInheritedTypes )
     /**
      * Applies all properties from the specified object to this builder.
+     *
+     * <p><b>NOTE:</b>
+     * This method may throw a class cast exception if the interface of the specified object
+     * contains properties with @GetterOnly annotations that return a supertype of the
+     * actual property type of the type this builder is for and if the specified object
+     * this builder is applying from, is not an instance of the property type in question,
+     * e.g., if a cast from the supertype to the property type is not possible.
+     * </p>
      * @param o object to apply properties from
      * @return this builder
      * @see #[[#]]#applyTo($type.typeName)
