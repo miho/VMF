@@ -307,15 +307,15 @@ class VMFPlugin implements Plugin<Project> {
                 if (project.hasProperty("vmfPluginIntelliJIntegration")
                         && project.property("vmfPluginIntelliJIntegration")) {
                     // 7) register source set for idea plugin
-//                    project.idea {
-//                        module {
-//                            // add the already(!) added vmf src dir for intellij
-//                            sourceDirs += sourceSet.vmf.srcDirs
-//
-//                            // add the already(!) added vmf gen output src dir for intellij
-//                            generatedSourceDirs += outputDirectory
-//                        }
-//                    }
+                    project.idea {
+                        module {
+                            // add the already(!) added vmf src dir for intellij
+                            sourceDirs += sourceSet.vmf.srcDirs
+
+                            // add the already(!) added vmf gen output src dir for intellij
+                            generatedSourceDirs += outputDirectory
+                        }
+                    }
                 }
             }
         });

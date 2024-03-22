@@ -16,8 +16,8 @@ echo "------------------------------------------"
 echo "TESTING  (1/1, GRADLE)..."
 echo "------------------------------------------"
 cd ../test-suite
-#sh ./gradlew clean test --stacktrace --no-daemon || { echo 'building and/or running test-suite failed' ; exit 1; }
-sh ./gradlew clean test --stacktrace --no-daemon --warning-mode all || { echo 'building and/or running test-suite failed' ; exit 1; }
+sh ./gradlew clean test --stacktrace --no-daemon || { echo 'building and/or running test-suite failed' ; exit 1; }
+#sh ./gradlew clean test --stacktrace --no-daemon --warning-mode all || { echo 'building and/or running test-suite failed' ; exit 1; }
 
 #echo "------------------------------------------"
 #echo "TESTING  (2/2, MAVEN)..."

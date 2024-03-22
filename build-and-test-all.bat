@@ -16,7 +16,8 @@ echo ------------------------------------------
 echo TESTING (1/1, GRADLE)...
 echo ------------------------------------------
 cd ..\test-suite
-cmd /c "gradlew.bat" clean test --stacktrace --no-daemon --warning-mode all || exit /b %ERRORLEVEL%;
+@REM cmd /c "gradlew.bat" clean test --stacktrace --no-daemon --warning-mode all || exit /b %ERRORLEVEL%;
+cmd /c "gradlew.bat" clean test --stacktrace --no-daemon || exit /b %ERRORLEVEL%;
 
 @REM echo ------------------------------------------
 @REM echo TESTING (2/2, MAVEN)...
