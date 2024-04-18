@@ -1,6 +1,6 @@
 /*
- * Copyright 2017-2023 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
- * Copyright 2017-2023 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ * Copyright 2017-2024 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,14 +45,14 @@ import java.lang.annotation.ElementType;
  * @see {@link IgnoreEquals}
  * @see <a
  *      href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-10/README.md#ignoring-properties-for-equals">Tutorial
- *      on Equals & HashCode</a>
+ *      on Equals &amp; HashCode</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.TYPE)
 public @interface VMFEquals {
 
     /**
-     * Defines the {@link Object#equals(Object)} and  {@link Object#hashCode()}
+     * Defines the {@link Object#equals(Object)} and {@link Object#hashCode()}
      * implementation to use.
      */
     enum EqualsType {
@@ -62,7 +62,7 @@ public @interface VMFEquals {
     }
 
     /**
-     * Defines the {@link Object#equals(Object)} and  {@link Object#hashCode()}
+     * Defines the {@link Object#equals(Object)} and {@link Object#hashCode()}
      * implementation to use. The default is {@link EqualsType#INSTANCE}.
      */
     EqualsType value() default EqualsType.CONTAINMENT_AND_EXTERNAL;

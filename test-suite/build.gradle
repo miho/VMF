@@ -16,7 +16,7 @@ buildscript {
 }
 
 plugins {
-    id 'com.github.hierynomus.license' version '0.14.0'
+    id 'com.github.hierynomus.license' version '0.16.1'
 //    id 'eu.mihosoft.vmf' version '0.2-SNAPSHOT'
 }
 
@@ -52,7 +52,7 @@ if (!hasProperty('mainClass')) {
 }
 
 wrapper {
-    gradleVersion = '8.6'
+    gradleVersion = '8.7'
 }
 
 repositories {
@@ -62,7 +62,7 @@ repositories {
 
 dependencies {
 
-    testImplementation('junit:junit:4.13.1'){
+    testImplementation('junit:junit:4.13.2'){
         exclude group: 'org.hamcrest'
     }
 
@@ -78,7 +78,7 @@ dependencies {
 }
 
 license {
-    header = rootProject.file('test-suite/config/HEADER')
+    header = rootProject.file('config/HEADER')
     strictCheck = true
     ignoreFailures = true
     mapping {

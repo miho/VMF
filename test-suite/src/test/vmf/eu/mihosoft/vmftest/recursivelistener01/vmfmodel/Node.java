@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2019 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2024 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
  * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
  * Copyright 2017 Samuel Michaelis. All rights reserved.
  *

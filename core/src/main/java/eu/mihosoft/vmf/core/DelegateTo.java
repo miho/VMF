@@ -1,6 +1,6 @@
 /*
- * Copyright 2017-2023 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
- * Copyright 2017-2023 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ * Copyright 2017-2024 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ import java.lang.annotation.Target;
  * <p>Created by miho on 21.03.2017.</p>
  * 
  * @author Michael Hoffer <info@michaelhoffer.de>
- * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-08/README.md">Tutorial on Custom Behavior & Delegation</a>
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-08/README.md">Tutorial on Custom Behavior &amp; Delegation</a>
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.METHOD, ElementType.TYPE})

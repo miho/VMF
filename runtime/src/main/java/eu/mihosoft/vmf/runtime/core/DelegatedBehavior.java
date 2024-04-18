@@ -1,6 +1,6 @@
 /*
- * Copyright 2017-2023 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
- * Copyright 2017-2023 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ * Copyright 2017-2024 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,7 +31,7 @@ package eu.mihosoft.vmf.runtime.core;
  * <p>Created by miho on 05.04.17.</p>
  *
  * @author Michael Hoffer <info@michaelhoffer.de>
- * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-08/README.md">Tutorial on Custom Behavior & Delegation</a>
+ * @see <a href="https://github.com/miho/VMF-Tutorials/blob/master/VMF-Tutorial-08/README.md">Tutorial on Custom Behavior &amp; Delegation</a>
  * @see DelegatedBehaviorBase
  */
 public interface DelegatedBehavior<T extends VObject> {
