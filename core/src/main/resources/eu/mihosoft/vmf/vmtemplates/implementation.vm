@@ -35,9 +35,9 @@ import ${type.packageName}.*;
 //import java.util.Objects;
 //import java.util.Arrays;
 
-// property types imports
+// property types imports (currently disabled)
 #foreach( $import in $type.implementation.imports )
-import $import;
+// import $import;
 #end
 
 // implementation
