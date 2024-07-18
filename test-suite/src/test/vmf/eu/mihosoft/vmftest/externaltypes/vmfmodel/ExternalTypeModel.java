@@ -45,12 +45,30 @@ interface MyType {
 
 }
 
+@ExternalType(pkgName = "java.awt")
+interface Image {
+
+}
+
 interface Model {
     String getName();
 
     List getList();
 
     List[] getLists();
+
+
+    // should compile correctly
+    java.awt.image.BufferedImage getBImage();
+
+    // should compile as well
+    java.awt.image.BufferedImage[] getBImages();
+
+    // should compile as well
+    Image[] getImages();
+
+    // should compile as well
+    Image getImage();
 
     @DelegateTo(className = "eu.mihosoft.vmftest.externaltypes.ModelBehavior")
     void runAction(MyAction action);

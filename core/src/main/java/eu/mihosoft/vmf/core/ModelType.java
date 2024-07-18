@@ -758,13 +758,18 @@ public class ModelType {
 
     private static final Map<String, String> primitiveToBoxedTypeNames = new HashMap<>();
 
+    public static boolean isPrimitiveType(String typeName) {
+        return primitiveToBoxedTypeNames.containsKey(typeName);
+    }
+
     public static String primitiveToBoxedType(String typeName) {
 
         if (primitiveToBoxedTypeNames.isEmpty()) {
             primitiveToBoxedTypeNames.put("int", Integer.class.getSimpleName());
             primitiveToBoxedTypeNames.put("long", Integer.class.getSimpleName());
             primitiveToBoxedTypeNames.put("float", Float.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("bool", Boolean.class.getSimpleName());
+            primitiveToBoxedTypeNames.put("double", Double.class.getSimpleName());
+            primitiveToBoxedTypeNames.put("boolean", Boolean.class.getSimpleName());
             primitiveToBoxedTypeNames.put("char", Character.class.getSimpleName());
             primitiveToBoxedTypeNames.put("byte", Byte.class.getSimpleName());
             primitiveToBoxedTypeNames.put("void", Void.class.getSimpleName());

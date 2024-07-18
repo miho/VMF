@@ -198,34 +198,36 @@ public class Prop {
                         "Currently only 'java.util.List<?>' is supported as Collection type.");
             } else {
                 collectionType = CollectionType.LIST;
-                if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
+                if (TypeUtil.getPackageName(containedClazz, true).isEmpty()) {
                     genericPackageName = "";
                 } else {
                     genericPackageName = m.convertModelPackageToDestination(
                             containedClazz.getSimpleName(),
-                            TypeUtil.getPackageName(containedClazz));
+                            TypeUtil.getPackageName(containedClazz, false));
                 }
 
-                genericTypeName = containedClazz.getSimpleName();
+                genericTypeName =
+                    containedClazz.getSimpleName();
+//                        (TypeUtil.getPackageName(containedClazz, true).isBlank()?""
+//                                : TypeUtil.getPackageName(containedClazz, true)+".")
+//                                + containedClazz.getSimpleName();
             }
 
-            typeName = PRIVATE_LIST_TYPE_WITH_PKG + "<" + m.convertModelTypeToDestination(containedClazz) + ">";
-            simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG + "<" + m.convertModelTypeToDestination(containedClazz) + ">";
+            typeName = PRIVATE_LIST_TYPE_WITH_PKG + "<"
+                    +m.convertModelTypeToDestination(containedClazz) + ">";
+            simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG + "<"
+                    +m.convertModelTypeToDestination(containedClazz) + ">";
             packageName = PRIVATE_LIST_TYPE_PKG_NAME;
 
         } else if (propClass.isArray()) {
             propType = PropType.COLLECTION;
             Class<?> containedClazz = propClass.getComponentType();
-            simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG+"<" + ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz))
-                    + ">";
-            typeName = PRIVATE_LIST_TYPE_WITH_PKG+"<"
-                    + ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz)) + ">";
-            // System.out.println("TYPENAME: " + typeName);
+
 
             packageName = PRIVATE_LIST_TYPE_PKG_NAME;
 
             collectionType = CollectionType.LIST;
-            if (TypeUtil.getPackageName(containedClazz).isEmpty()) {
+            if (TypeUtil.getPackageName(containedClazz, true).isEmpty()) {
                 genericPackageName = "";
             } else {
                 genericPackageName = m.convertModelPackageToDestination(
@@ -233,9 +235,21 @@ public class Prop {
                         TypeUtil.getPackageName(containedClazz));
             }
 
+            simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG+"<"
+                    +ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz))
+                    + ">";
+            typeName = PRIVATE_LIST_TYPE_WITH_PKG+"<"
+                    +ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz)) + ">";
+
+
+            // System.out.println("TYPENAME: " + typeName);
             // System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
 
-            genericTypeName = containedClazz.getSimpleName();
+            genericTypeName =
+                    containedClazz.getSimpleName();
+//                    (TypeUtil.getPackageName(containedClazz, true).isBlank()?""
+//                            : TypeUtil.getPackageName(containedClazz, true)+".")
+//                            + containedClazz.getSimpleName();
         } else {
             propType = PropType.CLASS;
 
@@ -678,7 +692,7 @@ public class Prop {
         if (isCollectionType()) {
             return genericTypeName;
         }
-
+        
         return null;
     }
 

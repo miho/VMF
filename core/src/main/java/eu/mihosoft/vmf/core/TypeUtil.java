@@ -289,7 +289,22 @@ public final class TypeUtil {
         return result;
     }
 
+    /**
+     * Returns the package name of the specified class. It ignores the external type annotation, even if present.
+     * @param cls class to get the package name from
+     * @return the package name of the specified class
+     */
     public static String getPackageName(Class<?> cls) {
+        return getPackageName(cls, false);
+    }
+
+    /**
+     * Returns the package name of the specified class. If {@code externalTypePkg} is {@code true} the package name as defined in the external type annotation is returned if present, otherwise only the package name of the specified class is returned without analyzing the external type annotation.
+     * @param cls class to get the package name from
+     * @param externalTypePkg if {@code true} the package name as defined in the external type annotation is returned if present, otherwise only the package name of the specified class is returned without analyzing the external type annotation
+     * @return the package name of the specified class
+     */
+    public static String getPackageName(Class<?> cls, boolean externalTypePkg) {
 
         // why don't we use getPackage().getName()?
         // here's why: https://github.com/square/javapoet/issues/295
@@ -297,6 +312,15 @@ public final class TypeUtil {
         // the class name indicates that the class is actually inside a package, e.g., 'abc.D'
 
         String className = cls.getName();
+
+
+        if(externalTypePkg) {
+            // if the class is an external type, we need to extract the package name from the annotation
+            ExternalType externalType = cls.getAnnotation(ExternalType.class);
+            if (externalType != null) {
+                className = externalType.pkgName() + "." +className;
+            }
+        }
 
         if(!className.contains(".")) return "";
 

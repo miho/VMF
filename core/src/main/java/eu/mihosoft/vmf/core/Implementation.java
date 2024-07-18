@@ -266,9 +266,19 @@ public final class Implementation {
             throw new RuntimeException("Already initialized.");
         }
 
-        imports.addAll(properties.stream().map(p -> p.getPackageName()).
-                filter(pkg -> !pkg.isEmpty()).filter(pkg -> !"java.lang".equals(pkg)).
-                filter(pkg -> !getType().getModel().getPackageName().equals(pkg)).map(imp -> imp + ".*").distinct().
+//        imports.addAll(properties.stream().map(p -> p.getPackageName()).
+//                filter(pkg -> !pkg.isEmpty()).filter(pkg -> !"java.lang".equals(pkg)).
+//                filter(pkg -> !getType().getModel().getPackageName().equals(pkg)).map(imp -> imp + ".*").distinct().
+//                collect(Collectors.toList()));
+
+        imports.addAll(properties.stream().filter(p->!p.isCollectionType())
+                        .filter(p->!ModelType.isPrimitiveType(p.getTypeName()))
+//                .map(p -> p.getPackageName())
+                .map(p -> /*p.getPackageName()+ "." +*/ p.getTypeName()).
+//                filter(pkg -> !pkg.isEmpty()).filter(pkg -> !"java.lang".equals(pkg)).
+//                filter(pkg -> !getType().getModel().getPackageName().equals(pkg)).
+//                map(imp -> imp + ".*").
+                distinct().
                 collect(Collectors.toList()));
     }
 }

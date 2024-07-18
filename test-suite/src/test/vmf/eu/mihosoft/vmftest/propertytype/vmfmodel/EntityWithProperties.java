@@ -31,7 +31,6 @@ interface EntityWithProperties {
     ChildEntity[] getChildren();
 
     ChildEntity getEntity();
-
 }
 
 interface ChildEntity {

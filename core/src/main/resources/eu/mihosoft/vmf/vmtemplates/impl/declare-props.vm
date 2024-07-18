@@ -44,7 +44,7 @@
   // --- PROP '$prop.typeName'
   /*package private*/ $prop.typeName __vmf_prop_$prop.name;
 #if(${prop.propType} == "COLLECTION")
-  /*package private*/ java.util.List<${prop.genericTypeName}> __vmf_prop_${prop.name}__vmf_RawList;
+  /*package private*/ java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> __vmf_prop_${prop.name}__vmf_RawList;
 #end## collection  
 #if(!$type.immutable) 
 #if(${prop.isInheritedProp()})## if   inheritedprop
@@ -57,7 +57,7 @@
   //@Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_${prop.name} = obj;}
   @Override public $prop.typeName __vmf_get_prop_${prop.name}() {return this.__vmf_prop_${prop.name};}
 #if(${prop.propType} == "COLLECTION")
-  @Override public java.util.List<${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList() {
+  @Override public java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList() {
 
     if(this.__vmf_prop_${prop.name}__vmf_RawList==null) {
   	  __vmf_prop_${prop.name}__vmf_RawList = new java.util.ArrayList<>();
