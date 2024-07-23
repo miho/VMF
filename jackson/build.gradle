@@ -1,0 +1,99 @@
+import java.text.SimpleDateFormat
+
+// enable intellij integration & load vmf version to be used
+buildscript {
+
+    ext.commonProps = new Properties()
+    file(new File(rootProject.getRootDir(),"../config/common.properties")).
+            withInputStream { {commonProps.load(it) }}
+
+    ext.vmfPluginIntelliJIntegration = true
+
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath "eu.mihosoft.vmf:vmf-gradle-plugin:${commonProps.get("publication.version")}"
+    }
+}
+
+plugins {
+    id 'com.github.hierynomus.license' version '0.16.1'
+    id 'maven-publish'
+    id 'net.nemerosa.versioning' version '3.0.0'
+    id 'com.github.ben-manes.versions' version '0.44.0'
+}
+
+ext.commonProps = new Properties()
+file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
+
+apply plugin: 'java-library'
+apply from: 'gradle/publishing.gradle'
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+tasks.withType(JavaCompile) {
+    options.compilerArgs << "-Xlint:unchecked"   // << "-Werror"
+    options.compilerArgs << "-Xlint:deprecation" // << "-Werror"
+}
+
+tasks.withType(Javadoc) {
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.encoding = 'UTF-8'
+}
+
+if (!hasProperty('mainClass')) {
+    ext.mainClass = 'eu.mihosoft.vmf.runtime.Main'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
+
+    // jackson
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.12.1'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.1'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.12.1'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-json:2.12.1'
+}
+
+jar {
+    manifest {
+        attributes('Automatic-Module-Name': 'eu.mihosoft.vmf.jackson')
+    }
+}
+
+license {
+    header = rootProject.file('runtime/config/HEADER')
+    strictCheck = true
+    ignoreFailures = true
+    mapping {
+        java   = 'SLASHSTAR_STYLE'
+        groovy = 'SLASHSTAR_STYLE'
+        fxml   = 'XML_STYLE'
+    }
+
+    ext.yearCurrent  = new SimpleDateFormat("yyyy").format(new Date())
+    ext.yearSince1   = '2017'
+    ext.author1 = 'Michael Hoffer <info@michaelhoffer.de>'
+    ext.yearSince2   = '2017'
+    ext.author2 = 'Goethe Center for Scientific Computing, University Frankfurt'
+
+    exclude '**/*.svg'
+}
+
+
+
+
+
