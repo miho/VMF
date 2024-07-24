@@ -30,11 +30,18 @@ ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 apply plugin: 'java-library'
+apply plugin: 'eu.mihosoft.vmf'
 apply from: 'gradle/publishing.gradle'
 
+apply plugin: 'application'
+
+application {
+    mainClass = 'eu.mihosoft.vmf.jackson.Main'
+}
+
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
 }
 
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
@@ -62,10 +69,16 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
 
     // jackson
-    implementation 'com.fasterxml.jackson.core:jackson-core:2.12.1'
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.1'
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.12.1'
-    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-json:2.12.1'
+    implementation 'com.fasterxml.jackson.core:jackson-core:2.17.2'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.17.2'
+
+    // toml
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.17.2'
+    // yaml
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.2'
+    // xml
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.2'
 }
 
 jar {
