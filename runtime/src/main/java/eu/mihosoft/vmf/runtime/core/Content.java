@@ -120,9 +120,19 @@ public interface Content {
     <T> T shallowCopy();
 
     /**
-     * Indicates whether this VMF object is equal to the specified object.
+     * Indicates whether this VMF object is equal to the specified model object.
      * It uses VMFs equals implementation which compares all properties unless
      * they are ignored explicitly via annotation.
+     *
+     * <p>Example:</p>
+     * <pre><code>
+     *     MyModel m1 = ...
+     *     MyModel m2 = ...
+     *     boolean equals = m1.vmf().content().equals(m2);
+     *     System.out.println("Models are equal: " + equals);
+     *     // output: Models are equal: true
+     * </code></pre>
+     *
      * @param o object to compare
      * @return {@code } if equals; {@code false} otherwise
      */
