@@ -9,10 +9,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.IOException;
 import java.lang.reflect.*;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * Generic builder module. This module provides a deserializer for VMF objects that have a builder. The deserializer
@@ -22,11 +19,77 @@ import java.util.Map;
  */
 public class GenericBuilderModule extends SimpleModule {
 
+    private final Map<String, String> typeAliases = new HashMap<>();
+    /**
+     * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
+     * of an object during deserialization. The type alias is used to map a type name to a class name.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * module.addTypeAlias("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * }</pre>
+     * <p>This example adds a type alias {@code person} that maps to the class {@code eu.mihosoft.vmf.jackson.test.Person}.
+     */
+    public void addTypeAlias(String alias, String className) {
+        typeAliases.put(alias, className);
+    }
+
+    /**
+     * Returns the type aliases of the module.
+     * @return the type aliases of the module
+     */
+    public Map<String, String> getTypeAliases() {
+        return Collections.unmodifiableMap(typeAliases);
+    }
+
+
     /**
      * Constructor. Creates a new instance of GenericBuilderModule.
      */
     public GenericBuilderModule() {
-        setDeserializerModifier(new GenericBuilderDeserializerModifier());
+        setDeserializerModifier(new GenericBuilderDeserializerModifier(this));
+    }
+
+    /**
+     * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
+     * of an object during deserialization. The type alias is used to map a type name to a class name.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * module.addTypeAlias("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * }</pre>
+     * <p>This example adds a type alias {@code person} that maps to the class {@code eu.mihosoft.vmf.jackson.test.Person}.
+     */
+    public GenericBuilderModule withTypeAlias(String alias, String className) {
+        addTypeAlias(alias, className);
+        return this;
+    }
+
+    /**
+     * Add multiple type aliases to the module. This method is used to add multiple type aliases at once.
+     * <p>Example:
+     * <pre>{@code
+     * Map<String, String> typeAliases = new HashMap<>();
+     * typeAliases.put("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * typeAliases.put("employee", "eu.mihosoft.vmf.jackson.test.Employee");
+     * module.addTypeAliases(typeAliases);
+     * }</pre></p>
+     * <p>This example adds two type aliases {@code person} and {@code employee} that map to the classes</p>
+     * @param typeAliases the type aliases to add
+     * @return this module
+     */
+    public GenericBuilderModule withTypeAliases(Map<String, String> typeAliases) {
+        typeAliases.forEach(this::addTypeAlias);
+        return this;
+    }
+
+    /**
+     * Create a new instance of GenericBuilderModule.
+     * @return a new instance of GenericBuilderModule
+     */
+    public static GenericBuilderModule newInstance() {
+        var module = new GenericBuilderModule();
+        return module;
     }
 
     /**
@@ -35,10 +98,17 @@ public class GenericBuilderModule extends SimpleModule {
      * deserializer with a GenericBuilderDeserializer.
      */
     private static class GenericBuilderDeserializerModifier extends BeanDeserializerModifier {
+
+        private final GenericBuilderModule module;
+
+        public GenericBuilderDeserializerModifier(GenericBuilderModule module) {
+            this.module = module;
+        }
+
         @Override
         public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
             if (isVMFObj(beanDesc.getBeanClass()) && hasBuilder(beanDesc.getBeanClass())) {
-                return new GenericBuilderDeserializer<>(beanDesc.getBeanClass(), deserializer);
+                return new GenericBuilderDeserializer<>(beanDesc.getBeanClass(), deserializer, module);
             }
 
             return deserializer;
@@ -80,14 +150,17 @@ public class GenericBuilderModule extends SimpleModule {
 
         private final JsonDeserializer<T> defaultDeserializer;
 
+        private final GenericBuilderModule module;
+
         /**
          * Constructor. Creates a new instance of GenericBuilderDeserializer.
          * @param vc the value class
          * @param defaultDeserializer the default deserializer
          */
-        public GenericBuilderDeserializer(Class<?> vc, JsonDeserializer<T> defaultDeserializer) {
+        public GenericBuilderDeserializer(Class<?> vc, JsonDeserializer<T> defaultDeserializer, GenericBuilderModule module) {
             super(vc);
             this.defaultDeserializer = defaultDeserializer;
+            this.module = module;
         }
 
         @Override
@@ -101,12 +174,15 @@ public class GenericBuilderModule extends SimpleModule {
             // do so and allow reiteration over the fields
             if(node.has("@type")) {
                 String type = node.get("@type").asText();
-                System.out.println("custom TYPE: " + type);
+
+                // check if we have a type alias
+                if(module.getTypeAliases().containsKey(type)) {
+                    type = module.getTypeAliases().get(type);
+                }
 
                 // get the actual class
                 try {
                     actualClass = Class.forName(type);
-                    System.out.println("ACTUAL-CLS: " + actualClass);
                 } catch (ClassNotFoundException e) {
                     e.printStackTrace();
                     throw new RuntimeException(e);

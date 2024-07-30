@@ -32,7 +32,10 @@ public class Main {
         ObjectMapper mapper = new ObjectMapper();
         var writer = mapper.writerWithDefaultPrettyPrinter();
 
-        mapper.registerModule(new GenericBuilderModule());
+        mapper.registerModule(new GenericBuilderModule()
+                .withTypeAlias("person", Person.class.getName())
+                .withTypeAlias("employee", Employee.class.getName())
+        );
 
         String json = """
                 {
@@ -61,7 +64,7 @@ public class Main {
                     "age" : 40,
                     "name" : "Max Mustermann"
                   }, {
-                    "@type" : "eu.mihosoft.vmf.jackson.test.Employee",
+                    "@type" : "employee",
                     "address" : {
                       "zip" : "80331",
                       "city" : "Munich",
