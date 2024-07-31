@@ -212,6 +212,7 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
             if (reflect==null) {
               reflect = new ${VMFPKG_INT}.ReflectImpl();
               reflect.setModel(${type.implementation.typeName}.this);
+              reflect.setModelAPIClass(${type.packageName}.${modelName}Model.class);
             }
     
             return reflect;

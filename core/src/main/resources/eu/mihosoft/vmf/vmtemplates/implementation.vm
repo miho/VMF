@@ -257,6 +257,7 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
             if (reflect==null) {
               reflect = new ${VMFPKG_INT}.ReflectImpl();
               reflect.setModel(${type.implementation.typeName}.this);
+              reflect.setModelAPIClass(${type.packageName}.${modelName}Model.class);
             }
 
             return reflect;

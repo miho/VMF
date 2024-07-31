@@ -1,3 +1,4 @@
+import javax.swing.OverlayLayout
 import java.text.SimpleDateFormat
 
 // enable intellij integration & load vmf version to be used
@@ -84,6 +85,16 @@ dependencies {
 jar {
     manifest {
         attributes('Automatic-Module-Name': 'eu.mihosoft.vmf.jackson')
+    }
+}
+
+idea {
+    module {
+        dependencies {
+            implementation group: 'eu.mihosoft.vmf', name: 'vmf', version: commonProps.get("publication.version")
+        }
+
+        sourceDirs += file('src/main/java')
     }
 }
 

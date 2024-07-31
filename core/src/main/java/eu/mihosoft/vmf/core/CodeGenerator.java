@@ -183,6 +183,12 @@ public class CodeGenerator {
             generateReadOnlyVMFModelListenerInterface(out, packageName, modelSwitchName, model);
         }
 
+        // Model class
+        try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + "." + modelSwitchName + "Model"))) {
+            Writer out = res.open();
+            generateVMFModeAPIInterface(out, packageName, modelSwitchName, model);
+        }
+
         try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal"))) {
             Writer out = res.open();
             generateVMFCloneableInterface(out, packageName+ "." + VMFEngineProperties.VMF_IMPL_PKG_EXT);
@@ -205,46 +211,51 @@ public class CodeGenerator {
                 packageName = t.getPackageName();
             }
 
+            String[] packageComponents = packageName.split("\\.");
+            String modelName = packageComponents[packageComponents.length-1];
+            modelName =  modelName.substring(0, 1).toUpperCase() + modelName.substring(1);
+
+
             if(t.isImmutable()) {
                 try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + t.getTypeName()))) {
                     Writer out = res.open();
-                    generateImmutableTypeInterface(out, t);
+                    generateImmutableTypeInterface(out, t, modelName);
                 }
                 if(!t.isInterfaceOnly()) {
                     try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
                             + t.getImplementation().getTypeName()))) {
                         Writer out = res.open();
-                        generateImmutableTypeImplementation(out, t);
+                        generateImmutableTypeImplementation(out, t, modelName);
                     }
                 }
             } else {
 
                 try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + t.getTypeName()))) {
                     Writer out = res.open();
-                    generateTypeInterface(out, t);
+                    generateTypeInterface(out, t, modelName);
                 }
 
                 try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + t.getReadOnlyInterface().getTypeName()))) {
                     Writer out = res.open();
-                    generateReadOnlyTypeInterface(out, t);
+                    generateReadOnlyTypeInterface(out, t, modelName);
                 }
 
                 if(t.isInterfaceOnly()) {
                     try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".__VMF_TYPE_" + t.getTypeName()))) {
                         Writer out = res.open();
-                        generateInternalTypeInterface(out, t);
+                        generateInternalTypeInterface(out, t, modelName);
                     }
                 } else {
                     try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
                             + t.getImplementation().getTypeName()))) {
                         Writer out = res.open();
-                        generateTypeImplementation(out, t);
+                        generateTypeImplementation(out, t, modelName);
                     }
 
                     try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(t.getPackageName() + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + "."
                             + t.getReadOnlyImplementation().getTypeName()))) {
                         Writer out = res.open();
-                        generateReadOnlyTypeImplementation(out, t);
+                        generateReadOnlyTypeImplementation(out, t, modelName);
                     }
                 }
             }
@@ -286,6 +297,15 @@ public class CodeGenerator {
         context.put("model", m);
         context.put("modelSwitchName", modelSwitchName);
         mergeTemplate("vmf-model-traversal-listener-read-only-interface", context, out);
+    }
+
+    private void generateVMFModeAPIInterface(Writer out, String packageName, String modelName, Model m) throws IOException {
+        VelocityContext context = new VelocityContext();
+        VMFEngineProperties.installProperties(context);
+        context.put("packageName", packageName);
+        context.put("model", m);
+        context.put("modelName", modelName);
+        mergeTemplate("vmf-model-class", context, out);
     }
 
     private void generateImmutableVMFModelSwitchInterface(Writer out, String packageName, String modelSwitchName, Model m) throws IOException {
@@ -332,57 +352,65 @@ public class CodeGenerator {
         mergeTemplate("vmfutil-vcollectionutil", context, out);
     }
 
-    private void generateTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateTypeInterface(Writer out, ModelType t, String modelName) throws IOException {
         VelocityContext context = new VelocityContext();
+        context.put("modelName", modelName);
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("interface", context, out);
     }
 
-    private void generateInternalTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateInternalTypeInterface(Writer out, ModelType t, String modelName) throws IOException {
         VelocityContext context = new VelocityContext();
+        context.put("modelName", modelName);
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("interface__vmf_type", context, out);
     }
 
-    private void generateWritableTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateWritableTypeInterface(Writer out, ModelType t, String modelName) throws IOException {
         VelocityContext context = new VelocityContext();
+        context.put("modelName", modelName);
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("writable-interface", context, out);
     }
 
-    private void generateReadOnlyTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateReadOnlyTypeInterface(Writer out, ModelType t, String modelName) throws IOException {
         VelocityContext context = new VelocityContext();
+        context.put("modelName", modelName);
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("read-only-interface", context, out);
     }
 
-    private void generateTypeImplementation(Writer out, ModelType t) throws IOException {
+    private void generateTypeImplementation(Writer out, ModelType t, String modelName) throws IOException {
         VelocityContext context = new VelocityContext();
+        context.put("modelName", modelName);
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("implementation", context, out);
     }
 
-    private void generateReadOnlyTypeImplementation(Writer out, ModelType t) throws IOException {
+    private void generateReadOnlyTypeImplementation(Writer out, ModelType t, String modelName) throws IOException {
         VelocityContext context = new VelocityContext();
+        context.put("modelName", modelName);
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("read-only-implementation", context, out);
     }
 
-    private void generateImmutableTypeInterface(Writer out, ModelType t) throws IOException {
+    private void generateImmutableTypeInterface(Writer out, ModelType t, String modelName) throws IOException {
         VelocityContext context = new VelocityContext();
+        context.put("modelName", modelName);
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("immutable-interface", context, out);
     }
 
-    private void generateImmutableTypeImplementation(Writer out, ModelType t) throws IOException {
+    private void generateImmutableTypeImplementation(Writer out, ModelType t, String modelName) throws IOException {
         VelocityContext context = new VelocityContext();
+        context.put("modelName", modelName);
         context.put("type", t);
         VMFEngineProperties.installProperties(context);
         mergeTemplate("immutable-implementation", context, out);

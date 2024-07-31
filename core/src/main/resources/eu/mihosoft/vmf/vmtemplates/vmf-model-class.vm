@@ -1,0 +1,58 @@
+#*
+ * Copyright 2017-2024 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ *#
+package ${packageName};
+
+// vmf imports
+#set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
+#set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
+// import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
+
+
+/**
+  * This class provides a set of utility methods for the ${modelName} model.
+  */
+public final class ${modelName}Model {
+
+    private ${modelName}Model() {
+        throw new AssertionError("Don't instantiate me!");
+    }
+
+
+    private static final java.util.List<${VMFPKG}.Type> ALL_TYPES = java.util.Arrays.asList(
+#foreach($type in $model.types)
+        ${type.typeName}.type()#if($foreach.hasNext),#end
+
+#end
+    );
+
+    /**
+     * Returns all types of this model.
+     * @return all types of this model
+     */
+    public static java.util.List<${VMFPKG}.Type> getTypes() {
+        return ALL_TYPES;
+    }
+
+}

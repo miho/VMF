@@ -46,9 +46,14 @@ public class ReflectImpl implements Reflect {
     private List<Property> properties;
     private List<Annotation> annotations;
     private boolean staticOnly;
+    private Class<?> modelAPIClass;
 
     public void setModel(VObject model) {
         this.model = model;
+    }
+
+    public void setModelAPIClass(Class<?> modelAPIClass) {
+        this.modelAPIClass = modelAPIClass;
     }
 
     public void setStaticOnly(boolean staticOnly) {
@@ -87,5 +92,15 @@ public class ReflectImpl implements Reflect {
     public Type type() {
         VObjectInternal vObj = (VObjectInternal) model;
         return vObj._vmf_getType();
+    }
+
+    @Override
+    public List<Type> allTypes() {
+        // find method handle for getTypes method
+        try {
+            return (List<Type>) modelAPIClass.getMethod("getTypes").invoke(null);
+        } catch (Exception ex) {
+            throw new RuntimeException(ex);
+        }
     }
 }

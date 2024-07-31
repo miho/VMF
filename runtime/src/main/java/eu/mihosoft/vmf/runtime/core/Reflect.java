@@ -85,4 +85,10 @@ public interface Reflect {
      * Returns the type of this object.
      */
     Type type();
+
+    /**
+     * Returns all types of this VMF model.
+     * @return all types of this VMF model
+     */
+    List<Type> allTypes();
 }
