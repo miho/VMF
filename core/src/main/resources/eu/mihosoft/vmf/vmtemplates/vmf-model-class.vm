@@ -33,7 +33,7 @@ package ${packageName};
 /**
   * This class provides a set of utility methods for the ${modelName} model.
   */
-public final class ${modelName}Model {
+public final class ${modelName}Model__VMF_API {
 
     private ${modelName}Model() {
         throw new AssertionError("Don't instantiate me!");
