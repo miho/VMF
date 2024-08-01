@@ -183,8 +183,8 @@ public class CodeGenerator {
             generateReadOnlyVMFModelListenerInterface(out, packageName, modelSwitchName, model);
         }
 
-        // Model class
-        try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + "." + modelSwitchName + "Model"))) {
+//        // Model class
+        try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + "." + modelSwitchName + "Model__VMF_API"))) {
             Writer out = res.open();
             generateVMFModeAPIInterface(out, packageName, modelSwitchName, model);
         }
