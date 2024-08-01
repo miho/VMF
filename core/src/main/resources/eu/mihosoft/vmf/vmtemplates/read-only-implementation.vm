@@ -288,7 +288,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
         if (reflect==null) {
           reflect = new ${VMFPKG_INT}.ReflectImpl();
           reflect.setModel(${type.readOnlyImplementation.typeName}.this);
-          reflect.setModelAPIClass(${type.packageName}.${modelName}Model.class);
+          reflect.setModelAPIClass(${type.packageName}.${modelName}Model__VMF_API.class);
         }
 
         return reflect;
