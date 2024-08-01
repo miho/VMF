@@ -1,15 +1,22 @@
 package eu.mihosoft.vmf.jackson;
 
+import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
+import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import eu.mihosoft.vmf.runtime.core.VObject;
 
 import java.io.IOException;
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 /**
  * Generic builder module. This module provides a deserializer for VMF objects that have a builder. The deserializer
@@ -20,6 +27,8 @@ import java.util.*;
 public class GenericBuilderModule extends SimpleModule {
 
     private final Map<String, String> typeAliases = new HashMap<>();
+    private final Map<String, String> typeAliasesReverse = new HashMap<>();
+
     /**
      * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
      * of an object during deserialization. The type alias is used to map a type name to a class name.
@@ -32,6 +41,7 @@ public class GenericBuilderModule extends SimpleModule {
      */
     public void addTypeAlias(String alias, String className) {
         typeAliases.put(alias, className);
+        typeAliasesReverse.put(className, alias);
     }
 
     /**
@@ -42,12 +52,41 @@ public class GenericBuilderModule extends SimpleModule {
         return Collections.unmodifiableMap(typeAliases);
     }
 
+    /**
+     * Returns the reverse type aliases of the module.
+     */
+    public Map<String, String> getTypeAliasesReverse() {
+        return Collections.unmodifiableMap(typeAliasesReverse);
+    }
+
 
     /**
      * Constructor. Creates a new instance of GenericBuilderModule.
      */
     public GenericBuilderModule() {
         setDeserializerModifier(new GenericBuilderDeserializerModifier(this));
+        setSerializerModifier(new BeanSerializerModifier() {
+            @Override
+            public JsonSerializer<?> modifySerializer(SerializationConfig config, BeanDescription beanDesc, JsonSerializer<?> serializer) {
+
+                //System.out.println("!!! T1: " + beanDesc.getBeanClass().getName());
+
+                if (isVMFObj(beanDesc.getBeanClass())) {
+                    System.out.println("!!! T2: " + beanDesc.getBeanClass().getName());
+                    return new GenericBuilderSerializer<>(serializer, GenericBuilderModule.this);
+                }
+                return serializer;
+            }
+
+            private boolean hasBuilder(Class<?> clazz) {
+                try {
+                    clazz.getDeclaredMethod("newBuilder");
+                    return true;
+                } catch (NoSuchMethodException e) {
+                    return false;
+                }
+            }
+        });
     }
 
     /**
@@ -93,6 +132,26 @@ public class GenericBuilderModule extends SimpleModule {
     }
 
     /**
+     * Check if the class is a VMF object.
+     * @param clazz the class to check
+     * @return {@code true} if the class is a VMF object, {@code false} otherwise
+     */
+    static boolean isVMFObj(Class<?> clazz) {
+        // check if extends VObject
+        return eu.mihosoft.vmf.runtime.core.VObject.class.isAssignableFrom(clazz);
+    }
+
+    /**
+     * Check if the object is a VMF object.
+     * @param o the object to check
+     * @return {@code true} if the object is a VMF object, {@code false} otherwise
+     */
+    static boolean isVMFObj(Object o) {
+        return o instanceof eu.mihosoft.vmf.runtime.core.VObject;
+    }
+
+
+    /**
      * Generic builder deserializer modifier. This deserializer modifier is used to modify the deserializer of VMF objects
      * that have a builder. It checks if the object is a VMF object and has a builder. If so, it replaces the default
      * deserializer with a GenericBuilderDeserializer.
@@ -126,16 +185,6 @@ public class GenericBuilderModule extends SimpleModule {
             } catch (NoSuchMethodException e) {
                 return false;
             }
-        }
-
-        /**
-         * Check if the class is a VMF object.
-         * @param clazz the class to check
-         * @return {@code true} if the class is a VMF object, {@code false} otherwise
-         */
-        private boolean isVMFObj(Class<?> clazz) {
-            // check if extends VObject
-            return eu.mihosoft.vmf.runtime.core.VObject.class.isAssignableFrom(clazz);
         }
     }
 
@@ -361,5 +410,101 @@ public class GenericBuilderModule extends SimpleModule {
         private Class<?> getBuilderClass(Class<?> clazz) throws ClassNotFoundException {
             return Class.forName(clazz.getName() + "$Builder");
         }
+    }
+
+    /**
+     * Generic builder serializer. This serializer is used to serialize VMF objects that have a builder. It checks for
+     * the presence of the `@type` annotation and adds it to the serialized output.
+     * @param <T> the type of the object to serialize
+     */
+    private static class GenericBuilderSerializer<T> extends StdSerializer<T> {
+
+        private final JsonSerializer<T> defaultSerializer;
+        private final GenericBuilderModule module;
+
+        /**
+         * Constructor. Creates a new instance of GenericBuilderSerializer.
+         * @param defaultSerializer the default serializer
+         */
+        public GenericBuilderSerializer(JsonSerializer<T> defaultSerializer, GenericBuilderModule module) {
+            super((Class<T>) defaultSerializer.handledType());
+            this.defaultSerializer = defaultSerializer;
+            this.module = module;
+        }
+
+        @Override
+        public void serialize(T value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+
+            // if is VMF object, check for @type annotation
+            boolean isVMFObject = isVMFObj(value);
+
+            if (!isVMFObject) {
+                defaultSerializer.serialize(value, gen, provider);
+                return;
+            }
+
+            eu.mihosoft.vmf.runtime.core.VObject obj = (eu.mihosoft.vmf.runtime.core.VObject) value;
+            System.out.println("!!! T: " + obj.vmf().reflect().type().getName());
+
+            // Start writing the object
+            gen.writeStartObject();
+
+            // Write the type annotation if the model type is polymorphic
+            if (isTypeExtendsModelType(obj, obj.vmf().reflect().type())) {
+                gen.writeFieldName("@type");
+
+                // check if we have a type alias
+                String typeName = obj.vmf().reflect().type().getName();
+                if(module.getTypeAliases().containsValue(typeName)) {
+                    typeName = module.getTypeAliasesReverse().get(typeName);
+                }
+
+                gen.writeString(typeName);
+            }
+
+            // For each property, serialize the value
+            obj.vmf().reflect().properties().forEach(p -> {
+                try {
+                    Object propValue = p.get();
+                    if (propValue != null) {
+                        gen.writeFieldName(p.getName());
+                        gen.writeObject(propValue);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            });
+
+            // End writing the object
+            gen.writeEndObject();
+        }
+    }
+
+    private static boolean isTypeExtendedByModelType(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
+
+        var allTypes = model.vmf().reflect().allTypes();
+
+        // now, check if type is a super type of any of the types
+        for (var t : allTypes) {
+            if (t.superTypes().contains(type)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static boolean isTypeExtendsModelType(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
+
+        var allTypes = model.vmf().reflect().allTypes();
+
+        // now, check if type extends any of the types
+        for (var t : allTypes) {
+            if (type.superTypes().contains(t)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

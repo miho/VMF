@@ -1,6 +1,9 @@
 package eu.mihosoft.vmf.jackson.test.vmfmodel;
 
+import eu.mihosoft.vmf.core.*;
+
 interface MyModel {
+    @Contains()
     Person[] getPersons();
 }
 

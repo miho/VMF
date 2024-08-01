@@ -30,12 +30,13 @@ public class Main {
 
         // serialize the model
         ObjectMapper mapper = new ObjectMapper();
-        var writer = mapper.writerWithDefaultPrettyPrinter();
 
         mapper.registerModule(new GenericBuilderModule()
                 .withTypeAlias("person", Person.class.getName())
                 .withTypeAlias("employee", Employee.class.getName())
         );
+
+        var writer = mapper.writerWithDefaultPrettyPrinter();
 
         String json = """
                 {
@@ -93,11 +94,6 @@ public class Main {
             e.printStackTrace();
         }
 
-        // compare the models
-        boolean equals = model.vmf().content().equals(model2);
-
-        System.out.println("Models are equal: " + equals);
-
         // output second model
         try {
             json = writer.writeValueAsString(model2);
@@ -106,16 +102,10 @@ public class Main {
             e.printStackTrace();
         }
 
-        // write toml string and print it
-        try {
-            ObjectMapper tomlMapper = new TomlMapper();
-            //tomlMapper.registerModule(new GenericBuilderModule());
-            var toml = tomlMapper.writeValueAsString(model);
-            System.out.println("!! "+toml);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        // compare the models
+        boolean equals = model.vmf().content().equals(model2);
 
+        System.out.println("Models are equal: " + equals);
 
 
     }
