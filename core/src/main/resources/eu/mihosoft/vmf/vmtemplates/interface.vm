@@ -84,6 +84,14 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString,
         throw new AssertionError("Don't instantiate me!");
     }
   }
+
+  /**
+   * Returns the Type object of this model type.
+   * @return Type object
+   */
+   static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type type() {
+     return __VMF__${type.typeName}_IFACE_ONLY_HELPER.getType();
+   }
 #end##if type interface only
 
   /**
@@ -187,5 +195,18 @@ class __VMF__${type.typeName}_Creator {
         }
     }
 }
+#else
+/*
+*  Used to access type and keep a reference to it.
+*/
+class __VMF__${type.typeName}_IFACE_ONLY_HELPER {
+    static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type type;
 
+    static ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type getType() {
+        if(type ==null) {
+            type = ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.Type.newInstance(true, false, "${type.packageName}.$type.typeName", ${type.packageName}.${type.typeName}.class);
+        }
+        return type;
+    }
+}
 #end##if type interface only
