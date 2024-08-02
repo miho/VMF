@@ -277,18 +277,38 @@
     new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext),#else #end
 
 #end## for each pannotationroperty
-  };
+
+#if($type.immutable)
+    new ${VMFPKG}.internal.AnnotationImpl("vmf:type:immutable","")
+#end
+#if($type.interfaceOnly)
+   ,new ${VMFPKG}.internal.AnnotationImpl("vmf:type:interface-only","")
+#end
+
+};
 
   final static ${VMFPKG}.Annotation[][] _VMF_PROPERTY_ANNOTATIONS = {
 #foreach($prop in $type.implementation.properties)
     {
 #foreach($annotation in $prop.annotations) 
-      new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext),#else #end
+      new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)"),
 
 #end## for each annotation
+
+## if contained, add annotation with opposite
+      // containment info annotation
+#if($prop.containmentInfo.containmentType=="CONTAINER")
+      new ${VMFPKG}.internal.AnnotationImpl("vmf:property:containment-info",#if(${prop.containmentInfo.opposite})"container:${prop.containmentInfo.opposite.name}"#else"contained"#end)
+#elseif($prop.containmentInfo.containmentType=="CONTAINED")
+      new ${VMFPKG}.internal.AnnotationImpl("vmf:property:containment-info",#if(${prop.containmentInfo.opposite})"contained:${prop.containmentInfo.opposite.name}"#else"contained"#end)
+#else
+      new ${VMFPKG}.internal.AnnotationImpl("vmf:property:containment-info","none")
+#end
+
     }#if($foreach.hasNext),#else #end
 
 #end## for each property
+
   };
 
   @Override

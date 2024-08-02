@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
 import java.io.IOException;
@@ -72,7 +73,6 @@ public class GenericBuilderModule extends SimpleModule {
                 //System.out.println("!!! T1: " + beanDesc.getBeanClass().getName());
 
                 if (isVMFObj(beanDesc.getBeanClass())) {
-                    System.out.println("!!! T2: " + beanDesc.getBeanClass().getName());
                     return new GenericBuilderSerializer<>(serializer, GenericBuilderModule.this);
                 }
                 return serializer;
@@ -432,6 +432,17 @@ public class GenericBuilderModule extends SimpleModule {
             this.module = module;
         }
 
+        private
+        boolean isContainer(Property p) {
+            var a = p.annotationByKey("vmf:property:containment-info");
+            if(a.isPresent() || !p.getType().isModelType()) {
+                var c = a.get().getValue();
+                boolean isContainer =  c.contains("contained");
+                return isContainer;
+            }
+            return false;
+        }
+
         @Override
         public void serialize(T value, JsonGenerator gen, SerializerProvider provider) throws IOException {
 
@@ -444,7 +455,6 @@ public class GenericBuilderModule extends SimpleModule {
             }
 
             eu.mihosoft.vmf.runtime.core.VObject obj = (eu.mihosoft.vmf.runtime.core.VObject) value;
-            System.out.println("!!! T: " + obj.vmf().reflect().type().getName());
 
             // Start writing the object
             gen.writeStartObject();
@@ -466,7 +476,7 @@ public class GenericBuilderModule extends SimpleModule {
             obj.vmf().reflect().properties().forEach(p -> {
                 try {
                     Object propValue = p.get();
-                    if (propValue != null) {
+                    if (propValue != null && p.isSet() && ( isContainer(p) || !p.getType().isModelType() || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable)) {
                         gen.writeFieldName(p.getName());
                         gen.writeObject(propValue);
                     }
