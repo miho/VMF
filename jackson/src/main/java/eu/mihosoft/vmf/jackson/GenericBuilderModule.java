@@ -480,6 +480,7 @@ public class GenericBuilderModule extends SimpleModule {
             obj.vmf().reflect().properties().forEach(p -> {
                 try {
                     Object propValue = p.get();
+                    // if property is set and holds contained value or is external or immutable, serialize it
                     if (propValue != null && p.isSet() && (
                             isParentOfPropContainer(p)
                                     || !p.getType().isModelType()
@@ -488,7 +489,7 @@ public class GenericBuilderModule extends SimpleModule {
                         gen.writeObject(propValue);
                     }
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    throw new RuntimeException(e);
                 }
             });
 
