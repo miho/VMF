@@ -70,8 +70,6 @@ public class GenericBuilderModule extends SimpleModule {
             @Override
             public JsonSerializer<?> modifySerializer(SerializationConfig config, BeanDescription beanDesc, JsonSerializer<?> serializer) {
 
-                //System.out.println("!!! T1: " + beanDesc.getBeanClass().getName());
-
                 if (isVMFObj(beanDesc.getBeanClass())) {
                     return new GenericBuilderSerializer<>(serializer, GenericBuilderModule.this);
                 }
@@ -165,7 +163,8 @@ public class GenericBuilderModule extends SimpleModule {
         }
 
         @Override
-        public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config, BeanDescription beanDesc, JsonDeserializer<?> deserializer) {
+        public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config, BeanDescription beanDesc,
+                                                      JsonDeserializer<?> deserializer) {
             if (isVMFObj(beanDesc.getBeanClass()) && hasBuilder(beanDesc.getBeanClass())) {
                 return new GenericBuilderDeserializer<>(beanDesc.getBeanClass(), deserializer, module);
             }
@@ -206,7 +205,8 @@ public class GenericBuilderModule extends SimpleModule {
          * @param vc the value class
          * @param defaultDeserializer the default deserializer
          */
-        public GenericBuilderDeserializer(Class<?> vc, JsonDeserializer<T> defaultDeserializer, GenericBuilderModule module) {
+        public GenericBuilderDeserializer(Class<?> vc, JsonDeserializer<T> defaultDeserializer,
+                                          GenericBuilderModule module) {
             super(vc);
             this.defaultDeserializer = defaultDeserializer;
             this.module = module;
@@ -432,13 +432,17 @@ public class GenericBuilderModule extends SimpleModule {
             this.module = module;
         }
 
-        private
-        boolean isContainer(Property p) {
+        /**
+         * Check if the parent of this property is a container.
+         * @param p the property to check
+         * @return {@code true} if the parent of this property is a container, {@code false} otherwise
+         */
+        private boolean isParentOfPropContainer(Property p) {
             var a = p.annotationByKey("vmf:property:containment-info");
             if(a.isPresent() || !p.getType().isModelType()) {
                 var c = a.get().getValue();
-                boolean isContainer =  c.contains("contained");
-                return isContainer;
+                boolean contained =  c.contains("contained");
+                return contained;
             }
             return false;
         }
@@ -476,7 +480,10 @@ public class GenericBuilderModule extends SimpleModule {
             obj.vmf().reflect().properties().forEach(p -> {
                 try {
                     Object propValue = p.get();
-                    if (propValue != null && p.isSet() && ( isContainer(p) || !p.getType().isModelType() || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable)) {
+                    if (propValue != null && p.isSet() && (
+                            isParentOfPropContainer(p)
+                                    || !p.getType().isModelType()
+                                    || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable)) {
                         gen.writeFieldName(p.getName());
                         gen.writeObject(propValue);
                     }
@@ -490,6 +497,12 @@ public class GenericBuilderModule extends SimpleModule {
         }
     }
 
+    /**
+     * Checks if the type is extended by another model type.
+     * @param model the model object
+     * @param type the type to check
+     * @return {@code true} if the type is extended by another model type, {@code false} otherwise
+     */
     private static boolean isTypeExtendedByModelType(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
 
         var allTypes = model.vmf().reflect().allTypes();
@@ -504,6 +517,12 @@ public class GenericBuilderModule extends SimpleModule {
         return false;
     }
 
+    /**
+     * Check if the type extends a model type.
+     * @param model the model object
+     * @param type the type to check
+     * @return {@code true} if the type extends a model type, {@code false} otherwise
+     */
     private static boolean isTypeExtendsModelType(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
 
         var allTypes = model.vmf().reflect().allTypes();

@@ -165,12 +165,10 @@ public final class Type {
             try {
 
                 // call newBuilder().build() to create a new instance of the model type
+                // we don't use the newInstance() method here because some types don't have it
                 Method method = modelClass.getMethod("newBuilder");
                 Builder builder = (Builder) method.invoke(null);
                 prototype = builder.build();
-
-//                Method method = modelClass.getMethod("newInstance");
-//                prototype = (VObject) method.invoke(null);
 
             } catch (NoSuchMethodException e) {
                 e.printStackTrace();
