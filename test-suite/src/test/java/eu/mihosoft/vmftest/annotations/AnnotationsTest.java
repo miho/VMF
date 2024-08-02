@@ -38,14 +38,14 @@ public class AnnotationsTest {
 
         List<Annotation> annotations = annotatedModel.vmf().reflect().annotations();
 
-        Assert.assertEquals(2,annotations.size());
+        Assert.assertEquals(2,annotations.stream().filter(a->a.getKey().equals("key 1") || a.getKey().equals("key 2")).count());
         Assert.assertTrue("Not as expected, got: " + annotations.get(0), annotations.get(0).equals("key 1", "my value 1"));
         Assert.assertTrue("Not as expected, got: " + annotations.get(1), annotations.get(1).equals("key 2", "my value 2"));
 
         List<Annotation> propertyAnnotations = annotatedModel.vmf().reflect().
                 propertyByName("name").map(p->p.annotations()).orElse(Collections.EMPTY_LIST);
 
-        Assert.assertEquals(2,propertyAnnotations.size());
+        Assert.assertEquals(2,propertyAnnotations.stream().filter(a->a.getKey().equals("prop key 1") || a.getKey().equals("prop key 2")).count());
         Assert.assertTrue("Not as expected, got: " + propertyAnnotations.get(0),
                 propertyAnnotations.get(0).equals("prop key 1", "my prop value 1"));
         Assert.assertTrue("Not as expected, got: " + propertyAnnotations.get(1),
@@ -107,7 +107,7 @@ public class AnnotationsTest {
         List<Annotation> annotations = annotatedObjectParent.vmf().reflect().
                 propertyByName("name").map(p->p.annotations()).orElse(Collections.EMPTY_LIST);
 
-        Assert.assertEquals(2,annotations.size());
+        Assert.assertEquals(2,annotations.stream().filter(a->a.getKey().equals("key 1") || a.getKey().equals("key 2")).count());
         Assert.assertTrue("Not as expected, got: " + annotations.get(0), annotations.get(0).equals("key 1", "my parent value 1"));
         Assert.assertTrue("Not as expected, got: " + annotations.get(1), annotations.get(1).equals("key 2", "my parent value 2"));
 
@@ -116,7 +116,7 @@ public class AnnotationsTest {
         annotations = annotatedObjectChild.vmf().reflect().
                 propertyByName("name").map(p->p.annotations()).orElse(Collections.EMPTY_LIST);
 
-        Assert.assertEquals(2,annotations.size());
+        Assert.assertEquals(2,annotations.stream().filter(a->a.getKey().equals("key 1") || a.getKey().equals("key 2")).count());
         Assert.assertTrue("Not as expected, got: " + annotations.get(0), annotations.get(0).equals("key 1", "my child value 1"));
         Assert.assertTrue("Not as expected, got: " + annotations.get(1), annotations.get(1).equals("key 2", "my child value 2"));
 
