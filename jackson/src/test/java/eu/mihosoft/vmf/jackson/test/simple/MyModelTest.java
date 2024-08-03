@@ -19,6 +19,7 @@ class MyModelTest {
         mapper.registerModule(new VMFJacksonModule()
                 .withTypeAlias("person", Person.class.getName())
                 .withTypeAlias("employee", Employee.class.getName())
+                .withTypeAlias("my-model", MyModel.class.getName())
         );
 
         var writer = mapper.writerWithDefaultPrettyPrinter();
