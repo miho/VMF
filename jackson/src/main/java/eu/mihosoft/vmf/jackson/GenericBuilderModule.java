@@ -16,6 +16,7 @@ import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
+import javax.xml.namespace.QName;
 import java.io.IOException;
 import java.lang.reflect.*;
 import java.util.*;
@@ -23,10 +24,9 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 /**
- * Generic builder module. This module provides a deserializer for VMF objects that have a builder. The deserializer
- * uses reflection to determine the builder methods and their corresponding fields. It is able to handle scalar values,
- * complex values, and collections. It also supports polymorphism by looking for a special field {@code @type} that
- * specifies the actual type of the object.
+ * Generic builder module. This module provides a serializer and deserializer for VMF models. It supports polymorphism
+ * by looking for a special field {@code @vmf-type} or {@code <vmf-type>} in case of XML that specifies the actual type
+ * of the object.
  */
 public class GenericBuilderModule extends SimpleModule {
 
@@ -35,7 +35,7 @@ public class GenericBuilderModule extends SimpleModule {
 
     /**
      * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
-     * of an object during deserialization. The type alias is used to map a type name to a class name.
+     * of an object during serialization/deserialization. The type alias is used to map a type name to a class name.
      *
      * <p>Example:
      * <pre>{@code
@@ -92,7 +92,7 @@ public class GenericBuilderModule extends SimpleModule {
 
     /**
      * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
-     * of an object during deserialization. The type alias is used to map a type name to a class name.
+     * of an object during serialization/deserialization. The type alias is used to map a type name to a class name.
      *
      * <p>Example:
      * <pre>{@code
@@ -194,7 +194,7 @@ public class GenericBuilderModule extends SimpleModule {
      * Generic builder deserializer. This deserializer is used to deserialize VMF objects that have a builder. It uses
      * reflection to determine the builder methods and their corresponding fields. The deserializer is able to handle
      * scalar values, complex values, and collections. It also supports polymorphism by looking for a special field
-     * {@code @type} that specifies the actual type of the object.
+     * {@code @vmf-type} that specifies the actual type of the object.
      * @param <T> the type of the object to deserialize
      */
     private static class GenericBuilderDeserializer<T> extends StdDeserializer<T> {
@@ -221,13 +221,6 @@ public class GenericBuilderModule extends SimpleModule {
             // either read ArrayNode or ObjectNode
             JsonNode node = p.readValueAsTree();
 
-            System.out.println("!!! NODE: " + node.getNodeType().name());
-
-            node.fieldNames().forEachRemaining(name->
-                    System.out.println("   !!! FIELD: " + name)
-            );
-
-
 //            // if objectnode, we have a single object
 //            if(node instanceof ArrayNode) {
 //                ArrayNode arrayNode = (ArrayNode) node;
@@ -246,7 +239,7 @@ public class GenericBuilderModule extends SimpleModule {
 
             Class<?> actualClass = _valueClass;
 
-            // iterate over node fields and look for "@type" field to determine the actual type
+            // iterate over node fields and look for "@vmf-type" field to determine the actual type
             // do so and allow reiteration over the fields
 
             String vmfTypeFieldName = "@vmf-type";
@@ -450,7 +443,7 @@ public class GenericBuilderModule extends SimpleModule {
 
     /**
      * Generic builder serializer. This serializer is used to serialize VMF objects that have a builder. It checks for
-     * the presence of the `@type` annotation and adds it to the serialized output.
+     * the presence of the `@vmf-type` annotation and adds it to the serialized output.
      * @param <T> the type of the object to serialize
      */
     private static class GenericBuilderSerializer<T> extends StdSerializer<T> {
@@ -486,7 +479,9 @@ public class GenericBuilderModule extends SimpleModule {
         @Override
         public void serialize(T value, JsonGenerator gen, SerializerProvider provider) throws IOException {
 
-            // if is VMF object, check for @type annotation
+            System.out.println("SERIALIZING: " + value.getClass().getName());
+
+            // if is VMF object, check for @vmf-type annotation
             boolean isVMFObject = isVMFObj(value);
 
             if (!isVMFObject) {
@@ -496,7 +491,22 @@ public class GenericBuilderModule extends SimpleModule {
 
             eu.mihosoft.vmf.runtime.core.VObject obj = (eu.mihosoft.vmf.runtime.core.VObject) value;
 
-            // Start writing the object
+            if(gen.getOutputContext().inRoot()) {
+                // set start name
+                String startName = obj.vmf().reflect().type().getName();
+
+                // check type alias
+                if (module.getTypeAliasesReverse().containsKey(startName)) {
+                    startName = module.getTypeAliasesReverse().get(startName);
+                }
+
+                // Start writing the object using the start name
+                // Start writing the object using the start name
+                if (gen instanceof ToXmlGenerator) {
+                    ((ToXmlGenerator) gen).setNextName(new QName(startName));
+                }
+            }
+
             gen.writeStartObject();
 
             // Write the type annotation if the model type is polymorphic
