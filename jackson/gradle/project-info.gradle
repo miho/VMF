@@ -10,10 +10,10 @@ ext.publishingInfo.developerAlias        = 'miho'
 ext.publishingInfo.developerEmail        = 'info@michaelhoffer.de'
 ext.publishingInfo.inceptionYear         = '2017'
 
-ext.publishingInfo.desc                  = 'VMF (VRL Modeling Framework) is a lightweight modeling framework for generating Java code from data models.'
+ext.publishingInfo.desc                  = 'VMF Jackson Support (VRL Modeling Framework) adds serialization/deserialization support via jackson.'
 ext.publishingInfo.license               = 'Apache-2.0'
 ext.publishingInfo.licenseUrl            = 'https://github.com/miho/VMF/blob/master/LICENSE'
-ext.publishingInfo.labels                = ['vmf', 'modeling', 'data model', 'vrl', 'modeling framework']
+ext.publishingInfo.labels                = ['vmf', 'serialization', 'jackson', 'json', 'xml', 'yaml', 'modeling', 'data model', 'vrl', 'modeling framework']
 ext.publishingInfo.websiteUrl            = 'https://github.com/miho/VMF'
 ext.publishingInfo.issueTrackerUrl       = 'https://github.com/miho/VMF/issues'
 ext.publishingInfo.vcsUrl                = 'https://github.com/miho/VMF.git'
