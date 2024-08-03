@@ -240,7 +240,7 @@ public class VMFJacksonModule extends SimpleModule {
         @SuppressWarnings("unchecked")
         public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 
-            JsonNode node = p.getCodec().readTree(p);
+            JsonNode node = p.readValueAsTree();
 
             return deserializeNode(p, ctxt, node);
 

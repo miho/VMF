@@ -1,12 +1,10 @@
 package eu.mihosoft.vmf.jackson.test.simple;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.toml.TomlFactory;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
-import eu.mihosoft.vmf.jackson.test.Address;
-import eu.mihosoft.vmf.jackson.test.Employee;
-import eu.mihosoft.vmf.jackson.test.MyModel;
-import eu.mihosoft.vmf.jackson.test.Person;
+
 import org.junit.jupiter.api.Assertions;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -127,6 +125,71 @@ class MyModelTest {
             Assertions.fail(e);
             e.printStackTrace();
         }
+
+        // YAML
+        var yamlMapper = new ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
+        yamlMapper.registerModule(new VMFJacksonModule()
+                .withTypeAlias("person", Person.class.getName())
+                .withTypeAlias("employee", Employee.class.getName())
+                .withTypeAlias("my-model", MyModel.class.getName())
+        );
+
+        try {
+            String yaml = yamlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(model);
+
+            // read the model back and compare to model2
+            var yamlModel = yamlMapper.readValue(yaml, MyModel.class);
+
+            // output the model as yaml
+            System.out.println("Model Serialized from Orig:");
+            System.out.println(yaml);
+
+            // output the model as yaml
+            String yaml3 = yamlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(yamlModel);
+            System.out.println("Model Serialized from Deserialized:");
+            System.out.println(yaml3);
+
+            System.out.println("Models are equal: " + model.vmf().content().equals(yamlModel));
+
+            Assertions.assertTrue(model.vmf().content().equals(yamlModel), "Models must be equal");
+
+        } catch (Exception e) {
+            Assertions.fail(e);
+            e.printStackTrace();
+        }
+
+//        // TOML
+//        var tomlMapper = new ObjectMapper(new TomlFactory());
+//        tomlMapper.registerModule(new VMFJacksonModule()
+//                .withTypeAlias("person", Person.class.getName())
+//                .withTypeAlias("employee", Employee.class.getName())
+//                .withTypeAlias("my-model", MyModel.class.getName())
+//        );
+//
+//        try {
+//            String toml = tomlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(model);
+//
+//            // output the model as toml
+//            System.out.println("Model Serialized from Orig:");
+//            System.out.println(toml);
+//
+//            // read the model back and compare to model2
+//            var tomlModel = tomlMapper.readValue(toml, MyModel.class);
+//
+//            // output the model as toml
+//            String toml3 = tomlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(tomlModel);
+//            System.out.println("Model Serialized from Deserialized:");
+//            System.out.println(toml3);
+//
+//            System.out.println("Models are equal: " + model.vmf().content().equals(tomlModel));
+//
+//            Assertions.assertTrue(model.vmf().content().equals(tomlModel), "Models must be equal");
+//
+//        } catch (Exception e) {
+//            Assertions.fail(e);
+//            e.printStackTrace();
+//        }
+
     }
 
 }
