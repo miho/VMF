@@ -65,7 +65,7 @@ public class Main {
                     "age" : 40,
                     "name" : "Max Mustermann"
                   }, {
-                    "@type" : "employee",
+                    "@vmf-type" : "employee",
                     "address" : {
                       "zip" : "80331",
                       "city" : "Munich",
@@ -101,6 +101,57 @@ public class Main {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        // output the model as xml
+        var xmlMapper = new XmlMapper();
+        xmlMapper.registerModule(new GenericBuilderModule()
+                .withTypeAlias("person", Person.class.getName())
+                .withTypeAlias("employee", Employee.class.getName())
+        );
+
+        try {
+            String xml2 = xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(model2);
+
+            // read the model back and compare to model2
+            var model3 = xmlMapper.readValue(xml2, MyModel.class);
+
+            System.out.println(xml2);
+
+            // output the model as xml
+            String xml3 = xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(model3);
+            System.out.println(xml3);
+
+            System.out.println("Models are equal: " + model2.vmf().content().equals(model3));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // output the model as yaml
+        var yamlMapper = new YAMLMapper();
+        yamlMapper.registerModule(new GenericBuilderModule()
+                .withTypeAlias("person", Person.class.getName())
+                .withTypeAlias("employee", Employee.class.getName())
+        );
+
+        try {
+            String yaml = yamlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(model2);
+
+            // read the model back and compare to model2
+            var model3 = yamlMapper.readValue(yaml, MyModel.class);
+            System.out.println(yaml);
+
+            String yaml2 = yamlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(model3);
+            System.out.println(yaml2);
+
+            System.out.println("Models are equal: " + model2.vmf().content().equals(model3));
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
+
 
         // compare the models
         boolean equals = model.vmf().content().equals(model2);

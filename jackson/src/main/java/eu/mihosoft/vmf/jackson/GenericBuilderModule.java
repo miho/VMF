@@ -3,6 +3,7 @@ package eu.mihosoft.vmf.jackson;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
@@ -10,6 +11,8 @@ import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser;
+import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
@@ -215,14 +218,45 @@ public class GenericBuilderModule extends SimpleModule {
         @Override
         @SuppressWarnings("unchecked")
         public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-            ObjectNode node = p.getCodec().readTree(p);
+            // either read ArrayNode or ObjectNode
+            JsonNode node = p.readValueAsTree();
+
+            System.out.println("!!! NODE: " + node.getNodeType().name());
+
+            node.fieldNames().forEachRemaining(name->
+                    System.out.println("   !!! FIELD: " + name)
+            );
+
+
+//            // if objectnode, we have a single object
+//            if(node instanceof ArrayNode) {
+//                ArrayNode arrayNode = (ArrayNode) node;
+//                // if array node, we have a list of objects
+//                List<Object> result = new ArrayList<>();
+//                for(JsonNode n : arrayNode) {
+//
+//                    System.out.println("!!! NODE: " + n);
+//
+//                    result.add(deserialize(p, ctxt));
+//                }
+//                return (T) result;
+//            } else {
+//                //
+//            }
 
             Class<?> actualClass = _valueClass;
 
             // iterate over node fields and look for "@type" field to determine the actual type
             // do so and allow reiteration over the fields
-            if(node.has("@type")) {
-                String type = node.get("@type").asText();
+
+            String vmfTypeFieldName = "@vmf-type";
+
+            if(p instanceof FromXmlParser) {
+                vmfTypeFieldName = "vmf-type";
+            }
+
+            if(node.has(vmfTypeFieldName)) {
+                String type = node.get(vmfTypeFieldName).asText();
 
                 // check if we have a type alias
                 if(module.getTypeAliases().containsKey(type)) {
@@ -332,12 +366,14 @@ public class GenericBuilderModule extends SimpleModule {
                                         paramValue = value.asBoolean();
                                     } else {
                                         // Deserialize non-scalar value
-                                        paramValue = ctxt.readValue(value.traverse(ctxt.getParser().getCodec()), paramType);
+                                        paramValue = ctxt.readValue(
+                                                value.traverse(ctxt.getParser().getCodec()), paramType);
                                     }
                                     method.invoke(builder, paramValue);
                                 } else {
                                     // Deserialize complex value
-                                    Object paramValue = ctxt.readValue(value.traverse(ctxt.getParser().getCodec()), paramType);
+                                    Object paramValue = ctxt.readValue(
+                                            value.traverse(ctxt.getParser().getCodec()), paramType);
                                     method.invoke(builder, paramValue);
                                 }
                             }
@@ -465,7 +501,14 @@ public class GenericBuilderModule extends SimpleModule {
 
             // Write the type annotation if the model type is polymorphic
             if (isTypeExtendsModelType(obj, obj.vmf().reflect().type())) {
-                gen.writeFieldName("@type");
+
+                String typeFieldName = "@vmf-type";
+
+                if (gen instanceof ToXmlGenerator) {
+                    typeFieldName = "vmf-type";
+                }
+
+                gen.writeFieldName(typeFieldName);
 
                 // check if we have a type alias
                 String typeName = obj.vmf().reflect().type().getName();
