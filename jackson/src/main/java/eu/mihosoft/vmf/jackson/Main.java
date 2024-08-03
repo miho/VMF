@@ -87,6 +87,7 @@ public class Main {
         xmlMapper.registerModule(new GenericBuilderModule()
                 .withTypeAlias("person", Person.class.getName())
                 .withTypeAlias("employee", Employee.class.getName())
+                .withTypeAlias("my-model", eu.mihosoft.vmf.jackson.test.MyModel.class.getName())
         );
 
         try {

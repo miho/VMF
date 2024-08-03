@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.dataformat.xml.JacksonXmlAnnotationIntrospector;
 import com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser;
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 import eu.mihosoft.vmf.runtime.core.Property;
@@ -169,7 +170,14 @@ public class GenericBuilderModule extends SimpleModule {
         public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config, BeanDescription beanDesc,
                                                       JsonDeserializer<?> deserializer) {
             if (isVMFObj(beanDesc.getBeanClass()) && hasBuilder(beanDesc.getBeanClass())) {
-                return new GenericBuilderDeserializer<>(beanDesc.getBeanClass(), deserializer, module);
+
+                // Check if we have XML deserializer by examining the deserializer or its config
+                boolean isXml = false;
+                if (deserializer != null) {
+                    isXml = deserializer.getClass().getName().toLowerCase().contains("xml");
+                }
+
+                return new GenericBuilderDeserializer<>(beanDesc.getBeanClass(), deserializer, module, isXml);
             }
 
             return deserializer;
@@ -202,6 +210,7 @@ public class GenericBuilderModule extends SimpleModule {
         private final JsonDeserializer<T> defaultDeserializer;
 
         private final GenericBuilderModule module;
+        private final boolean isXml;
 
         /**
          * Constructor. Creates a new instance of GenericBuilderDeserializer.
@@ -209,61 +218,32 @@ public class GenericBuilderModule extends SimpleModule {
          * @param defaultDeserializer the default deserializer
          */
         public GenericBuilderDeserializer(Class<?> vc, JsonDeserializer<T> defaultDeserializer,
-                                          GenericBuilderModule module) {
+                                          GenericBuilderModule module, boolean isXml) {
             super(vc);
             this.defaultDeserializer = defaultDeserializer;
             this.module = module;
+            this.isXml = isXml;
+
         }
+
 
         @Override
         @SuppressWarnings("unchecked")
         public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
-            // either read ArrayNode or ObjectNode
-            JsonNode node = p.readValueAsTree();
 
-//            // if objectnode, we have a single object
-//            if(node instanceof ArrayNode) {
-//                ArrayNode arrayNode = (ArrayNode) node;
-//                // if array node, we have a list of objects
-//                List<Object> result = new ArrayList<>();
-//                for(JsonNode n : arrayNode) {
-//
-//                    System.out.println("!!! NODE: " + n);
-//
-//                    result.add(deserialize(p, ctxt));
-//                }
-//                return (T) result;
-//            } else {
-//                //
-//            }
+            JsonNode node = p.getCodec().readTree(p);
 
+            return deserializeNode(p, ctxt, node);
+
+        }
+
+        private T deserializeNode(JsonParser p, DeserializationContext ctxt, JsonNode node) throws IOException {
             Class<?> actualClass = _valueClass;
 
             // iterate over node fields and look for "@vmf-type" field to determine the actual type
             // do so and allow reiteration over the fields
 
-            String vmfTypeFieldName = "@vmf-type";
-
-            if(p instanceof FromXmlParser) {
-                vmfTypeFieldName = "vmf-type";
-            }
-
-            if(node.has(vmfTypeFieldName)) {
-                String type = node.get(vmfTypeFieldName).asText();
-
-                // check if we have a type alias
-                if(module.getTypeAliases().containsKey(type)) {
-                    type = module.getTypeAliases().get(type);
-                }
-
-                // get the actual class
-                try {
-                    actualClass = Class.forName(type);
-                } catch (ClassNotFoundException e) {
-                    e.printStackTrace();
-                    throw new RuntimeException(e);
-                }
-            }
+            actualClass = getaVMFTypeClass(p, node, actualClass);
 
             try {
 
@@ -331,12 +311,26 @@ public class GenericBuilderModule extends SimpleModule {
                                 Collection<Object> collection = (Collection<Object>) new ArrayList<>();
                                 // Iterate over the elements
                                 for (JsonNode element : value) {
-                                    // Deserialize the collection element
-                                    Object elementValue = ctxt.readValue(
-                                            element.traverse(ctxt.getParser().getCodec()),
-                                            elementTypeClass);
-                                    // Add the element to the collection
-                                    collection.add(elementValue);
+                                    // in case of xml we have further nesting because of the use of <item> tags within
+                                    // the collection which isn't done in case of json or yaml
+                                    if(isXml && element instanceof ArrayNode) {
+                                        var arrayNode = (ArrayNode) element;
+                                        for (JsonNode e : arrayNode) {
+                                            // Deserialize the collection element
+                                            Object elementValue = ctxt.readValue(
+                                                    e.traverse(ctxt.getParser().getCodec()),
+                                                    getaVMFTypeClass(ctxt.getParser(), e, elementTypeClass));
+                                            // Add the element to the collection
+                                            collection.add(elementValue);
+                                        }
+                                    } else {
+                                        // Deserialize the collection element
+                                        Object elementValue = ctxt.readValue(
+                                                element.traverse(ctxt.getParser().getCodec()),
+                                                elementTypeClass);
+                                        // Add the element to the collection
+                                        collection.add(elementValue);
+                                    }
                                 }
                                 // Invoke the builder method
                                 method.invoke(builder, collection);
@@ -384,6 +378,32 @@ public class GenericBuilderModule extends SimpleModule {
             } catch (Exception e) {
                 throw new IOException("Error deserializing object", e);
             }
+        }
+
+        private Class<?> getaVMFTypeClass(JsonParser p, JsonNode node, Class<?> actualClass) {
+            String vmfTypeFieldName = "@vmf-type";
+
+            if(p instanceof FromXmlParser) {
+                vmfTypeFieldName = "vmf-type";
+            }
+
+            if(node.has(vmfTypeFieldName)) {
+                String type = node.get(vmfTypeFieldName).asText();
+
+                // check if we have a type alias
+                if(module.getTypeAliases().containsKey(type)) {
+                    type = module.getTypeAliases().get(type);
+                }
+
+                // get the actual class
+                try {
+                    actualClass = Class.forName(type);
+                } catch (ClassNotFoundException e) {
+                    e.printStackTrace();
+                    throw new RuntimeException(e);
+                }
+            }
+            return actualClass;
         }
 
         /**
@@ -478,8 +498,6 @@ public class GenericBuilderModule extends SimpleModule {
 
         @Override
         public void serialize(T value, JsonGenerator gen, SerializerProvider provider) throws IOException {
-
-            System.out.println("SERIALIZING: " + value.getClass().getName());
 
             // if is VMF object, check for @vmf-type annotation
             boolean isVMFObject = isVMFObj(value);
