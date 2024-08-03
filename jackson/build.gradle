@@ -98,6 +98,14 @@ idea {
     }
 }
 
+test {
+    useJUnitPlatform()
+
+    testLogging {
+        events "passed", "skipped", "failed"
+    }
+}
+
 license {
     header = rootProject.file('runtime/config/HEADER')
     strictCheck = true

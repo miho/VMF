@@ -4,14 +4,11 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.dataformat.xml.JacksonXmlAnnotationIntrospector;
 import com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser;
 import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 import eu.mihosoft.vmf.runtime.core.Property;
@@ -21,15 +18,27 @@ import javax.xml.namespace.QName;
 import java.io.IOException;
 import java.lang.reflect.*;
 import java.util.*;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 /**
- * Generic builder module. This module provides a serializer and deserializer for VMF models. It supports polymorphism
+ * Generic VMF Jackson module. This module provides a serializer and deserializer for VMF models. It supports polymorphism
  * by looking for a special field {@code @vmf-type} or {@code <vmf-type>} in case of XML that specifies the actual type
  * of the object.
+ *
+ * <p>Example usage:
+ * <pre>{@code
+ * ObjectMapper mapper = new ObjectMapper();
+ *
+ * mapper.registerModule(new VMFJacksonModule()
+ *          .withTypeAlias("person", Person.class.getName())
+ *          .withTypeAlias("employee", Employee.class.getName())
+ *       );
+ * }</pre>
+ * </p>
+ * <p>This example registers the module with the type aliases {@code person} and {@code employee} that map to the classes
+ * {@code Person} and {@code Employee} respectively.</p>
+ *
  */
-public class GenericBuilderModule extends SimpleModule {
+public class VMFJacksonModule extends SimpleModule {
 
     private final Map<String, String> typeAliases = new HashMap<>();
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
@@ -66,16 +75,16 @@ public class GenericBuilderModule extends SimpleModule {
 
 
     /**
-     * Constructor. Creates a new instance of GenericBuilderModule.
+     * Constructor. Creates a new instance of VMFJacksonModule.
      */
-    public GenericBuilderModule() {
+    public VMFJacksonModule() {
         setDeserializerModifier(new GenericBuilderDeserializerModifier(this));
         setSerializerModifier(new BeanSerializerModifier() {
             @Override
             public JsonSerializer<?> modifySerializer(SerializationConfig config, BeanDescription beanDesc, JsonSerializer<?> serializer) {
 
                 if (isVMFObj(beanDesc.getBeanClass())) {
-                    return new GenericBuilderSerializer<>(serializer, GenericBuilderModule.this);
+                    return new GenericBuilderSerializer<>(serializer, VMFJacksonModule.this);
                 }
                 return serializer;
             }
@@ -101,7 +110,7 @@ public class GenericBuilderModule extends SimpleModule {
      * }</pre>
      * <p>This example adds a type alias {@code person} that maps to the class {@code eu.mihosoft.vmf.jackson.test.Person}.
      */
-    public GenericBuilderModule withTypeAlias(String alias, String className) {
+    public VMFJacksonModule withTypeAlias(String alias, String className) {
         addTypeAlias(alias, className);
         return this;
     }
@@ -119,17 +128,17 @@ public class GenericBuilderModule extends SimpleModule {
      * @param typeAliases the type aliases to add
      * @return this module
      */
-    public GenericBuilderModule withTypeAliases(Map<String, String> typeAliases) {
+    public VMFJacksonModule withTypeAliases(Map<String, String> typeAliases) {
         typeAliases.forEach(this::addTypeAlias);
         return this;
     }
 
     /**
-     * Create a new instance of GenericBuilderModule.
-     * @return a new instance of GenericBuilderModule
+     * Create a new instance of VMFJacksonModule.
+     * @return a new instance of VMFJacksonModule
      */
-    public static GenericBuilderModule newInstance() {
-        var module = new GenericBuilderModule();
+    public static VMFJacksonModule newInstance() {
+        var module = new VMFJacksonModule();
         return module;
     }
 
@@ -160,9 +169,9 @@ public class GenericBuilderModule extends SimpleModule {
      */
     private static class GenericBuilderDeserializerModifier extends BeanDeserializerModifier {
 
-        private final GenericBuilderModule module;
+        private final VMFJacksonModule module;
 
-        public GenericBuilderDeserializerModifier(GenericBuilderModule module) {
+        public GenericBuilderDeserializerModifier(VMFJacksonModule module) {
             this.module = module;
         }
 
@@ -209,7 +218,7 @@ public class GenericBuilderModule extends SimpleModule {
 
         private final JsonDeserializer<T> defaultDeserializer;
 
-        private final GenericBuilderModule module;
+        private final VMFJacksonModule module;
         private final boolean isXml;
 
         /**
@@ -218,7 +227,7 @@ public class GenericBuilderModule extends SimpleModule {
          * @param defaultDeserializer the default deserializer
          */
         public GenericBuilderDeserializer(Class<?> vc, JsonDeserializer<T> defaultDeserializer,
-                                          GenericBuilderModule module, boolean isXml) {
+                                          VMFJacksonModule module, boolean isXml) {
             super(vc);
             this.defaultDeserializer = defaultDeserializer;
             this.module = module;
@@ -469,13 +478,13 @@ public class GenericBuilderModule extends SimpleModule {
     private static class GenericBuilderSerializer<T> extends StdSerializer<T> {
 
         private final JsonSerializer<T> defaultSerializer;
-        private final GenericBuilderModule module;
+        private final VMFJacksonModule module;
 
         /**
          * Constructor. Creates a new instance of GenericBuilderSerializer.
          * @param defaultSerializer the default serializer
          */
-        public GenericBuilderSerializer(JsonSerializer<T> defaultSerializer, GenericBuilderModule module) {
+        public GenericBuilderSerializer(JsonSerializer<T> defaultSerializer, VMFJacksonModule module) {
             super((Class<T>) defaultSerializer.handledType());
             this.defaultSerializer = defaultSerializer;
             this.module = module;
