@@ -1,13 +1,12 @@
 package eu.mihosoft.vmf.jackson.test.simple;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.toml.TomlFactory;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
-
 import org.junit.jupiter.api.Assertions;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MyModelTest {
     @org.junit.jupiter.api.Test
