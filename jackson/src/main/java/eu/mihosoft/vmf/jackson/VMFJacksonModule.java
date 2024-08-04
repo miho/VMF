@@ -619,7 +619,7 @@ public class VMFJacksonModule extends SimpleModule {
                 try {
                     Object propValue = p.get();
                     // if property is set and holds contained value or is external or immutable, serialize it
-                    if (propValue != null && p.isSet() && (
+                    if (propValue != null && (
                             isParentOfPropContainer(p)
                                     || !p.getType().isModelType()
                                     || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable)) {
