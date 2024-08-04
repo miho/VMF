@@ -179,8 +179,6 @@ public class VMFJacksonModule extends SimpleModule {
             // Check if the object is an instance of the dynamically obtained class
             return clazz.isInstance(obj);
         } catch (ClassNotFoundException e) {
-            // Handle the exception, e.g., log the error
-            e.printStackTrace();
             return false;
         }
     }
