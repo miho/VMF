@@ -23,3 +23,10 @@ sh ./gradlew clean test --stacktrace --no-daemon || { echo 'building and/or runn
 #echo "TESTING  (2/2, MAVEN)..."
 #echo "------------------------------------------"
 #sh ./maven.sh clean test || { echo 'building and/or running test-suite failed' ; exit 1; }
+
+echo ------------------------------------------
+echo BUILDING AND TESTING JACKSON MODULE
+echo ------------------------------------------
+cd ../jackson
+sh ./gradlew clean publishtoMavenLocal --no-daemon || { echo 'building vmf failed' ; exit 1; }
+sh ./gradlew clean test --no-daemon || { echo 'building and/or running jackson module failed' ; exit 1; }
