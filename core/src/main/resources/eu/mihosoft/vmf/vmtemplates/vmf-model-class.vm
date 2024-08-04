@@ -33,6 +33,7 @@ package ${packageName};
 /**
   * This class provides a set of utility methods for the ${modelName} model.
   */
+@Deprecated
 public final class ${modelName}Model__VMF_API {
 
     private ${modelName}Model__VMF_API() {
