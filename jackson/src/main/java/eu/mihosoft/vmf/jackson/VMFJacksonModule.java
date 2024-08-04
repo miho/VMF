@@ -593,7 +593,7 @@ public class VMFJacksonModule extends SimpleModule {
             gen.writeStartObject();
 
             // Write the type annotation if the model type is polymorphic
-            if (isTypeExtendsModelType(obj, obj.vmf().reflect().type())) {
+            if (isTypeExtendsModelTypeInProps(obj, obj.vmf().reflect().type())) {
 
                 String typeFieldName = "@vmf-type";
 
@@ -657,17 +657,30 @@ public class VMFJacksonModule extends SimpleModule {
     }
 
     /**
-     * Check if the type extends a model type.
+     * Check if the type extends a model type that is used as property type.
      * @param model the model object
      * @param type the type to check
-     * @return {@code true} if the type extends a model type, {@code false} otherwise
+     * @return {@code true} if the type extends a model type that is used as property type, {@code false} otherwise
      */
-    private static boolean isTypeExtendsModelType(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
+    private static boolean isTypeExtendsModelTypeInProps(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
 
         var allTypes = model.vmf().reflect().allTypes();
 
+        var allTypesByName = new HashMap<String, eu.mihosoft.vmf.runtime.core.Type>();
+        allTypes.forEach(t -> allTypesByName.put(t.getName(), t));
+
+        // receive all property types
+        var allPropTypes = new HashSet<eu.mihosoft.vmf.runtime.core.Type>();
+        allTypes.forEach(t -> {
+            t.reflect().properties().forEach(p -> {
+                allPropTypes.add(p.getType().isListType()?
+                        allTypesByName.get(p.getType().getElementTypeName().get())
+                        : p.getType());
+            });
+        });
+
         // now, check if type extends any of the types
-        for (var t : allTypes) {
+        for (var t : allPropTypes) {
             if (type.superTypes().contains(t)) {
                 return true;
             }

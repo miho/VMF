@@ -66,6 +66,7 @@ class MyModelTest {
         String json = null;
         try {
             json = writer.writeValueAsString(model);
+            System.out.println(json);
         } catch (Exception e) {
             Assertions.fail(e);
             e.printStackTrace();
