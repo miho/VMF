@@ -38,6 +38,10 @@ import java.util.*;
  */
 public class VMFJacksonModule extends SimpleModule {
 
+    public enum RUNTIME_TYPE {
+        RELEASE, EXPERIMENTAL
+    }
+
     private final Map<String, String> typeAliases = new HashMap<>();
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
 
@@ -75,7 +79,7 @@ public class VMFJacksonModule extends SimpleModule {
     /**
      * Constructor. Creates a new instance of VMFJacksonModule.
      */
-    public VMFJacksonModule() {
+    private VMFJacksonModule() {
         setDeserializerModifier(new GenericBuilderDeserializerModifier(this));
         setSerializerModifier(new BeanSerializerModifier() {
             @Override
@@ -135,9 +139,25 @@ public class VMFJacksonModule extends SimpleModule {
      * Create a new instance of VMFJacksonModule.
      * @return a new instance of VMFJacksonModule
      */
-    public static VMFJacksonModule newInstance() {
+    public static VMFJacksonModule newInstance(RUNTIME_TYPE runtimeType) {
+        if(!RUNTIME_TYPE.EXPERIMENTAL.equals(runtimeType)) {
+            throw new RuntimeException("Please confirm that you are using an experimental piece of software by calling" +
+                    " 'newInstance(RUNTIME_TYPE.EXPERIMENTAL)'.");
+        }
         var module = new VMFJacksonModule();
         return module;
+    }
+
+    /**
+     * Create a new instance of VMFJacksonModule.
+     * @return a new instance of VMFJacksonModule
+     */
+    public static VMFJacksonModule newInstance() {
+        throw new RuntimeException("Please confirm that you are using an experimental piece of software by calling" +
+                " 'newInstance(RUNTIME_TYPE.EXPERIMENTAL)'.");
+
+//        var module = new VMFJacksonModule();
+//        return module;
     }
 
     /**

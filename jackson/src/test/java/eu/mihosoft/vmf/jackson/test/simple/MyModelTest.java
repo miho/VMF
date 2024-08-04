@@ -13,7 +13,7 @@ class MyModelTest {
     void testModel() {
         ObjectMapper mapper = new ObjectMapper();
 
-        mapper.registerModule(new VMFJacksonModule()
+        mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
                 .withTypeAlias("person", Person.class.getName())
                 .withTypeAlias("employee", Employee.class.getName())
                 .withTypeAlias("my-model", MyModel.class.getName())
@@ -95,7 +95,7 @@ class MyModelTest {
 
         // output the model as xml
         var xmlMapper = new XmlMapper();
-        xmlMapper.registerModule(new VMFJacksonModule()
+        xmlMapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
                 .withTypeAlias("person", Person.class.getName())
                 .withTypeAlias("employee", Employee.class.getName())
                 .withTypeAlias("my-model", MyModel.class.getName())
@@ -127,7 +127,7 @@ class MyModelTest {
 
         // YAML
         var yamlMapper = new ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
-        yamlMapper.registerModule(new VMFJacksonModule()
+        yamlMapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
                 .withTypeAlias("person", Person.class.getName())
                 .withTypeAlias("employee", Employee.class.getName())
                 .withTypeAlias("my-model", MyModel.class.getName())
