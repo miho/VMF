@@ -9,8 +9,6 @@ import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser;
-import com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
@@ -140,6 +138,31 @@ public class VMFJacksonModule extends SimpleModule {
     public static VMFJacksonModule newInstance() {
         var module = new VMFJacksonModule();
         return module;
+    }
+
+    /**
+     * Checks if the given object is an instance of the specified class name.
+     *
+     * @param obj The object to check.
+     * @param className The fully qualified name of the class.
+     * @return true if the object is an instance of the specified class, false otherwise.
+     */
+    public static boolean isInstanceOf(Object obj, String className) {
+        if (obj == null || className == null) {
+            return false;
+        }
+
+        try {
+            // Get the class dynamically
+            Class<?> clazz = Class.forName(className);
+
+            // Check if the object is an instance of the dynamically obtained class
+            return clazz.isInstance(obj);
+        } catch (ClassNotFoundException e) {
+            // Handle the exception, e.g., log the error
+            e.printStackTrace();
+            return false;
+        }
     }
 
     /**
@@ -392,7 +415,9 @@ public class VMFJacksonModule extends SimpleModule {
         private Class<?> getaVMFTypeClass(JsonParser p, JsonNode node, Class<?> actualClass) {
             String vmfTypeFieldName = "@vmf-type";
 
-            if(p instanceof FromXmlParser) {
+            var clsName = "com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser";
+
+            if(isInstanceOf(p, clsName)) {
                 vmfTypeFieldName = "vmf-type";
             }
 
@@ -527,10 +552,23 @@ public class VMFJacksonModule extends SimpleModule {
                     startName = module.getTypeAliasesReverse().get(startName);
                 }
 
-                // Start writing the object using the start name
-                // Start writing the object using the start name
-                if (gen instanceof ToXmlGenerator) {
-                    ((ToXmlGenerator) gen).setNextName(new QName(startName));
+                // Start writing the object using the start name in case of xml
+                var clsName = "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator";
+                if(isInstanceOf(gen, clsName)) {
+                    try {
+                        // doing via reflection to prevent dependency: ((ToXmlGenerator) gen).setNextName(new QName(startName));
+
+                        // Get the class dynamically
+                        Class<?> clazz = Class.forName(clsName);
+
+                        // Get the setNextName method
+                        Method setNextNameMethod = clazz.getMethod("setNextName", QName.class);
+
+                        // Invoke the setNextName method
+                        setNextNameMethod.invoke(gen, new QName(startName));
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
             }
 
@@ -541,7 +579,9 @@ public class VMFJacksonModule extends SimpleModule {
 
                 String typeFieldName = "@vmf-type";
 
-                if (gen instanceof ToXmlGenerator) {
+                var clsName = "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator";
+
+                if(isInstanceOf(gen, clsName)) {
                     typeFieldName = "vmf-type";
                 }
 
