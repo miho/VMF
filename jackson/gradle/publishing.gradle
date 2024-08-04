@@ -145,45 +145,6 @@ publishing {
             artifact javadocJar
 
             pom.withXml {
-                def dependenciesNode = asNode().appendNode('dependencies')
-
-                // Add project dependencies with proper Maven coordinates
-                configurations.implementation.allDependencies.withType(ProjectDependency) { dependency ->
-                    def dependencyProject = dependency.dependencyProject
-                    def dependencyNode = dependenciesNode.appendNode('dependency')
-                    dependencyNode.appendNode('groupId', dependencyProject.group)
-                    dependencyNode.appendNode('artifactId', dependencyProject.name)
-                    dependencyNode.appendNode('version', dependencyProject.version)
-                    dependencyNode.appendNode('scope', 'compile')
-                }
-
-                configurations.runtimeClasspath.allDependencies.withType(ProjectDependency) { dependency ->
-                    def dependencyProject = dependency.dependencyProject
-                    def dependencyNode = dependenciesNode.appendNode('dependency')
-                    dependencyNode.appendNode('groupId', dependencyProject.group)
-                    dependencyNode.appendNode('artifactId', dependencyProject.name)
-                    dependencyNode.appendNode('version', dependencyProject.version)
-                    dependencyNode.appendNode('scope', 'runtime')
-                }
-
-                configurations.compileOnly.allDependencies.withType(ProjectDependency) { dependency ->
-                    def dependencyProject = dependency.dependencyProject
-                    def dependencyNode = dependenciesNode.appendNode('dependency')
-                    dependencyNode.appendNode('groupId', dependencyProject.group)
-                    dependencyNode.appendNode('artifactId', dependencyProject.name)
-                    dependencyNode.appendNode('version', dependencyProject.version)
-                    dependencyNode.appendNode('scope', 'compile')
-                }
-
-                configurations.runtimeOnly.allDependencies.withType(ProjectDependency) { dependency ->
-                    def dependencyProject = dependency.dependencyProject
-                    def dependencyNode = dependenciesNode.appendNode('dependency')
-                    dependencyNode.appendNode('groupId', dependencyProject.group)
-                    dependencyNode.appendNode('artifactId', dependencyProject.name)
-                    dependencyNode.appendNode('version', dependencyProject.version)
-                    dependencyNode.appendNode('scope', 'runtime')
-                }
-
                 def root = asNode()
                 root.appendNode 'description', publishingInfo.desc
                 root.children().last() + pomConfig
