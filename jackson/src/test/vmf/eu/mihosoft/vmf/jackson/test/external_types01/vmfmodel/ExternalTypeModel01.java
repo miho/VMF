@@ -10,6 +10,8 @@ interface ExternalTypeModel01 {
     
     String getName();
 
+    String getnameValue();
+
     ExternalEnum getEnumValue();
 
     String[] getTags();

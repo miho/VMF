@@ -16,6 +16,7 @@ public class ExternalTypeModel01Test {
 
         ExternalTypeModel01 model = ExternalTypeModel01.newBuilder()
                 .withName("Model 01")
+                .withNameValue("Model 01 Value")
                 .withEnumValue(ExternalEnum.SECOND)
                 .withTags(new String[]{"tag1", "tag2", "tag3"})
                 .withValues(new Integer[]{1, 2, 3})
@@ -37,6 +38,8 @@ public class ExternalTypeModel01Test {
         // serialize again
         String json2 = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(model2);
         System.out.println(json2);
+
+        assertEquals(json, json2);
 
         // check if deserialization worked
         assertTrue(model.vmf().content().equals(model2));

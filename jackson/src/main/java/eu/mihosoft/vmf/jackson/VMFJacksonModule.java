@@ -293,7 +293,7 @@ public class VMFJacksonModule extends SimpleModule {
             // iterate over node fields and look for "@vmf-type" field to determine the actual type
             // do so and allow reiteration over the fields
 
-            actualClass = getaVMFTypeClass(p, node, actualClass);
+            actualClass = getVMFTypeClass(p, node, actualClass);
 
             try {
 
@@ -308,7 +308,8 @@ public class VMFJacksonModule extends SimpleModule {
                 Map<String, Method> methodMap = new HashMap<>();
                 for (Method method : methods) {
                     if (method.getName().startsWith("with")) {
-                        String fieldName = method.getName().substring(4).toLowerCase();
+
+                        String fieldName = getFieldNameFromMethod(actualClass, method);
 
                         try {
 
@@ -342,7 +343,8 @@ public class VMFJacksonModule extends SimpleModule {
 
                 // Iterate over JSON fields and invoke corresponding builder methods
                 node.fields().forEachRemaining(entry -> {
-                    String fieldName = entry.getKey().toLowerCase();
+                    String fieldName = entry.getKey();
+                    
                     JsonNode value = entry.getValue();
 
                     // check if we have a method for the field
@@ -374,7 +376,7 @@ public class VMFJacksonModule extends SimpleModule {
                                                     ? deserializeField(ctxt, e, elementTypeClass)
                                                     : ctxt.readValue(
                                                     e.traverse(ctxt.getParser().getCodec()),
-                                                    getaVMFTypeClass(ctxt.getParser(), e, elementTypeClass));
+                                                    getVMFTypeClass(ctxt.getParser(), e, elementTypeClass));
 
                                             // Add the element to the collection
                                             collection.add(elementValue);
@@ -388,7 +390,7 @@ public class VMFJacksonModule extends SimpleModule {
                                                 ? deserializeField(ctxt, element, elementTypeClass)
                                                 : ctxt.readValue(
                                                         element.traverse(ctxt.getParser().getCodec()),
-                                                        getaVMFTypeClass(ctxt.getParser(), element, elementTypeClass));
+                                                        getVMFTypeClass(ctxt.getParser(), element, elementTypeClass));
 
                                         // Add the element to the collection
                                         collection.add(elementValue);
@@ -414,6 +416,39 @@ public class VMFJacksonModule extends SimpleModule {
             } catch (Exception e) {
                 throw new IOException("Error deserializing object", e);
             }
+        }
+
+        private String getFieldNameFromMethod(Class<?> actualClass, Method method) {
+            String fieldName = method.getName().substring(4,5).toLowerCase()
+                    + method.getName().substring(5);
+
+            if(isVMFObj(actualClass)) {
+                try {
+                    Class<?> builderClass = getBuilderClass(actualClass);
+                    Object builder = builderClass.getDeclaredMethod("newInstance").invoke(null);
+
+                    // Build the final object
+                    Method buildMethod = builderClass.getDeclaredMethod("build");
+                    var obj = (VObject) buildMethod.invoke(builder);
+
+                    var prop = obj.vmf().reflect().propertyByName(fieldName).get();
+
+                    var a = prop.annotationByKey("vmf:jackson:rename");
+                    if(a.isPresent()) {
+                        fieldName = a.get().getValue();
+                    }
+                } catch (ClassNotFoundException e) {
+                    throw new RuntimeException(e);
+                } catch (InvocationTargetException e) {
+                    throw new RuntimeException(e);
+                } catch (IllegalAccessException e) {
+                    throw new RuntimeException(e);
+                } catch (NoSuchMethodException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
+            return fieldName;
         }
 
         private static Object deserializeField(DeserializationContext ctxt, JsonNode value, Class<?> paramType) throws IllegalAccessException, InvocationTargetException, IOException {
@@ -449,7 +484,7 @@ public class VMFJacksonModule extends SimpleModule {
             }
         }
 
-        private Class<?> getaVMFTypeClass(JsonParser p, JsonNode node, Class<?> actualClass) {
+        private Class<?> getVMFTypeClass(JsonParser p, JsonNode node, Class<?> actualClass) {
             String vmfTypeFieldName = "@vmf-type";
 
             var clsName = "com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser";
@@ -642,7 +677,7 @@ public class VMFJacksonModule extends SimpleModule {
                             isParentOfPropContainer(p)
                                     || !p.getType().isModelType()
                                     || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable)) {
-                        gen.writeFieldName(p.getName());
+                        gen.writeFieldName(getFieldNameForProperty(p));
                         gen.writeObject(propValue);
                     }
                 } catch (IOException e) {
@@ -653,6 +688,21 @@ public class VMFJacksonModule extends SimpleModule {
             // End writing the object
             gen.writeEndObject();
         }
+    }
+
+    /**
+     * Get the field name for a property. This method is used to determine the field name of a property. It checks for
+     * the presence of the `@vmf:jackson:rename` annotation and uses the value of the annotation as the field name if
+     * present.
+     * @param p the property to get the field name for
+     * @return the field name of the property
+     */
+    private static String getFieldNameForProperty(Property p) {
+        var a = p.annotationByKey("vmf:jackson:rename");
+        if(a.isPresent()) {
+            return a.get().getValue();
+        }
+        return p.getName();
     }
 
     /**

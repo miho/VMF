@@ -83,9 +83,6 @@ class InterfaceOnly01ModelTest {
             e.printStackTrace();
         }
 
-        // check if models are equal
-        assertTrue(model.vmf().content().equals(model2) , "Models must be equal");
-
         // output second model as json and compare to original model json
         try {
             var json2 = writer.writeValueAsString(model2);
@@ -95,6 +92,9 @@ class InterfaceOnly01ModelTest {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        // check if models are equal
+        assertTrue(model.vmf().content().equals(model2) , "Models must be equal");
 
         // output the model as xml
         var xmlMapper = new XmlMapper();
