@@ -3,6 +3,7 @@ package eu.mihosoft.vmf.jackson.test.external_types01;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -39,6 +40,43 @@ public class ExternalTypeModel01Test {
 
         // check if deserialization worked
         assertTrue(model.vmf().content().equals(model2));
+
+
+        // XML
+
+        var xmlMapper = new XmlMapper();
+        xmlMapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+                .withTypeAlias("external-type-model-01", ExternalTypeModel01.class.getName())
+                .withTypeAlias("external-enum", ExternalEnum.class.getName())
+        );
+
+        String xml = xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(model);
+        System.out.println(xml);
+
+        ExternalTypeModel01 xmlModel = xmlMapper.readValue(xml, ExternalTypeModel01.class);
+
+        String xml2 = xmlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(xmlModel);
+        System.out.println(xml2);
+
+        assertTrue(model.vmf().content().equals(xmlModel));
+
+        // YAML
+        var yamlMapper = new ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
+        yamlMapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+                .withTypeAlias("external-type-model-01", ExternalTypeModel01.class.getName())
+                .withTypeAlias("external-enum", ExternalEnum.class.getName())
+        );
+
+        String yaml = yamlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(model);
+        System.out.println(yaml);
+
+        ExternalTypeModel01 yamlModel = yamlMapper.readValue(yaml, ExternalTypeModel01.class);
+
+        String yaml2 = yamlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(yamlModel);
+        System.out.println(yaml2);
+
+        assertTrue(model.vmf().content().equals(yamlModel));
+
 
     }
 
