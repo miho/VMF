@@ -101,13 +101,19 @@ public final class Property {
         String typeName = parent._vmf_getPropertyTypeNames()[propertyId];
         try {
             if (isListType) {
-                this.type = Type.newInstance(isModelType, isListType, typeName,
+                this.type = Type.newInstance(isModelType, isListType, false, typeName,
                         parent.getClass().getClassLoader().loadClass("eu.mihosoft.vcollections.VList"));
             } else if (isPrimitiveType(typeName)) {
-                this.type = Type.newInstance(isModelType, isListType, typeName, getClassObjectByName(typeName));
+                this.type = Type.newInstance(isModelType, isListType, false, typeName, getClassObjectByName(typeName));
             } else {
-                this.type = Type.newInstance(isModelType, isListType, typeName,
-                        parent.getClass().getClassLoader().loadClass(typeName));
+                var tClass = parent.getClass().getClassLoader().loadClass(typeName);
+
+                // check if tClass implements Mutable or Immutable interfaces:
+                var isMutable = Mutable.class.isAssignableFrom(tClass);
+                var isImmutable = Immutable.class.isAssignableFrom(tClass);
+
+                boolean isInterfaceOnlyType = isModelType && !isMutable && !isImmutable;
+                this.type = Type.newInstance(isModelType, isListType, isInterfaceOnlyType, typeName, tClass);
             }
         } catch (ClassNotFoundException e) {
             e.printStackTrace();

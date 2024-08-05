@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.logging.Logger;
 
 /**
  * Represents a type, e.g. {@code java.lang.Integer} or {@code your.pkg.ModelType}.
@@ -43,6 +44,7 @@ public final class Type {
 
     private final boolean modelType;
     private final boolean listType;
+    private final boolean interfaceOnly;
     private final String name;
 
     private final Class<?> modelClass;
@@ -50,16 +52,22 @@ public final class Type {
     private List<Type> superTypes;
     private VObject prototype;
 
-    private Type(boolean modelType, boolean listType, String name, Class<?> modelClass) {
+    private Type(boolean modelType, boolean listType, boolean interfaceOnly, String name, Class<?> modelClass) {
         this.modelType = modelType;
         this.listType = listType;
+        this.interfaceOnly = interfaceOnly;
         this.name = name;
         this.modelClass = modelClass;
     }
 
+//    @Deprecated
+//    public static Type newInstance(boolean modelType, boolean listType, String name, Class<?> modelClass) {
+//        return new Type(modelType, listType, false, name, modelClass);
+//    }
+
     @Deprecated
-    public static Type newInstance(boolean modelType, boolean listType, String name, Class<?> modelClass) {
-        return new Type(modelType, listType, name, modelClass);
+    public static Type newInstance(boolean modelType, boolean listType, boolean interfaceOnly, String name, Class<?> modelClass) {
+        return new Type(modelType, listType, interfaceOnly, name, modelClass);
     }
 
     /**
@@ -120,6 +128,14 @@ public final class Type {
         return listType;
     }
 
+    /**
+     * Indicates whether this type is an interface-only type.
+     * @return {@code true} if this is an interface-only type
+     */
+    public boolean isInterfaceOnly() {
+        return interfaceOnly;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -145,12 +161,29 @@ public final class Type {
      */
     @SuppressWarnings("deprecation")
     public Reflect reflect() {
+
+        if(interfaceOnly) {
+            throw new RuntimeException(
+                    "Cannot initialize reflection API of interface-only type '"
+                            + modelClass.getTypeName()
+                            + "'. Reflection failed."
+            );
+        }
+
         ReflectImpl reflect = (ReflectImpl) getPrototype().vmf().reflect();
         reflect.setStaticOnly(true);
         return reflect;
     }
 
     private VObject getPrototype() {
+
+        if(interfaceOnly) {
+            throw new RuntimeException(
+                    "Cannot initialize prototype of interface-only type '"
+                            + modelClass.getTypeName()
+                            + "'. Instantiation failed."
+            );
+        }
 
         if(!isModelType()) {
             throw new RuntimeException(
@@ -205,7 +238,14 @@ public final class Type {
                 for (String tName : superTypeNames) {
 
                     try {
-                        superTypes.add(Type.newInstance(true, false, tName, Class.forName(tName)));
+                        var tClass = Class.forName(tName);
+
+                        // check if tClass implements Mutable or Immutable interfaces:
+                        var isMutable = Mutable.class.isAssignableFrom(tClass);
+                        var isImmutable = Immutable.class.isAssignableFrom(tClass);
+                        boolean isInterfaceOnlyType = modelType && !isMutable && !isImmutable;
+                        superTypes.add(Type.newInstance(true, false, isInterfaceOnlyType, tName,
+                                Class.forName(tName)));
                     } catch (ClassNotFoundException e) {
                         e.printStackTrace();
                         throw new RuntimeException(

@@ -367,17 +367,29 @@ public class VMFJacksonModule extends SimpleModule {
                                         var arrayNode = (ArrayNode) element;
                                         for (JsonNode e : arrayNode) {
                                             // Deserialize the collection element
-                                            Object elementValue = ctxt.readValue(
+                                            Object elementValue = e.isValueNode()
+                                                    // we reuse the scalar value handling from the deserializeField method
+                                                    // it won't use the other parts of the method since we only use it for
+                                                    // scalar values
+                                                    ? deserializeField(ctxt, e, elementTypeClass)
+                                                    : ctxt.readValue(
                                                     e.traverse(ctxt.getParser().getCodec()),
                                                     getaVMFTypeClass(ctxt.getParser(), e, elementTypeClass));
+
                                             // Add the element to the collection
                                             collection.add(elementValue);
                                         }
                                     } else {
                                         // Deserialize the collection element
-                                        Object elementValue = ctxt.readValue(
-                                                element.traverse(ctxt.getParser().getCodec()),
-                                                elementTypeClass);
+                                        Object elementValue = element.isValueNode()
+                                                // we reuse the scalar value handling from the deserializeField method
+                                                // it won't use the other parts of the method since we only use it for
+                                                // scalar values
+                                                ? deserializeField(ctxt, element, elementTypeClass)
+                                                : ctxt.readValue(
+                                                        element.traverse(ctxt.getParser().getCodec()),
+                                                        getaVMFTypeClass(ctxt.getParser(), element, elementTypeClass));
+
                                         // Add the element to the collection
                                         collection.add(elementValue);
                                     }
@@ -385,34 +397,8 @@ public class VMFJacksonModule extends SimpleModule {
                                 // Invoke the builder method
                                 method.invoke(builder, collection);
                             } else {
-                                // Handle null values
-                                if (value.isNull()) {
-                                    method.invoke(builder, (Object) null);
-                                } else if (value.isValueNode()) {
-                                    // Deserialize scalar value
-                                    Object paramValue;
-                                    if (paramType == String.class) {
-                                        paramValue = value.asText();
-                                    } else if (paramType == Integer.class||paramType == int.class) {
-                                        paramValue = value.asInt();
-                                    } else if (paramType == Long.class|| paramType == long.class) {
-                                        paramValue = value.asLong();
-                                    } else if (paramType == Double.class|| paramType == double.class) {
-                                        paramValue = value.asDouble();
-                                    } else if (paramType == Boolean.class|| paramType == boolean.class) {
-                                        paramValue = value.asBoolean();
-                                    } else {
-                                        // Deserialize non-scalar value
-                                        paramValue = ctxt.readValue(
-                                                value.traverse(ctxt.getParser().getCodec()), paramType);
-                                    }
-                                    method.invoke(builder, paramValue);
-                                } else {
-                                    // Deserialize complex value
-                                    Object paramValue = ctxt.readValue(
-                                            value.traverse(ctxt.getParser().getCodec()), paramType);
-                                    method.invoke(builder, paramValue);
-                                }
+                                var paramValue = deserializeField(ctxt, value, paramType);
+                                method.invoke(builder, paramValue);
                             }
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -427,6 +413,39 @@ public class VMFJacksonModule extends SimpleModule {
                 return (T) buildMethod.invoke(builder);
             } catch (Exception e) {
                 throw new IOException("Error deserializing object", e);
+            }
+        }
+
+        private static Object deserializeField(DeserializationContext ctxt, JsonNode value, Class<?> paramType) throws IllegalAccessException, InvocationTargetException, IOException {
+            // Handle null values
+            if (value.isNull()) {
+                return null;
+            } else if (value.isValueNode()) {
+                // Deserialize scalar value
+                Object paramValue;
+                if (paramType == String.class) {
+                    paramValue = value.asText();
+                } else if (paramType == Integer.class|| paramType == int.class) {
+                    paramValue = value.asInt();
+                } else if (paramType == Long.class|| paramType == long.class) {
+                    paramValue = value.asLong();
+                } else if (paramType == Double.class|| paramType == double.class) {
+                    paramValue = value.asDouble();
+                } else if (paramType == Boolean.class|| paramType == boolean.class) {
+                    paramValue = value.asBoolean();
+                } else if(paramType.isEnum()) {
+                    paramValue = Enum.valueOf((Class<Enum>) paramType, value.asText());
+                } else {
+                    // Deserialize non-scalar value
+                    paramValue = ctxt.readValue(
+                            value.traverse(ctxt.getParser().getCodec()), paramType);
+                }
+                return paramValue;
+            } else {
+                // Deserialize complex value
+                Object paramValue = ctxt.readValue(
+                        value.traverse(ctxt.getParser().getCodec()), paramType);
+                return paramValue;
             }
         }
 
@@ -637,7 +656,7 @@ public class VMFJacksonModule extends SimpleModule {
     }
 
     /**
-     * Checks if the type is extended by another model type.
+     * Checks if the type is extended by another model type. Interface-only types are not considered.
      * @param model the model object
      * @param type the type to check
      * @return {@code true} if the type is extended by another model type, {@code false} otherwise
@@ -648,6 +667,15 @@ public class VMFJacksonModule extends SimpleModule {
 
         // now, check if type is a super type of any of the types
         for (var t : allTypes) {
+
+            if(t == type) {
+                continue;
+            }
+
+            if (t.isInterfaceOnly()) {
+                continue;
+            }
+
             if (t.superTypes().contains(type)) {
                 return true;
             }
@@ -671,7 +699,13 @@ public class VMFJacksonModule extends SimpleModule {
 
         // receive all property types
         var allPropTypes = new HashSet<eu.mihosoft.vmf.runtime.core.Type>();
+
         allTypes.forEach(t -> {
+
+            if(t.isInterfaceOnly()) {
+                return;
+            }
+
             t.reflect().properties().forEach(p -> {
                 allPropTypes.add(p.getType().isListType()?
                         allTypesByName.get(p.getType().getElementTypeName().get())
@@ -679,8 +713,29 @@ public class VMFJacksonModule extends SimpleModule {
             });
         });
 
+        // check if any interface only type is not extended by any other type
+        for (var t : allPropTypes) {
+
+            if(t == null) {
+                continue;
+            }
+
+            if (t.isInterfaceOnly() && !isTypeExtendedByModelType(model, t)) {
+                throw new RuntimeException(
+                        "Interface-only type '"
+                                + t.getName()
+                                + "' is not extended by any other type. Model cannot be de-/serialized since" +
+                                " interface-only types cannot be instantiated.");
+            }
+        }
+
         // now, check if type extends any of the types
         for (var t : allPropTypes) {
+
+            if(t == null) {
+                continue;
+            }
+
             if (type.superTypes().contains(t)) {
                 return true;
             }
