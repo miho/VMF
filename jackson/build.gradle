@@ -77,6 +77,9 @@ dependencies {
     // xml
     testImplementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.2'
 
+    // json schema
+    testImplementation 'com.github.victools:jsonschema-generator:4.36.0'
+
     // jackson
     implementation 'com.fasterxml.jackson.core:jackson-core:2.17.2'
     implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
