@@ -4,14 +4,18 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.mihosoft.vmf.runtime.core.*;
 
-import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import static eu.mihosoft.vmf.jackson.VMFTypeUtils.getBuilderClass;
 
+/**
+ * A JSON schema generator for VMF models. This class can be used to generate a JSON schema for a VMF model class.
+ * The schema is generated based on the model class and its properties. The schema is generated in draft-07 format.
+ */
 public class VMFJsonSchemaGenerator {
     public enum RUNTIME_TYPE {
         RELEASE, EXPERIMENTAL
@@ -135,6 +139,12 @@ public class VMFJsonSchemaGenerator {
     }
 
 
+    /**
+     * Generate a JSON schema for the specified model class. The schema is generated based on the model class and its
+     * properties. The schema is generated in draft-07 format. This method is used internally to generate the schema.
+     * @param modelClass the model class for which to generate the schema
+     * @return the generated schema as a map
+     */
     private Map<String, Object> _generateSchema(Class<? extends VObject> modelClass) {
         Map<String, Object> schema = new HashMap<>();
         schema.put("$schema", "http://json-schema.org/draft-07/schema#");
@@ -159,6 +169,11 @@ public class VMFJsonSchemaGenerator {
         return schema;
     }
 
+    /**
+     * Create an intermediate instance of the model class to get the default values.
+     * @param type the type to create the prototype for
+     * @return the prototype instance
+     */
     private static VObject createPrototypeIfPossible(Type type) {
         Class modelClass = null;
         try {
@@ -169,6 +184,11 @@ public class VMFJsonSchemaGenerator {
         return createPrototypeIfPossible(modelClass);
     }
 
+    /**
+     * Create an intermediate instance of the model class to get the default values.
+     * @param modelClass the model class to create the prototype for
+     * @return the prototype instance
+     */
     private static VObject createPrototypeIfPossible(Class<? extends VObject> modelClass) {
         // create an intermediate instance of the model class to get the default values
         VObject prop = null;
@@ -183,6 +203,11 @@ public class VMFJsonSchemaGenerator {
         return prop;
     }
 
+    /**
+     * Generate a JSON schema for the given property.
+     * @param property the property to generate the schema for
+     * @return the generated schema
+     */
     private Map<String, Object> getPropertySchema(Property property) {
         Map<String, Object> propertySchema = new HashMap<>();
 
@@ -190,7 +215,7 @@ public class VMFJsonSchemaGenerator {
             return propertySchema;
         } else if (isValueType(property.getType())) {
             propertySchema.put("type", mapValueType(property.getType()));
-            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isModelType() && !property.getType().isListType()) {
             // Handle polymorphic types
             Type elementType = VMFTypeUtils.forClass(property.getType().getName());
@@ -223,7 +248,7 @@ public class VMFJsonSchemaGenerator {
                 var typeAlias = getTypeAlias(property.getType());
                 propertySchema.put("$ref", "#/definitions/" + typeAlias);
             }
-            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isListType()) {
             propertySchema.put("type", "array");
             Map<String, Object> itemsSchema = new HashMap<>();
@@ -260,20 +285,25 @@ public class VMFJsonSchemaGenerator {
             }
 
             propertySchema.put("items", itemsSchema);
-            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (VMFTypeUtils.isEnum(property.getType())) {
             propertySchema.put("type", "string");
             propertySchema.put("enum", VMFTypeUtils.getEnumConstants(property.getType()));
-            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else {
             propertySchema.put("type", "string");
-            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         }
 
         return propertySchema;
     }
 
 
+    /**
+     * Generate definitions for the given type.
+     * @param type the type to generate the definitions for
+     * @return the generated definitions
+     */
     private Map<String, Object> generateDefinitions(Type type) {
         Map<String, Object> definitions = new HashMap<>();
         for (Type subType : type.reflect().allTypes()) {
@@ -310,6 +340,11 @@ public class VMFJsonSchemaGenerator {
         return definitions;
     }
 
+    /**
+     * Check if the given property should be excluded from serialization.
+     * @param property the property to check
+     * @return {@code true} if the given property should be excluded from serialization, {@code false} otherwise
+     */
     private static boolean isToBeExcludedFromSerialization(Property property) {
         boolean immutableType = false;
         try {
@@ -326,6 +361,11 @@ public class VMFJsonSchemaGenerator {
         return property.getType().isModelType() && !immutableType && !VMFTypeUtils.isParentOfPropContainer(property);
     }
 
+    /**
+     * Map a value type to a JSON schema type.
+     * @param type the type to map
+     * @return the JSON schema type
+     */
     private static String mapValueType(Type type) {
         if (isInteger(type)) return "integer";
         if (isBoolean(type)) return "boolean";
@@ -333,24 +373,49 @@ public class VMFJsonSchemaGenerator {
         return "string";
     }
 
+    /**
+     * Check if the given type is an integer (or short or long).
+     * @param type the type to check
+     * @return {@code true} if the given type is an integer, {@code false} otherwise
+     */
     public static boolean isInteger(Type type) {
         return type.getName().equals("java.lang.Integer") || type.getName().equals("int") ||
                 type.getName().equals("java.lang.Short") || type.getName().equals("short") ||
                 type.getName().equals("java.lang.Long") || type.getName().equals("long");
     }
 
+    /**
+     * Check if the given type is a boolean.
+     * @param type the type to check
+     * @return {@code true} if the given type is a boolean, {@code false} otherwise
+     */
     public static boolean isBoolean(Type type) {
         return type.getName().equals("java.lang.Boolean") || type.getName().equals("boolean");
     }
 
+    /**
+     * Check if the given type is a float.
+     * @param type the type to check
+     * @return {@code true} if the given type is a float, {@code false} otherwise
+     */
     public static boolean isFloat(Type type) {
         return type.getName().equals("java.lang.Float") || type.getName().equals("float");
     }
 
+    /**
+     * Check if the given type is a double.
+     * @param type the type to check
+     * @return {@code true} if the given type is a double, {@code false} otherwise
+     */
     public static boolean isDouble(Type type) {
         return type.getName().equals("java.lang.Double") || type.getName().equals("double");
     }
 
+    /**
+     * Check if the given type is a value type.
+     * @param type the type to check
+     * @return {@code true} if the given type is a value type, {@code false} otherwise
+     */
     public static boolean isValueType(Type type) {
         String clsName = type.getName();
 
@@ -372,9 +437,10 @@ public class VMFJsonSchemaGenerator {
         return typeAliasesReverse.getOrDefault(type.getName(), type.getName());
     }
 
-    private void addDefaultValueAndDescriptionIfAvailable(Property property, Map<String, Object> propertySchema) {
+    private void addDefaultValueAndDescriptionAndConstraintIfAvailable(Property property, Map<String, Object> propertySchema) {
         addDefaultValue(property, propertySchema);
         addDescription(property, propertySchema);
+        addConstraint(property, propertySchema);
     }
 
     private void addDefaultValue(Property property, Map<String, Object> propertySchema) {
@@ -393,6 +459,34 @@ public class VMFJsonSchemaGenerator {
             var description = property.annotationByKey("vmf:jackson:schema:description").get().getValue();
             if (description != null) {
                 propertySchema.put("description", description);
+            }
+        } catch (Exception e) {
+            // ignore, not possible to get default value
+        }
+    }
+
+    private void addConstraint(Property property, Map<String, Object> propertySchema) {
+        try {
+            var constraints = property.annotations().stream()
+                    .filter(a -> a.getKey().equals("vmf:jackson:schema:constraint"))
+                    .map(a->a.getValue()).collect(Collectors.toList());
+
+
+            for(String constraint : constraints) {
+                // split constraint into key-value pairs "pattern=^\\d{3}$"
+                // or "minimum=0" or "maximum=99"
+
+                if (constraint == null || constraint.isBlank() || !constraint.contains("=")) {
+                    return;
+                }
+
+                var constraintName = constraint.split("=")[0];
+                var constraintValue = constraint.split("=")[1];
+
+                if (constraintName != null && constraintValue != null
+                        && !constraintName.isBlank() && !constraintValue.isBlank()) {
+                    propertySchema.put(constraintName, constraintValue);
+                }
             }
         } catch (Exception e) {
             // ignore, not possible to get default value

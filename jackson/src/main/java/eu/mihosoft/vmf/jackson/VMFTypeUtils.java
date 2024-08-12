@@ -9,15 +9,28 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Utility class for VMF type related operations.
+ */
 public final class VMFTypeUtils {
     private VMFTypeUtils() {
         throw new AssertionError("Don't instantiate me");
     }
 
+    /**
+     * Check if the given class is a VMF type.
+     * @param type the class to check
+     * @return {@code true} if the given class is a VMF type, {@code false} otherwise
+     */
     public static boolean isVMFType(Class<?> type) {
         return eu.mihosoft.vmf.runtime.core.VObject.class.isAssignableFrom(type);
     }
 
+    /**
+     * Check if the given object is an instance of a VMF type.
+     * @param obj the object to check
+     * @return {@code true} if the given object is an instance of a VMF type, {@code false} otherwise
+     */
     public static boolean isVMFType(Object obj) {
         return isVMFType(obj.getClass());
     }
@@ -32,6 +45,11 @@ public final class VMFTypeUtils {
         return Class.forName(clazz.getName() + "$Builder");
     }
 
+    /**
+     * Returns the VMF type object for a given class name.
+     * @param clsName the class name
+     * @return the VMF type object for the given class name
+     */
     public static Type forClass(String clsName) {
         try {
             return forClass(Class.forName(clsName));
@@ -40,6 +58,11 @@ public final class VMFTypeUtils {
         }
     }
 
+    /**
+     * Returns the VMF type object for a given class.
+     * @param cls the class object
+     * @return the VMF type object for the given class
+     */
     public static Type forClass(Class<?> cls) {
 
         if(Collection.class.isAssignableFrom(cls)) {
@@ -52,7 +75,7 @@ public final class VMFTypeUtils {
             boolean isModelType = true; // here, we currently only have the case it's a model type
 
             // check if tClass implements Mutable or Immutable interfaces:
-            var isMutable = Mutable.class.isAssignableFrom(cls);
+            var isMutable   = Mutable.class.isAssignableFrom(cls);
             var isImmutable = Immutable.class.isAssignableFrom(cls);
 
             boolean isInterfaceOnlyType = isModelType && !isMutable && !isImmutable;
@@ -75,6 +98,11 @@ public final class VMFTypeUtils {
         }
     }
 
+    /**
+     * Indicates whether the given type is an enum.
+     * @param type the type to check
+     * @return {@code true} if the given type is an enum, {@code false} otherwise
+     */
     public static boolean isEnum(Type type) {
         // get type name
         String typeName = type.getName();
@@ -88,7 +116,11 @@ public final class VMFTypeUtils {
         }
     }
 
-    // get enum constants
+    /**
+     * Get the enum constants of a given type.
+     * @param type the type to get the enum constants for
+     * @return the enum constants of the given type
+     */
     public static Object[] getEnumConstants(Type type) {
         // get type name
         String typeName = type.getName();

@@ -11,6 +11,8 @@ interface Person {
     String getName();
 
     @DefaultValue("30")
+    @Annotation(key = "vmf:jackson:schema:constraint", value = "minimum=0")
+    @Annotation(key = "vmf:jackson:schema:constraint", value = "maximum=99")
     int getAge();
 
     @Annotation(key = "vmf:jackson:schema:description", value = "Residential address of the person.")
