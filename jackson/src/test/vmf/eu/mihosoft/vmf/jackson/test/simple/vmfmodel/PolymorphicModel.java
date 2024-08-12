@@ -9,6 +9,8 @@ interface MyModel {
 
 interface Person {
     String getName();
+
+    @DefaultValue("30")
     int getAge();
 
     Address getAddress();
@@ -25,5 +27,6 @@ interface Employee extends Person {
 interface Address {
     String getStreet();
     String getCity();
+    @DefaultValue("\"10000\"")
     String getZip();
 }
