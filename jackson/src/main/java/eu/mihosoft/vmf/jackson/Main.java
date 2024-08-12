@@ -1,65 +1,62 @@
-package eu.mihosoft.vmf.jackson;
-
-import java.util.ArrayList;
-import java.util.List;
-
-public class Main {
-
-    public static class MyClass {
-        private String name;
-        private int age;
-        private List<String> tags;
-        private MyClass child;
-
-        private final List<MyClass> children = new ArrayList<>();
-
-        public String getName() {
-            return name;
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        public int getAge() {
-            return age;
-        }
-
-        public void setAge(int age) {
-            this.age = age;
-        }
-
-        public List<String> getTags() {
-            return tags;
-        }
-
-        public void setTags(List<String> tags) {
-            this.tags = tags;
-        }
-
-        public MyClass getChild() {
-            return child;
-        }
-
-        public void setChild(MyClass child) {
-            this.child = child;
-        }
-
-        // children list
-        public List<MyClass> getChildren() {
-            return children;
-        }
-
-        public void setChildren(List<MyClass> children) {
-            this.children.clear();
-            this.children.addAll(children);
-        }
-
-
-
-
-    }
-
+//package eu.mihosoft.vmf.jackson;
+//
+//import java.util.ArrayList;
+//import java.util.List;
+//
+//
+//public class Main {
+//
+//    public static class MyClass {
+//        private String name;
+//        private int age;
+//        private List<String> tags;
+//        private MyClass child;
+//
+//        private final List<MyClass> children = new ArrayList<>();
+//
+//        public String getName() {
+//            return name;
+//        }
+//
+//        public void setName(String name) {
+//            this.name = name;
+//        }
+//
+//        public int getAge() {
+//            return age;
+//        }
+//
+//        public void setAge(int age) {
+//            this.age = age;
+//        }
+//
+//        public List<String> getTags() {
+//            return tags;
+//        }
+//
+//        public void setTags(List<String> tags) {
+//            this.tags = tags;
+//        }
+//
+//        public MyClass getChild() {
+//            return child;
+//        }
+//
+//        public void setChild(MyClass child) {
+//            this.child = child;
+//        }
+//
+//        // children list
+//        public List<MyClass> getChildren() {
+//            return children;
+//        }
+//
+//        public void setChildren(List<MyClass> children) {
+//            this.children.clear();
+//            this.children.addAll(children);
+//        }
+//    }
+//
 //    public static void main(String[] args) {
 //            // create a model tree
 //            MyClass model = new MyClass();
@@ -96,4 +93,4 @@ public class Main {
 //                e.printStackTrace();
 //            }
 //        }
-}
+//}

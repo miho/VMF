@@ -55,7 +55,7 @@ public class Main {
 
                 builder.withObjectMapper(objectMapper);
 
-                builder.forTypesInGeneral().with
+//                builder.forTypesInGeneral().with
 
 //                builder.with(new SchemaGeneratorTypeConfigPart() {
 //                    @Override

@@ -562,7 +562,7 @@ public class VMFJacksonModule extends SimpleModule {
          * @return the builder class object of the given class
          * @throws ClassNotFoundException if the builder class cannot be found
          */
-        private Class<?> getBuilderClass(Class<?> clazz) throws ClassNotFoundException {
+        static Class<?> getBuilderClass(Class<?> clazz) throws ClassNotFoundException {
             return Class.forName(clazz.getName() + "$Builder");
         }
     }
