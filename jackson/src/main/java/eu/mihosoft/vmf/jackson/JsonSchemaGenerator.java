@@ -1,5 +1,6 @@
 package eu.mihosoft.vmf.jackson;
 
+import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Type;
 import eu.mihosoft.vmf.runtime.core.VObject;
@@ -22,7 +23,15 @@ public class JsonSchemaGenerator {
         Type type = VMFTypeUtils.forClass(modelClass);
 
         for (Property property : type.reflect().properties()) {
-            properties.put(getFieldNameForProperty(property), getPropertySchema(property));
+
+            boolean isToBeExcludedFromSerialization = isToBeExcludedFromSerialization(property);
+
+
+            if (isToBeExcludedFromSerialization) {
+                // skip
+            } else {
+                properties.put(getFieldNameForProperty(property), getPropertySchema(property));
+            }
         }
 
         schema.put("definitions", generateDefinitions(type));
@@ -33,31 +42,43 @@ public class JsonSchemaGenerator {
     private static Map<String, Object> getPropertySchema(Property property) {
         Map<String, Object> propertySchema = new HashMap<>();
 
-        if (isValueType(property.getType())) {
+        // if property is not contained in the model, skip it (if model type or list and model type, keep otherwise)
+        boolean isToBeExcludeFromSerialization = isToBeExcludedFromSerialization(property);
+
+        if (isToBeExcludeFromSerialization) {
+            // skip
+        } else if (isValueType(property.getType())) {
             propertySchema.put("type", mapValueType(property.getType()));
-        } else if (property.getType().isModelType()) {
+        } else if (property.getType().isModelType() && !property.getType().isListType()) {
             // Complex object, reference definition
             propertySchema.put("$ref", "#/definitions/" + property.getType().getName());
         } else if (property.getType().isListType()) {
             // Recognize VList types as arrays in JSON Schema
-            if (property.getType().getName().startsWith("eu.mihosoft.vcollections.VList")) {
-                propertySchema.put("type", "array");
-                Map<String, Object> itemsSchema = new HashMap<>();
 
-                // Handle polymorphic types with oneOf
-                Type elementType = VMFTypeUtils.forClass(property.getType().getElementTypeName().get());
-                if (elementType.isInterfaceOnly()) {
-                    itemsSchema.put("oneOf", elementType.reflect().subTypes().stream().map(subType -> {
-                        Map<String, Object> ref = new HashMap<>();
-                        ref.put("$ref", "#/definitions/" + subType.getName());
-                        return ref;
-                    }).toArray());
-                } else {
-                    itemsSchema.put("$ref", "#/definitions/" + property.getType().getElementTypeName().get());
-                }
+            propertySchema.put("type", "array");
+            Map<String, Object> itemsSchema = new HashMap<>();
 
-                propertySchema.put("items", itemsSchema);
+            // Handle polymorphic types with oneOf
+            Type elementType = VMFTypeUtils.forClass(property.getType().getElementTypeName().get());
+            if (VMFTypeUtils.getSubTypes(elementType).size() > 0) {
+
+                var typesToChooseFrom = VMFTypeUtils.getSubTypes(elementType);
+                typesToChooseFrom.add(elementType);
+
+                // remove all interface-only types
+                typesToChooseFrom.removeIf(Type::isInterfaceOnly);
+
+                itemsSchema.put("oneOf", typesToChooseFrom.stream().map(subType -> {
+                    Map<String, Object> ref = new HashMap<>();
+                    ref.put("$ref", "#/definitions/" + subType.getName());
+                    return ref;
+                }).toArray());
+            } else {
+                itemsSchema.put("$ref", "#/definitions/" + property.getType().getElementTypeName().get());
             }
+
+            propertySchema.put("items", itemsSchema);
+
         } else if (VMFTypeUtils.isEnum(property.getType())) {
             // Enum type
             propertySchema.put("type", "string");
@@ -66,6 +87,7 @@ public class JsonSchemaGenerator {
             // Handle other types or fallback
             propertySchema.put("type", "string");
         }
+
 
         return propertySchema;
     }
@@ -80,7 +102,14 @@ public class JsonSchemaGenerator {
 
             Map<String, Object> properties = new HashMap<>();
             for (Property property : subType.reflect().properties()) {
-                properties.put(getFieldNameForProperty(property), getPropertySchema(property));
+
+                boolean toBeExcludedFromSerialization = isToBeExcludedFromSerialization(property);
+
+                if (toBeExcludedFromSerialization) {
+                    //
+                } else {
+                    properties.put(getFieldNameForProperty(property), getPropertySchema(property));
+                }
             }
 
             // Handle polymorphism using allOf to include super types if necessary
@@ -96,6 +125,29 @@ public class JsonSchemaGenerator {
             definitions.put(subType.getName(), definition);
         }
         return definitions;
+    }
+
+    /**
+     * Check if the property should be excluded from serialization.
+     *
+     * @param property the property to check
+     * @return {@code true} if the property should be excluded from serialization, {@code false} otherwise
+     */
+    private static boolean isToBeExcludedFromSerialization(Property property) {
+        boolean immutableType = false;
+        try {
+            immutableType = isValueType(property.getType()) ||
+                    (
+                            Immutable.class.isAssignableFrom(Class.forName(property.getType().isListType()
+                                    ? property.getType().getElementTypeName().get()
+                                    : property.getType().getName()))
+                    );
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
+        boolean toBeExcludedFromSerialization = property.getType().isModelType() && !immutableType && !VMFTypeUtils.isParentOfPropContainer(property);
+        return toBeExcludedFromSerialization;
     }
 
     private static String mapValueType(Type type) {

@@ -587,21 +587,6 @@ public class VMFJacksonModule extends SimpleModule {
             this.module = module;
         }
 
-        /**
-         * Check if the parent of this property is a container.
-         * @param p the property to check
-         * @return {@code true} if the parent of this property is a container, {@code false} otherwise
-         */
-        private boolean isParentOfPropContainer(Property p) {
-            var a = p.annotationByKey("vmf:property:containment-info");
-            if(a.isPresent() || !p.getType().isModelType()) {
-                var c = a.get().getValue();
-                boolean contained =  c.contains("contained");
-                return contained;
-            }
-            return false;
-        }
-
         @Override
         public void serialize(T value, JsonGenerator gen, SerializerProvider provider) throws IOException {
 
@@ -647,7 +632,7 @@ public class VMFJacksonModule extends SimpleModule {
             gen.writeStartObject();
 
             // Write the type annotation if the model type is polymorphic
-            if (isTypeExtendsModelTypeInProps(obj, obj.vmf().reflect().type())) {
+            if (VMFTypeUtils.isTypeExtendsModelTypeInProps(obj, obj.vmf().reflect().type())) {
 
                 String typeFieldName = "@vmf-type";
 
@@ -674,10 +659,10 @@ public class VMFJacksonModule extends SimpleModule {
                     Object propValue = p.get();
                     // if property is set and holds contained value or is external or immutable, serialize it
                     if (propValue != null && (
-                            isParentOfPropContainer(p)
+                            VMFTypeUtils.isParentOfPropContainer(p)
                                     || !p.getType().isModelType()
                                     || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable)) {
-                        gen.writeFieldName(getFieldNameForProperty(p));
+                        gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
                         gen.writeObject(propValue);
                     }
                 } catch (IOException e) {
@@ -688,109 +673,5 @@ public class VMFJacksonModule extends SimpleModule {
             // End writing the object
             gen.writeEndObject();
         }
-    }
-
-    /**
-     * Get the field name for a property. This method is used to determine the field name of a property. It checks for
-     * the presence of the `@vmf:jackson:rename` annotation and uses the value of the annotation as the field name if
-     * present.
-     * @param p the property to get the field name for
-     * @return the field name of the property
-     */
-    private static String getFieldNameForProperty(Property p) {
-        var a = p.annotationByKey("vmf:jackson:rename");
-        if(a.isPresent()) {
-            return a.get().getValue();
-        }
-        return p.getName();
-    }
-
-    /**
-     * Checks if the type is extended by another model type. Interface-only types are not considered.
-     * @param model the model object
-     * @param type the type to check
-     * @return {@code true} if the type is extended by another model type, {@code false} otherwise
-     */
-    private static boolean isTypeExtendedByModelType(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
-
-        var allTypes = model.vmf().reflect().allTypes();
-
-        // now, check if type is a super type of any of the types
-        for (var t : allTypes) {
-
-            if(t == type) {
-                continue;
-            }
-
-            if (t.isInterfaceOnly()) {
-                continue;
-            }
-
-            if (t.superTypes().contains(type)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if the type extends a model type that is used as property type.
-     * @param model the model object
-     * @param type the type to check
-     * @return {@code true} if the type extends a model type that is used as property type, {@code false} otherwise
-     */
-    private static boolean isTypeExtendsModelTypeInProps(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
-
-        var allTypes = model.vmf().reflect().allTypes();
-
-        var allTypesByName = new HashMap<String, eu.mihosoft.vmf.runtime.core.Type>();
-        allTypes.forEach(t -> allTypesByName.put(t.getName(), t));
-
-        // receive all property types
-        var allPropTypes = new HashSet<eu.mihosoft.vmf.runtime.core.Type>();
-
-        allTypes.forEach(t -> {
-
-            if(t.isInterfaceOnly()) {
-                return;
-            }
-
-            t.reflect().properties().forEach(p -> {
-                allPropTypes.add(p.getType().isListType()?
-                        allTypesByName.get(p.getType().getElementTypeName().get())
-                        : p.getType());
-            });
-        });
-
-        // check if any interface only type is not extended by any other type
-        for (var t : allPropTypes) {
-
-            if(t == null) {
-                continue;
-            }
-
-            if (t.isInterfaceOnly() && !isTypeExtendedByModelType(model, t)) {
-                throw new RuntimeException(
-                        "Interface-only type '"
-                                + t.getName()
-                                + "' is not extended by any other type. Model cannot be de-/serialized since" +
-                                " interface-only types cannot be instantiated.");
-            }
-        }
-
-        // now, check if type extends any of the types
-        for (var t : allPropTypes) {
-
-            if(t == null) {
-                continue;
-            }
-
-            if (type.superTypes().contains(t)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
