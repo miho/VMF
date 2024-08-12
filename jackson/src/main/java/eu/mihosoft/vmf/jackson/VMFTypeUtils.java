@@ -239,17 +239,20 @@ public final class VMFTypeUtils {
     }
 
     /**
-     * Get all sub types of a given type.
+     * Get all sub types of a given type (only works if model type).
      * @param type the type to get the sub types for
      * @return the list of sub types of the given type
      */
     public static List<Type> getSubTypes(Type type) {
+         try {
+             // get all types of the model
+             List<Type> allTypes = type.reflect().allTypes();
 
-        // get all types of the model
-        List<Type> allTypes = type.reflect().allTypes();
-
-        // get all sub types of the type
-        return allTypes.stream().filter(t -> t.superTypes().contains(type)).collect(Collectors.toList());
+             // get all sub types of the type
+             return allTypes.stream().filter(t -> t.superTypes().contains(type)).collect(Collectors.toList());
+         } catch (Exception e) {
+             return List.of(); // empty list if not found
+         }
     }
 
     /**

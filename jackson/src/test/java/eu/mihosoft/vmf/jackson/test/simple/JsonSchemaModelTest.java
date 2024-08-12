@@ -3,6 +3,8 @@ package eu.mihosoft.vmf.jackson.test.simple;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.mihosoft.vmf.jackson.VMFJsonSchemaGenerator;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
+import eu.mihosoft.vmf.jackson.test.external_types01.ExternalTypeModel01;
+import eu.mihosoft.vmf.jackson.test.renameprops01.RenamePropsModel;
 import org.junit.jupiter.api.Assertions;
 
 import java.util.Map;
@@ -81,6 +83,18 @@ public class JsonSchemaModelTest {
                     .withTypeAlias("employee", Employee.class.getName())
                     .withTypeAlias("my-model", MyModel.class.getName())
                     .generateSchema(MyModel.class);
+            ObjectMapper schemaMapper = new ObjectMapper();
+            String jsonSchema = schemaMapper.writerWithDefaultPrettyPrinter().writeValueAsString(schema);
+            System.out.println(jsonSchema);
+        } catch (Exception e) {
+            Assertions.fail(e);
+            e.printStackTrace();
+        }
+
+        // create a json schema from model class
+        try {
+            Map<String, Object> schema = VMFJsonSchemaGenerator.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+                    .generateSchema(ExternalTypeModel01.class);
             ObjectMapper schemaMapper = new ObjectMapper();
             String jsonSchema = schemaMapper.writerWithDefaultPrettyPrinter().writeValueAsString(schema);
             System.out.println(jsonSchema);
