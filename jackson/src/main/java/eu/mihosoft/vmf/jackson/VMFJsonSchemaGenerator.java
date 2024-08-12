@@ -469,7 +469,7 @@ public class VMFJsonSchemaGenerator {
         try {
             var constraints = property.annotations().stream()
                     .filter(a -> a.getKey().equals("vmf:jackson:schema:constraint"))
-                    .map(a->a.getValue()).collect(Collectors.toList());
+                    .map(Annotation::getValue).collect(Collectors.toList());
 
 
             for(String constraint : constraints) {
