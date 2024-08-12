@@ -390,7 +390,7 @@ public class VMFJsonSchemaGenerator {
 
     private void addDescription(Property property, Map<String, Object> propertySchema) {
         try {
-            var description = property.annotationByKey("vmf:jackson:description").get().getValue();
+            var description = property.annotationByKey("vmf:jackson:schema:description").get().getValue();
             if (description != null) {
                 propertySchema.put("description", description);
             }

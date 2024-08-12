@@ -13,7 +13,7 @@ interface Person {
     @DefaultValue("30")
     int getAge();
 
-    @Annotation(key = "vmf:jackson:description", value = "Residential address of the person.")
+    @Annotation(key = "vmf:jackson:schema:description", value = "Residential address of the person.")
     Address getAddress();
 
     @Container(opposite = "persons")
@@ -21,6 +21,9 @@ interface Person {
 }
 
 interface Employee extends Person {
+    @Annotation(key = "vmf:jackson:schema:description", value = "Employee ID.")
+    @Annotation(key = "vmf:jackson:schema:required", value = "true")
+    @Annotation(key = "vmf:jackson:schema:constraint", value = "1234")
     String getEmployeeId();
 }
 
