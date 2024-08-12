@@ -1,5 +1,7 @@
 package eu.mihosoft.vmf.jackson;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.mihosoft.vmf.runtime.core.*;
 
 import java.lang.reflect.Method;
@@ -48,8 +50,30 @@ public class VMFJsonSchemaGenerator {
         return Collections.unmodifiableMap(typeAliasesReverse);
     }
 
+    /**
+     * Generate a JSON schema for the specified model class. The schema is generated based on the model class and its
+     * properties. The schema is generated in draft-07 format.
+     * @param modelClass the model class for which to generate the schema
+     * @return the generated schema as a map
+     */
     public Map<String, Object> generateSchema(Class<? extends VObject> modelClass) {
         return _generateSchema(modelClass);
+    }
+
+    /**
+     * Generate a JSON schema for the specified model class. The schema is generated based on the model class and its
+     * properties. The schema is generated in draft-07 format.
+     * @param modelClass the model class for which to generate the schema
+     * @return the generated schema as a map
+     */
+    public String generateSchemaAsString(Class<? extends VObject> modelClass) {
+        var schema = generateSchema(modelClass);
+
+        try {
+            return new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(schema);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -166,14 +190,14 @@ public class VMFJsonSchemaGenerator {
             return propertySchema;
         } else if (isValueType(property.getType())) {
             propertySchema.put("type", mapValueType(property.getType()));
-            addDefaultValue(property, propertySchema);
+            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
         } else if (property.getType().isModelType() && !property.getType().isListType()) {
             // Handle polymorphic types
             Type elementType = VMFTypeUtils.forClass(property.getType().getName());
             if (!VMFTypeUtils.getSubTypes(elementType).isEmpty()) {
+
                 var typesToChooseFrom = VMFTypeUtils.getSubTypes(elementType);
                 typesToChooseFrom.add(elementType);
-
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
                 propertySchema.put("oneOf", typesToChooseFrom.stream().map(subType -> {
@@ -183,18 +207,23 @@ public class VMFJsonSchemaGenerator {
                     var typeAlias = getTypeAlias(subType);
 
                     typeSchema.put("$ref", "#/definitions/" + typeAlias);
-                    typeSchema.put("properties", Map.of("@vmf-type",
-                            Map.of("type", "string", "enum",
-                                    List.of(typeAlias), "readOnly", true))
-                    );
-                    typeSchema.put("required", new String[]{"@vmf-type"});
+
+                    // if subType equals the element type, we don't need to add the @vmf-type property
+//                    if (!subType.equals(elementType))
+                    {
+                        typeSchema.put("properties", Map.of("@vmf-type",
+                                Map.of("type", "string", "enum",
+                                        List.of(typeAlias), "readOnly", true))
+                        );
+                        typeSchema.put("required", new String[]{"@vmf-type"});
+                    }
                     return typeSchema;
                 }).toArray());
             } else {
                 var typeAlias = getTypeAlias(property.getType());
                 propertySchema.put("$ref", "#/definitions/" + typeAlias);
             }
-            addDefaultValue(property, propertySchema);
+            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
         } else if (property.getType().isListType()) {
             propertySchema.put("type", "array");
             Map<String, Object> itemsSchema = new HashMap<>();
@@ -202,9 +231,9 @@ public class VMFJsonSchemaGenerator {
             // Handle polymorphic types with oneOf and add @vmf-type as a required property
             Type elementType = VMFTypeUtils.forClass(property.getType().getElementTypeName().get());
             if (!VMFTypeUtils.getSubTypes(elementType).isEmpty()) {
+
                 var typesToChooseFrom = VMFTypeUtils.getSubTypes(elementType);
                 typesToChooseFrom.add(elementType);
-
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
                 itemsSchema.put("oneOf", typesToChooseFrom.stream().map(subType -> {
@@ -213,11 +242,16 @@ public class VMFJsonSchemaGenerator {
 
                     Map<String, Object> typeSchema = new HashMap<>();
                     typeSchema.put("$ref", "#/definitions/" + typeAlias);
-                    typeSchema.put("properties", Map.of("@vmf-type",
-                            Map.of("type", "string", "enum",
-                                    List.of(typeAlias), "readOnly", true))
-                    );
-                    typeSchema.put("required", new String[]{"@vmf-type"});
+
+                    // if subType equals the element type, we don't need to add the @vmf-type property
+//                    if (!subType.equals(elementType))
+                    {
+                        typeSchema.put("properties", Map.of("@vmf-type",
+                                Map.of("type", "string", "enum",
+                                        List.of(typeAlias), "readOnly", true))
+                        );
+                        typeSchema.put("required", new String[]{"@vmf-type"});
+                    }
                     return typeSchema;
                 }).toArray());
             } else {
@@ -226,14 +260,14 @@ public class VMFJsonSchemaGenerator {
             }
 
             propertySchema.put("items", itemsSchema);
-            addDefaultValue(property, propertySchema);
+            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
         } else if (VMFTypeUtils.isEnum(property.getType())) {
             propertySchema.put("type", "string");
             propertySchema.put("enum", VMFTypeUtils.getEnumConstants(property.getType()));
-            addDefaultValue(property, propertySchema);
+            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
         } else {
             propertySchema.put("type", "string");
-            addDefaultValue(property, propertySchema);
+            addDefaultValueAndDescriptionIfAvailable(property, propertySchema);
         }
 
         return propertySchema;
@@ -338,6 +372,11 @@ public class VMFJsonSchemaGenerator {
         return typeAliasesReverse.getOrDefault(type.getName(), type.getName());
     }
 
+    private void addDefaultValueAndDescriptionIfAvailable(Property property, Map<String, Object> propertySchema) {
+        addDefaultValue(property, propertySchema);
+        addDescription(property, propertySchema);
+    }
+
     private void addDefaultValue(Property property, Map<String, Object> propertySchema) {
         try {
             Object defaultValue = property.getDefault();
@@ -345,7 +384,18 @@ public class VMFJsonSchemaGenerator {
                 propertySchema.put("default", defaultValue);
             }
         } catch (Exception e) {
-            // ignore
+            // ignore, not possible to get default value
+        }
+    }
+
+    private void addDescription(Property property, Map<String, Object> propertySchema) {
+        try {
+            var description = property.annotationByKey("vmf:jackson:description").get().getValue();
+            if (description != null) {
+                propertySchema.put("description", description);
+            }
+        } catch (Exception e) {
+            // ignore, not possible to get default value
         }
     }
 }

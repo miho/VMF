@@ -13,6 +13,7 @@ interface Person {
     @DefaultValue("30")
     int getAge();
 
+    @Annotation(key = "vmf:jackson:description", value = "Residential address of the person.")
     Address getAddress();
 
     @Container(opposite = "persons")
