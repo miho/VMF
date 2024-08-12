@@ -1,15 +1,10 @@
 package eu.mihosoft.vmf.jackson.test.simple;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import eu.mihosoft.vmf.jackson.JsonSchemaGenerator;
+import eu.mihosoft.vmf.jackson.VMFJsonSchemaGenerator;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import org.junit.jupiter.api.Assertions;
 
-import java.lang.Module;
-import java.lang.reflect.Method;
-import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -81,7 +76,11 @@ public class JsonSchemaModelTest {
 
         // create a json schema from model class
         try {
-            Map<String, Object> schema = JsonSchemaGenerator.generateSchema(MyModel.class);
+            Map<String, Object> schema = VMFJsonSchemaGenerator.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+                    .withTypeAlias("person", Person.class.getName())
+                    .withTypeAlias("employee", Employee.class.getName())
+                    .withTypeAlias("my-model", MyModel.class.getName())
+                    .generateSchema(MyModel.class);
             ObjectMapper schemaMapper = new ObjectMapper();
             String jsonSchema = schemaMapper.writerWithDefaultPrettyPrinter().writeValueAsString(schema);
             System.out.println(jsonSchema);

@@ -5,14 +5,113 @@ import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Type;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class JsonSchemaGenerator {
+public class VMFJsonSchemaGenerator {
+    public enum RUNTIME_TYPE {
+        RELEASE, EXPERIMENTAL
+    }
 
-    public static Map<String, Object> generateSchema(Class<? extends VObject> modelClass) {
+    private final Map<String, String> typeAliases = new HashMap<>();
+    private final Map<String, String> typeAliasesReverse = new HashMap<>();
+
+    /**
+     * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
+     * of an object during serialization/deserialization. The type alias is used to map a type name to a class name.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * module.addTypeAlias("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * }</pre>
+     * <p>This example adds a type alias {@code person} that maps to the class {@code eu.mihosoft.vmf.jackson.test.Person}.
+     */
+    public void addTypeAlias(String alias, String className) {
+        typeAliases.put(alias, className);
+        typeAliasesReverse.put(className, alias);
+    }
+
+    /**
+     * Returns the type aliases of the module.
+     * @return the type aliases of the module
+     */
+    public Map<String, String> getTypeAliases() {
+        return Collections.unmodifiableMap(typeAliases);
+    }
+
+    /**
+     * Returns the reverse type aliases of the module.
+     */
+    public Map<String, String> getTypeAliasesReverse() {
+        return Collections.unmodifiableMap(typeAliasesReverse);
+    }
+
+    public Map<String, Object> generateSchema(Class<? extends VObject> modelClass) {
+        return _generateSchema(modelClass);
+    }
+
+    /**
+     * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
+     * of an object during serialization/deserialization. The type alias is used to map a type name to a class name.
+     *
+     * <p>Example:
+     * <pre>{@code
+     * module.addTypeAlias("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * }</pre>
+     * <p>This example adds a type alias {@code person} that maps to the class {@code eu.mihosoft.vmf.jackson.test.Person}.
+     */
+    public VMFJsonSchemaGenerator withTypeAlias(String alias, String className) {
+        addTypeAlias(alias, className);
+        return this;
+    }
+
+    /**
+     * Add multiple type aliases to the module. This method is used to add multiple type aliases at once.
+     * <p>Example:
+     * <pre>{@code
+     * Map<String, String> typeAliases = new HashMap<>();
+     * typeAliases.put("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * typeAliases.put("employee", "eu.mihosoft.vmf.jackson.test.Employee");
+     * module.addTypeAliases(typeAliases);
+     * }</pre></p>
+     * <p>This example adds two type aliases {@code person} and {@code employee} that map to the classes</p>
+     * @param typeAliases the type aliases to add
+     * @return this module
+     */
+    public VMFJsonSchemaGenerator withTypeAliases(Map<String, String> typeAliases) {
+        typeAliases.forEach(this::addTypeAlias);
+        return this;
+    }
+
+    /**
+     * Create a new instance of VMFJacksonModule.
+     * @return a new instance of VMFJacksonModule
+     */
+    public static VMFJsonSchemaGenerator newInstance(VMFJacksonModule.RUNTIME_TYPE runtimeType) {
+        if(!VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL.equals(runtimeType)) {
+            throw new RuntimeException("Please confirm that you are using an experimental piece of software by calling" +
+                    " 'newInstance(RUNTIME_TYPE.EXPERIMENTAL)'.");
+        }
+        var module = new VMFJsonSchemaGenerator();
+        return module;
+    }
+
+    /**
+     * Create a new instance of VMFJacksonModule.
+     * @return a new instance of VMFJacksonModule
+     */
+    public static VMFJsonSchemaGenerator newInstance() {
+        throw new RuntimeException("Please confirm that you are using an experimental piece of software by calling" +
+                " 'newInstance(RUNTIME_TYPE.EXPERIMENTAL)'.");
+
+//        var module = new VMFJacksonModule();
+//        return module;
+    }
+
+
+    private Map<String, Object> _generateSchema(Class<? extends VObject> modelClass) {
         Map<String, Object> schema = new HashMap<>();
         schema.put("$schema", "http://json-schema.org/draft-07/schema#");
         schema.put("title", modelClass.getSimpleName());
@@ -34,7 +133,7 @@ public class JsonSchemaGenerator {
         return schema;
     }
 
-    private static Map<String, Object> getPropertySchema(Property property) {
+    private Map<String, Object> getPropertySchema(Property property) {
         Map<String, Object> propertySchema = new HashMap<>();
 
         if (isToBeExcludedFromSerialization(property)) {
@@ -52,16 +151,23 @@ public class JsonSchemaGenerator {
 
                 propertySchema.put("oneOf", typesToChooseFrom.stream().map(subType -> {
                     Map<String, Object> typeSchema = new HashMap<>();
-                    typeSchema.put("$ref", "#/definitions/" + subType.getName());
+
+                    // check type aliases
+                    var typeAlias = getTypeAlias(subType);
+
+                    typeSchema.put("$ref", "#/definitions/" + typeAlias);
                     typeSchema.put("properties", Map.of("@vmf-type",
                             Map.of("type", "string", "enum",
-                                    List.of(getTypeAlias(subType)), "readOnly", true))
+                                    List.of(typeAlias), "readOnly", true))
                     );
                     typeSchema.put("required", new String[]{"@vmf-type"});
                     return typeSchema;
                 }).toArray());
             } else {
-                propertySchema.put("$ref", "#/definitions/" + property.getType().getName());
+
+                var typeAlias = getTypeAlias(property.getType());
+
+                propertySchema.put("$ref", "#/definitions/" + typeAlias);
             }
         } else if (property.getType().isListType()) {
             propertySchema.put("type", "array");
@@ -76,17 +182,23 @@ public class JsonSchemaGenerator {
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
                 itemsSchema.put("oneOf", typesToChooseFrom.stream().map(subType -> {
+
+                    var typeAlias = getTypeAlias(subType);
+
                     Map<String, Object> typeSchema = new HashMap<>();
-                    typeSchema.put("$ref", "#/definitions/" + subType.getName());
+                    typeSchema.put("$ref", "#/definitions/" + typeAlias);
                     typeSchema.put("properties", Map.of("@vmf-type",
                             Map.of("type", "string", "enum",
-                                    List.of(getTypeAlias(subType)), "readOnly", true))
+                                    List.of(typeAlias), "readOnly", true))
                     );
                     typeSchema.put("required", new String[]{"@vmf-type"});
                     return typeSchema;
                 }).toArray());
             } else {
-                itemsSchema.put("$ref", "#/definitions/" + property.getType().getElementTypeName().get());
+
+                var typeAlias = getTypeAlias(elementType);
+
+                itemsSchema.put("$ref", "#/definitions/" + typeAlias);
             }
 
             propertySchema.put("items", itemsSchema);
@@ -101,7 +213,7 @@ public class JsonSchemaGenerator {
     }
 
 
-    private static Map<String, Object> generateDefinitions(Type type) {
+    private Map<String, Object> generateDefinitions(Type type) {
         Map<String, Object> definitions = new HashMap<>();
         for (Type subType : type.reflect().allTypes()) {
             if (subType.isInterfaceOnly()) continue;
@@ -118,14 +230,19 @@ public class JsonSchemaGenerator {
 
             if (!subType.superTypes().isEmpty()) {
                 definition.put("allOf", subType.superTypes().stream().map(superType -> {
+
+                    var typeAlias = getTypeAlias(superType);
+
                     Map<String, Object> ref = new HashMap<>();
-                    ref.put("$ref", "#/definitions/" + superType.getName());
+                    ref.put("$ref", "#/definitions/" + typeAlias);
                     return ref;
                 }).toArray());
             }
 
+            var typeAlias = getTypeAlias(subType);
+
             definition.put("properties", properties);
-            definitions.put(subType.getName(), definition);
+            definitions.put(typeAlias, definition);
         }
         return definitions;
     }
@@ -188,10 +305,7 @@ public class JsonSchemaGenerator {
         return a.isPresent() ? a.get().getValue() : p.getName();
     }
 
-    private static String getTypeAlias(Type type) {
-        // This method would return the alias for a given type.
-        // For example, if the type is "Employee", it should return "employee".
-        // You might need to implement a mapping logic here, depending on how you want to handle aliases.
-        return type.getName();
+    private String getTypeAlias(Type type) {
+        return typeAliasesReverse.getOrDefault(type.getName(), type.getName());
     }
 }
