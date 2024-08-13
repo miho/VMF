@@ -13,6 +13,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class JsonSchemaModelTest {
+
+    // TODO: testModel() is not a valid test method yet. We need to validate the schema against the expectations.
+
     @org.junit.jupiter.api.Test
     void testModel() {
         ObjectMapper mapper = new ObjectMapper();
