@@ -255,6 +255,9 @@ public class VMFJsonSchemaGenerator {
 
             // Handle polymorphic types with oneOf and add @vmf-type as a required property
             Type elementType = VMFTypeUtils.forClass(property.getType().getElementTypeName().get());
+            if (isValueType(elementType)) {
+                itemsSchema.put("type", mapValueType(elementType));
+            } else
             if (!VMFTypeUtils.getSubTypes(elementType).isEmpty()) {
 
                 var typesToChooseFrom = VMFTypeUtils.getSubTypes(elementType);
@@ -283,7 +286,6 @@ public class VMFJsonSchemaGenerator {
                 var typeAlias = getTypeAlias(elementType);
                 itemsSchema.put("$ref", "#/definitions/" + typeAlias);
             }
-
             propertySchema.put("items", itemsSchema);
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (VMFTypeUtils.isEnum(property.getType())) {

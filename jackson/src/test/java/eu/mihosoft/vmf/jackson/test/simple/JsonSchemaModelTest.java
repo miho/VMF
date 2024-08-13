@@ -90,18 +90,6 @@ public class JsonSchemaModelTest {
             Assertions.fail(e);
             e.printStackTrace();
         }
-
-        // create a json schema from model class
-        try {
-            Map<String, Object> schema = VMFJsonSchemaGenerator.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                    .generateSchema(ExternalTypeModel01.class);
-            ObjectMapper schemaMapper = new ObjectMapper();
-            String jsonSchema = schemaMapper.writerWithDefaultPrettyPrinter().writeValueAsString(schema);
-            System.out.println(jsonSchema);
-        } catch (Exception e) {
-            Assertions.fail(e);
-            e.printStackTrace();
-        }
     }
 
 }
