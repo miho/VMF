@@ -24,7 +24,6 @@ interface Person {
 
 interface Employee extends Person {
     @Annotation(key = "vmf:jackson:schema:description", value = "Employee ID.")
-    @Annotation(key = "vmf:jackson:schema:required", value = "true")
     @Annotation(key = "vmf:jackson:schema:constraint", value = "1234")
     String getEmployeeId();
 }

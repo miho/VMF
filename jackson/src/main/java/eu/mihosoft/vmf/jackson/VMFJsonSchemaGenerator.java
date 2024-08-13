@@ -164,7 +164,7 @@ public class VMFJsonSchemaGenerator {
             }
         }
 
-        schema.put("definitions", generateDefinitions(type));
+        schema.put("definitions", generateDefinitionsForModelRoot(type));
 
         return schema;
     }
@@ -306,7 +306,7 @@ public class VMFJsonSchemaGenerator {
      * @param type the type to generate the definitions for
      * @return the generated definitions
      */
-    private Map<String, Object> generateDefinitions(Type type) {
+    private Map<String, Object> generateDefinitionsForModelRoot(Type type) {
         Map<String, Object> definitions = new HashMap<>();
         for (Type subType : type.reflect().allTypes()) {
             if (subType.isInterfaceOnly()) continue;
@@ -323,16 +323,16 @@ public class VMFJsonSchemaGenerator {
                 }
             }
 
-            if (!subType.superTypes().isEmpty()) {
-                definition.put("allOf", subType.superTypes().stream().map(superType -> {
-
-                    var typeAlias = getTypeAlias(superType);
-
-                    Map<String, Object> ref = new HashMap<>();
-                    ref.put("$ref", "#/definitions/" + typeAlias);
-                    return ref;
-                }).toArray());
-            }
+//            if (!subType.superTypes().isEmpty()) {
+//                definition.put("allOf", subType.superTypes().stream().map(superType -> {
+//
+//                    var typeAlias = getTypeAlias(superType);
+//
+//                    Map<String, Object> ref = new HashMap<>();
+//                    ref.put("$ref", "#/definitions/" + typeAlias);
+//                    return ref;
+//                }).toArray());
+//            }
 
             var typeAlias = getTypeAlias(subType);
 
@@ -487,7 +487,24 @@ public class VMFJsonSchemaGenerator {
 
                 if (constraintName != null && constraintValue != null
                         && !constraintName.isBlank() && !constraintValue.isBlank()) {
-                    propertySchema.put(constraintName, constraintValue);
+
+                    // convert constraint value to boolean, integer or double if possible
+                    Object constraintValueToWrite = constraintValue;
+                    try {
+                        constraintValueToWrite = Integer.parseInt(constraintValue);
+                    } catch (NumberFormatException e) {
+                        try {
+                            constraintValueToWrite = Double.parseDouble(constraintValue);
+                        } catch (NumberFormatException e2) {
+                            try {
+                                constraintValueToWrite = Boolean.parseBoolean(constraintValue);
+                            } catch (NumberFormatException e3) {
+                                // ignore, not possible to convert to boolean, integer or double, we assume string
+                            }
+                        }
+                    }
+
+                    propertySchema.put(constraintName, constraintValueToWrite);
                 }
             }
         } catch (Exception e) {
