@@ -497,7 +497,10 @@ public class VMFJsonSchemaGenerator {
                             constraintValueToWrite = Double.parseDouble(constraintValue);
                         } catch (NumberFormatException e2) {
                             try {
-                                constraintValueToWrite = Boolean.parseBoolean(constraintValue);
+                                if(constraintValue.equalsIgnoreCase("true")
+                                        || constraintValue.equalsIgnoreCase("false")) {
+                                    constraintValueToWrite = Boolean.parseBoolean(constraintValue);
+                                }
                             } catch (NumberFormatException e3) {
                                 // ignore, not possible to convert to boolean, integer or double, we assume string
                             }
