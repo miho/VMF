@@ -482,8 +482,11 @@ public class VMFJsonSchemaGenerator {
                     return;
                 }
 
-                var constraintName = constraint.split("=")[0];
-                var constraintValue = constraint.split("=")[1];
+                // split at first occurrence of "=", so that we can have values with "=" in them
+                var constraintSplit = constraint.split("=", 2);
+
+                var constraintName  = constraintSplit[0];
+                var constraintValue = constraintSplit[1];
 
                 if (constraintName != null && constraintValue != null
                         && !constraintName.isBlank() && !constraintValue.isBlank()) {
