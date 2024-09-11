@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--    <link rel="stylesheet" type="text/css" href="spectre-0.5.9/dist/spectre.css"  />-->
+<!--    <link rel="stylesheet" href="spectre-0.5.9/dist/spectre-icons.min.css">-->
+<!--    <link rel="stylesheet" href="tailwind.min.css">-->
+<!--    <link rel="stylesheet" href="bootstrap-5.3.3-dist/js/bootstrap.bundle.js">-->
+<!--    <link rel="stylesheet" href="bootstrap-5.3.3-dist/css/bootstrap.min.css">-->
+    <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
+<!--    <link rel="stylesheet" href="fontawesome-free-5.15.4-web/css/all.min.css">-->
+    <link rel="stylesheet" href="fontawesome-free/css/all.min.css">
+    <title>JSON Editor</title>
+    <script src="../../../../json-editor/jsoneditor.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        #editor_holder { width: 100%; height: 100vh; }
+    </style>
+</head>
+<body>
+<div id="editor_holder"></div>
+<script>
+    var editor;
+    var currentValue = {};
+
+    // var config = {
+    //     // grid_columns: 12,
+    //     use_name_attributes: false,
+    //     iconlib: 'spectre',
+    //     theme: 'spectre',
+    //     disable_edit_json: true,
+    //     disable_properties: true,
+    //     disable_collapse: false,
+    //     required_by_default: true,
+    //     schema: null
+    // };
+
+    function initEditor(schema) {
+        console.log("Initializing editor with schema:", schema);
+        if (editor) {
+            currentValue = editor.getValue();
+            editor.destroy();
+        }
+        editor = new JSONEditor(document.getElementById('editor_holder'), {
+            schema: schema,
+            theme: 'bootstrap5',
+            iconlib: 'fontawesome5',
+            disable_edit_json: true,
+            no_additional_properties: true,
+            prompt_before_delete: false,
+        });
+        if (Object.keys(currentValue).length > 0) {
+            editor.setValue(currentValue);
+        }
+    }
+
+    window.onload = function() {
+        console.log("Window loaded");
+        initEditor({});
+    };
+
+    window.updateSchema = function(schema) {
+        console.log("Updating schema");
+        try {
+            var parsedSchema = JSON.parse(schema);
+            initEditor(parsedSchema);
+        } catch (e) {
+            console.error("Error updating schema:", e);
+        }
+    };
+
+    function updateSchemaWithCallback(schema, callback) {
+        console.log("Updating schema with callback");
+        try {
+            var parsedSchema = JSON.parse(schema);
+            initEditor(parsedSchema);
+            // Ensure the editor is initialized before calling the callback
+            setTimeout(function() {
+                callback();
+            }, 0);
+        } catch (e) {
+            console.error("Error updating schema:", e);
+        }
+    }
+
+    window.setValue = function(json) {
+        console.log("Setting value");
+        if (editor) {
+            editor.setValue(JSON.parse(json));
+        } else {
+            console.error("Editor not initialized");
+        }
+    };
+
+    window.getValue = function() {
+        console.log("Getting value");
+        return editor ? editor.getValue() : {};
+    };
+</script>
+</body>
+</html>

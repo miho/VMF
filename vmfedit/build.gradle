@@ -1,0 +1,123 @@
+plugins {
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.0.13'
+    id 'org.beryx.jlink' version '2.25.0'
+    id 'com.github.node-gradle.node' version '3.3.0'
+}
+
+group 'eu.mihosoft.vmf'
+version '1.0.0-SNAPSHOT'
+
+// installer version (used for jlink/jpackge)
+// parse version with three '.' separated numbers from full version string
+def installerVersionList = version.tokenize('.')
+def majorVersion = installerVersionList[0]
+def minorVersion = installerVersionList[1]
+// parse leading integer from patch version string (remove the rest)
+def patchVersion = ((Number)java.text.NumberFormat.getInstance().parse(installerVersionList[2])).intValue()
+
+def installerVersionStr = "${majorVersion}.${minorVersion}.${patchVersion}"
+def appName = "VMFEdit"
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    junitVersion = '5.8.2'
+}
+
+sourceCompatibility = '17'
+targetCompatibility = '17'
+
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+application {
+    mainModule = 'eu.mihosoft.vmf.vmfedit'
+    mainClass = 'eu.mihosoft.vmf.vmfedit.JsonEditorApplication'
+}
+
+javafx {
+    version = '17.0.2'
+    modules = ['javafx.controls', 'javafx.fxml', 'javafx.web']
+}
+
+dependencies {
+    implementation('org.controlsfx:controlsfx:11.1.1')
+
+    testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+}
+
+test {
+    useJUnitPlatform()
+}
+
+ext.os = org.gradle.internal.os.OperatingSystem.current()
+jlink {
+    version = installerVersionStr
+    imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip")
+    options = ['--strip-debug', "--compress=zip-6", '--no-header-files', '--no-man-pages']
+    launcher {
+        name = appName
+    }
+    jpackage {
+        if(os.windows) {
+            installerType = 'msi'
+            installerOptions = ['--win-per-user-install', '--win-menu']
+        }
+    }
+}
+
+
+
+jlinkZip {
+    group = 'distribution'
+}
+
+node {
+    version = '16.13.1'
+    download = true
+}
+
+task installJsonEditor(type: NpmTask) {
+    args = ['install', '@json-editor/json-editor@2.15.1']
+}
+
+task copyJsonEditorToResources(type: Copy) {
+    from 'node_modules/@json-editor/json-editor/dist'
+    into 'src/main/resources/json-editor'
+    include '**/*'
+}
+
+task installFontAwesome(type: NpmTask) {
+    args = ['install', '@fortawesome/fontawesome-free@5.15.4']
+}
+
+task copyFontAwesomeToResources(type: Copy) {
+    from 'node_modules/@fortawesome/fontawesome-free/'
+    into 'src/main/resources/eu/mihosoft/vmf/vmfedit/fontawesome-free'
+    include '**/*'
+}
+
+task installBootStrap(type: NpmTask) {
+    args = ['install', 'bootstrap@5.3.3']
+}
+
+task copyBootStrapToResources(type: Copy) {
+    from 'node_modules/bootstrap/dist'
+    into 'src/main/resources/eu/mihosoft/vmf/vmfedit/bootstrap'
+    include '**/*'
+}
+
+
+copyJsonEditorToResources.dependsOn installJsonEditor
+processResources.dependsOn copyJsonEditorToResources
+
+copyFontAwesomeToResources.dependsOn installFontAwesome
+processResources.dependsOn copyFontAwesomeToResources
+
+copyBootStrapToResources.dependsOn installBootStrap
+processResources.dependsOn copyBootStrapToResources
