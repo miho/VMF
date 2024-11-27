@@ -15,7 +15,7 @@ public class JsonEditorApplication extends Application {
         FXMLLoader fxmlLoader = new FXMLLoader(JsonEditorApplication.class.getResource("json-editor-view.fxml"));
         Parent n = fxmlLoader.load();
 
-        JsonEditorController controller = fxmlLoader.getController();
+        JsonEditorAppController controller = fxmlLoader.getController();
 
         Scene scene = new Scene(n, 800, 600);
 

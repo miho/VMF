@@ -50,6 +50,17 @@
             no_additional_properties: true,
             prompt_before_delete: false,
         });
+
+        // Add change listener
+        editor.on('change', function() {
+            // Check if window.hostCallback exists (will be injected by Java)
+            if (window.hostEditorCallback) {
+                window.hostEditorCallback.accept(JSON.stringify(editor.getValue()));
+            } else {
+                console.error("No host callback found");
+            }
+        });
+
         if (Object.keys(currentValue).length > 0) {
             editor.setValue(currentValue);
         }
@@ -97,6 +108,9 @@
         console.log("Getting value");
         return editor ? editor.getValue() : {};
     };
+
+    // TODO if editor content changes, notify the host
+
 </script>
 </body>
 </html>

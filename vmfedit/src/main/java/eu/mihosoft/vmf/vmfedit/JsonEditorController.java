@@ -1,248 +1,338 @@
 package eu.mihosoft.vmf.vmfedit;
 
 import javafx.application.Platform;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.concurrent.Worker;
 import javafx.fxml.FXML;
-import javafx.scene.Scene;
 import javafx.scene.control.Alert;
-import javafx.scene.control.TextField;
 import javafx.scene.web.WebEngine;
 import javafx.scene.web.WebView;
-import javafx.stage.FileChooser;
-import javafx.stage.Stage;
+import netscape.javascript.JSObject;
 
-import java.io.File;
-import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
+/**
+ * Controller class for a JSON editor component that uses a WebView to render and interact with
+ * a JSON editor interface. This class provides functionality for editing JSON data with schema
+ * validation and real-time updates.
+ *
+ * The controller manages bidirectional communication between JavaFX and JavaScript, handling
+ * schema updates, value changes, and error conditions.
+ */
 public class JsonEditorController {
-    @FXML
-    private WebView webView;
-    @FXML
-    private TextField schemaField;
 
-    private File currentFile;
+    /** The WebView component used to display the JSON editor */
+    private final WebView webView;
 
+    /** Property holding the current JSON schema */
+    private final StringProperty schemaProperty = new SimpleStringProperty("""
+            {
+              "$schema" : "http://json-schema.org/draft-07/schema#",
+              "title" : "value",
+              "type" : "string",
+              "readOnly": true,
+              "default": "set a schema"
+            }
+            """);
+
+    /** Property holding the current JSON value */
+    private final StringProperty valueProperty = new SimpleStringProperty("");
+
+    /**
+     * Constructs a new JsonEditorController with the specified WebView.
+     *
+     * @param webView The WebView component to use for the JSON editor
+     */
+    public JsonEditorController(WebView webView) {
+        this.webView = webView;
+    }
+
+    /**
+     * Gets the current JSON schema.
+     *
+     * @return The current schema as a string
+     */
+    public String getSchema() {
+        return schemaProperty.get();
+    }
+
+    /**
+     * Sets a new JSON schema.
+     *
+     * @param schema The new schema to set
+     */
+    public void setSchema(String schema) {
+        schemaProperty.set(schema);
+    }
+
+    /**
+     * Gets the schema property for binding.
+     *
+     * @return The StringProperty representing the schema
+     */
+    public StringProperty schemaProperty() {
+        return schemaProperty;
+    }
+
+    /**
+     * Gets the current JSON value.
+     *
+     * @return The current value as a string
+     */
+    public String getValue() {
+        return valueProperty.get();
+    }
+
+    /**
+     * Sets a new JSON value.
+     *
+     * @param value The new value to set
+     */
+    public void setValue(String value) {
+        valueProperty.set(value);
+    }
+
+    /**
+     * Gets the value property for binding.
+     *
+     * @return The StringProperty representing the value
+     */
+    public StringProperty valueProperty() {
+        return valueProperty;
+    }
+
+    /**
+     * Callback implementation for handling editor changes from JavaScript.
+     */
+    public static class MyEditorCallback implements Consumer<String> {
+        private final JsonEditorController control;
+
+        /**
+         * Constructs a new callback for the specified controller.
+         *
+         * @param control The JsonEditorController instance
+         */
+        public MyEditorCallback(JsonEditorController control) {
+            this.control = control;
+        }
+
+        @Override
+        public void accept(String newValue) {
+            Platform.runLater(() -> {
+                control.valueProperty().set(newValue);
+            });
+        }
+    }
+
+    /**
+     * Enumeration of log levels for the editor's logging system.
+     */
+    public enum LogLevel {
+        DBG, INFO, WARN, ERROR
+    }
+
+    /**
+     * Interface for logging events from the JSON editor.
+     */
+    @FunctionalInterface
+    public interface LogListener {
+        /**
+         * Called when a log event occurs.
+         *
+         * @param level The severity level of the log
+         * @param message The log message
+         * @param ex Any associated exception (may be null)
+         */
+        void log(LogLevel level, String message, Exception ex);
+    }
+
+    /** Default log listener implementation */
+    private LogListener logListener = (level, message, ex) -> {
+        if(level == LogLevel.ERROR) {
+            System.err.println("[" + level + "] " + message);
+            if(ex!=null) ex.printStackTrace(System.err);
+        } else {
+            System.out.println("[" + level + "] " + message);
+            if(ex!=null) ex.printStackTrace(System.out);
+        }
+    };
+
+    /**
+     * Sets a custom log listener for the editor.
+     *
+     * @param logListener The new log listener to use
+     */
+    public void setLogListener(LogListener logListener) {
+        if (logListener == null) {
+            logListener = this.logListener;
+        }
+        this.logListener = logListener;
+    }
+
+    /**
+     * Initializes the JSON editor component. This method is called automatically by FXML.
+     * It sets up the WebView, establishes JavaScript bridges, and configures property listeners.
+     */
     @FXML
     public void initialize() {
         WebEngine engine = webView.getEngine();
 
+        // Set up the web engine load listener
+        setupWebEngineLoadListener(engine);
+
+        // Set up schema change listener
+        setupSchemaChangeListener();
+
+        // Set up WebView focus handling
+        setupWebViewFocusHandling();
+
+        // Set up JavaScript event handlers
+        setupJavaScriptEventHandlers(engine);
+
+        // Set up value property change listener
+        setupValueChangeListener();
+    }
+
+    /**
+     * Sets up the web engine load listener to handle page load events.
+     */
+    private void setupWebEngineLoadListener(WebEngine engine) {
         engine.getLoadWorker().stateProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue == Worker.State.SUCCEEDED) {
-                System.out.println("Page loaded successfully");
+                logListener.log(LogLevel.INFO, "Page loaded successfully", null);
+                initializeJavaScriptBridge(engine);
             } else if (newValue == Worker.State.FAILED) {
-                System.out.println("Page failed to load");
+                logListener.log(LogLevel.ERROR, "Page failed to load", null);
             }
         });
 
+        // Load the HTML file
         URL url = getClass().getResource("json-editor.html");
         if (url != null) {
-            System.out.println("Loading URL: " + url);
+            logListener.log(LogLevel.INFO, "Loading URL: " + url, null);
             engine.load(url.toExternalForm());
         } else {
-            System.out.println("Could not find json-editor.html");
+            logListener.log(LogLevel.ERROR, "Could not find json-editor.html", null);
         }
+    }
 
-        engine.setOnAlert(event -> System.out.println("JS Alert: " + event.getData()));
-        engine.setOnError(event -> System.out.println("JS Error: " + event.getMessage()));
+    /**
+     * Initializes the JavaScript bridge for communication between Java and JavaScript.
+     */
+    private void initializeJavaScriptBridge(WebEngine engine) {
+        JSObject window = (JSObject) engine.executeScript("window");
+        window.setMember("hostEditorCallback", new MyEditorCallback(this));
+        engine.executeScript("updateSchema('" + escapeJavaScript(schemaProperty.get()) + "')");
+    }
 
-        // on schemaField text change update schema
-        schemaField.textProperty().addListener((observable, oldValue, newValue) -> {
+    /**
+     * Sets up the schema change listener to handle schema updates.
+     */
+    private void setupSchemaChangeListener() {
+        schemaProperty().addListener((observable, oldValue, newValue) -> {
             try {
-                String schema = new String(Files.readAllBytes(new File(newValue).toPath()));
-                // get current value from editor
-                String value = (String) webView.getEngine().executeScript("JSON.stringify(getValue())");
-                System.out.println("Schema updated: value=" + value);
-
-                // update schema and re-set value
-                webView.getEngine().executeScript("updateSchema('" + escapeJavaScript(schema) + "')");
-
-                if (value != null && !value.isEmpty() && !"\"\"".equals(value)) {
-                    Thread.ofVirtual().start(() -> {
-                        for (int i = 0; i < 10; i++) {
-                            // attempt to set value
-                            var future = new CompletableFuture<Boolean>();
-                                Platform.runLater(() -> {
-                                    try {
-
-                                        // disable stage interaction via blurring the content
-                                        var scene = webView.getScene();
-                                        scene.getRoot().setDisable(true);
-
-                                        webView.getEngine().executeScript(
-                                                "setValue('" + escapeJavaScript(value) + "')");
-                                        future.complete(true);
-
-                                        // enable stage interaction
-
-                                    } catch (Exception e) {
-                                        future.complete(false);
-                                    } finally {
-                                        var scene = webView.getScene();
-                                        scene.getRoot().setDisable(false);
-                                    }
-                                });
-
-                            if(future.join()) {
-                                break;
-                            } else {
-//                                System.out.println("Attempt " + i + " failed");
-                            }
-                            try {
-                                Thread.sleep(100);
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }
-                    });
-
-                }
-
-            } catch (IOException e) {
-                // showError("Error loading schema", e.getMessage());
+                handleSchemaUpdate(newValue);
+            } catch (Exception e) {
+                logListener.log(LogLevel.ERROR, "Error loading schema: " + e.getMessage(), e);
+                showError("Error loading schema", e.getMessage());
             }
         });
+    }
 
-        // make sure the WebView content does not keep focus, the JS code needs
-        // to be notified about focus changes, otherwise some user changes won't be
-        // applied correctly
+    /**
+     * Handles updating the schema and attempting to migrate existing values.
+     */
+    private void handleSchemaUpdate(String schema) {
+        String value = (String) webView.getEngine().executeScript("JSON.stringify(getValue())");
+        logListener.log(LogLevel.INFO, "Schema updated. Value will be reset and migration attempt will be made.", null);
+
+        webView.getEngine().executeScript("updateSchema('" + escapeJavaScript(schema) + "')");
+
+        if (value != null && !value.isEmpty() && !"\"\"".equals(value)) {
+            attemptValueMigration(value);
+        }
+    }
+
+    /**
+     * Attempts to migrate an existing value to a new schema.
+     */
+    private void attemptValueMigration(String value) {
+        Thread.ofVirtual().start(() -> {
+            for (int i = 0; i < 10; i++) {
+                if (trySetValue(value)) break;
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
+    }
+
+    /**
+     * Attempts to set a value in the editor with proper UI thread handling.
+     */
+    private boolean trySetValue(String value) {
+        var future = new CompletableFuture<Boolean>();
+        Platform.runLater(() -> {
+            try {
+                var scene = webView.getScene();
+                scene.getRoot().setDisable(true);
+                webView.getEngine().executeScript("setValue('" + escapeJavaScript(value) + "')");
+                future.complete(true);
+            } catch (Exception e) {
+                future.complete(false);
+            } finally {
+                var scene = webView.getScene();
+                scene.getRoot().setDisable(false);
+            }
+        });
+        return future.join();
+    }
+
+    /**
+     * Sets up focus handling for the WebView component.
+     */
+    private void setupWebViewFocusHandling() {
         webView.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
             if (!isNowFocused) {
-                // Execute JavaScript to trigger a blur event inside the WebView
                 webView.getEngine().executeScript("document.activeElement.blur();");
             }
         });
-
     }
 
-    @FXML
-    private void handleLoadDocument() {
-        FileChooser fileChooser = new FileChooser();
-        fileChooser.setTitle("Open JSON Document");
+    /**
+     * Sets up JavaScript event handlers for the web engine.
+     */
+    private void setupJavaScriptEventHandlers(WebEngine engine) {
+        engine.setOnAlert(event -> logListener.log(LogLevel.INFO, "JS Alert: " + event.getData(), null));
+        engine.setOnError(event -> logListener.log(LogLevel.ERROR, "JS Error: " + event.getMessage(), null));
+        engine.setOnStatusChanged(event -> logListener.log(LogLevel.INFO, "JS Status: " + event.getData(), null));
+        engine.setOnResized(event -> logListener.log(LogLevel.INFO, "JS Resized: " + event.getData(), null));
+        engine.setOnVisibilityChanged(event -> logListener.log(LogLevel.INFO, "JS Visibility Changed: " + event.getData(), null));
+    }
 
-        if (currentFile != null) {
-            fileChooser.setInitialDirectory(currentFile.getParentFile());
-        }
-
-        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
-        fileChooser.getExtensionFilters().add(extFilter);
-        File file = fileChooser.showOpenDialog(webView.getScene().getWindow());
-        if (file != null) {
-            try {
-                String content = new String(Files.readAllBytes(file.toPath()));
-                webView.getEngine().executeScript("setValue('" + escapeJavaScript(content) + "')");
-
-                currentFile = file;
-                // get stage and set title
-                Stage stage = (Stage) webView.getScene().getWindow();
-                stage.setTitle("VMF JSON Editor - " + currentFile.getName());
-            } catch (IOException e) {
-                showError("Error loading document", e.getMessage());
+    /**
+     * Sets up the value change listener to handle value updates.
+     */
+    private void setupValueChangeListener() {
+        valueProperty().addListener((observable, oldValue, newValue) -> {
+            if (newValue != null && !newValue.isEmpty() && !"\"\"".equals(newValue)) {
+                attemptValueMigration(newValue);
             }
-        }
+        });
     }
 
-    @FXML
-    private void handleSaveDocument() {
-
-        if(currentFile != null) {
-            try {
-                String content = (String) webView.getEngine().executeScript("JSON.stringify(getValue())");
-                System.out.println("Saving document: " + content);
-                Files.write(currentFile.toPath(), content.getBytes());
-
-                // get stage and set title
-                Stage stage = (Stage) webView.getScene().getWindow();
-                stage.setTitle("VMF JSON Editor - " + currentFile.getName());
-
-            } catch (IOException e) {
-                showError("Error saving document", e.getMessage());
-            }
-            return;
-        } else {
-            FileChooser fileChooser = new FileChooser();
-            FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
-            fileChooser.getExtensionFilters().add(extFilter);
-            fileChooser.setTitle("Save JSON Document");
-            File file = fileChooser.showSaveDialog(webView.getScene().getWindow());
-            if (file != null) {
-                try {
-                    String content = (String) webView.getEngine().executeScript("JSON.stringify(getValue())");
-                    System.out.println("Saving document: " + content);
-                    Files.write(file.toPath(), content.getBytes());
-
-                    currentFile = file;
-                    // get stage and set title
-                    Stage stage = (Stage) webView.getScene().getWindow();
-                    stage.setTitle("VMF JSON Editor - " + currentFile.getName());
-
-                } catch (IOException e) {
-                    showError("Error saving document", e.getMessage());
-                }
-            }
-        }
-    }
-
-    @FXML
-    private void handleSaveAsDocument() {
-        FileChooser fileChooser = new FileChooser();
-
-        if (currentFile != null) {
-            fileChooser.setInitialDirectory(currentFile.getParentFile());
-        }
-
-        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
-        fileChooser.getExtensionFilters().add(extFilter);
-        fileChooser.setTitle("Save JSON Document as");
-        File file = fileChooser.showSaveDialog(webView.getScene().getWindow());
-
-        if (file != null) {
-            try {
-                String content = (String) webView.getEngine().executeScript("JSON.stringify(getValue())");
-                System.out.println("Saving document as: " + content);
-                Files.write(file.toPath(), content.getBytes());
-
-                currentFile = file;
-                // get stage and set title
-                Stage stage = (Stage) webView.getScene().getWindow();
-                stage.setTitle("VMF JSON Editor - " + currentFile.getName());
-
-            } catch (IOException e) {
-                showError("Error saving document", e.getMessage());
-            }
-        }
-    }
-
-    @FXML
-    private void handleQuit() {
-        System.exit(0);
-    }
-
-    @FXML
-    private void handleBrowseSchema() {
-
-        FileChooser fileChooser = new FileChooser();
-
-        // set current directory from schemaField
-        File currentDir = new File(schemaField.getText()).getParentFile();
-        if (currentDir != null) {
-            fileChooser.setInitialDirectory(currentDir);
-        } else {
-            //
-        }
-
-        fileChooser.setTitle("Open JSON Schema");
-        // set json extension filter
-        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON Schema files (*.json)", "*.json");
-        fileChooser.getExtensionFilters().add(extFilter);
-        File file = fileChooser.showOpenDialog(webView.getScene().getWindow());
-        if (file != null) {
-            schemaField.setText(file.getAbsolutePath());
-        }
-    }
-
+    /**
+     * Escapes special characters in JavaScript strings.
+     *
+     * @param str The string to escape
+     * @return The escaped string
+     */
     private String escapeJavaScript(String str) {
         return str.replace("\\", "\\\\")
                 .replace("'", "\\'")
@@ -251,11 +341,32 @@ public class JsonEditorController {
                 .replace("\t", "\\t");
     }
 
-    private void showError(String title, String message) {
+    private BiConsumer<String, String> onErrorConsumer = (title, message) -> {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");
         alert.setHeaderText(title);
         alert.setContentText(message);
         alert.showAndWait();
+    };
+
+    /**
+     * Sets a custom error handler for the editor.
+     *
+     * @param onErrorConsumer The new error handler to use
+     */
+    public void setOnError(BiConsumer<String, String> onErrorConsumer) {
+        if (onErrorConsumer != null) {
+            this.onErrorConsumer = onErrorConsumer;
+        }
+    }
+
+    /**
+     * Shows an error dialog to the user.
+     *
+     * @param title The error dialog title
+     * @param message The error message to display
+     */
+    private void showError(String title, String message) {
+        onErrorConsumer.accept(title, message);
     }
 }

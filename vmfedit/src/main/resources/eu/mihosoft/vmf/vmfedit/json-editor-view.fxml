@@ -13,7 +13,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.web.WebView?>
 
-<VBox xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/21" fx:controller="eu.mihosoft.vmf.vmfedit.JsonEditorController">
+<VBox xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/21" fx:controller="eu.mihosoft.vmf.vmfedit.JsonEditorAppController">
     <MenuBar>
         <Menu text="File">
             <MenuItem onAction="#handleLoadDocument" text="Load JSON file">
