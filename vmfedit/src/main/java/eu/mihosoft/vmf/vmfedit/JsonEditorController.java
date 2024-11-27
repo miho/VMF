@@ -29,15 +29,14 @@ public class JsonEditorController {
     private final WebView webView;
 
     /** Property holding the current JSON schema */
-    private final StringProperty schemaProperty = new SimpleStringProperty("""
-            {
-              "$schema" : "http://json-schema.org/draft-07/schema#",
-              "title" : "value",
-              "type" : "string",
-              "readOnly": true,
-              "default": "set a schema"
-            }
-            """);
+    private final StringProperty schemaProperty = new SimpleStringProperty(
+            "{\n" +
+                    "  \"$schema\" : \"http://json-schema.org/draft-07/schema#\",\n" +
+                    "  \"title\" : \"value\",\n" +
+                    "  \"type\" : \"string\",\n" +
+                    "  \"readOnly\": true,\n" +
+                    "  \"default\": \"set a schema\"\n" +
+                    "}");
 
     /** Property holding the current JSON value */
     private final StringProperty valueProperty = new SimpleStringProperty("");
@@ -341,6 +340,9 @@ public class JsonEditorController {
                 .replace("\t", "\\t");
     }
 
+    /**
+     * Default error handler for the editor.
+     */
     private BiConsumer<String, String> onErrorConsumer = (title, message) -> {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle("Error");

@@ -4,3 +4,4 @@ include ':core', ':runtime', ':gradle-plugin'
 
 project(':core').name = 'vmf'
 project(':runtime').name = 'vmf-runtime'
+
