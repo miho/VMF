@@ -37,7 +37,7 @@ import ${type.packageName}.*;
 
 // property types imports
 #foreach( $import in $type.implementation.imports )
-import $import;
+// import $import;
 #end
 
 // implementation
