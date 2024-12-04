@@ -116,7 +116,11 @@ public final class Property {
                 this.type = Type.newInstance(isModelType, isListType, isInterfaceOnlyType, typeName, tClass);
             }
         } catch (ClassNotFoundException e) {
-            e.printStackTrace();
+            throw new RuntimeException(
+                    "Cannot load property type class of type '"
+                            + typeName
+                            + "'. Reflection failed.", e
+            );
         }
 
     }
