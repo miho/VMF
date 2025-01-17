@@ -96,6 +96,25 @@ public class JsonEditorController {
     }
 
     /**
+     * Commits the last edited value. This ensures that the value is up-to-date with the editor. Do this if you save
+     * the value without a user interaction, e.g., without losing focus.
+     */
+    public void commitValue() {
+        String value = (String) webView.getEngine().executeScript("document.activeElement.blur(); JSON.stringify(getValue())");
+
+        if(Platform.isFxApplicationThread()) {
+            valueProperty.set(value);
+        } else {
+            CompletableFuture<Void> future = new CompletableFuture<>();
+            Platform.runLater(() -> {
+                valueProperty.set(value);
+                future.complete(null);
+            });
+            future.join();
+        }
+    }
+
+    /**
      * Gets the value property for binding.
      *
      * @return The StringProperty representing the value
@@ -121,9 +140,11 @@ public class JsonEditorController {
 
         @Override
         public void accept(String newValue) {
-            Platform.runLater(() -> {
-                control.valueProperty().set(newValue);
-            });
+            new Thread(() -> {
+                Platform.runLater(() -> {
+                    control.valueProperty().set(newValue);
+                });
+            }).start();
         }
     }
 
@@ -219,12 +240,15 @@ public class JsonEditorController {
         }
     }
 
+    private MyEditorCallback myEditorCallback = new MyEditorCallback(this);
     /**
      * Initializes the JavaScript bridge for communication between Java and JavaScript.
      */
     private void initializeJavaScriptBridge(WebEngine engine) {
-        JSObject window = (JSObject) engine.executeScript("window");
-        window.setMember("hostEditorCallback", new MyEditorCallback(this));
+        // Get our namespace object
+        JSObject editorCallbacks = (JSObject) engine.executeScript("EditorCallbacks");
+        // Set the callback using our namespace's method
+        editorCallbacks.call("setHostCallback", myEditorCallback);
         engine.executeScript("updateSchema('" + escapeJavaScript(schemaProperty.get()) + "')");
     }
 

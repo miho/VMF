@@ -4,12 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <!--    <link rel="stylesheet" type="text/css" href="spectre-0.5.9/dist/spectre.css"  />-->
-<!--    <link rel="stylesheet" href="spectre-0.5.9/dist/spectre-icons.min.css">-->
+<!--    <link rel="stylesheet" href="spectre.css/dist/spectre.min.css">-->
 <!--    <link rel="stylesheet" href="tailwind.min.css">-->
-<!--    <link rel="stylesheet" href="bootstrap-5.3.3-dist/js/bootstrap.bundle.js">-->
-<!--    <link rel="stylesheet" href="bootstrap-5.3.3-dist/css/bootstrap.min.css">-->
     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
-<!--    <link rel="stylesheet" href="fontawesome-free-5.15.4-web/css/all.min.css">-->
     <link rel="stylesheet" href="fontawesome-free/css/all.min.css">
     <title>JSON Editor</title>
     <script src="../../../../json-editor/jsoneditor.js"></script>
@@ -19,8 +16,29 @@
     </style>
 </head>
 <body>
+<div id="editor_log"></div>
 <div id="editor_holder"></div>
 <script>
+
+    // At the top of your script section, before any other code
+    const EditorCallbacks = {
+        timestamp: new Date().toLocaleTimeString(),
+        hostEditor: null,
+        setHostCallback(callback) {
+            if(callback === undefined) {
+                console.error("Host callback must be a function");
+                return;
+            }
+            this.hostEditor = callback;
+        },
+        getHostCallback() {
+            return this.hostEditor;
+        },
+        toString() {
+             return "EditorCallback: " + this.timestamp;
+        }
+    };
+
     var editor;
     var currentValue = {};
 
@@ -44,19 +62,33 @@
         }
         editor = new JSONEditor(document.getElementById('editor_holder'), {
             schema: schema,
-            theme: 'bootstrap5',
+            theme: 'bootstrap3',
             iconlib: 'fontawesome5',
             disable_edit_json: true,
-            no_additional_properties: true,
+            no_additional_properties: false,
             prompt_before_delete: false,
         });
 
         // Add change listener
         editor.on('change', function() {
+
+            // add a div to show a timestamp, keep editor in the editor_log div
+            // var log = document.getElementById('editor_log');
+            // var logEntry = document.createElement('div');
+            // logEntry.innerHTML = new Date().toLocaleTimeString() + ' - Value changed ' + ' EditorCallbacks ' + EditorCallbacks + " handler " + EditorCallbacks.getHostCallback();
+            // log.appendChild(logEntry);
+
             // Check if window.hostCallback exists (will be injected by Java)
-            if (window.hostEditorCallback) {
-                window.hostEditorCallback.accept(JSON.stringify(editor.getValue()));
+            if (EditorCallbacks.getHostCallback()) {
+                EditorCallbacks.getHostCallback().accept(JSON.stringify(editor.getValue()));
+
+                // var logEntry = document.createElement('div');
+                // logEntry.innerHTML = new Date().toLocaleTimeString() + ' - Value sent to Java';
+                // log.appendChild(logEntry);
+
             } else {
+                // show message in html page
+                // document.getElementById('editor_holder').innerHTML = "<div class='alert alert-danger' role='alert'>No host callback found</div>";
                 console.error("No host callback found");
             }
         });

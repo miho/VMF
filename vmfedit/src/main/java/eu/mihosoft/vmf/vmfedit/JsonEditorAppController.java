@@ -2,6 +2,7 @@ package eu.mihosoft.vmf.vmfedit;
 
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Spinner;
 import javafx.scene.control.TextField;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
@@ -74,6 +75,8 @@ public class JsonEditorAppController {
 
     @FXML
     private void handleSaveDocument() {
+
+        jsonEditorControl.commitValue();
 
         if(currentFile != null) {
             try {

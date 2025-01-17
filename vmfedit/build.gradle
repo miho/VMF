@@ -41,8 +41,8 @@ ext {
     junitVersion = '5.8.2'
 }
 
-sourceCompatibility = '17'
-targetCompatibility = '17'
+sourceCompatibility = '21'
+targetCompatibility = '21'
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
@@ -96,8 +96,11 @@ node {
     download = true
 }
 
+// plot node installation directory
+println "Node.js installation directory: ${node.nodeModulesDir.asFile.get()}"
+
 task installJsonEditor(type: NpmTask) {
-    args = ['install', '@json-editor/json-editor@2.15.1']
+    args = ['install', '@json-editor/json-editor@2.15.2']
 }
 
 task copyJsonEditorToResources(type: Copy) {
@@ -117,7 +120,7 @@ task copyFontAwesomeToResources(type: Copy) {
 }
 
 task installBootStrap(type: NpmTask) {
-    args = ['install', 'bootstrap@5.3.3']
+    args = ['install', 'bootstrap@3.4.1']
 }
 
 task copyBootStrapToResources(type: Copy) {
@@ -126,15 +129,43 @@ task copyBootStrapToResources(type: Copy) {
     include '**/*'
 }
 
+// install spectre
+task installSpectre(type: NpmTask) {
+    args = ['install', 'spectre.css@0.5.9']
+}
+
+task copySpectreToResources(type: Copy) {
+    from 'node_modules/spectre.css/dist'
+    into 'src/main/resources/eu/mihosoft/vmf/vmfedit/spectre'
+    include '**/*'
+}
+
+task installJSON5(type: NpmTask) {
+    args = ['install', 'json5@2.2.3']
+}
+
+task copyJSON5ToResources(type: Copy) {
+    from 'node_modules/json5/dist'
+    into 'src/main/resources/eu/mihosoft/vmf/vmfedit/json5'
+    include '**/*'
+}
 
 copyJsonEditorToResources.dependsOn installJsonEditor
 processResources.dependsOn copyJsonEditorToResources
+
+copyJSON5ToResources.dependsOn installJSON5
+processResources.dependsOn copyJSON5ToResources
 
 copyFontAwesomeToResources.dependsOn installFontAwesome
 processResources.dependsOn copyFontAwesomeToResources
 
 copyBootStrapToResources.dependsOn installBootStrap
 processResources.dependsOn copyBootStrapToResources
+
+copySpectreToResources.dependsOn installSpectre
+processResources.dependsOn copySpectreToResources
+
+
 
 jar {
     manifest {
