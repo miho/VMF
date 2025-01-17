@@ -283,8 +283,10 @@ public class JsonEditorController {
                 scene.getRoot().setDisable(true);
                 webView.getEngine().executeScript("setValue('" + escapeJavaScript(value) + "')");
                 future.complete(true);
+                logListener.log(LogLevel.INFO, "Value set successfully: " + value, null);
             } catch (Exception e) {
                 future.complete(false);
+                logListener.log(LogLevel.ERROR, "Error setting value: " + e.getMessage(), e);
             } finally {
                 var scene = webView.getScene();
                 scene.getRoot().setDisable(false);

@@ -53,8 +53,9 @@ public class JsonEditorAppController {
             fileChooser.setInitialDirectory(currentFile.getParentFile());
         }
 
-        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
-        fileChooser.getExtensionFilters().add(extFilter);
+        FileChooser.ExtensionFilter extFilterJSON = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
+        FileChooser.ExtensionFilter extFilterALL = new FileChooser.ExtensionFilter("All files (*.*)", "*.*");
+        fileChooser.getExtensionFilters().addAll(extFilterJSON, extFilterALL);
         File file = fileChooser.showOpenDialog(webView.getScene().getWindow());
         if (file != null) {
             try {
@@ -90,9 +91,9 @@ public class JsonEditorAppController {
             return;
         } else {
             FileChooser fileChooser = new FileChooser();
-            FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
-            fileChooser.getExtensionFilters().add(extFilter);
-            fileChooser.setTitle("Save JSON Document");
+            FileChooser.ExtensionFilter extFilterJSON = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
+            FileChooser.ExtensionFilter extFilterALL = new FileChooser.ExtensionFilter("All files (*.*)", "*.*");
+            fileChooser.getExtensionFilters().addAll(extFilterJSON, extFilterALL);
             File file = fileChooser.showSaveDialog(webView.getScene().getWindow());
             if (file != null) {
                 try {
