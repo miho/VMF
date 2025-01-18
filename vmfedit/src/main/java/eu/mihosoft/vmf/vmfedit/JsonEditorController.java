@@ -275,7 +275,7 @@ public class JsonEditorController {
 
         webView.getEngine().executeScript("updateSchema('" + escapeJavaScript(schema) + "')");
 
-        if (value != null && !value.isEmpty() && !"\"\"".equals(value)) {
+        if (value != null && !value.isEmpty() && !"\"\"".equals(value) && !"\"set a schema\"".equals(value)) {
             attemptValueMigration(value);
         }
     }

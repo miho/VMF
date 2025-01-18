@@ -443,6 +443,9 @@ public class VMFJsonSchemaGenerator {
         addDefaultValue(property, propertySchema);
         addDescription(property, propertySchema);
         addConstraint(property, propertySchema);
+        addFormat(property, propertySchema);
+        addUniqueItems(property, propertySchema);
+        addInjections(property, propertySchema);
     }
 
     private void addDefaultValue(Property property, Map<String, Object> propertySchema) {
@@ -512,6 +515,43 @@ public class VMFJsonSchemaGenerator {
 
                     propertySchema.put(constraintName, constraintValueToWrite);
                 }
+            }
+        } catch (Exception e) {
+            // ignore, not possible to get default value
+        }
+    }
+
+    private void addUniqueItems(Property property, Map<String, Object> propertySchema) {
+        try {
+            var uniqueItems = property.annotationByKey("vmf:jackson:schema:uniqueItems").get().getValue();
+            if (uniqueItems != null) {
+                propertySchema.put("uniqueItems", Boolean.parseBoolean(uniqueItems));
+            }
+        } catch (Exception e) {
+            // ignore, not possible to get default value
+        }
+    }
+
+    private void addInjections(Property property, Map<String, Object> propertySchema) {
+        try {
+            var injections = property.annotationByKey("vmf:jackson:schema:inject").get().getValue();
+            if (injections != null) {
+                System.out.println("!!!injections: " + injections);
+                // inject json into schema by parsing it and adding it to the schema
+                var injectionsMap = new ObjectMapper().readValue("{"+injections+"}", Map.class);
+                propertySchema.putAll(injectionsMap);
+            }
+        } catch (Exception e) {
+            // ignore, not possible to get default value
+            e.printStackTrace();
+        }
+    }
+
+    private void addFormat(Property property, Map<String, Object> propertySchema) {
+        try {
+            var format = property.annotationByKey("vmf:jackson:schema:format").get().getValue();
+            if (format != null) {
+                propertySchema.put("format", format);
             }
         } catch (Exception e) {
             // ignore, not possible to get default value
