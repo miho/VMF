@@ -446,6 +446,8 @@ public class VMFJsonSchemaGenerator {
         addFormat(property, propertySchema);
         addUniqueItems(property, propertySchema);
         addInjections(property, propertySchema);
+        addTitle(property, propertySchema);
+        addPropertyOrder(property, propertySchema);
     }
 
     private void addDefaultValue(Property property, Map<String, Object> propertySchema) {
@@ -523,27 +525,31 @@ public class VMFJsonSchemaGenerator {
 
     private void addUniqueItems(Property property, Map<String, Object> propertySchema) {
         try {
-            var uniqueItems = property.annotationByKey("vmf:jackson:schema:uniqueItems").get().getValue();
-            if (uniqueItems != null) {
-                propertySchema.put("uniqueItems", Boolean.parseBoolean(uniqueItems));
+            var uniqueItemsOpt = property.annotationByKey("vmf:jackson:schema:uniqueItems");
+            if (uniqueItemsOpt.isPresent() && uniqueItemsOpt.get().getValue() != null) {
+                var uniqueItems = uniqueItemsOpt.get().getValue();
+                if (uniqueItems != null) {
+                    propertySchema.put("uniqueItems", Boolean.parseBoolean(uniqueItems));
+                }
             }
         } catch (Exception e) {
-            // ignore, not possible to get default value
+            throw new RuntimeException("Failed to parse uniqueItems", e);
         }
     }
 
     private void addInjections(Property property, Map<String, Object> propertySchema) {
         try {
-            var injections = property.annotationByKey("vmf:jackson:schema:inject").get().getValue();
-            if (injections != null) {
-                System.out.println("!!!injections: " + injections);
-                // inject json into schema by parsing it and adding it to the schema
-                var injectionsMap = new ObjectMapper().readValue("{"+injections+"}", Map.class);
-                propertySchema.putAll(injectionsMap);
+            var injectionsOpt = property.annotationByKey("vmf:jackson:schema:inject");
+            if (injectionsOpt.isPresent() && injectionsOpt.get().getValue() != null) {
+                var injections = injectionsOpt.get().getValue();
+                if (injections != null) {
+                    // inject json into schema by parsing it and adding it to the schema
+                    var injectionsMap = new ObjectMapper().readValue("{" + injections + "}", Map.class);
+                    propertySchema.putAll(injectionsMap);
+                }
             }
         } catch (Exception e) {
-            // ignore, not possible to get default value
-            e.printStackTrace();
+            throw new RuntimeException("Failed to parse injection JSON", e);
         }
     }
 
@@ -555,6 +561,32 @@ public class VMFJsonSchemaGenerator {
             }
         } catch (Exception e) {
             // ignore, not possible to get default value
+        }
+    }
+
+    private void addTitle(Property property, Map<String, Object> propertySchema) {
+        try {
+            var title = property.annotationByKey("vmf:jackson:schema:title").get().getValue();
+            if (title != null) {
+                propertySchema.put("title", title);
+            }
+        } catch (Exception e) {
+            // ignore, not possible to get default value
+        }
+    }
+
+    private void addPropertyOrder(Property property, Map<String, Object> propertySchema) {
+        // order is an integer value that specifies the order of the property in the schema
+        try {
+            var orderOpt = property.annotationByKey("vmf:jackson:schema:propertyOrder");
+            if (orderOpt.isPresent() && orderOpt.get().getValue() != null) {
+                var order = orderOpt.get().getValue();
+                if (order != null) {
+                    propertySchema.put("propertyOrder", Integer.parseInt(order));
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to parse property order", e);
         }
     }
 }

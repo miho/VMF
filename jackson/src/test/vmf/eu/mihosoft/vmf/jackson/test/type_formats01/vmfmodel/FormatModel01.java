@@ -27,6 +27,17 @@ interface Pet {
 
     @Annotation(key = "vmf:jackson:schema:inject", value = "\"title\": \"My Title\"")
     String getOtherProperty();
+
+    @Contains(opposite = "owner")
+    @Annotation(key= "vmf:jackson:schema:format", value = "table")
+    Prop[] getProperties();
+}
+
+interface Prop {
+    String getKey();
+    String getValue();
+    @Container(opposite = "properties")
+    Pet getOwner();
 }
 
 

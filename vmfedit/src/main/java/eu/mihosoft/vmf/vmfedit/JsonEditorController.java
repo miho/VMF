@@ -11,6 +11,7 @@ import javafx.scene.web.WebView;
 import netscape.javascript.JSObject;
 
 import java.net.URL;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -27,6 +28,8 @@ public class JsonEditorController {
 
     /** The WebView component used to display the JSON editor */
     private final WebView webView;
+
+    private volatile boolean updatingValue = false;
 
     /** Property holding the current JSON schema */
     private final StringProperty schemaProperty = new SimpleStringProperty(
@@ -142,7 +145,12 @@ public class JsonEditorController {
         public void accept(String newValue) {
             new Thread(() -> {
                 Platform.runLater(() -> {
-                    control.valueProperty().set(newValue);
+                    control.updatingValue = true;
+                    try {
+                        control.valueProperty().set(newValue);
+                    } finally {
+                        control.updatingValue = false;
+                    }
                 });
             }).start();
         }
@@ -284,6 +292,11 @@ public class JsonEditorController {
      * Attempts to migrate an existing value to a new schema.
      */
     private void attemptValueMigration(String value) {
+
+        if(updatingValue) {
+            return;
+        }
+
         Thread.ofVirtual().start(() -> {
             for (int i = 0; i < 10; i++) {
                 if (trySetValue(value)) break;
@@ -300,6 +313,9 @@ public class JsonEditorController {
      * Attempts to set a value in the editor with proper UI thread handling.
      */
     private boolean trySetValue(String value) {
+        if(updatingValue) {
+            return true;
+        }
         var future = new CompletableFuture<Boolean>();
         Platform.runLater(() -> {
             try {

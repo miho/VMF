@@ -105,7 +105,8 @@ task installJsonEditor(type: NpmTask) {
 
 task copyJsonEditorToResources(type: Copy) {
     from 'node_modules/@json-editor/json-editor/dist'
-    into 'src/main/resources/json-editor'
+//    into 'src/main/resources/json-editor'
+    into 'src/main/resources/eu/mihosoft/vmf/vmfedit/json-editor'
     include '**/*'
 }
 
@@ -150,6 +151,16 @@ task copyJSON5ToResources(type: Copy) {
     include '**/*'
 }
 
+task installACEEditor(type: NpmTask) {
+    args = ['install', 'ace-builds@1.37.5']
+}
+
+task copyACEEditorToResources(type: Copy) {
+    from 'node_modules/ace-builds/src-min-noconflict'
+    into 'src/main/resources/eu/mihosoft/vmf/vmfedit/ace-builds'
+    include '**/*'
+}
+
 copyJsonEditorToResources.dependsOn installJsonEditor
 processResources.dependsOn copyJsonEditorToResources
 
@@ -164,6 +175,9 @@ processResources.dependsOn copyBootStrapToResources
 
 copySpectreToResources.dependsOn installSpectre
 processResources.dependsOn copySpectreToResources
+
+copyACEEditorToResources.dependsOn installACEEditor
+processResources.dependsOn copyACEEditorToResources
 
 
 

@@ -9,7 +9,8 @@
     <link rel="stylesheet" href="bootstrap/css/bootstrap.min.css">
     <link rel="stylesheet" href="fontawesome-free/css/all.min.css">
     <title>JSON Editor</title>
-    <script src="../../../../json-editor/jsoneditor.js"></script>
+    <script src="json-editor/jsoneditor.js"></script>
+    <script src="ace-builds/ace.js"></script>
     <style>
         body { margin: 0; padding: 0; }
         #editor_holder { width: 100%; height: 100vh; }
@@ -19,6 +20,9 @@
 <div id="editor_log"></div>
 <div id="editor_holder"></div>
 <script>
+
+    // Set ACE Editor basePath to path
+    window.ace.config.set("basePath", "ace-builds/");
 
     // At the top of your script section, before any other code
     const EditorCallbacks = {
@@ -55,6 +59,7 @@
     // };
 
     function initEditor(schema) {
+
         console.log("Initializing editor with schema:", schema);
         if (editor) {
             currentValue = editor.getValue();
@@ -100,6 +105,7 @@
 
     window.onload = function() {
         console.log("Window loaded");
+
         initEditor({});
     };
 
