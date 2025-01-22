@@ -584,6 +584,9 @@ public class VMFJsonSchemaGenerator {
                 if (order != null) {
                     propertySchema.put("propertyOrder", Integer.parseInt(order));
                 }
+            } else{
+                // TODO reuse property order from vmf (traversal order via @PropertyOrder, vmf should report th order
+                //  as @Annotation("key="...", value = "...") as well
             }
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse property order", e);

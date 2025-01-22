@@ -13,9 +13,10 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.web.WebView?>
 
-<VBox xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/21" fx:controller="eu.mihosoft.vmf.vmfedit.JsonEditorAppController">
+<VBox xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="eu.mihosoft.vmf.vmfedit.JsonEditorAppController">
     <MenuBar>
         <Menu text="File">
+         <MenuItem mnemonicParsing="false" onAction="#handleNewDocument" text="New JSON file" />
             <MenuItem onAction="#handleLoadDocument" text="Load JSON file">
             <accelerator>
                <KeyCodeCombination alt="UP" code="O" control="UP" meta="UP" shift="UP" shortcut="DOWN" />
@@ -45,7 +46,7 @@
          <HBox.margin>
             <Insets top="5.0" />
          </HBox.margin></TextField>
-        <Button onAction="#handleBrowseSchema" text="Browse">
+        <Button fx:id="browseSchemaButton" onAction="#handleBrowseSchema" text="Browse">
          <HBox.margin>
             <Insets right="10.0" top="5.0" />
          </HBox.margin></Button>

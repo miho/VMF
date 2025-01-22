@@ -70,8 +70,9 @@
             theme: 'bootstrap3',
             iconlib: 'fontawesome5',
             disable_edit_json: true,
-            no_additional_properties: false,
+            no_additional_properties: true,
             prompt_before_delete: false,
+            required_by_default: true,
         });
 
         // Add change listener
@@ -136,6 +137,10 @@
     window.setValue = function(json) {
         console.log("Setting value");
         if (editor) {
+            // if java "" is passed, set empty object
+            if(json === "") {
+                json = "{}";
+            }
             editor.setValue(JSON.parse(json));
         } else {
             console.error("Editor not initialized");

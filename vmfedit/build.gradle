@@ -63,6 +63,11 @@ dependencies {
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:${junitVersion}")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${junitVersion}")
+
+    // add jackson dependencies, use jackson as specified in the common.properties file
+    implementation "com.fasterxml.jackson.core:jackson-core:${commonProps.get('deps.jackson.version')}"
+    implementation "com.fasterxml.jackson.core:jackson-databind:${commonProps.get('deps.jackson.version')}"
+    implementation "com.fasterxml.jackson.core:jackson-annotations:${commonProps.get('deps.jackson.version')}"
 }
 
 test {

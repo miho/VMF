@@ -3,6 +3,7 @@ package eu.mihosoft.vmf.vmfedit;
 import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
+import javafx.beans.value.ChangeListener;
 import javafx.concurrent.Worker;
 import javafx.fxml.FXML;
 import javafx.scene.control.Alert;
@@ -11,7 +12,7 @@ import javafx.scene.web.WebView;
 import netscape.javascript.JSObject;
 
 import java.net.URL;
-import java.util.Objects;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -31,15 +32,17 @@ public class JsonEditorController {
 
     private volatile boolean updatingValue = false;
 
-    /** Property holding the current JSON schema */
-    private final StringProperty schemaProperty = new SimpleStringProperty(
-            "{\n" +
+    private final static String defaultSchema =
+                    "{\n" +
                     "  \"$schema\" : \"http://json-schema.org/draft-07/schema#\",\n" +
                     "  \"title\" : \"value\",\n" +
                     "  \"type\" : \"string\",\n" +
                     "  \"readOnly\": true,\n" +
                     "  \"default\": \"set a schema\"\n" +
-                    "}");
+                    "}";
+
+    /** Property holding the current JSON schema */
+    private final StringProperty schemaProperty = new SimpleStringProperty(defaultSchema);
 
     /** Property holding the current JSON value */
     private final StringProperty valueProperty = new SimpleStringProperty("");
@@ -51,6 +54,44 @@ public class JsonEditorController {
      */
     public JsonEditorController(WebView webView) {
         this.webView = webView;
+    }
+
+    /**
+     * Resets the JSON editor to its initial state. This clears the schema and value, and reloads the editor.
+     */
+    public void reset() {
+        migrateValueOnSchemaUpdate = false;
+        try {
+            valueProperty.set("");
+            setSchema(defaultSchema);
+            handleSchemaUpdate(defaultSchema);
+        } finally {
+            migrateValueOnSchemaUpdate = true;
+        }
+    }
+
+    /**
+     * Initializes the JSON editor component. This method is called automatically by FXML.
+     * It sets up the WebView, establishes JavaScript bridges, and configures property listeners.
+     */
+    @FXML
+    public void initialize() {
+        WebEngine engine = webView.getEngine();
+
+        // Set up the web engine load listener
+        setupWebEngineLoadListener(engine);
+
+        // Set up schema change listener
+        setupSchemaChangeListener();
+
+        // Set up WebView focus handling
+        setupWebViewFocusHandling();
+
+        // Set up JavaScript event handlers
+        setupJavaScriptEventHandlers(engine);
+
+        // Set up value property change listener
+        setupValueChangeListener();
     }
 
     /**
@@ -201,42 +242,37 @@ public class JsonEditorController {
         this.logListener = logListener;
     }
 
-    /**
-     * Initializes the JSON editor component. This method is called automatically by FXML.
-     * It sets up the WebView, establishes JavaScript bridges, and configures property listeners.
-     */
-    @FXML
-    public void initialize() {
-        WebEngine engine = webView.getEngine();
 
-        // Set up the web engine load listener
-        setupWebEngineLoadListener(engine);
+    public void configureEditor(Map<String, Object> config) {
 
-        // Set up schema change listener
-        setupSchemaChangeListener();
-
-        // Set up WebView focus handling
-        setupWebViewFocusHandling();
-
-        // Set up JavaScript event handlers
-        setupJavaScriptEventHandlers(engine);
-
-        // Set up value property change listener
-        setupValueChangeListener();
+        setSchema(schemaProperty().get());
     }
+
+    public String getDefaultSchema() {
+        return defaultSchema;
+    }
+
+    private ChangeListener<Worker.State> webEngineLoadListener = null;
 
     /**
      * Sets up the web engine load listener to handle page load events.
      */
     private void setupWebEngineLoadListener(WebEngine engine) {
-        engine.getLoadWorker().stateProperty().addListener((observable, oldValue, newValue) -> {
+
+        if(webEngineLoadListener!=null) {
+            engine.getLoadWorker().stateProperty().removeListener(webEngineLoadListener);
+        }
+
+        webEngineLoadListener = (observable, oldValue, newValue) -> {
             if (newValue == Worker.State.SUCCEEDED) {
                 logListener.log(LogLevel.INFO, "Page loaded successfully", null);
                 initializeJavaScriptBridge(engine);
             } else if (newValue == Worker.State.FAILED) {
                 logListener.log(LogLevel.ERROR, "Page failed to load", null);
             }
-        });
+        };
+
+        engine.getLoadWorker().stateProperty().addListener(webEngineLoadListener);
 
         // Load the HTML file
         URL url = getClass().getResource("json-editor.html");
@@ -260,26 +296,47 @@ public class JsonEditorController {
         engine.executeScript("updateSchema('" + escapeJavaScript(schemaProperty.get()) + "')");
     }
 
+    private ChangeListener<String> schemaChangeListener = null;
+
     /**
      * Sets up the schema change listener to handle schema updates.
      */
     private void setupSchemaChangeListener() {
-        schemaProperty().addListener((observable, oldValue, newValue) -> {
+
+        if(schemaChangeListener!=null) {
+            schemaProperty().removeListener(schemaChangeListener);
+        }
+
+        schemaChangeListener = (observable, oldValue, newValue) -> {
             try {
                 handleSchemaUpdate(newValue);
             } catch (Exception e) {
                 logListener.log(LogLevel.ERROR, "Error loading schema: " + e.getMessage(), e);
                 showError("Error loading schema", e.getMessage());
             }
-        });
+        };
+
+        schemaProperty().addListener(schemaChangeListener);
     }
+
+    private boolean migrateValueOnSchemaUpdate = true;
 
     /**
      * Handles updating the schema and attempting to migrate existing values.
      */
     private void handleSchemaUpdate(String schema) {
-        String value = (String) webView.getEngine().executeScript("JSON.stringify(getValue())");
+
+        String value = "";
+
+        if(migrateValueOnSchemaUpdate) {
+            value = (String) webView.getEngine().executeScript("JSON.stringify(getValue())");
+        }
+
         logListener.log(LogLevel.INFO, "Schema updated. Value will be reset and migration attempt will be made.", null);
+
+        if(schema == null || schema.isEmpty()) {
+            schema = defaultSchema;
+        }
 
         webView.getEngine().executeScript("updateSchema('" + escapeJavaScript(schema) + "')");
 
@@ -311,18 +368,25 @@ public class JsonEditorController {
 
     /**
      * Attempts to set a value in the editor with proper UI thread handling.
+     * @param value The value to set
+     * @return {@code true} if the value was set successfully, {@code false} otherwise
      */
     private boolean trySetValue(String value) {
         if(updatingValue) {
             return true;
         }
+
         var future = new CompletableFuture<Boolean>();
+        String finalValue = value;
         Platform.runLater(() -> {
             try {
                 var scene = webView.getScene();
                 scene.getRoot().setDisable(true);
-                webView.getEngine().executeScript("setValue('" + escapeJavaScript(value) + "')");
+
+                webView.getEngine().executeScript("setValue('" + escapeJavaScript(finalValue) + "')");
+
                 future.complete(true);
+                System.out.println("Value set: " + finalValue);
             } catch (Exception e) {
                 future.complete(false);
                 logListener.log(LogLevel.ERROR, "Error setting value: " + e.getMessage(), e);
@@ -334,15 +398,23 @@ public class JsonEditorController {
         return future.join();
     }
 
+    private ChangeListener<Boolean> focusChangedListener = null;
+
     /**
      * Sets up focus handling for the WebView component.
      */
     private void setupWebViewFocusHandling() {
-        webView.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
-            if (!isNowFocused) {
+        if(focusChangedListener!=null) {
+            webView.focusedProperty().removeListener(focusChangedListener);
+        }
+
+        focusChangedListener = (observable, oldValue, newValue) -> {
+            if (!newValue) {
                 webView.getEngine().executeScript("document.activeElement.blur();");
             }
-        });
+        };
+
+        webView.focusedProperty().addListener(focusChangedListener);
     }
 
     /**
@@ -356,15 +428,26 @@ public class JsonEditorController {
         engine.setOnVisibilityChanged(event -> logListener.log(LogLevel.INFO, "JS Visibility Changed: " + event.getData(), null));
     }
 
+    private ChangeListener<String> valueChangeListener = null;
+
     /**
      * Sets up the value change listener to handle value updates.
      */
     private void setupValueChangeListener() {
-        valueProperty().addListener((observable, oldValue, newValue) -> {
+
+        if(valueChangeListener!=null) {
+            valueProperty().removeListener(valueChangeListener);
+        }
+
+        valueChangeListener = (observable, oldValue, newValue) -> {
             if (newValue != null && !newValue.isEmpty() && !"\"\"".equals(newValue)) {
                 attemptValueMigration(newValue);
             }
-        });
+//            attemptValueMigration(newValue);
+        };
+
+        valueProperty().addListener(valueChangeListener);
+
     }
 
     /**

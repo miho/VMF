@@ -1,16 +1,17 @@
 package eu.mihosoft.vmf.vmfedit;
 
 import javafx.fxml.FXML;
-import javafx.scene.control.Alert;
-import javafx.scene.control.Spinner;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
+import java.util.Optional;
+
 
 public class JsonEditorAppController {
 
@@ -19,10 +20,14 @@ public class JsonEditorAppController {
 
     @FXML
     private TextField schemaField;
+    @FXML
+    private Button browseSchemaButton;
 
     private JsonEditorController jsonEditorControl;
 
     private File currentFile;
+
+    private JsonUtils.SchemaInfo schemaInfo;
 
     @FXML
     public void initialize() {
@@ -46,6 +51,45 @@ public class JsonEditorAppController {
     }
 
     @FXML
+    private void handleNewDocument() {
+        // ask user whether to save current document or not (yes/no/cancel)
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION);
+        alert.setTitle("Save Document");
+        alert.setHeaderText("Do you want to save the current document?");
+        alert.setContentText("Choose your option.");
+
+        // Set up the button types
+        ButtonType buttonTypeYes = new ButtonType("Yes");
+        ButtonType buttonTypeNo = new ButtonType("No");
+        ButtonType buttonTypeCancel = new ButtonType("Cancel", ButtonBar.ButtonData.CANCEL_CLOSE);
+        alert.getButtonTypes().setAll(buttonTypeYes, buttonTypeNo, buttonTypeCancel);
+
+        // Show the dialog and wait for response
+        Optional<ButtonType> result = alert.showAndWait();
+
+        if (result.isPresent()) {
+            if (result.get() == buttonTypeYes) {
+                // User chose Yes, save the document
+                handleSaveDocument();
+            } else if (result.get() == buttonTypeCancel) {
+                // User chose Cancel, do nothing and return
+                return;
+            }
+            // If user chose No, continue with creating new document
+        }
+
+        // clear editor
+        schemaField.setText("");
+        schemaField.setDisable(false);
+        browseSchemaButton.setDisable(false);
+        currentFile = null;
+        jsonEditorControl.reset();
+        // get stage and set title
+        Stage stage = (Stage) webView.getScene().getWindow();
+        stage.setTitle("VMF JSON Editor");
+    }
+
+    @FXML
     private void handleLoadDocument() {
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Open JSON Document");
@@ -61,6 +105,31 @@ public class JsonEditorAppController {
         if (file != null) {
             try {
                 String content = new String(Files.readAllBytes(file.toPath()));
+
+                // remove comments
+                content = content.replaceAll("//.*", "");
+
+                // baseURI from parent directory
+                URI baseURI = file.getParentFile().toURI();
+
+                JsonUtils.SchemaInfo schemaInfo = JsonUtils.extractSchema(content, baseURI);
+
+                this.schemaInfo = schemaInfo;
+
+                if (schemaInfo.schemaUri() != null) {
+                    schemaField.setDisable(true);
+                    browseSchemaButton.setDisable(true);
+                    schemaField.setText(schemaInfo.schemaUri().toString());
+                } else if (schemaInfo.schemaContent() != null) {
+                    schemaField.setDisable(true);
+                    browseSchemaButton.setDisable(true);
+                    jsonEditorControl.setSchema(schemaInfo.schemaContent());
+                } else {
+                    schemaField.setDisable(false);
+                    browseSchemaButton.setDisable(false);
+                    jsonEditorControl.setSchema(null);
+                }
+
                 jsonEditorControl.setValue(content);
 
                 currentFile = file;
@@ -82,6 +151,12 @@ public class JsonEditorAppController {
             try {
                 String content = jsonEditorControl.getValue();
                 System.out.println("Saving document: " + content);
+
+                // add schema as was specified in the loaded file (as URI or content, see JsonUtils.extractSchema)
+                if (this.schemaInfo!=null) {
+                    content = JsonUtils.injectSchema(content, this.schemaInfo);
+                }
+
                 Files.write(currentFile.toPath(), content.getBytes());
 
                 // get stage and set title
@@ -133,6 +208,12 @@ public class JsonEditorAppController {
             try {
                 String content = jsonEditorControl.getValue();
                 System.out.println("Saving document as: " + content);
+
+                // add schema as was specified in the loaded file (as URI or content, see JsonUtils.extractSchema)
+                if (this.schemaInfo!=null) {
+                    content = JsonUtils.injectSchema(content, this.schemaInfo);
+                }
+
                 Files.write(file.toPath(), content.getBytes());
 
                 currentFile = file;
@@ -171,6 +252,8 @@ public class JsonEditorAppController {
         File file = fileChooser.showOpenDialog(webView.getScene().getWindow());
         if (file != null) {
             schemaField.setText(file.getAbsolutePath());
+            // update schemaInfo
+            this.schemaInfo = new JsonUtils.SchemaInfo(file.toURI(), null, JsonUtils.SchemaEmbeddingType.EXTERNAL);
         }
     }
 
