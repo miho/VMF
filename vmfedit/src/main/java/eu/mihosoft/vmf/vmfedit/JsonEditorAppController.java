@@ -130,9 +130,6 @@ public class JsonEditorAppController {
                     jsonEditorControl.setSchema(null);
                 }
 
-                // remove schema from content
-
-
                 jsonEditorControl.setValue(content);
 
                 currentFile = file;
