@@ -11,6 +11,14 @@ import java.net.URISyntaxException;
 import java.util.Iterator;
 
 public final class JsonUtils {
+
+    private static SchemaResolver defaultResolver = new SchemaResolver.CompositeSchemaResolver(
+            new SchemaResolver.FileSchemaResolver(),
+            new SchemaResolver.ResourceSchemaResolver(JsonUtils.class.getClassLoader(), "schemas"),
+            new SchemaResolver.InMemorySchemaResolver()
+    );
+
+
     private JsonUtils() {
         throw new AssertionError("Don't instantiate me!");
     }
@@ -26,11 +34,13 @@ public final class JsonUtils {
      *
      * @param jsonContent The JSON content to analyze
      * @param baseUri Optional base URI for resolving relative schema paths (can be null)
+     * @param resolver Optional schema resolver (if null, uses default resolver)
      * @return A record containing the schema URI (if external) and schema content (if embedded)
-     * @throws JsonProcessingException if JSON parsing fails
      * @throws IOException if schema loading fails
      */
-    public static SchemaInfo extractSchema(String jsonContent, URI baseUri) throws IOException {
+    public static SchemaInfo extractSchema(String jsonContent, URI baseUri, SchemaResolver resolver) throws IOException {
+        SchemaResolver effectiveResolver = resolver != null ? resolver : defaultResolver;
+
         ObjectMapper mapper = new ObjectMapper();
         JsonNode rootNode = mapper.readTree(jsonContent);
 
@@ -39,8 +49,17 @@ public final class JsonUtils {
             String schemaRef = rootNode.get("$schema").asText();
             try {
                 URI schemaUri;
-                if (schemaRef.startsWith("http://") || schemaRef.startsWith("https://")
-                        || schemaRef.startsWith("file:/")) {
+//                if (schemaRef.startsWith("http://") || schemaRef.startsWith("https://")
+//                        || schemaRef.startsWith("file:/") || schemaRef.startsWith("resource:/")
+//                        || schemaRef.startsWith("memory:/")) {
+
+                boolean canHandle;
+                try {
+                    canHandle = effectiveResolver.canHandle(new URI(schemaRef));
+                } catch (URISyntaxException e) {
+                    canHandle = false;
+                }
+                if(canHandle) {
                     schemaUri = new URI(schemaRef);
                 } else if (baseUri != null) {
                     // Resolve relative path against baseUri
@@ -49,6 +68,12 @@ public final class JsonUtils {
                     // Relative path without baseUri - return as-is
                     schemaUri = new URI(schemaRef);
                 }
+
+                if (effectiveResolver.canHandle(schemaUri)) {
+                    String schemaContent = effectiveResolver.resolveSchema(schemaUri);
+                    return new SchemaInfo(schemaUri, schemaContent, SchemaEmbeddingType.EXTERNAL);
+                }
+
                 return new SchemaInfo(schemaUri, null, SchemaEmbeddingType.EXTERNAL);
             } catch (URISyntaxException e) {
                 throw new IOException("Invalid schema URI: " + schemaRef, e);
@@ -85,6 +110,10 @@ public final class JsonUtils {
 
         // Case 4: No schema found
         return new SchemaInfo(null, null, SchemaEmbeddingType.NONE);
+    }
+
+    public static SchemaInfo extractSchema(String jsonContent, URI baseUri) throws IOException {
+        return extractSchema(jsonContent, baseUri, null);
     }
 
     /**
