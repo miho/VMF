@@ -65,18 +65,39 @@
             currentValue = editor.getValue();
             editor.destroy();
         }
+
+        const editorSchema = {
+            ...schema,
+            properties: {
+                ...(schema.properties || {}),
+                $schema: {
+                    type: 'string',
+                    options: {
+                        hidden: true
+                    },
+                    // readOnly: true
+                }
+            }
+        };
+
         editor = new JSONEditor(document.getElementById('editor_holder'), {
-            schema: schema,
+            schema: editorSchema,
             theme: 'bootstrap3',
             iconlib: 'fontawesome5',
             disable_edit_json: true,
-            no_additional_properties: true,
+            no_additional_properties: false,
             prompt_before_delete: false,
             required_by_default: true,
+            exclude_attributes: ['$schema'], // Explicitly exclude $schema
         });
 
         // Add change listener
         editor.on('change', function() {
+
+            // Preserve $schema if it exists in currentValue
+            if (currentValue.$schema) {
+                value.$schema = currentValue.$schema;
+            }
 
             // add a div to show a timestamp, keep editor in the editor_log div
             // var log = document.getElementById('editor_log');
