@@ -3,6 +3,7 @@ package eu.mihosoft.vmf.jackson.test.simple;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
+import eu.mihosoft.vmf.jackson.VMFJsonSchemaGenerator;
 import org.junit.jupiter.api.Assertions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -189,6 +190,13 @@ class PolymorphicModelTest {
 //            Assertions.fail(e);
 //            e.printStackTrace();
 //        }
+
+        // write schema to string
+        var schemaString = VMFJsonSchemaGenerator.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+                .generateSchemaAsString(MyModel.class);
+
+        System.out.println("Schema:");
+        System.out.println(schemaString);
 
     }
 

@@ -1,5 +1,6 @@
 package eu.mihosoft.vmf.vmfedit;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.web.WebView;
@@ -114,28 +115,41 @@ public class JsonEditorAppController {
 
                 JsonUtils.SchemaInfo schemaInfo = JsonUtils.extractSchema(content, baseURI);
 
-                this.schemaInfo = schemaInfo;
-
                 if (schemaInfo.schemaUri() != null) {
                     schemaField.setDisable(true);
                     browseSchemaButton.setDisable(true);
                     schemaField.setText(schemaInfo.schemaUri().toString());
+                    this.schemaInfo = schemaInfo;
                 } else if (schemaInfo.schemaContent() != null) {
                     schemaField.setDisable(true);
                     browseSchemaButton.setDisable(true);
                     jsonEditorControl.setSchema(schemaInfo.schemaContent());
+                    this.schemaInfo = schemaInfo;
                 } else {
                     schemaField.setDisable(false);
                     browseSchemaButton.setDisable(false);
-                    jsonEditorControl.setSchema(null);
+                    if(this.schemaInfo != null && this.schemaInfo.schemaUri() != null) {
+                        // convert to local filename, removing file:: prefix
+                        var url = this.schemaInfo.schemaUri().toURL().toString();
+                        if (url.startsWith("file:")) {
+                            url = url.substring(5);
+                        }
+                        schemaField.setText(url);
+                    } else {
+                        jsonEditorControl.setSchema(null);
+                    }
                 }
 
-                jsonEditorControl.setValue(content);
+                String finalContent = content;
 
-                currentFile = file;
-                // get stage and set title
-                Stage stage = (Stage) webView.getScene().getWindow();
-                stage.setTitle("VMF JSON Editor - " + currentFile.getName());
+                Platform.runLater(() -> {
+                    jsonEditorControl.setValue(finalContent);
+                    currentFile = file;
+                    // get stage and set title
+                    Stage stage = (Stage) webView.getScene().getWindow();
+                    stage.setTitle("VMF JSON Editor - " + currentFile.getName());
+                });
+
             } catch (IOException e) {
                 showError("Error loading document", e.getMessage());
             }
@@ -169,8 +183,10 @@ public class JsonEditorAppController {
             return;
         } else {
             FileChooser fileChooser = new FileChooser();
-            FileChooser.ExtensionFilter extFilterJSON = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
-            FileChooser.ExtensionFilter extFilterALL = new FileChooser.ExtensionFilter("All files (*.*)", "*.*");
+            FileChooser.ExtensionFilter extFilterJSON =
+                    new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
+            FileChooser.ExtensionFilter extFilterALL =
+                    new FileChooser.ExtensionFilter("All files (*.*)", "*.*");
             fileChooser.getExtensionFilters().addAll(extFilterJSON, extFilterALL);
             File file = fileChooser.showSaveDialog(webView.getScene().getWindow());
             if (file != null) {
@@ -199,7 +215,8 @@ public class JsonEditorAppController {
             fileChooser.setInitialDirectory(currentFile.getParentFile());
         }
 
-        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON files (*.json)", "*.json");
+        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter(
+                "JSON files (*.json)", "*.json");
         fileChooser.getExtensionFilters().add(extFilter);
         fileChooser.setTitle("Save JSON Document as");
         File file = fileChooser.showSaveDialog(webView.getScene().getWindow());
@@ -247,13 +264,15 @@ public class JsonEditorAppController {
 
         fileChooser.setTitle("Open JSON Schema");
         // set json extension filter
-        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter("JSON Schema files (*.json)", "*.json");
+        FileChooser.ExtensionFilter extFilter = new FileChooser.ExtensionFilter(
+                "JSON Schema files (*.json)", "*.json");
         fileChooser.getExtensionFilters().add(extFilter);
         File file = fileChooser.showOpenDialog(webView.getScene().getWindow());
         if (file != null) {
             schemaField.setText(file.getAbsolutePath());
             // update schemaInfo
-            this.schemaInfo = new JsonUtils.SchemaInfo(file.toURI(), null, JsonUtils.SchemaEmbeddingType.EXTERNAL);
+            this.schemaInfo = new JsonUtils.SchemaInfo(
+                    file.toURI(), null, JsonUtils.SchemaEmbeddingType.EXTERNAL);
         }
     }
 

@@ -140,8 +140,8 @@ public class JsonEditorController {
     }
 
     /**
-     * Commits the last edited value. This ensures that the value is up-to-date with the editor. Do this if you save
-     * the value without a user interaction, e.g., without losing focus.
+     * Commits the last edited value <pre><b>(editor ui -> value)</b></pre> This ensures that the value is up-to-date with the editor.
+     * Do this if you save the value without a user interaction, e.g., without losing focus.
      */
     public void commitValue() {
         String value = (String) webView.getEngine().executeScript("document.activeElement.blur(); JSON.stringify(getValue())");

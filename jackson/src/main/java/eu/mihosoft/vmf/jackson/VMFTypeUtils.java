@@ -83,15 +83,47 @@ public final class VMFTypeUtils {
             return Type.newInstance(false, false, isInterfaceOnlyType, cls.getName(), cls);
         }
 
+
         try {
             Class<?> builderClass = VMFTypeUtils.getBuilderClass(cls);
-            Object builder = builderClass.getDeclaredMethod("newInstance").invoke(null);
 
-            // Build the final object
-            Method buildMethod = builderClass.getDeclaredMethod("build");
-            var obj = (VObject) buildMethod.invoke(builder);
+            // check if builder has newInstance method
+            Method newInstanceMethod = null;
 
-            return obj.vmf().reflect().type();
+            try {
+                newInstanceMethod = builderClass.getDeclaredMethod("newInstance");
+            } catch (NoSuchMethodException e) {
+                // ignore
+            }
+
+            // if not there, try a different approach
+            if(newInstanceMethod == null) {
+                //
+                // we check type() method on original class
+                Method typeMethod = null;
+
+                try {
+                    typeMethod = cls.getDeclaredMethod("type");
+                } catch (NoSuchMethodException e) {
+                    // ignore
+                }
+
+                if(typeMethod == null) {
+                    throw new RuntimeException("Could not find newInstance method in builder class and type method in original class.");
+                }
+
+                // get the type object
+                return (Type) typeMethod.invoke(null);
+            } else {
+
+                Object builder = builderClass.getDeclaredMethod("newInstance").invoke(null);
+
+                // Build the final object
+                Method buildMethod = builderClass.getDeclaredMethod("build");
+                var obj = (VObject) buildMethod.invoke(builder);
+
+                return obj.vmf().reflect().type();
+            }
 
         } catch (Exception e) {
             throw new RuntimeException(e);

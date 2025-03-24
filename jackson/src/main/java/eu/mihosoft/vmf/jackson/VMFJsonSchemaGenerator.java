@@ -221,6 +221,8 @@ public class VMFJsonSchemaGenerator {
             Type elementType = VMFTypeUtils.forClass(property.getType().getName());
             if (!VMFTypeUtils.getSubTypes(elementType).isEmpty()) {
 
+                // TODO check if choices between different types are correctly detected
+
                 var typesToChooseFrom = VMFTypeUtils.getSubTypes(elementType);
                 typesToChooseFrom.add(elementType);
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
