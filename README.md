@@ -29,6 +29,8 @@ It generates/supports:
 - delegation
 - annotations
 - reflection
+- jackson serialization support (json, xml, yml)
+- json schema generation for validation and automatic visual editor generation
 - ...
 
 A VMF model consists of annotated Java interfaces. We could call this "wannabe" code. Just specify the interface and its properties and get a fully functional  implementation including property setters and getters, builders, iterators, and much more. Even for a simple model VMF provides a lot of useful APIs:
