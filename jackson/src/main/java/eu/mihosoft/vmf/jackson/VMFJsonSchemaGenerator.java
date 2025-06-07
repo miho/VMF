@@ -108,8 +108,10 @@ public class VMFJsonSchemaGenerator {
      * @param typeAliases the type aliases to add
      * @return this module
      */
-    public VMFJsonSchemaGenerator withTypeAliases(Map<String, String> typeAliases) {
-        typeAliases.forEach(this::addTypeAlias);
+    public VMFJsonSchemaGenerator withTypeAliases(Map<String, String> aliases) {
+        if (aliases != null) {
+            aliases.forEach(this::addTypeAlias);
+        }
         return this;
     }
 
