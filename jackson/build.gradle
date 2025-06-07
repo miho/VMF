@@ -110,8 +110,24 @@ test {
     }
 }
 
+// TODO add vmfGenModelSources as input of license plugin
+//Possible solutions:
+//1. Declare task ':vmfGenModelSources' as an input of ':licenseMain'.
+//2. Declare an explicit dependency on ':vmfGenModelSources' from ':licenseMain' using Task#dependsOn.
+//3. Declare an explicit dependency on ':vmfGenModelSources' from ':licenseMain' using Task#mustRunAfter.
+tasks.named('licenseMain') {
+    dependsOn tasks.named('vmfGenModelSources')
+}
+
+// same for licenseTest
+tasks.named('licenseTest') {
+    dependsOn tasks.named('vmfGenModelSourcesTest')
+}
+
 license {
-    header = rootProject.file('runtime/config/HEADER')
+
+
+    header = project.file('./config/HEADER')
     strictCheck = true
     ignoreFailures = true
     mapping {

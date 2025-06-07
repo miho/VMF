@@ -134,6 +134,7 @@ interface Choice extends WithText {
 
 
 // TODO options about extending types not fully working in schema
+@InterfaceOnly
 interface Update {
 
 }
@@ -145,6 +146,7 @@ interface StateUpdate extends Update {
 
 
 // TODO options about extending types not fully working in schema
+@InterfaceOnly
 interface Condition {
 
 }

@@ -219,6 +219,7 @@ public class VMFJsonSchemaGenerator {
         } else if (property.getType().isModelType() && !property.getType().isListType()) {
             // Handle polymorphic types
             Type elementType = VMFTypeUtils.forClass(property.getType().getName());
+
             if (!VMFTypeUtils.getSubTypes(elementType).isEmpty()) {
 
                 // TODO check if choices between different types are correctly detected
@@ -257,6 +258,21 @@ public class VMFJsonSchemaGenerator {
 
             // Handle polymorphic types with oneOf and add @vmf-type as a required property
             Type elementType = VMFTypeUtils.forClass(property.getType().getElementTypeName().get());
+
+            if(elementType.getName().contains("Condition")) {
+
+                System.out.println("!!! 1 reached Condition: " + elementType);
+
+                var subTypes = VMFTypeUtils.getSubTypes(elementType);
+
+                System.out.println("!!! subTypes.size() " + subTypes.size());
+
+                for(Type subType : subTypes) {
+                    System.out.println("!!! subType " + subType.getName());
+                }
+
+            }
+
             if (isValueType(elementType)) {
                 itemsSchema.put("type", mapValueType(elementType));
             } else

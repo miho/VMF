@@ -186,7 +186,7 @@ public class CodeGenerator {
 //        // Model class
         try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + "." + modelSwitchName + "Model__VMF_API"))) {
             Writer out = res.open();
-            generateVMFModeAPIInterface(out, packageName, modelSwitchName, model);
+            generateVMFModelAPIInterface(out, packageName, modelSwitchName, model);
         }
 
         try (Resource res = set.open(TypeUtil.computeFileNameFromJavaFQN(packageName + "." + VMFEngineProperties.VMF_IMPL_PKG_EXT + ".VCloneableInternal"))) {
@@ -268,6 +268,7 @@ public class CodeGenerator {
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         context.put("model", m);
+        context.put("modelName", modelSwitchName);
         context.put("modelSwitchName", modelSwitchName);        
         mergeTemplate("vmf-model-switch-interface", context, out);
     }
@@ -277,6 +278,7 @@ public class CodeGenerator {
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         context.put("model", m);
+        context.put("modelName", modelSwitchName);
         context.put("modelSwitchName", modelSwitchName);        
         mergeTemplate("vmf-model-switch-read-only-interface", context, out);
     }
@@ -286,6 +288,7 @@ public class CodeGenerator {
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         context.put("model", m);
+        context.put("modelName", modelSwitchName);
         context.put("modelSwitchName", modelSwitchName);
         mergeTemplate("vmf-model-traversal-listener-interface", context, out);
     }
@@ -295,11 +298,12 @@ public class CodeGenerator {
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         context.put("model", m);
+        context.put("modelName", modelSwitchName);
         context.put("modelSwitchName", modelSwitchName);
         mergeTemplate("vmf-model-traversal-listener-read-only-interface", context, out);
     }
 
-    private void generateVMFModeAPIInterface(Writer out, String packageName, String modelName, Model m) throws IOException {
+    private void generateVMFModelAPIInterface(Writer out, String packageName, String modelName, Model m) throws IOException {
         VelocityContext context = new VelocityContext();
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
@@ -313,6 +317,7 @@ public class CodeGenerator {
         VMFEngineProperties.installProperties(context);
         context.put("packageName", packageName);
         context.put("model", m);
+        context.put("modelName", modelSwitchName);
         context.put("modelSwitchName", modelSwitchName);
         mergeTemplate("vmf-model-switch-immutable-interface", context, out);
     }
