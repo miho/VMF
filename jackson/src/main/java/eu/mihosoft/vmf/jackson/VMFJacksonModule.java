@@ -472,14 +472,12 @@ public class VMFJacksonModule extends SimpleModule {
                     paramValue = Enum.valueOf((Class<Enum>) paramType, value.asText());
                 } else {
                     // Deserialize non-scalar value
-                    paramValue = ctxt.readValue(
-                            value.traverse(ctxt.getParser().getCodec()), paramType);
+                    paramValue = ctxt.getParser().getCodec().treeToValue(value, paramType);
                 }
                 return paramValue;
             } else {
                 // Deserialize complex value
-                Object paramValue = ctxt.readValue(
-                        value.traverse(ctxt.getParser().getCodec()), paramType);
+                Object paramValue = ctxt.getParser().getCodec().treeToValue(value, paramType);
                 return paramValue;
             }
         }
