@@ -8,6 +8,6 @@ sh ./gradlew clean publishtoMavenLocal --no-daemon || { echo 'building vmf faile
 echo ------------------------------------------
 echo BUILDING AND TESTING JACKSON MODULE
 echo ------------------------------------------
-cd ../jackson
+cd jackson
 sh ./gradlew clean publishtoMavenLocal --no-daemon || { echo 'building vmf failed' ; exit 1; }
 
