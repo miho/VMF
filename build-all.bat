@@ -8,7 +8,9 @@ cmd /c "gradlew.bat" clean publishtoMavenLocal --no-daemon || exit /b %ERRORLEVE
 echo ------------------------------------------
 echo BUILDING AND TESTING JACKSON MODULE
 echo ------------------------------------------
-cd ..\jackson
+cd jackson
 @REM cmd /c "gradlew.bat" clean test --stacktrace --no-daemon --warning-mode all || exit /b %ERRORLEVEL%;
 cmd /c "gradlew.bat" clean publishtoMavenLocal --no-daemon || exit /b %ERRORLEVEL%;
+cd ..\
+
 
