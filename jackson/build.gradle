@@ -57,6 +57,11 @@ tasks.withType(Javadoc) {
     options.encoding = 'UTF-8'
 }
 
+
+wrapper {
+    gradleVersion = '8.14.2'
+}
+
 if (!hasProperty('mainClass')) {
     ext.mainClass = 'eu.mihosoft.vmf.runtime.Main'
 }

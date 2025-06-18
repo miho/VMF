@@ -48,6 +48,10 @@ tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
+wrapper {
+    gradleVersion = '8.14.2'
+}
+
 application {
     mainModule = 'eu.mihosoft.vmf.vmfedit'
     mainClass = 'eu.mihosoft.vmf.vmfedit.JsonEditorApplication'
