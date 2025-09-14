@@ -271,9 +271,9 @@ public final class VMFTypeUtils {
     }
 
     /**
-     * Get all sub types of a given type (only works if model type).
-     * @param type the type to get the sub types for
-     * @return the list of sub types of the given type
+     * Get all subtypes of a given type (only works if model type).
+     * @param type the type to get the subtypes for
+     * @return the list of subtypes of the given type
      */
     public static List<Type> getSubTypes(Type type) {
          try {

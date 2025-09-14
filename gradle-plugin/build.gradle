@@ -10,8 +10,18 @@ ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 
-sourceCompatibility = '11'
-targetCompatibility = '11'
+//sourceCompatibility = '11'
+//targetCompatibility = '11'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
+}
 
 apply plugin: 'groovy'
 apply from: 'gradle/publishing.gradle'

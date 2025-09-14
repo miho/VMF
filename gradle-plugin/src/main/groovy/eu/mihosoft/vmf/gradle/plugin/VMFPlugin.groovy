@@ -180,100 +180,120 @@ class VMFPlugin implements Plugin<Project> {
 
         // project.getConvention().getPlugin(JavaPluginConvention.class)
 
-        project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().all(new Action<SourceSet>() {
-            public void execute(final SourceSet sourceSet) {
+        //project.getExtensions().getByType(JavaPluginExtension.class).getSourceSets().all(new Action<SourceSet>() {
 
-                // For each source set we will:
+        project.getPlugins().withType(JavaPlugin.class, new Action<JavaPlugin>() {
+            public void execute(JavaPlugin javaPlugin) {
 
-                // 0) Create a 'vmfCompile' configuration that contains the dependencies to vmf-core and
-                // potentially other dependencies needed to compile the model definitions
 
-                String configName = sourceSet.getTaskName("vmfCompile", "");
+                // Now it's safe to get the Java extension and configure it.
+                JavaPluginExtension javaExtension = project.getExtensions().getByType(JavaPluginExtension.class);
 
-                Dependency dep1 = project.dependencies.create(
-                        "eu.mihosoft.vmf:vmf:$VMF_VERSION")
-                Dependency dep2 = project.dependencies.create(
-                        "eu.mihosoft.vmf:vmf-runtime:$VMF_VERSION")
-                def conf = project.configurations.maybeCreate(configName)
-                conf.defaultDependencies { deps ->
-                    deps.add(dep1)
-                    deps.add(dep2)
-                }
-
-                // 1) Add a new 'vmf' virtual directory mapping
-                final VMFSourceVirtualDirectoryImpl vmfDirectoryDelegate =
-                        new VMFSourceVirtualDirectoryImpl(
-                                ((DefaultSourceSet) sourceSet).getDisplayName(),
-                                sourceDirectorySetFactory
-                        );
-                new DslObject(sourceSet).getConvention().getPlugins().put(
-                        VMFSourceVirtualDirectory.NAME, vmfDirectoryDelegate
-                );
-                // 1.5 Add the source directory set 'vmf' to the source set
-                final String srcDir = "src/" + sourceSet.getName() + "/vmf";
-                SourceDirectorySet sourceDirectorySetVMF = vmfDirectoryDelegate.getVMF();
-                sourceDirectorySetVMF.srcDir(srcDir);
-                sourceSet.getAllSource().source(sourceDirectorySetVMF);
-
-                // 2) Create a VMFTask for this sourceSet following the gradle
-                //    naming conventions via call to sourceSet.getTaskName()
-                final String taskName = sourceSet.getTaskName("vmfGenModelSources", "");
-
-                // 3) Set up the VMF output directories (adding to javac inputs!)
-                final String outputDirectoryName =
-                        project.getBuildDir().absolutePath + "/generated-src/vmf-" + sourceSet.getName();
-                final File outputDirectory = new File(outputDirectoryName);
-                sourceSet.getJava().srcDir(outputDirectory);
-
-                final String outputDirectoryNameModelDef =
-                        project.getBuildDir().absolutePath + "/vmf-modeldef-compiled/vmf-" + sourceSet.getName();
-                final File outputDirectoryModelDef = new File(outputDirectoryNameModelDef);
-
-                final String compileModelDefTaskName = sourceSet.getTaskName("vmfCompileModelDef", "Code");
-
-                // 3.5) create custom JavaCompile task that compiles the model definitions in the
-                //      'vmf' SourceDirectorySet and creates the class files needed by the VMF.generate()
-                //      task
-
-                // resolve dependencies for task that compiles model definitions
-                FileCollection vmfClassPath
-
-                Closure<FileCollection> resolveClassPath = {
-                    if (vmfClassPath == null) {
-                        vmfClassPath = project.files(project.configurations.getByName(configName).resolve());
-                    }
-
-                    return vmfClassPath
-                }
-
-                JavaCompile compileVMFModelDefTask = project.task(compileModelDefTaskName, type: JavaCompile) {
-                    source = sourceDirectorySetVMF
-                    classpath = project.configurations.getByName(configName)
-                    destinationDirectory = outputDirectoryModelDef
-                    // dependencyCacheDir = file('.')
-                    // sourceCompatibility = '1.7'
-                    // targetCompatibility = '1.7'
-                }
-
-                CompileVMFTask vmfTask = project.getTasks().create(
-                        taskName, CompileVMFTask.class, new Action<CompileVMFTask>() {
+                javaExtension.getSourceSets().all(new Action<SourceSet>() {
                     @Override
-                    void execute(CompileVMFTask vmfTask) {
-                        // 4) Set up convention mapping for default sources (allows user to not have to specify)
-                        //    and set up a task description
-                        vmfTask.setDescription(
-                                "Generates Java Code for VMF models defined in the "
-                                        + sourceSet.getName() + " source set."
-                        );
-                        vmfTask.group = "vmf"
-                        vmfTask._inputFiles = vmfDirectoryDelegate.getVMF() as FileCollection;
-                        vmfTask._outputFolder = outputDirectory;
-                        vmfTask._sourceSetCompileClassPath = sourceSet.compileClasspath;
-                        vmfTask._sourceDirectorySet.set(sourceDirectorySetVMF)
-                        vmfTask._outputDirectoryModelDef = outputDirectoryModelDef;
-                        vmfTask._vmfClassPath = resolveClassPath.call();
-                    }
-                });
+                    public void execute(SourceSet sourceSet) {
+
+                        // For each source set we will:
+
+                        // 0) Create a 'vmfCompile' configuration that contains the dependencies to vmf-core and
+                        // potentially other dependencies needed to compile the model definitions
+
+                        String configName = sourceSet.getTaskName("vmfCompile", "");
+
+                        Dependency dep1 = project.dependencies.create(
+                                "eu.mihosoft.vmf:vmf:$VMF_VERSION")
+                        Dependency dep2 = project.dependencies.create(
+                                "eu.mihosoft.vmf:vmf-runtime:$VMF_VERSION")
+                        def conf = project.configurations.maybeCreate(configName)
+                        conf.defaultDependencies { deps ->
+                            deps.add(dep1)
+                            deps.add(dep2)
+                        }
+
+                        // 1) Add a new 'vmf' virtual directory mapping
+                        final VMFSourceVirtualDirectoryImpl vmfDirectoryDelegate =
+                                new VMFSourceVirtualDirectoryImpl(
+                                        ((DefaultSourceSet) sourceSet).getDisplayName(),
+                                        sourceDirectorySetFactory
+                                );
+
+                        // deprecated and maybe even removed
+//                        new DslObject(sourceSet).getConvention().getPlugins().put(
+//                                VMFSourceVirtualDirectory.NAME, vmfDirectoryDelegate
+//                        );
+
+                        // Get the extensions container of the source set
+                        def extensions = sourceSet.getExtensions()
+
+                        // Add the custom object as a named, typed extension
+                        // The name is "VMFSourceVirtualDirectory" and the object is vmfDirectoryDelegate
+                        extensions.add(VMFSourceVirtualDirectory.NAME, vmfDirectoryDelegate)
+
+                        // 1.5 Add the source directory set 'vmf' to the source set
+                        final String srcDir = "src/" + sourceSet.getName() + "/vmf";
+                        SourceDirectorySet sourceDirectorySetVMF = vmfDirectoryDelegate.getVMF();
+                        sourceDirectorySetVMF.srcDir(srcDir);
+                        sourceSet.getAllSource().source(sourceDirectorySetVMF);
+
+                        // 2) Create a VMFTask for this sourceSet following the gradle
+                        //    naming conventions via call to sourceSet.getTaskName()
+                        final String taskName = sourceSet.getTaskName("vmfGenModelSources", "");
+
+                        // 3) Set up the VMF output directories (adding to javac inputs!)
+                        final String outputDirectoryName =
+                                project.getBuildDir().absolutePath + "/generated-src/vmf-" + sourceSet.getName();
+                        final File outputDirectory = new File(outputDirectoryName);
+                        sourceSet.getJava().srcDir(outputDirectory);
+
+                        final String outputDirectoryNameModelDef =
+                                project.getBuildDir().absolutePath + "/vmf-modeldef-compiled/vmf-" + sourceSet.getName();
+                        final File outputDirectoryModelDef = new File(outputDirectoryNameModelDef);
+
+                        final String compileModelDefTaskName = sourceSet.getTaskName("vmfCompileModelDef", "Code");
+
+                        // 3.5) create custom JavaCompile task that compiles the model definitions in the
+                        //      'vmf' SourceDirectorySet and creates the class files needed by the VMF.generate()
+                        //      task
+
+                        // resolve dependencies for task that compiles model definitions
+                        FileCollection vmfClassPath
+
+                        Closure<FileCollection> resolveClassPath = {
+                            if (vmfClassPath == null) {
+                                vmfClassPath = project.files(project.configurations.getByName(configName).resolve());
+                            }
+
+                            return vmfClassPath
+                        }
+
+                        JavaCompile compileVMFModelDefTask = project.task(compileModelDefTaskName, type: JavaCompile) {
+                            source = sourceDirectorySetVMF
+                            classpath = project.configurations.getByName(configName)
+                            destinationDirectory = outputDirectoryModelDef
+                            // dependencyCacheDir = file('.')
+                            // sourceCompatibility = '1.7'
+                            // targetCompatibility = '1.7'
+                        }
+
+                        CompileVMFTask vmfTask = project.getTasks().register(
+                                taskName, CompileVMFTask.class, new Action<CompileVMFTask>() {
+                            @Override
+                            void execute(CompileVMFTask vmfTask) {
+                                // 4) Set up convention mapping for default sources (allows user to not have to specify)
+                                //    and set up a task description
+                                vmfTask.setDescription(
+                                        "Generates Java Code for VMF models defined in the "
+                                                + sourceSet.getName() + " source set."
+                                );
+                                vmfTask.group = "vmf"
+                                vmfTask._inputFiles = vmfDirectoryDelegate.getVMF() as FileCollection;
+                                vmfTask._outputFolder = outputDirectory;
+                                vmfTask._sourceSetCompileClassPath = sourceSet.compileClasspath;
+                                vmfTask._sourceDirectorySet.set(sourceDirectorySetVMF)
+                                vmfTask._outputDirectoryModelDef = outputDirectoryModelDef;
+                                vmfTask._vmfClassPath = resolveClassPath.call();
+                            }
+                        }).get();
 
 //                // resolve classpath after it's initialized
 //                // TODO check whether this is still valid and necessary for Gradle >= 7
@@ -281,42 +301,46 @@ class VMFPlugin implements Plugin<Project> {
 //                    vmfTask.vmfClassPath = resolveClassPath.call();
 //                }
 
-                vmfTask.dependsOn(compileVMFModelDefTask)
+                        vmfTask.dependsOn(compileVMFModelDefTask)
 
-                // 5) register fact that vmf should be run before compiling
-                project.tasks.getByName(sourceSet.getCompileJavaTaskName()).dependsOn(taskName)
+                        // 5) register fact that vmf should be run before compiling
+                        project.tasks.getByName(sourceSet.getCompileJavaTaskName()).dependsOn(taskName)
 
-                final String cleanTaskName = sourceSet.getTaskName("vmfClean", "");
+                        final String cleanTaskName = sourceSet.getTaskName("vmfClean", "");
 
-                // 6) clean the generated code and vmf model
-                project.task(cleanTaskName, group: 'vmf',
-                        description: 'Cleans generated VMF/Java code and the corresponding .class-Files.') {
-                    doLast {
-                        outputDirectory.listFiles().each {
-                            f -> f.deleteDir()
+                        // 6) clean the generated code and vmf model
+                        project.tasks.register(cleanTaskName) { task ->
+                            // Set metadata *inside* the closure
+                            task.group = 'vmf'
+                            task.description = 'Cleans generated VMF/Java code and the corresponding .class-Files.'
+                            doLast {
+                                outputDirectory.listFiles().each {
+                                    f -> f.deleteDir()
+                                }
+                                outputDirectoryModelDef.listFiles().each {
+                                    f -> f.deleteDir()
+                                }
+                            }
                         }
-                        outputDirectoryModelDef.listFiles().each {
-                            f -> f.deleteDir()
+
+                        // we optionally add the 'vmf' source roots to the idea module
+                        // (in addition to adding them to gradle)
+                        // and we mark generated folders (allows intellij to detect them as generated code)
+                        if (project.hasProperty("vmfPluginIntelliJIntegration")
+                                && project.property("vmfPluginIntelliJIntegration")) {
+                            // 7) register source set for idea plugin
+                            project.idea {
+                                module {
+                                    // add the already(!) added vmf src dir for intellij
+                                    sourceDirs += sourceSet.vmf.vmf.srcDirs
+
+                                    // add the already(!) added vmf gen output src dir for intellij
+                                    generatedSourceDirs += outputDirectory
+                                }
+                            }
                         }
                     }
-                }
-
-                // we optionally add the 'vmf' source roots to the idea module
-                // (in addition to adding them to gradle)
-                // and we mark generated folders (allows intellij to detect them as generated code)
-                if (project.hasProperty("vmfPluginIntelliJIntegration")
-                        && project.property("vmfPluginIntelliJIntegration")) {
-                    // 7) register source set for idea plugin
-                    project.idea {
-                        module {
-                            // add the already(!) added vmf src dir for intellij
-                            sourceDirs += sourceSet.vmf.srcDirs
-
-                            // add the already(!) added vmf gen output src dir for intellij
-                            generatedSourceDirs += outputDirectory
-                        }
-                    }
-                }
+                });
             }
         });
 
@@ -360,7 +384,7 @@ class CompileVMFTask extends DefaultTask {
 
         // directory set
         println(" -> directories:")
-        for(File f : _sourceDirectorySet.get().srcDirs) {
+        for (File f : _sourceDirectorySet.get().srcDirs) {
             println("   --> dir:  " + f)
         }
 //

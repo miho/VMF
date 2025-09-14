@@ -14,8 +14,13 @@ apply plugin: 'java-library'
 apply from: 'gradle/publishing.gradle'
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
 }
 
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'

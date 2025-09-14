@@ -35,9 +35,19 @@ idea {
     }
 }
 
+//java {
+//    sourceCompatibility = JavaVersion.VERSION_11
+//    targetCompatibility = JavaVersion.VERSION_11
+//}
+
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 11
 }
 
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
@@ -52,7 +62,7 @@ if (!hasProperty('mainClass')) {
 }
 
 wrapper {
-    gradleVersion = '8.14.2'
+    gradleVersion = '9.0.0'
 }
 
 repositories {
