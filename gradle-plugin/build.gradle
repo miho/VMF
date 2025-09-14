@@ -1,5 +1,5 @@
 plugins {
-    id "com.gradle.plugin-publish" version "0.11.0"
+    id "com.gradle.plugin-publish" version "2.0.0"
     id 'com.github.hierynomus.license' version '0.16.1'
     id 'maven-publish'
     id 'net.nemerosa.versioning' version '3.0.0'
@@ -40,20 +40,35 @@ dependencies {
     testImplementation gradleTestKit()
 }
 
-// The configuration example below shows the minimum required properties
-// configured to publish your plugin to the plugin portal
-pluginBundle {
-    group = ext.publishingInfo.groupId
-    version = ext.publishingInfo.versionId
+//// The configuration example below shows the minimum required properties
+//// configured to publish your plugin to the plugin portal
+//pluginBundle {
+//    group = ext.publishingInfo.groupId
+//    version = ext.publishingInfo.versionId
+//    website = 'https://github.com/miho/VMF-Gradle-Plugin'
+//    vcsUrl = 'https://github.com/miho/VMF-Gradle-Plugin'
+//    description = 'Gradle VMF plugin'
+//    tags = ['vmf', 'modeling framework']
+//
+//    plugins {
+//        vmfPlugin {
+//            id = 'eu.mihosoft.vmf'
+//            displayName = 'Gradle VMF plugin'
+//        }
+//    }
+//}
+
+gradlePlugin {
     website = 'https://github.com/miho/VMF-Gradle-Plugin'
-    vcsUrl = 'https://github.com/miho/VMF-Gradle-Plugin'
-    description = 'Gradle VMF plugin'
-    tags = ['vmf', 'modeling framework']
+    vcsUrl  = 'https://github.com/miho/VMF-Gradle-Plugin'
 
     plugins {
         vmfPlugin {
             id = 'eu.mihosoft.vmf'
+            implementationClass = 'eu.mihosoft.vmf.gradle.plugin.VMFPlugin' // <- plugin class name
             displayName = 'Gradle VMF plugin'
+            description = 'Gradle VMF plugin'
+            tags.set(['vmf', 'modeling framework']) // note the .set(...)
         }
     }
 }

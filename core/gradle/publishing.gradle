@@ -97,7 +97,7 @@ publishing {
 //        }
         maven {
             name = "MavenCentral"
-            // FIX: don't assign to `url` when declaring the vars
+
             def releasesRepoUrl  = "https://ossrh-staging-api.central.sonatype.com/service/local/staging/deploy/maven2/"
             def snapshotsRepoUrl = "https://central.sonatype.com/repository/maven-snapshots/"
 
@@ -120,16 +120,42 @@ publishing {
             url = uri("${buildDir}/artifacts").toURL()
         }
     }
+//    publications {
+//        mavenJava(MavenPublication) {
+//            groupId publishingInfo.groupId
+//            artifactId publishingInfo.artifactId
+//            version publishingInfo.versionId
+//            from components.java
+//            artifact sourcesJar
+//            artifact javadocJar
+//
+//            pom.withXml {
+//                def root = asNode()
+//                root.appendNode 'description', publishingInfo.desc
+//                root.children().last() + pomConfig
+//            }
+//        }
+//    }
 }
 
+if(
+        project.findProperty("signing.secretKeyRingFile")
+                && project.findProperty("signing.password")
+                && project.findProperty("signing.keyId")
+) {
 
-if (project.hasProperty("signing.secretKeyRingFile")) {
     signing {
-        sign publishing.publications.mavenJava
+        sign publishing.publications
     }
+
 } else {
-    project.logger.warn("> Signing is skipped. To activate it, provide 'signing.secretKeyRingFile', 'signing.password', and 'signing.keyId' in your gradle.properties.")
+    println "> skipping signing, provide\n" +
+            "  - 'signing.secretKeyRingFile'\n" +
+            "  - 'signing.password'\n" +
+            "  - 'signing.keyId'\n" +
+            " to activate it\n"
 }
+
 
 tasks.register('releaseToCentralPortal') {
     group = 'publishing'
