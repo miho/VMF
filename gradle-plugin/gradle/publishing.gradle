@@ -234,6 +234,17 @@ if(
             " to activate it\n"
 }
 
+import org.gradle.plugins.signing.Sign
+
+def isMavenLocalBuild = gradle.startParameter.taskNames.any {
+    it.equalsIgnoreCase('publishToMavenLocal') || it.endsWith('ToMavenLocal')
+}
+
+tasks.withType(Sign).configureEach {
+    // This prevents sign* tasks (including signPluginMavenPublication) from running at all
+    onlyIf { !isMavenLocalBuild }
+}
+
 tasks.register('releaseToCentralPortal') {
     group = 'publishing'
     description = 'Hands off the last non-SNAPSHOT upload to the Central Portal so it appears under Deployments.'
