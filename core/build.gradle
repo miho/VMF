@@ -1,17 +1,13 @@
 import java.text.SimpleDateFormat
 
-plugins {
-    id 'com.github.hierynomus.license' version '0.16.1'
-    id 'maven-publish'
-    id 'net.nemerosa.versioning' version '3.0.0'
-    id 'com.github.ben-manes.versions' version '0.44.0'
-}
-
 ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
 
 apply plugin: 'java-library'
-apply from: 'gradle/publishing.gradle'
+
+//afterEvaluate {
+apply from: "gradle/publishing.gradle"
+//}
 
 java {
     toolchain {
