@@ -15,7 +15,7 @@ file(new File(projectDir.parentFile,"config/common.properties")).withInputStream
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 }
 
