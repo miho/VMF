@@ -45,7 +45,7 @@ dependencies {
 //pluginBundle {
 //    group = ext.publishingInfo.groupId
 //    version = ext.publishingInfo.versionId
-//    website = 'https://github.com/miho/VMF-Gradle-Plugin'
+//    website = 'https://github.com/miho/VMF'
 //    vcsUrl = 'https://github.com/miho/VMF-Gradle-Plugin'
 //    description = 'Gradle VMF plugin'
 //    tags = ['vmf', 'modeling framework']
@@ -59,8 +59,8 @@ dependencies {
 //}
 
 gradlePlugin {
-    website = 'https://github.com/miho/VMF-Gradle-Plugin'
-    vcsUrl  = 'https://github.com/miho/VMF-Gradle-Plugin'
+    website = 'https://github.com/miho/VMF'
+    vcsUrl  = 'https://github.com/miho/VMF'
 
     plugins {
         vmfPlugin {
