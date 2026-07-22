@@ -403,10 +403,15 @@ public class VMFJacksonModule extends SimpleModule {
                                 method.invoke(builder, paramValue);
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            // do not swallow: a field that fails to deserialize would otherwise be
+                            // silently dropped, causing hard-to-diagnose data loss. Propagate so the
+                            // enclosing handler reports it as an IOException.
+                            throw new RuntimeException(
+                                    "Failed to deserialize field '" + fieldName + "'", e);
                         }
                     } else {
-                        // System.out.println("No method found for field: " + fieldName);
+                        // no builder method matches this field (e.g. the '@vmf-type' discriminator or
+                        // an unknown/removed property); such fields are intentionally ignored.
                     }
                 });
 

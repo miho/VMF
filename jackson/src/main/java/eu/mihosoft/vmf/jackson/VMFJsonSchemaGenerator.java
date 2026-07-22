@@ -6,6 +6,7 @@ import eu.mihosoft.vmf.runtime.core.*;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -23,6 +24,11 @@ public class VMFJsonSchemaGenerator {
 
     private final Map<String, String> typeAliases        = new HashMap<>();
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
+
+    /** All types of the model currently being generated. Captured from the reflectable root so
+     *  subtypes can be resolved even for {@code @InterfaceOnly} element types, which cannot
+     *  reflect on themselves. */
+    private List<Type> allModelTypes = Collections.emptyList();
 
     /**
      * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
@@ -148,21 +154,31 @@ public class VMFJsonSchemaGenerator {
      * @return the generated schema as a map
      */
     private Map<String, Object> _generateSchema(Class<? extends VObject> modelClass) {
-        Map<String, Object> schema = new HashMap<>();
+        Map<String, Object> schema = new LinkedHashMap<>();
         schema.put("$schema", "http://json-schema.org/draft-07/schema#");
         schema.put("title", modelClass.getSimpleName());
         schema.put("type", "object");
 
-        Map<String, Object> properties = new HashMap<>();
+        Map<String, Object> properties = new LinkedHashMap<>();
         schema.put("properties", properties);
 
         Type type = VMFTypeUtils.forClass(modelClass);
 
+        // capture the full type list up-front so polymorphic properties can resolve their
+        // concrete subtypes even when the declared element type is @InterfaceOnly.
+        this.allModelTypes = type.reflect().allTypes();
+
         VObject prop = createPrototypeIfPossible(modelClass);
 
+        int order = 0;
         for (Property property : prop!=null?prop.vmf().reflect().properties():type.reflect().properties()) {
             if (!isToBeExcludedFromSerialization(property)) {
-                properties.put(getFieldNameForProperty(property), getPropertySchema(property));
+                Map<String, Object> propertySchema = getPropertySchema(property);
+                // preserve VMF property/traversal order in the generated schema so editors
+                // (and stable test output) render fields in the order they are declared.
+                propertySchema.putIfAbsent("propertyOrder", order);
+                properties.put(getFieldNameForProperty(property), propertySchema);
+                order++;
             }
         }
 
@@ -211,7 +227,7 @@ public class VMFJsonSchemaGenerator {
      * @return the generated schema
      */
     private Map<String, Object> getPropertySchema(Property property) {
-        Map<String, Object> propertySchema = new HashMap<>();
+        Map<String, Object> propertySchema = new LinkedHashMap<>();
 
         if (isToBeExcludedFromSerialization(property)) {
             return propertySchema;
@@ -222,33 +238,14 @@ public class VMFJsonSchemaGenerator {
             // Handle polymorphic types
             Type elementType = VMFTypeUtils.forClass(property.getType().getName());
 
-            if (!VMFTypeUtils.getSubTypes(elementType).isEmpty()) {
+            if (!subTypesOf(elementType).isEmpty()) {
 
-                // TODO check if choices between different types are correctly detected
-
-                var typesToChooseFrom = VMFTypeUtils.getSubTypes(elementType);
+                var typesToChooseFrom = subTypesOf(elementType);
                 typesToChooseFrom.add(elementType);
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
-                propertySchema.put("oneOf", typesToChooseFrom.stream().map(subType -> {
-                    Map<String, Object> typeSchema = new HashMap<>();
-
-                    // check type aliases
-                    var typeAlias = getTypeAlias(subType);
-
-                    typeSchema.put("$ref", "#/definitions/" + typeAlias);
-
-                    // if subType equals the element type, we don't need to add the @vmf-type property
-//                    if (!subType.equals(elementType))
-                    {
-                        typeSchema.put("properties", Map.of("@vmf-type",
-                                Map.of("type", "string", "enum",
-                                        List.of(typeAlias), "readOnly", true))
-                        );
-                        typeSchema.put("required", new String[]{"@vmf-type"});
-                    }
-                    return typeSchema;
-                }).toArray());
+                propertySchema.put("oneOf", typesToChooseFrom.stream()
+                        .map(subType -> polymorphicOption(getTypeAlias(subType))).toArray());
             } else {
                 var typeAlias = getTypeAlias(property.getType());
                 propertySchema.put("$ref", "#/definitions/" + typeAlias);
@@ -256,52 +253,22 @@ public class VMFJsonSchemaGenerator {
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isListType()) {
             propertySchema.put("type", "array");
-            Map<String, Object> itemsSchema = new HashMap<>();
+            Map<String, Object> itemsSchema = new LinkedHashMap<>();
 
             // Handle polymorphic types with oneOf and add @vmf-type as a required property
             Type elementType = VMFTypeUtils.forClass(property.getType().getElementTypeName().get());
 
-            if(elementType.getName().contains("Condition")) {
-
-                System.out.println("!!! 1 reached Condition: " + elementType);
-
-                var subTypes = VMFTypeUtils.getSubTypes(elementType);
-
-                System.out.println("!!! subTypes.size() " + subTypes.size());
-
-                for(Type subType : subTypes) {
-                    System.out.println("!!! subType " + subType.getName());
-                }
-
-            }
-
             if (isValueType(elementType)) {
                 itemsSchema.put("type", mapValueType(elementType));
             } else
-            if (!VMFTypeUtils.getSubTypes(elementType).isEmpty()) {
+            if (!subTypesOf(elementType).isEmpty()) {
 
-                var typesToChooseFrom = VMFTypeUtils.getSubTypes(elementType);
+                var typesToChooseFrom = subTypesOf(elementType);
                 typesToChooseFrom.add(elementType);
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
-                itemsSchema.put("oneOf", typesToChooseFrom.stream().map(subType -> {
-
-                    var typeAlias = getTypeAlias(subType);
-
-                    Map<String, Object> typeSchema = new HashMap<>();
-                    typeSchema.put("$ref", "#/definitions/" + typeAlias);
-
-                    // if subType equals the element type, we don't need to add the @vmf-type property
-//                    if (!subType.equals(elementType))
-                    {
-                        typeSchema.put("properties", Map.of("@vmf-type",
-                                Map.of("type", "string", "enum",
-                                        List.of(typeAlias), "readOnly", true))
-                        );
-                        typeSchema.put("required", new String[]{"@vmf-type"});
-                    }
-                    return typeSchema;
-                }).toArray());
+                itemsSchema.put("oneOf", typesToChooseFrom.stream()
+                        .map(subType -> polymorphicOption(getTypeAlias(subType))).toArray());
             } else {
                 var typeAlias = getTypeAlias(elementType);
                 itemsSchema.put("$ref", "#/definitions/" + typeAlias);
@@ -327,19 +294,23 @@ public class VMFJsonSchemaGenerator {
      * @return the generated definitions
      */
     private Map<String, Object> generateDefinitionsForModelRoot(Type type) {
-        Map<String, Object> definitions = new HashMap<>();
+        Map<String, Object> definitions = new LinkedHashMap<>();
         for (Type subType : type.reflect().allTypes()) {
             if (subType.isInterfaceOnly()) continue;
 
-            Map<String, Object> definition = new HashMap<>();
+            Map<String, Object> definition = new LinkedHashMap<>();
             definition.put("type", "object");
 
             VObject propParent = createPrototypeIfPossible(subType);
 
-            Map<String, Object> properties = new HashMap<>();
+            Map<String, Object> properties = new LinkedHashMap<>();
+            int order = 0;
             for (Property property : propParent!=null?propParent.vmf().reflect().properties() : subType.reflect().properties()) {
                 if (!isToBeExcludedFromSerialization(property)) {
-                    properties.put(getFieldNameForProperty(property), getPropertySchema(property));
+                    Map<String, Object> propertySchema = getPropertySchema(property);
+                    propertySchema.putIfAbsent("propertyOrder", order);
+                    properties.put(getFieldNameForProperty(property), propertySchema);
+                    order++;
                 }
             }
 
@@ -453,6 +424,57 @@ public class VMFJsonSchemaGenerator {
     private static String getFieldNameForProperty(Property p) {
         var a = p.annotationByKey("vmf:jackson:rename");
         return a.isPresent() ? a.get().getValue() : p.getName();
+    }
+
+    /**
+     * Resolves the concrete subtypes of {@code elementType} by scanning all types of the model
+     * being generated. Unlike {@link VMFTypeUtils#getSubTypes(Type)} this also works when
+     * {@code elementType} is an {@code @InterfaceOnly} type, which cannot reflect on itself to
+     * discover its subtypes -- the case for polymorphic properties whose declared type is an
+     * interface (e.g. {@code Update[]} implemented by {@code StateUpdate}).
+     *
+     * @param elementType the (possibly interface-only) declared element type
+     * @return the concrete and abstract subtypes of {@code elementType} (mutable list)
+     */
+    private List<Type> subTypesOf(Type elementType) {
+        String name = elementType.getName();
+        List<Type> result = allModelTypes.stream()
+                // interface-only types have no prototype, so superTypes() would throw on them;
+                // they are never instantiable polymorphic choices anyway. A concrete subtype
+                // still reports its interface-only parents by name, so matching stays correct.
+                .filter(t -> !t.isInterfaceOnly())
+                .filter(t -> t.superTypes().stream().anyMatch(s -> s.getName().equals(name)))
+                .collect(Collectors.toList());
+        // fall back to the reflective lookup if the model type list is unavailable
+        return result.isEmpty() ? VMFTypeUtils.getSubTypes(elementType) : result;
+    }
+
+    /**
+     * Builds a single {@code oneOf} option for a polymorphic property: a reference to the
+     * subtype definition combined via {@code allOf} with a required {@code @vmf-type}
+     * discriminator fixed to the subtype's alias.
+     *
+     * <p>The discriminator must be combined via {@code allOf} rather than placed as a sibling
+     * of {@code $ref}: under JSON Schema draft-07 any keyword next to {@code $ref} is ignored,
+     * so a sibling discriminator would be silently dropped by validators. This is what
+     * previously made "options about extending types" not work in the generated schema.</p>
+     *
+     * @param typeAlias the alias (or fully qualified name) of the subtype
+     * @return the schema fragment describing this polymorphic choice
+     */
+    private Map<String, Object> polymorphicOption(String typeAlias) {
+        Map<String, Object> ref = new LinkedHashMap<>();
+        ref.put("$ref", "#/definitions/" + typeAlias);
+
+        Map<String, Object> discriminator = new LinkedHashMap<>();
+        discriminator.put("properties", Map.of("@vmf-type",
+                Map.of("type", "string", "enum", List.of(typeAlias), "readOnly", true)));
+        discriminator.put("required", new String[]{"@vmf-type"});
+
+        Map<String, Object> option = new LinkedHashMap<>();
+        option.put("title", typeAlias);
+        option.put("allOf", new Object[]{ref, discriminator});
+        return option;
     }
 
     private String getTypeAlias(Type type) {
