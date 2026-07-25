@@ -165,14 +165,22 @@ public class Model {
                 }
                 for (Prop p: t.getProperties()) {
                     if(p.getType()!=null && p.getType().isImmutable()) {
+                        // NOTE: this branch runs while validating a *mutable* type 't'; here it is
+                        // the referenced type 'p.getType()' that is immutable (see the guard above).
+                        // The immutable type is therefore the property's target, so it is the message
+                        // subject and its container/contained role is the one it would play towards
+                        // 't'. (The mirror case, where the owner 't' itself is immutable, is reported
+                        // by the t.isImmutable() branch below.)
                         if (p.isContainer()) {
-                            throw new RuntimeException("Immutable type '" + t.getFullTypeName()
-                                    + "' cannot be contained in type '"
-                                    + p.getType().getFullTypeName() + "' (parameter: '" + p.getName()+"').");
-                        } else if (p.isContained()) {
-                            throw new RuntimeException("Immutable type '" + t.getFullTypeName()
+                            // p.getType() is t's container -> the immutable type would be the container
+                            throw new RuntimeException("Immutable type '" + p.getType().getFullTypeName()
                                     + "' cannot be container of type '"
-                                    + p.getType().getFullTypeName() + "' (parameter: '" + p.getName()+"').");
+                                    + t.getFullTypeName() + "' (parameter: '" + p.getName()+"').");
+                        } else if (p.isContained()) {
+                            // p.getType() is contained by t -> the immutable type would be contained
+                            throw new RuntimeException("Immutable type '" + p.getType().getFullTypeName()
+                                    + "' cannot be contained in type '"
+                                    + t.getFullTypeName() + "' (parameter: '" + p.getName()+"').");
                         }
                     }
 
