@@ -2,7 +2,6 @@ package eu.mihosoft.vmf.jackson.test.story_graph_01.json_spec_test_01;
 
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.jackson.VMFJsonSchemaGenerator;
 
@@ -26,7 +25,7 @@ public class SchemaTest01 {
     private JsonNode generateSchema() {
         var schema = VMFJsonSchemaGenerator.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
                 .generateSchema(StoryNode.class);
-        return new ObjectMapper().valueToTree(schema);
+        return VMFJsonSchemaGenerator.createObjectMapper().valueToTree(schema);
     }
 
     /** Collects the discriminator type names offered by a polymorphic {@code oneOf} node. */

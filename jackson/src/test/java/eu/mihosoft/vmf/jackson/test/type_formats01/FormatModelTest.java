@@ -1,7 +1,6 @@
 package eu.mihosoft.vmf.jackson.test.type_formats01;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.jackson.VMFJsonSchemaGenerator;
 import org.junit.jupiter.api.Test;
@@ -23,7 +22,7 @@ class FormatModelTest {
         var schema = VMFJsonSchemaGenerator.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
                 .withTypeAlias("pet", Pet.class.getName())
                 .generateSchema(FormatModel01.class);
-        return new ObjectMapper().valueToTree(schema);
+        return VMFJsonSchemaGenerator.createObjectMapper().valueToTree(schema);
     }
 
     @Test

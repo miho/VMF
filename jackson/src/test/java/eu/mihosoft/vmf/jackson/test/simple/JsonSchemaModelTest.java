@@ -29,7 +29,7 @@ public class JsonSchemaModelTest {
                 .withTypeAlias("employee", Employee.class.getName())
                 .withTypeAlias("my-model", MyModel.class.getName())
                 .generateSchema(MyModel.class);
-        return new ObjectMapper().valueToTree(schema);
+        return VMFJsonSchemaGenerator.createObjectMapper().valueToTree(schema);
     }
 
     @Test
@@ -107,5 +107,24 @@ public class JsonSchemaModelTest {
         // Employee adds employeeId
         assertTrue(schema.at("/definitions/employee/properties/employeeId").isObject(),
                 "employee-specific property must be present");
+    }
+
+    @Test
+    void preconfiguredObjectMapperPreservesSchemaOrder() throws Exception {
+        var schema = VMFJsonSchemaGenerator.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+                .withTypeAlias("person", Person.class.getName())
+                .withTypeAlias("employee", Employee.class.getName())
+                .generateSchema(MyModel.class);
+
+        // the generator exposes a preconfigured mapper for processing the schema map (issue #74)
+        ObjectMapper mapper = VMFJsonSchemaGenerator.createObjectMapper();
+        String json = mapper.writeValueAsString(schema);
+
+        // insertion order must be preserved (not sorted alphabetically): the top-level
+        // 'properties' is declared before 'definitions'.
+        assertTrue(json.indexOf("\"properties\"") < json.indexOf("\"definitions\""),
+                "preconfigured mapper must preserve schema insertion order");
+        // the produced JSON must be valid and round-trippable
+        assertEquals("object", mapper.readTree(json).get("type").asText());
     }
 }

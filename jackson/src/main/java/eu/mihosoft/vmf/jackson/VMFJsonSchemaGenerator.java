@@ -2,6 +2,7 @@ package eu.mihosoft.vmf.jackson;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import eu.mihosoft.vmf.runtime.core.*;
 
 import java.util.Collections;
@@ -71,6 +72,23 @@ public class VMFJsonSchemaGenerator {
     }
 
     /**
+     * Creates an {@link ObjectMapper} preconfigured for reading and writing the schema map
+     * returned by {@link #generateSchema(Class)}. The mapper preserves the insertion order of the
+     * schema (which encodes property/declaration order via {@code propertyOrder}) instead of
+     * sorting map entries alphabetically, so callers that turn the schema map into a string or a
+     * {@code JsonNode} get a stable, order-preserving result.
+     *
+     * @return a new, preconfigured object mapper for processing the schema map
+     */
+    public static ObjectMapper createObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+        // the schema is built from LinkedHashMaps and carries an explicit "propertyOrder"; keep
+        // that order rather than re-sorting map entries alphabetically.
+        mapper.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, false);
+        return mapper;
+    }
+
+    /**
      * Generate a JSON schema for the specified model class. The schema is generated based on the model class and its
      * properties. The schema is generated in draft-07 format.
      * @param modelClass the model class for which to generate the schema
@@ -80,7 +98,7 @@ public class VMFJsonSchemaGenerator {
         var schema = generateSchema(modelClass);
 
         try {
-            return new ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(schema);
+            return createObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(schema);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
