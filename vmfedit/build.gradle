@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 plugins {
     id 'application'
     id 'org.openjfx.javafxplugin' version '0.1.0'
-    id 'org.beryx.jlink' version '2.25.0'
+    id 'org.beryx.jlink' version '4.0.1'
     id 'com.github.node-gradle.node' version '3.3.0'
 
     id 'com.github.hierynomus.license' version '0.16.1'
