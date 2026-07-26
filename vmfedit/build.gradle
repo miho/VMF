@@ -41,15 +41,17 @@ ext {
     junitVersion = '5.8.2'
 }
 
-sourceCompatibility = '21'
-targetCompatibility = '21'
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
 wrapper {
-    gradleVersion = '8.14.2'
+    gradleVersion = '9.0.0'
 }
 
 application {
