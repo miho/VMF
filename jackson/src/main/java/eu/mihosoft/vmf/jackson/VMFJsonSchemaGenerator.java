@@ -13,8 +13,22 @@ import java.util.stream.Collectors;
 import static eu.mihosoft.vmf.jackson.VMFTypeUtils.getBuilderClass;
 
 /**
- * A JSON schema generator for VMF models. This class can be used to generate a JSON schema for a VMF model class.
- * The schema is generated based on the model class and its properties. The schema is generated in draft-07 format.
+ * A JSON schema generator for VMF models. This class generates a draft-07 JSON schema for a VMF
+ * model class based on the model's types and properties.
+ *
+ * <p>The generator is experimental and cannot be instantiated directly: create it via the
+ * {@link #newInstance(VMFJacksonModule.RUNTIME_TYPE)} factory method, passing
+ * {@link VMFJacksonModule.RUNTIME_TYPE#EXPERIMENTAL}.</p>
+ *
+ * <p>Example usage:
+ * <pre>{@code
+ * String schema = VMFJsonSchemaGenerator.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+ *          .withTypeAlias("person", Person.class.getName())
+ *          .withTypeAlias("employee", Employee.class.getName())
+ *          .generateSchemaAsString(MyModel.class);
+ * }</pre>
+ * <p>Type aliases control the names used for the type definitions and {@code @vmf-type}
+ * discriminators in the generated schema.</p>
  */
 public class VMFJsonSchemaGenerator {
     public enum RUNTIME_TYPE {
@@ -25,14 +39,15 @@ public class VMFJsonSchemaGenerator {
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
 
     /**
-     * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
-     * of an object during serialization/deserialization. The type alias is used to map a type name to a class name.
+     * Adds a type alias to this generator. A type alias maps a short type name to a fully qualified
+     * class name and controls the name used for that type's definition and {@code @vmf-type}
+     * discriminator in the generated schema.
      *
      * <p>Example:
      * <pre>{@code
-     * module.addTypeAlias("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * generator.addTypeAlias("person", Person.class.getName());
      * }</pre>
-     * <p>This example adds a type alias {@code person} that maps to the class {@code eu.mihosoft.vmf.jackson.test.Person}.
+     * <p>This adds the type alias {@code person} that maps to the {@code Person} class.
      */
     public void addTypeAlias(String alias, String className) {
         typeAliases.put(alias, className);
@@ -81,14 +96,14 @@ public class VMFJsonSchemaGenerator {
     }
 
     /**
-     * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
-     * of an object during serialization/deserialization. The type alias is used to map a type name to a class name.
+     * Adds a type alias to this generator and returns the generator for chaining. See
+     * {@link #addTypeAlias(String, String)}.
      *
      * <p>Example:
      * <pre>{@code
-     * module.addTypeAlias("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * generator.withTypeAlias("person", Person.class.getName())
+     *          .withTypeAlias("employee", Employee.class.getName());
      * }</pre>
-     * <p>This example adds a type alias {@code person} that maps to the class {@code eu.mihosoft.vmf.jackson.test.Person}.
      */
     public VMFJsonSchemaGenerator withTypeAlias(String alias, String className) {
         addTypeAlias(alias, className);
@@ -96,17 +111,16 @@ public class VMFJsonSchemaGenerator {
     }
 
     /**
-     * Add multiple type aliases to the module. This method is used to add multiple type aliases at once.
+     * Adds multiple type aliases to this generator at once and returns the generator for chaining.
      * <p>Example:
      * <pre>{@code
      * Map<String, String> typeAliases = new HashMap<>();
-     * typeAliases.put("person", "eu.mihosoft.vmf.jackson.test.Person");
-     * typeAliases.put("employee", "eu.mihosoft.vmf.jackson.test.Employee");
-     * module.addTypeAliases(typeAliases);
+     * typeAliases.put("person", Person.class.getName());
+     * typeAliases.put("employee", Employee.class.getName());
+     * generator.withTypeAliases(typeAliases);
      * }</pre></p>
-     * <p>This example adds two type aliases {@code person} and {@code employee} that map to the classes</p>
-     * @param typeAliases the type aliases to add
-     * @return this module
+     * @param aliases the type aliases to add
+     * @return this generator
      */
     public VMFJsonSchemaGenerator withTypeAliases(Map<String, String> aliases) {
         if (aliases != null) {
@@ -116,8 +130,10 @@ public class VMFJsonSchemaGenerator {
     }
 
     /**
-     * Create a new instance of VMFJacksonModule.
-     * @return a new instance of VMFJacksonModule
+     * Creates a new experimental instance of the schema generator.
+     * @param runtimeType must be {@link VMFJacksonModule.RUNTIME_TYPE#EXPERIMENTAL} to acknowledge
+     *                    that this is experimental software
+     * @return a new schema generator instance
      */
     public static VMFJsonSchemaGenerator newInstance(VMFJacksonModule.RUNTIME_TYPE runtimeType) {
         if(!VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL.equals(runtimeType)) {
@@ -129,8 +145,10 @@ public class VMFJsonSchemaGenerator {
     }
 
     /**
-     * Create a new instance of VMFJacksonModule.
-     * @return a new instance of VMFJacksonModule
+     * Always throws: the generator is experimental and must be created via
+     * {@link #newInstance(VMFJacksonModule.RUNTIME_TYPE)} with
+     * {@link VMFJacksonModule.RUNTIME_TYPE#EXPERIMENTAL}.
+     * @return never returns normally
      */
     public static VMFJsonSchemaGenerator newInstance() {
         throw new RuntimeException("Please confirm that you are using an experimental piece of software by calling" +

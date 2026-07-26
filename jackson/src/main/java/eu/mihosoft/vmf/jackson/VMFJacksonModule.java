@@ -26,14 +26,16 @@ import java.util.*;
  * <pre>{@code
  * ObjectMapper mapper = new ObjectMapper();
  *
- * mapper.registerModule(new VMFJacksonModule()
+ * mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
  *          .withTypeAlias("person", Person.class.getName())
  *          .withTypeAlias("employee", Employee.class.getName())
  *       );
  * }</pre>
  * </p>
- * <p>This example registers the module with the type aliases {@code person} and {@code employee} that map to the classes
- * {@code Person} and {@code Employee} respectively.</p>
+ * <p>The module is experimental and cannot be instantiated directly: create it via the
+ * {@link #newInstance(RUNTIME_TYPE)} factory method, passing {@link RUNTIME_TYPE#EXPERIMENTAL}.
+ * This example registers the module with the type aliases {@code person} and {@code employee}
+ * that map to the classes {@code Person} and {@code Employee} respectively.</p>
  *
  */
 public class VMFJacksonModule extends SimpleModule {
@@ -103,14 +105,16 @@ public class VMFJacksonModule extends SimpleModule {
     }
 
     /**
-     * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
-     * of an object during serialization/deserialization. The type alias is used to map a type name to a class name.
+     * Adds a type alias to the module and returns the module for chaining. A type alias maps a short
+     * type name to a fully qualified class name; it is written to and read from the {@code @vmf-type}
+     * discriminator during (de)serialization of polymorphic values.
      *
      * <p>Example:
      * <pre>{@code
-     * module.addTypeAlias("person", "eu.mihosoft.vmf.jackson.test.Person");
+     * module.withTypeAlias("person", Person.class.getName())
+     *       .withTypeAlias("employee", Employee.class.getName());
      * }</pre>
-     * <p>This example adds a type alias {@code person} that maps to the class {@code eu.mihosoft.vmf.jackson.test.Person}.
+     * <p>This adds the type alias {@code person} that maps to the {@code Person} class.
      */
     public VMFJacksonModule withTypeAlias(String alias, String className) {
         addTypeAlias(alias, className);
@@ -118,15 +122,16 @@ public class VMFJacksonModule extends SimpleModule {
     }
 
     /**
-     * Add multiple type aliases to the module. This method is used to add multiple type aliases at once.
+     * Adds multiple type aliases to the module at once and returns the module for chaining.
      * <p>Example:
      * <pre>{@code
      * Map<String, String> typeAliases = new HashMap<>();
-     * typeAliases.put("person", "eu.mihosoft.vmf.jackson.test.Person");
-     * typeAliases.put("employee", "eu.mihosoft.vmf.jackson.test.Employee");
-     * module.addTypeAliases(typeAliases);
+     * typeAliases.put("person", Person.class.getName());
+     * typeAliases.put("employee", Employee.class.getName());
+     * module.withTypeAliases(typeAliases);
      * }</pre></p>
-     * <p>This example adds two type aliases {@code person} and {@code employee} that map to the classes</p>
+     * <p>This adds two type aliases {@code person} and {@code employee} that map to the
+     * {@code Person} and {@code Employee} classes.</p>
      * @param typeAliases the type aliases to add
      * @return this module
      */
@@ -136,8 +141,10 @@ public class VMFJacksonModule extends SimpleModule {
     }
 
     /**
-     * Create a new instance of VMFJacksonModule.
-     * @return a new instance of VMFJacksonModule
+     * Creates a new experimental instance of the module.
+     * @param runtimeType must be {@link RUNTIME_TYPE#EXPERIMENTAL} to acknowledge that this is
+     *                    experimental software
+     * @return a new module instance
      */
     public static VMFJacksonModule newInstance(RUNTIME_TYPE runtimeType) {
         if(!RUNTIME_TYPE.EXPERIMENTAL.equals(runtimeType)) {
@@ -149,8 +156,9 @@ public class VMFJacksonModule extends SimpleModule {
     }
 
     /**
-     * Create a new instance of VMFJacksonModule.
-     * @return a new instance of VMFJacksonModule
+     * Always throws: the module is experimental and must be created via
+     * {@link #newInstance(RUNTIME_TYPE)} with {@link RUNTIME_TYPE#EXPERIMENTAL}.
+     * @return never returns normally
      */
     public static VMFJacksonModule newInstance() {
         throw new RuntimeException("Please confirm that you are using an experimental piece of software by calling" +
