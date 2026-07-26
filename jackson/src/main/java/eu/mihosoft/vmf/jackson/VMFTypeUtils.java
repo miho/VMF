@@ -294,10 +294,12 @@ public final class VMFTypeUtils {
      */
     public static boolean isParentOfPropContainer(Property p) {
         var a = p.annotationByKey("vmf:property:containment-info");
-        if(a.isPresent() || !p.getType().isModelType()) {
-            var c = a.get().getValue();
-            boolean contained =  c.contains("contained");
-            return contained;
+        // VMF emits this annotation on every property (value "none", "contained",
+        // "contained:<opposite>" or "container:<opposite>"). Guard the Optional so we
+        // never call get() on an absent value. A "contained" prop holds children that
+        // must be serialized; a "container" back-reference must not.
+        if (a.isPresent()) {
+            return a.get().getValue().contains("contained");
         }
         return false;
     }

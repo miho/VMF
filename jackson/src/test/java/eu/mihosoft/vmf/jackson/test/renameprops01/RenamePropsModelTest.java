@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class RenamePropsModelTest {
@@ -24,6 +25,10 @@ public class RenamePropsModelTest {
 
         String json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(model);
         System.out.println(json);
+
+        // the property must be renamed via @Annotation("vmf:jackson:rename")
+        assertTrue(json.contains("\"comPort\""), "property must be serialized as 'comPort'");
+        assertFalse(json.contains("cOMPort"), "the original property name must not leak into JSON");
 
         // deserialize
         RenamePropsModel model2 = mapper.readValue(json, RenamePropsModel.class);

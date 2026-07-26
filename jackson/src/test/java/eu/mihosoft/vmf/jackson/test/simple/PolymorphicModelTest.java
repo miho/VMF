@@ -90,9 +90,8 @@ class PolymorphicModelTest {
             var json2 = writer.writeValueAsString(model2);
             // check if json is equal to the original json
             assertEquals(json, json2);
-            System.out.println(json2);
         } catch (Exception e) {
-            e.printStackTrace();
+            Assertions.fail("re-serialization of the deserialized model failed", e);
         }
 
         // output the model as xml
