@@ -67,9 +67,9 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             // Read basic coordinates from your project-info.gradle
-            groupId publishingInfo.groupId
-            artifactId publishingInfo.artifactId
-            version publishingInfo.versionId
+            groupId = publishingInfo.groupId
+            artifactId = publishingInfo.artifactId
+            version = publishingInfo.versionId
 
             // Tell Gradle to publish the components of the 'java' project.
             // This automatically includes the main JAR, sources JAR, and javadoc JAR.
@@ -168,7 +168,7 @@ publishing {
         // --------------------------------------------------------------------------------
         maven {
             name = "BuildDir"
-            url "file:/${buildDir}/artifacts"
+            url = "file:/${layout.buildDirectory.get().asFile}/artifacts"
         }
     }
 

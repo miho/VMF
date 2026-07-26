@@ -81,7 +81,7 @@ test {
 ext.os = org.gradle.internal.os.OperatingSystem.current()
 jlink {
     version = installerVersionStr
-    imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip")
+    imageZip = project.file("${layout.buildDirectory.get().asFile}/distributions/app-${javafx.platform.classifier}.zip")
     options = ['--strip-debug', "--compress=zip-6", '--no-header-files', '--no-man-pages']
     launcher {
         name = appName
