@@ -21,7 +21,10 @@ out/
 /node_modules/
 /src/main/resources/eu/mihosoft/vmf/vmfedit/fontawesome-free/
 /src/main/resources/eu/mihosoft/vmf/vmfedit/bootstrap/
-/src/main/resources/json-editor/
+/src/main/resources/eu/mihosoft/vmf/vmfedit/json-editor/
+/src/main/resources/eu/mihosoft/vmf/vmfedit/json5/
+/src/main/resources/eu/mihosoft/vmf/vmfedit/spectre/
+/src/main/resources/eu/mihosoft/vmf/vmfedit/ace-builds/
 
 /package.json
 /package-lock.json
