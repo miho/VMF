@@ -21,9 +21,9 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             // Read basic coordinates from your project-info.gradle
-            groupId publishingInfo.groupId
-            artifactId publishingInfo.artifactId
-            version publishingInfo.versionId
+            groupId = publishingInfo.groupId
+            artifactId = publishingInfo.artifactId
+            version = publishingInfo.versionId
 
             // Tell Gradle to publish the components of the 'java' project.
             // This automatically includes the main JAR, sources JAR, and javadoc JAR.
@@ -117,7 +117,7 @@ publishing {
         // --------------------------------------------------------------------------------
         maven {
             name = "BuildDir"
-            url = uri("${buildDir}/artifacts").toURL()
+            url = uri("${layout.buildDirectory.get().asFile}/artifacts").toURL()
         }
     }
 //    publications {
@@ -161,26 +161,35 @@ tasks.register('releaseToCentralPortal') {
     group = 'publishing'
     description = 'Hands off the last non-SNAPSHOT upload to the Central Portal so it appears under Deployments.'
 
+    // capture inputs at configuration time so the doLast body does not touch
+    // Task.project at execution time (deprecated in Gradle 9, removed in 10; config-cache safe)
+    def versionId              = publishingInfo.versionId
+    def sonatypeNamespaceProp  = project.providers.gradleProperty('sonatypeNamespace')
+    def usernameProp           = project.providers.gradleProperty('mavenCentralUsername')
+    def tokenProp              = project.providers.gradleProperty('mavenCentralPassword')
+    def publishingTypeProp     = project.providers.gradleProperty('publishingType')
+    def repositoryKeyProp      = project.providers.gradleProperty('repositoryKey')
+
     doLast {
-        if (publishingInfo.versionId.endsWith('-SNAPSHOT')) {
-            println "Version '${publishingInfo.versionId}' is a SNAPSHOT. Skipping Portal hand-off."
+        if (versionId.endsWith('-SNAPSHOT')) {
+            println "Version '${versionId}' is a SNAPSHOT. Skipping Portal hand-off."
             return
         }
 
-        if (!project.hasProperty('sonatypeNamespace')) {
+        if (!sonatypeNamespaceProp.present) {
             throw new InvalidUserDataException("Provide -PsonatypeNamespace=your.namespace")
         }
-        if (!project.hasProperty('mavenCentralUsername') || !project.hasProperty('mavenCentralPassword')) {
+        if (!usernameProp.present || !tokenProp.present) {
             throw new InvalidUserDataException("Missing Central Portal token username/password.")
         }
 
-        def sonatypeNamespace = project.property('sonatypeNamespace')
-        def username = project.property('mavenCentralUsername')
-        def token    = project.property('mavenCentralPassword')
-        def publishingType = (project.findProperty('publishingType') ?: 'user_managed') as String
+        def sonatypeNamespace = sonatypeNamespaceProp.get()
+        def username = usernameProp.get()
+        def token    = tokenProp.get()
+        def publishingType = (publishingTypeProp.getOrNull() ?: 'user_managed') as String
 
         // Optional fallback: pass -PrepositoryKey=<key> to hand off a specific repo
-        def repositoryKey = project.findProperty('repositoryKey') as String
+        def repositoryKey = repositoryKeyProp.getOrNull() as String
 
         String apiUrl = repositoryKey ?
                 "https://ossrh-staging-api.central.sonatype.com/manual/upload/repository/${repositoryKey}?publishing_type=${publishingType}" :

@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 plugins {
     id 'application'
     id 'org.openjfx.javafxplugin' version '0.1.0'
-    id 'org.beryx.jlink' version '2.25.0'
+    id 'org.beryx.jlink' version '4.0.1'
     id 'com.github.node-gradle.node' version '3.3.0'
 
     id 'com.github.hierynomus.license' version '0.16.1'
@@ -41,15 +41,17 @@ ext {
     junitVersion = '5.8.2'
 }
 
-sourceCompatibility = '21'
-targetCompatibility = '21'
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
 
 tasks.withType(JavaCompile) {
     options.encoding = 'UTF-8'
 }
 
 wrapper {
-    gradleVersion = '8.14.2'
+    gradleVersion = '9.0.0'
 }
 
 application {
@@ -81,7 +83,7 @@ test {
 ext.os = org.gradle.internal.os.OperatingSystem.current()
 jlink {
     version = installerVersionStr
-    imageZip = project.file("${buildDir}/distributions/app-${javafx.platform.classifier}.zip")
+    imageZip = project.file("${layout.buildDirectory.get().asFile}/distributions/app-${javafx.platform.classifier}.zip")
     options = ['--strip-debug', "--compress=zip-6", '--no-header-files', '--no-man-pages']
     launcher {
         name = appName
@@ -188,6 +190,16 @@ processResources.dependsOn copySpectreToResources
 copyACEEditorToResources.dependsOn installACEEditor
 processResources.dependsOn copyACEEditorToResources
 
+// Gradle 9 fails the build when a task consumes another task's output
+// without a declared dependency. The license checks scan src/main/resources,
+// which the copy*ToResources tasks populate with vendored JS libraries, so
+// wire the same dependency processResources already declares above.
+tasks.matching { it.name.startsWith('license') }.configureEach {
+    dependsOn copyJsonEditorToResources, copyJSON5ToResources,
+              copyFontAwesomeToResources, copyBootStrapToResources,
+              copySpectreToResources, copyACEEditorToResources
+}
+
 
 
 jar {
@@ -202,7 +214,11 @@ jar {
 }
 
 license {
-    header = rootProject.file('core/config/HEADER')
+    // vmfedit is a standalone build, so rootProject is vmfedit itself; the
+    // shared HEADER lives in the parent repo's core module (same base dir the
+    // common.properties lookup above uses). Gradle 9 hard-fails if this input
+    // file is missing.
+    header = new File(projectDir.parentFile, 'core/config/HEADER')
     strictCheck = true
     ignoreFailures = true
     mapping {

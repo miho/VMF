@@ -116,7 +116,7 @@ publishing {
         // --------------------------------------------------------------------------------
         maven {
             name = "OSSRH"
-            url "https://oss.sonatype.org/service/local/staging/deploy/maven2"
+            url = "https://oss.sonatype.org/service/local/staging/deploy/maven2"
             credentials {
                 username = project.findProperty("oss.user") ?: System.getenv("OSS_USERNAME")
                 password = project.findProperty("oss.pwd") ?: System.getenv("OSS_PWD")
@@ -130,16 +130,16 @@ publishing {
         // --------------------------------------------------------------------------------
         maven {
             name = "BuildDir"
-            url "file:/${buildDir}/artifacts"
+            url = "file:/${layout.buildDirectory.get().asFile}/artifacts"
         }
     }
 
 
     publications {
         mavenJava(MavenPublication) {
-            groupId publishingInfo.groupId
-            artifactId publishingInfo.artifactId
-            version publishingInfo.versionId
+            groupId = publishingInfo.groupId
+            artifactId = publishingInfo.artifactId
+            version = publishingInfo.versionId
             from components.java
             artifact sourcesJar
             artifact javadocJar
