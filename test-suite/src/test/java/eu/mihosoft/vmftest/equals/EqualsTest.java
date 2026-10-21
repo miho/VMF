@@ -162,6 +162,38 @@ public class EqualsTest {
     }
 
     @Test
+    public void testEqualsListsOfDifferentLength() {
+
+        // issue #87: the generated list comparison indexed the second list with
+        // the first list's size, so comparing a longer list with a shorter one
+        // threw IndexOutOfBoundsException instead of returning false.
+
+        EqualsTestContainmentEqList two = EqualsTestContainmentEqList.newBuilder()
+                .withName("list")
+                .withChildren(
+                        EqualsTestContainmentEqListChild.newBuilder().withName("a").build(),
+                        EqualsTestContainmentEqListChild.newBuilder().withName("b").build())
+                .build();
+        EqualsTestContainmentEqList one = EqualsTestContainmentEqList.newBuilder()
+                .withName("list")
+                .withChildren(EqualsTestContainmentEqListChild.newBuilder().withName("a").build())
+                .build();
+        EqualsTestContainmentEqList none = EqualsTestContainmentEqList.newBuilder()
+                .withName("list")
+                .build();
+
+        Assert.assertNotEquals(two, one);
+        Assert.assertNotEquals(one, two);
+        Assert.assertNotEquals(two, none);
+        Assert.assertNotEquals(none, two);
+        Assert.assertNotEquals(one, none);
+        Assert.assertNotEquals(none, one);
+        Assert.assertEquals(one, one.vmf().content().deepCopy());
+        Assert.assertEquals(two, two.vmf().content().deepCopy());
+        Assert.assertEquals(none, none.vmf().content().deepCopy());
+    }
+
+    @Test
     public void testEqualsContract1() {
 
         // test equality contract

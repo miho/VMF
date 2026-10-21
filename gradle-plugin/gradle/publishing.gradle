@@ -6,6 +6,11 @@ ext.publishingInfo = [:]
 ext.publishingInfo.pomName =  ext.publishingInfo.artifactId
 
 apply from: "gradle/project-info.gradle"
+
+// the project coordinates: the plugin marker POM and the jar manifests take the
+// version from the project, not from the publication ("unspecified" otherwise)
+group   = publishingInfo.groupId
+version = publishingInfo.versionId
 apply plugin: 'signing'
 
 // -----------------------------------------------------------------------------
@@ -88,46 +93,55 @@ java {
 // REMOVED: The old manual tasks for javadocJar, sourcesJar, and the `artifacts {}`
 // block are no longer needed with the modern `java` component configuration above.
 
+def centralPomMetadata = { org.gradle.api.publish.maven.MavenPom pom ->
+    pom.url = publishingInfo.websiteUrl
+    pom.inceptionYear = publishingInfo.inceptionYear
+    pom.licenses {
+        license {
+            name = publishingInfo.license
+            url = publishingInfo.licenseUrl
+            distribution = 'repo'
+        }
+    }
+    pom.developers {
+        developer {
+            id = publishingInfo.developerAlias
+            name = publishingInfo.developerName
+            email = publishingInfo.developerEmail
+        }
+    }
+    pom.scm {
+        url = publishingInfo.vcsUrl
+        connection = publishingInfo.vcsUrl
+        developerConnection = publishingInfo.vcsUrl
+    }
+}
+
 publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            // Read basic coordinates from your project-info.gradle
-            groupId = publishingInfo.groupId
-            artifactId = publishingInfo.artifactId
-            version = publishingInfo.versionId
-
-            // Tell Gradle to publish the components of the 'java' project.
-            // This automatically includes the main JAR, sources JAR, and javadoc JAR.
-            from components.java
-
-            // NEW: Modern POM configuration using the standard DSL.
-            // This is much cleaner than the old `pom.withXml` and `pomConfig` closure.
-            pom {
-                name = publishingInfo.pomName
-                description = publishingInfo.desc
-                url = publishingInfo.websiteUrl
-                inceptionYear = publishingInfo.inceptionYear
-
-                licenses {
-                    license {
-                        name = publishingInfo.license
-                        url = publishingInfo.licenseUrl
-                        distribution = 'repo'
-                    }
-                }
-                developers {
-                    developer {
-                        id = publishingInfo.developerAlias
-                        name = publishingInfo.developerName
-                        email = publishingInfo.developerEmail
-                    }
-                }
-                scm {
-                    url = publishingInfo.vcsUrl
-                    connection = publishingInfo.vcsUrl
-                    developerConnection = publishingInfo.vcsUrl
-                }
+    // java-gradle-plugin creates the publications of this build itself, lazily:
+    //   - 'pluginMaven'               the plugin jar (+ sources, javadoc) from components.java
+    //   - 'vmfPluginPluginMarkerMaven' the marker POM for the plugin id eu.mihosoft.vmf
+    // The marker POM depends on pluginMaven's coordinates, so pluginMaven gets the
+    // publishingInfo coordinates (eu.mihosoft.vmf:vmf-gradle-plugin) below instead of
+    // a second, hand-written 'mavenJava' publication of the same jar — 0.2.11 was
+    // published that way and its marker never reached Maven Central.
+    publications.configureEach { pub ->
+        if (pub.name == 'pluginMaven') {
+            pub.groupId = publishingInfo.groupId
+            pub.artifactId = publishingInfo.artifactId
+            pub.version = publishingInfo.versionId
+            pub.pom { org.gradle.api.publish.maven.MavenPom p ->
+                p.name = publishingInfo.pomName
+                p.description = publishingInfo.desc
             }
+            centralPomMetadata(pub.pom)
+        } else if (pub.name.endsWith('PluginMarkerMaven')) {
+            // the marker keeps the plugin id as its artifactId; group and version
+            // follow the plugin (the project version is set above as well)
+            pub.groupId = publishingInfo.groupId
+            pub.version = publishingInfo.versionId
+            // name/description come from the gradlePlugin { } declaration
+            centralPomMetadata(pub.pom)
         }
     }
 
@@ -193,7 +207,7 @@ publishing {
         // --------------------------------------------------------------------------------
         maven {
             name = "BuildDir"
-            url = "file:/${layout.buildDirectory.get().asFile}/artifacts"
+            url = uri(layout.buildDirectory.dir('artifacts').get().asFile)
         }
     }
 
@@ -240,9 +254,16 @@ def isMavenLocalBuild = gradle.startParameter.taskNames.any {
     it.equalsIgnoreCase('publishToMavenLocal') || it.endsWith('ToMavenLocal')
 }
 
+def hasSigningProps = project.findProperty("signing.secretKeyRingFile") \
+        && project.findProperty("signing.password") \
+        && project.findProperty("signing.keyId")
+
 tasks.withType(Sign).configureEach {
-    // This prevents sign* tasks (including signPluginMavenPublication) from running at all
-    onlyIf { !isMavenLocalBuild }
+    // This prevents sign* tasks (including signPluginMavenPublication, which the
+    // plugin-publish plugin registers on its own) from running at all for local
+    // builds and when no signing properties are given — the message above says
+    // signing is skipped, and it must be, not fail with "no configured signatory"
+    onlyIf { !isMavenLocalBuild && hasSigningProps }
 }
 
 tasks.register('releaseToCentralPortal') {
