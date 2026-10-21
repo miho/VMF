@@ -56,6 +56,7 @@
     value_internal._vmf_setContainerPropertyId(value_internal._vmf_getPropertyIdByName("${prop.containmentInfo.opposite.name}"));
     ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #else##                                      ## opposite
+    value_internal._vmf_setContainerPropertyId(-1);
     ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #end##                                       ## opposite
   }  

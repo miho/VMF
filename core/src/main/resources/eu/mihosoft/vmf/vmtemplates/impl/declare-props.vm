@@ -31,7 +31,10 @@
   @Override public void _vmf_setContainer(${VMFPKG}.VObject container) {this.__vmf_internal_container = container;}
   @Override public int _vmf_getContainerPropertyId() {return this.__vmf_internal_container_prop_id;}
   @Override public void _vmf_setContainerPropertyId(int id) {this.__vmf_internal_container_prop_id=id;}
-  private int __vmf_internal_container_prop_id;
+  // id of the container property (the opposite of the containment property this
+  // object is contained through); -1 if there is none or the containment has no
+  // opposite, so that a container getter never reports a container of another kind
+  private int __vmf_internal_container_prop_id = -1;
   //--------------------------------------------------------------------------------
 #end
 
