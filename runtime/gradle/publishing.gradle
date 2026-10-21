@@ -6,6 +6,11 @@ ext.publishingInfo = [:]
 ext.publishingInfo.pomName =  ext.publishingInfo.artifactId
 
 apply from: "gradle/project-info.gradle"
+
+// the project coordinates: the plugin marker POM and the jar manifests take the
+// version from the project, not from the publication ("unspecified" otherwise)
+group   = publishingInfo.groupId
+version = publishingInfo.versionId
 apply plugin: 'signing'
 
 // -----------------------------------------------------------------------------
