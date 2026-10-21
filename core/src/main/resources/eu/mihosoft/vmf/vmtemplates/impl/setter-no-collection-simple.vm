@@ -43,6 +43,15 @@
   if (this.__vmf_prop_${prop.name} == ${prop.name}) {
     return;
   }
+#elseif(${prop.type})
+  // check for value changes: model type (using '==')
+  // type: ${prop.typeName}
+  // A model object is compared by identity: with structural equals (see
+  // @VMFEquals), a different object that happens to compare equal must still
+  // replace the current reference, otherwise the new subtree is silently ignored.
+  if (this.__vmf_prop_${prop.name} == ${prop.name}) {
+    return;
+  }
 #else
   // check for value changes: regular object value (using equals)
   // type: ${prop.typeName}

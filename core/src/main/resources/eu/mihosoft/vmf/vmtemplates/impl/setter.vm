@@ -57,15 +57,29 @@ public void _vmf_unregisterFromContainers() {
       // ------------------------------------------------------------
 
 #foreach( $contained in ${container.implementation.properties} )
-#if(${contained.containmentInfo.containmentType}=="CONTAINED" && (${contained.typeName} == ${type.fullTypeName} || ${contained.genericTypeName} == ${type.typeName}))
+#if(${contained.containmentInfo.containmentType}=="CONTAINED" && ((${contained.type} && ${type.extendsType(${contained.type})}) || (${contained.genericType} && ${type.extendsType(${contained.genericType})})))
       // -- > prop: ${contained.name}, type: ${contained.typeName}
+      //      (the property type is ${type.typeName} or one of its super types)
       if(!found && container instanceof __VMF_TYPE_${container.typeName}Impl) {
         __VMF_TYPE_${container.typeName}Impl container_internal = (__VMF_TYPE_${container.typeName}Impl)container;
 #if(${contained.propType}=="COLLECTION")## contained prop is collection
-        String evtInfo = container_internal.get${contained.nameWithUpperCase}().getEventInfo();
-        container_internal.get${contained.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
-        found = container_internal.get${contained.nameWithUpperCase}().remove(this);
-        container_internal.get${contained.nameWithUpperCase}().setEventInfo(evtInfo);
+        // search by identity: with structural equals, remove(Object) could
+        // remove an equal sibling instead of this instance
+        java.util.List<?> containedList = container_internal.get${contained.nameWithUpperCase}();
+        int indexOfThis = -1;
+        for(int i = 0; i < containedList.size(); i++) {
+          if(containedList.get(i) == this) {
+            indexOfThis = i;
+            break;
+          }
+        }
+        if(indexOfThis >= 0) {
+          String evtInfo = container_internal.get${contained.nameWithUpperCase}().getEventInfo();
+          container_internal.get${contained.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+          container_internal.get${contained.nameWithUpperCase}().remove(indexOfThis);
+          container_internal.get${contained.nameWithUpperCase}().setEventInfo(evtInfo);
+          found = true;
+        }
 #else##                                    contained prop is collection
         ${contained.typeName} oldValue = container_internal.__vmf_get_prop_${contained.name}();
         // if old value is this contained instance then unregister from the container
