@@ -170,13 +170,18 @@ class VMFPlugin implements Plugin<Project> {
         // add the 'vmf' extension object
         def extension = project.extensions.create('vmf', VMFPluginExtension)
 
+        // get version from generated Constants.groovy
+        String VMF_VERSION = eu.mihosoft.vmf.gradle.plugin.constants.Constants.VMF_VERSION;
+
         project.repositories {
             mavenLocal()
             mavenCentral()
+            if (VMF_VERSION.endsWith('-SNAPSHOT')) {
+                // a snapshot of this plugin needs the matching vmf / vmf-runtime snapshots,
+                // which are published to the Central snapshot repository (#89)
+                maven { url = project.uri('https://central.sonatype.com/repository/maven-snapshots/') }
+            }
         }
-
-        // get version from generated Constants.groovy
-        String VMF_VERSION = eu.mihosoft.vmf.gradle.plugin.constants.Constants.VMF_VERSION;
 
         // project.getConvention().getPlugin(JavaPluginConvention.class)
 
@@ -241,12 +246,12 @@ class VMFPlugin implements Plugin<Project> {
 
                         // 3) Set up the VMF output directories (adding to javac inputs!)
                         final String outputDirectoryName =
-                                project.getBuildDir().absolutePath + "/generated-src/vmf-" + sourceSet.getName();
+                                project.layout.buildDirectory.get().asFile.absolutePath + "/generated-src/vmf-" + sourceSet.getName();
                         final File outputDirectory = new File(outputDirectoryName);
                         sourceSet.getJava().srcDir(outputDirectory);
 
                         final String outputDirectoryNameModelDef =
-                                project.getBuildDir().absolutePath + "/vmf-modeldef-compiled/vmf-" + sourceSet.getName();
+                                project.layout.buildDirectory.get().asFile.absolutePath + "/vmf-modeldef-compiled/vmf-" + sourceSet.getName();
                         final File outputDirectoryModelDef = new File(outputDirectoryNameModelDef);
 
                         final String compileModelDefTaskName = sourceSet.getTaskName("vmfCompileModelDef", "Code");
@@ -255,27 +260,25 @@ class VMFPlugin implements Plugin<Project> {
                         //      'vmf' SourceDirectorySet and creates the class files needed by the VMF.generate()
                         //      task
 
-                        // resolve dependencies for task that compiles model definitions
-                        FileCollection vmfClassPath
+                        // the classpath of the model-definition compiler and of the generator: the
+                        // 'vmfCompile' configuration itself. A Configuration is a lazy FileCollection,
+                        // resolved when a task runs, with every repository the build declares — also
+                        // the ones declared after `plugins { id 'eu.mihosoft.vmf' }`. It used to be
+                        // resolved while the plugin was applied, when only the plugin's own
+                        // repositories existed (#89).
+                        final FileCollection vmfClassPath = project.configurations.getByName(configName)
 
-                        Closure<FileCollection> resolveClassPath = {
-                            if (vmfClassPath == null) {
-                                vmfClassPath = project.files(project.configurations.getByName(configName).resolve());
+                        def compileVMFModelDefTask = project.getTasks().register(compileModelDefTaskName, JavaCompile.class,
+                                new Action<JavaCompile>() {
+                            @Override
+                            void execute(JavaCompile compileTask) {
+                                compileTask.source = sourceDirectorySetVMF
+                                compileTask.classpath = vmfClassPath
+                                compileTask.destinationDirectory = outputDirectoryModelDef
                             }
+                        })
 
-                            return vmfClassPath
-                        }
-
-                        JavaCompile compileVMFModelDefTask = project.task(compileModelDefTaskName, type: JavaCompile) {
-                            source = sourceDirectorySetVMF
-                            classpath = project.configurations.getByName(configName)
-                            destinationDirectory = outputDirectoryModelDef
-                            // dependencyCacheDir = file('.')
-                            // sourceCompatibility = '1.7'
-                            // targetCompatibility = '1.7'
-                        }
-
-                        CompileVMFTask vmfTask = project.getTasks().register(
+                        def vmfTaskProvider = project.getTasks().register(
                                 taskName, CompileVMFTask.class, new Action<CompileVMFTask>() {
                             @Override
                             void execute(CompileVMFTask vmfTask) {
@@ -291,20 +294,16 @@ class VMFPlugin implements Plugin<Project> {
                                 vmfTask._sourceSetCompileClassPath = sourceSet.compileClasspath;
                                 vmfTask._sourceDirectorySet.set(sourceDirectorySetVMF)
                                 vmfTask._outputDirectoryModelDef = outputDirectoryModelDef;
-                                vmfTask._vmfClassPath = resolveClassPath.call();
+                                vmfTask._vmfClassPath = vmfClassPath;
+                                vmfTask.dependsOn(compileVMFModelDefTask)
                             }
-                        }).get();
+                        });
 
-//                // resolve classpath after it's initialized
-//                // TODO check whether this is still valid and necessary for Gradle >= 7
-//                vmfTask.doFirst {
-//                    vmfTask.vmfClassPath = resolveClassPath.call();
-//                }
-
-                        vmfTask.dependsOn(compileVMFModelDefTask)
-
-                        // 5) register fact that vmf should be run before compiling
-                        project.tasks.getByName(sourceSet.getCompileJavaTaskName()).dependsOn(taskName)
+                        // 5) register fact that vmf should be run before compiling (lazily: neither
+                        //    task is created before the build needs it)
+                        project.tasks.named(sourceSet.getCompileJavaTaskName()).configure { compileJava ->
+                            compileJava.dependsOn(vmfTaskProvider)
+                        }
 
                         final String cleanTaskName = sourceSet.getTaskName("vmfClean", "");
 
@@ -345,7 +344,9 @@ class VMFPlugin implements Plugin<Project> {
         });
 
         project.dependencies {
-            implementation group: 'eu.mihosoft.vmf', name: 'vmf-runtime', version: VMF_VERSION
+            // single-string notation: the map form (group:/name:/version:) is deprecated in
+            // Gradle 9 and fails in Gradle 10; it warned in every consumer build
+            implementation "eu.mihosoft.vmf:vmf-runtime:${VMF_VERSION}"
         }
 
     }
