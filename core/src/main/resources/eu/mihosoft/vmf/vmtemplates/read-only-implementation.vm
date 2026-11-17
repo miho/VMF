@@ -82,10 +82,14 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return this.${prop.name};
 
 #else
+  // generic type is an external type
   public ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}() {
 
+    // we return an unmodifiable view of the list (the same kind of view as for model-type
+    // elements, with an identity mapping): it is live, rejects structural changes (also via
+    // iterators and sub lists), and reports itself as the source of its change events
     if(this.${prop.name} == null) {
-      this.${prop.name} = this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}();
+      this.${prop.name} = ${VCOLL_PKG}.VMappedList.newUnmodifiableInstance(mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}(), (e)->e);
     }
 
     return this.${prop.name};
