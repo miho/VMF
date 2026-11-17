@@ -25,6 +25,12 @@
 package eu.mihosoft.vmftest.cross_ref.vmfmodel;
 
 import eu.mihosoft.vmf.core.Refers;
+import eu.mihosoft.vmf.core.Contains;
+
+interface CrossRefGraph {
+    @Contains EntityOneA[] getLefts();
+    @Contains EntityTwoA[] getRights();
+}
 
 interface EntityOneA {
     @Refers(opposite="ref")
@@ -33,6 +39,9 @@ interface EntityOneA {
 interface EntityTwoA {
     @Refers(opposite="ref")
     EntityOneA getRef();
+}
+interface SpecializedEntityOneA extends EntityOneA {
+    String getLabel();
 }
 
 

@@ -211,10 +211,11 @@ public final class VMFTypeUtils {
     }
 
     /**
-     * Check if the type extends a model type that is used as property type.
+     * Checks whether the type participates in a polymorphic model property,
+     * either as a subtype or as its concrete declared base type.
      * @param model the model object
      * @param type the type to check
-     * @return {@code true} if the type extends a model type that is used as property type, {@code false} otherwise
+     * @return {@code true} if a discriminator is needed, {@code false} otherwise
      */
     public static boolean isTypeExtendsModelTypeInProps(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
 
@@ -263,6 +264,11 @@ public final class VMFTypeUtils {
             }
 
             if (type.superTypes().contains(t)) {
+                return true;
+            }
+            // A concrete declared base type is also a polymorphic choice in
+            // the generated schema, and needs the same discriminator as its subtypes.
+            if (type.getName().equals(t.getName()) && isTypeExtendedByModelType(model, type)) {
                 return true;
             }
         }
