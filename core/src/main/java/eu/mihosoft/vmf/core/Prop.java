@@ -378,7 +378,8 @@ public class Prop {
             if(oppositeOfGetContainerProperty.isEmpty()) {
                 this.readOnly = true;
                 this.containmentInfo = ContainmentInfo.newInstance(null, null, null, null, ContainmentType.CONTAINER);
-            } else {    
+            } else {
+                String oppositeName = oppositeOfGetContainerProperty;
                 Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
 
                 // if opposite can't be found, try with full name
@@ -390,6 +391,11 @@ public class Prop {
                     }
 
                     opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
+                }
+
+                // if opposite still can't be found, it may be declared in a super type of the value type
+                if (!opposite.isPresent()) {
+                    opposite = resolveInheritedOpposite(oppositeName);
                 }
 
                 if (opposite.isPresent()) {
@@ -412,6 +418,7 @@ public class Prop {
                             null, ContainmentType.CONTAINED);
             } else {
                 // System.out.println("Container: " + container.opposite());
+                String oppositeName = oppositeOfGetContainedProperty;
                 Optional<Prop> opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
 
                 // if opposite can't be found, try with full name
@@ -422,6 +429,12 @@ public class Prop {
                         oppositeOfGetContainedProperty = getTypeName() + "." + oppositeOfGetContainedProperty;
                     }
                     opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
+                }
+
+                // if opposite still can't be found, it may be declared in a super type of the value type
+                // (e.g. a '@Container' property declared once in a common base interface)
+                if (!opposite.isPresent()) {
+                    opposite = resolveInheritedOpposite(oppositeName);
                 }
 
                 if (opposite.isPresent()) {
@@ -435,6 +448,77 @@ public class Prop {
         } else {
             this.containmentInfo = ContainmentInfo.newInstance(null, null, null, null, ContainmentType.NONE);
         }
+    }
+
+    /**
+     * Resolves the specified opposite property in the super types of this property's value type
+     * (the property type or, for collections, the element type). This allows opposites that are
+     * declared in a super type, e.g. a {@code @Container} property declared once in a base interface
+     * that all contained types extend.
+     *
+     * @param oppositeName simple name of the opposite property
+     * @return the opposite property if it is declared in a super type of the value type
+     */
+    private Optional<Prop> resolveInheritedOpposite(String oppositeName) {
+        Class<?> valueClass = getValueClass();
+
+        if (valueClass == null) {
+            return Optional.empty();
+        }
+
+        return resolveInheritedOpposite(valueClass, oppositeName, new HashSet<>());
+    }
+
+    private Optional<Prop> resolveInheritedOpposite(Class<?> clazz, String oppositeName, Set<Class<?>> visited) {
+        for (Class<?> superInterface : clazz.getInterfaces()) {
+            if (!visited.add(superInterface)) {
+                continue;
+            }
+
+            Optional<ModelType> superType = parent.getModel().resolveType(
+                    parent.getModel().convertModelTypeToDestination(superInterface));
+
+            if (superType.isPresent()) {
+                Optional<Prop> opposite = superType.get().resolveProp(oppositeName);
+                if (opposite.isPresent()) {
+                    return opposite;
+                }
+            }
+
+            Optional<Prop> opposite = resolveInheritedOpposite(superInterface, oppositeName, visited);
+            if (opposite.isPresent()) {
+                return opposite;
+            }
+        }
+
+        return Optional.empty();
+    }
+
+    /**
+     * Returns the class of the values of this property (the property type or, for collections and
+     * arrays, the element type).
+     *
+     * @return value class or {@code null} if it cannot be determined
+     */
+    private Class<?> getValueClass() {
+        Class<?> returnType = getterMethod.getReturnType();
+
+        if (returnType.isArray()) {
+            return returnType.getComponentType();
+        }
+
+        if (Collection.class.isAssignableFrom(returnType)) {
+            java.lang.reflect.Type genericType = getterMethod.getGenericReturnType();
+            if (genericType instanceof ParameterizedType) {
+                java.lang.reflect.Type[] typeArgs = ((ParameterizedType) genericType).getActualTypeArguments();
+                if (typeArgs.length == 1 && typeArgs[0] instanceof Class) {
+                    return (Class<?>) typeArgs[0];
+                }
+            }
+            return null;
+        }
+
+        return returnType;
     }
 
     void initSyncInfo() {

@@ -420,17 +420,31 @@ public class ModelType {
         return Optional.empty();
     }
 
+    /**
+     * Determines whether this type is the specified type or extends it,
+     * directly or through intermediate super types.
+     *
+     * @param type type to check
+     * @return {@code true} if this type is or extends the specified type; {@code false} otherwise
+     */
     public boolean extendsType(ModelType type) {
 
         if(type.getFullTypeName().equals(this.getFullTypeName())) return true;
 
-        return getImplementz().stream().filter(t -> t.getFullTypeName().equals(type.getFullTypeName())).count() > 0;
+        return extendsTypeTransitively(this, type.getFullTypeName(), new HashSet<>());
     }
 
+    /**
+     * Determines whether this type is the specified type or extends it,
+     * directly or through intermediate super types.
+     *
+     * @param fullTypeName full name of the type to check
+     * @return {@code true} if this type is or extends the specified type; {@code false} otherwise
+     */
     public boolean extendsType(String fullTypeName) {
 
         // we always extend our type
-        if(typeName.equals(this.getFullTypeName())) return true;
+        if(fullTypeName.equals(this.getFullTypeName())) return true;
 
         // we always extend Object
         if("java.lang.Object".equals(fullTypeName)) return true;
@@ -438,7 +452,22 @@ public class ModelType {
         // we always extend VObject if we are a model type
         if("eu.mihosoft.vmf.runtime.core.VObject".equals(fullTypeName)) return true;
 
-        return getImplementz().stream().filter(t -> t.getFullTypeName().equals(fullTypeName)).count() > 0;
+        return extendsTypeTransitively(this, fullTypeName, new HashSet<>());
+    }
+
+    private static boolean extendsTypeTransitively(ModelType type, String fullTypeName, Set<String> visited) {
+        for (ModelType superType : type.getImplementz()) {
+            if (!visited.add(superType.getFullTypeName())) {
+                continue;
+            }
+            if (superType.getFullTypeName().equals(fullTypeName)) {
+                return true;
+            }
+            if (extendsTypeTransitively(superType, fullTypeName, visited)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<String> generateImplementsList(Model model, Class<?> clazz) {

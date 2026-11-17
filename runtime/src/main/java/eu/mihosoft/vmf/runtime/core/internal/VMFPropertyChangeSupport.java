@@ -24,6 +24,8 @@
 package eu.mihosoft.vmf.runtime.core.internal;
 
 import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeListenerProxy;
 import java.beans.PropertyChangeSupport;
 
 import eu.mihosoft.vmf.runtime.core.VObject;
@@ -58,9 +60,41 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
         super.fireIndexedPropertyChange(propertyName, index, oldValue, newValue);
     }
 
+    /**
+     * Fires the specified event. Model objects (instances of {@link VObject}) are
+     * compared by identity: if a different but structurally equal object replaces
+     * the current one, the listeners are notified. (The JDK implementation
+     * suppresses events whose old and new value are {@code equals()}, which is
+     * kept for all other values.)
+     */
     @Override
     public void firePropertyChange(PropertyChangeEvent event) {
-        super.firePropertyChange(event);
+        Object oldValue = event.getOldValue();
+        Object newValue = event.getNewValue();
+
+        if (oldValue instanceof VObject || newValue instanceof VObject) {
+            if (oldValue == newValue) {
+                return;
+            }
+            fireToListeners(event);
+        } else {
+            super.firePropertyChange(event);
+        }
+    }
+
+    private void fireToListeners(PropertyChangeEvent event) {
+        String propertyName = event.getPropertyName();
+
+        for (PropertyChangeListener listener : getPropertyChangeListeners()) {
+            if (listener instanceof PropertyChangeListenerProxy) {
+                PropertyChangeListenerProxy proxy = (PropertyChangeListenerProxy) listener;
+                if (propertyName == null || propertyName.equals(proxy.getPropertyName())) {
+                    proxy.propertyChange(event);
+                }
+            } else {
+                listener.propertyChange(event);
+            }
+        }
     }
 
     @Override
@@ -70,7 +104,8 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
 
     @Override
     public void firePropertyChange(String propertyName, Object oldValue, Object newValue) {
-        super.firePropertyChange(propertyName, oldValue, newValue);
+        // routed through the event method so that model objects are compared by identity
+        firePropertyChange(new PropertyChangeEvent(source, propertyName, oldValue, newValue));
     }
 
     @Override
