@@ -37,6 +37,12 @@ import java.util.*;
  * This example registers the module with the type aliases {@code person} and {@code employee}
  * that map to the classes {@code Person} and {@code Employee} respectively.</p>
  *
+ * <p><b>Containment and references.</b> By default the module writes the containment tree of a model:
+ * contained objects, external values and immutable values. Non-containment references
+ * ({@code @Refers} properties and other model-typed properties that are neither contained nor a
+ * container) are not written. With {@link #withReferences(boolean) withReferences(true)} they are
+ * written as ids and restored by identity, see {@link #withReferences(boolean)}.</p>
+ *
  */
 public class VMFJacksonModule extends SimpleModule {
 
@@ -46,6 +52,61 @@ public class VMFJacksonModule extends SimpleModule {
 
     private final Map<String, String> typeAliases = new HashMap<>();
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
+
+    private volatile boolean referencesEnabled;
+
+    /**
+     * Enables or disables non-containment references (disabled by default). If enabled, the module
+     * also writes the properties that refer to model objects without containing them: properties
+     * annotated with {@code @Refers} (with opposite) and other model-typed properties that are
+     * neither contained nor a container. Reading restores them by identity: a reference points to
+     * the same restored instance that appears in the containment tree, and the opposites of
+     * {@code @Refers} properties are restored as well.
+     *
+     * <p>Representation: every object of the written containment tree that is the target of a
+     * reference gets an id in the field {@code @vmf-id} ({@code vmf-id} in XML), and a reference is
+     * written as that id (a list of ids for list properties). Ids are assigned in containment order
+     * starting at {@code "1"}; when reading, any string or integer is accepted as an id. Immutable
+     * values are written by value as before.</p>
+     *
+     * <p>Example: the document contains the item ({@code items}) and selects it with the
+     * {@code @Refers} property {@code selectedItem}, whose opposite {@code selectedBy} refers back to
+     * the document, so both objects are referenced and get an id:</p>
+     * <pre>{@code
+     * {
+     *   "@vmf-id" : "1",
+     *   "id" : "document-1",
+     *   "items" : [ {
+     *     "@vmf-id" : "2",
+     *     "id" : "item-1",
+     *     "selectedBy" : "1"
+     *   } ],
+     *   "selectedItem" : "2"
+     * }
+     * }</pre>
+     *
+     * <p>References are resolved within the outermost VMF object that is written or read: every
+     * referenced object must be part of its containment tree. Writing fails with a
+     * {@link JsonMappingException} for a reference to an object outside of that tree (for instance
+     * an object that is not contained anywhere), reading fails for an id that does not occur in the
+     * input. With references disabled, the module reads and writes exactly as before.</p>
+     *
+     * @param enabled {@code true} to read and write non-containment references
+     * @return this module
+     */
+    public VMFJacksonModule withReferences(boolean enabled) {
+        this.referencesEnabled = enabled;
+        return this;
+    }
+
+    /**
+     * Indicates whether non-containment references are read and written.
+     * @return {@code true} if references are enabled
+     * @see #withReferences(boolean)
+     */
+    public boolean isReferencesEnabled() {
+        return referencesEnabled;
+    }
 
     /**
      * Add a type alias to the module. This method is used to add a type alias that is used to determine the actual type
@@ -291,11 +352,29 @@ public class VMFJacksonModule extends SimpleModule {
 
             JsonNode node = p.readValueAsTree();
 
-            return deserializeNode(p, ctxt, node);
+            if (!module.isReferencesEnabled()) {
+                return deserializeNode(p, ctxt, node, null);
+            }
 
+            // the outermost VMF object owns the session: references are assigned when it is
+            // complete, i.e., after all objects of its containment tree have been read
+            VMFReferences.ReadSession session = VMFReferences.currentReadSession();
+            if (session != null) {
+                return deserializeNode(p, ctxt, node, session);
+            }
+
+            session = VMFReferences.startReadSession();
+            try {
+                T result = deserializeNode(p, ctxt, node, session);
+                session.resolve(p);
+                return result;
+            } finally {
+                VMFReferences.endReadSession();
+            }
         }
 
-        private T deserializeNode(JsonParser p, DeserializationContext ctxt, JsonNode node) throws IOException {
+        private T deserializeNode(JsonParser p, DeserializationContext ctxt, JsonNode node,
+                                  VMFReferences.ReadSession session) throws IOException {
             Class<?> actualClass = _valueClass;
 
             // iterate over node fields and look for "@vmf-type" field to determine the actual type
@@ -303,7 +382,15 @@ public class VMFJacksonModule extends SimpleModule {
 
             actualClass = getVMFTypeClass(p, node, actualClass);
 
+            // non-containment references of this object (only if references are enabled): they are
+            // not passed to the builder but assigned when the outermost object is complete
+            final Map<VMFReferences.ReferenceProperty, List<Object>> references = new LinkedHashMap<>();
+
+            final Object result;
             try {
+
+                final Map<String, VMFReferences.ReferenceProperty> referenceProperties = session == null
+                        ? Collections.emptyMap() : VMFReferences.referenceProperties(actualClass);
 
                 // Get the builder class and instance
                 Class<?> builderClass = getBuilderClass(actualClass);
@@ -354,6 +441,19 @@ public class VMFJacksonModule extends SimpleModule {
                     String fieldName = entry.getKey();
                     
                     JsonNode value = entry.getValue();
+
+                    // reference property that holds ids (references enabled)
+                    VMFReferences.ReferenceProperty referenceProperty = referenceProperties.get(fieldName);
+                    if (referenceProperty != null
+                            && VMFReferences.holdsReferences(value, referenceProperty, isXml)) {
+                        try {
+                            references.put(referenceProperty, referenceSlots(ctxt, value, referenceProperty));
+                        } catch (IOException e) {
+                            throw new RuntimeException(
+                                    "Failed to deserialize references of field '" + fieldName + "'", e);
+                        }
+                        return;
+                    }
 
                     // check if we have a method for the field
                     if (methodMap.containsKey(fieldName)) {
@@ -425,10 +525,48 @@ public class VMFJacksonModule extends SimpleModule {
 
                 // Build the final object
                 Method buildMethod = builderClass.getDeclaredMethod("build");
-                return (T) buildMethod.invoke(builder);
+                result = buildMethod.invoke(builder);
             } catch (Exception e) {
-                throw new IOException("Error deserializing object", e);
+                // a JsonMappingException (not a plain IOException): ObjectMapper.readValue(String, ..)
+                // replaces plain IOExceptions by an exception without cause, which hides the reason
+                throw JsonMappingException.from(p, "Error deserializing object of type " + actualClass.getName(), e);
             }
+
+            if (session != null) {
+                String id = VMFReferences.idOf(node, isXml);
+                if (id != null) {
+                    session.register(id, result, p);
+                }
+                for (Map.Entry<VMFReferences.ReferenceProperty, List<Object>> r : references.entrySet()) {
+                    session.addReference((VObject) result, r.getKey(), r.getValue());
+                }
+            }
+
+            return (T) result;
+        }
+
+        /**
+         * Reads the value of a reference property: ids become {@link VMFReferences.IdSlot}s that are
+         * resolved later, values written by value (immutable objects) are read right away.
+         */
+        private List<Object> referenceSlots(DeserializationContext ctxt, JsonNode value,
+                                            VMFReferences.ReferenceProperty property) throws IOException {
+            List<JsonNode> elements = property.list
+                    ? VMFReferences.elementsOf(value, isXml) : Collections.singletonList(value);
+            List<Object> slots = new ArrayList<>(elements.size());
+            for (JsonNode element : elements) {
+                if (element == null || element.isNull()
+                        || (element.isTextual() && element.asText().isEmpty())) {
+                    slots.add(null);
+                } else if (VMFReferences.isIdNode(element)) {
+                    slots.add(new VMFReferences.IdSlot(element.asText()));
+                } else {
+                    slots.add(ctxt.readValue(
+                            element.traverse(ctxt.getParser().getCodec()),
+                            getVMFTypeClass(ctxt.getParser(), element, property.valueClass)));
+                }
+            }
+            return slots;
         }
 
         private String getFieldNameFromMethod(Class<?> actualClass, Method method) {
@@ -611,6 +749,30 @@ public class VMFJacksonModule extends SimpleModule {
 
             eu.mihosoft.vmf.runtime.core.VObject obj = (eu.mihosoft.vmf.runtime.core.VObject) value;
 
+            if (!module.isReferencesEnabled()) {
+                serializeObject(obj, gen, null);
+                return;
+            }
+
+            // the outermost VMF object owns the session: it assigns the ids of all referenced
+            // objects in its containment tree before anything is written
+            VMFReferences.WriteSession session = VMFReferences.currentWriteSession();
+            if (session != null) {
+                serializeObject(obj, gen, session);
+                return;
+            }
+
+            session = VMFReferences.startWriteSession(obj, gen);
+            try {
+                serializeObject(obj, gen, session);
+            } finally {
+                VMFReferences.endWriteSession();
+            }
+        }
+
+        private void serializeObject(eu.mihosoft.vmf.runtime.core.VObject obj, JsonGenerator gen,
+                                     VMFReferences.WriteSession session) throws IOException {
+
             if(gen.getOutputContext().inRoot()) {
                 // set start name
                 String startName = obj.vmf().reflect().type().getName();
@@ -664,22 +826,32 @@ public class VMFJacksonModule extends SimpleModule {
                 gen.writeString(typeName);
             }
 
+            // Write the id if the object is referenced (references enabled)
+            String id = session == null ? null : session.idOf(obj);
+            if (id != null) {
+                gen.writeFieldName(isInstanceOf(gen, "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator")
+                        ? VMFReferences.ID_FIELD_XML : VMFReferences.ID_FIELD);
+                gen.writeString(id);
+            }
+
             // For each property, serialize the value
-            obj.vmf().reflect().properties().forEach(p -> {
-                try {
-                    Object propValue = p.get();
-                    // if property is set and holds contained value or is external or immutable, serialize it
-                    if (propValue != null && (
-                            VMFTypeUtils.isParentOfPropContainer(p)
-                                    || !p.getType().isModelType()
-                                    || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable)) {
-                        gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
-                        gen.writeObject(propValue);
-                    }
-                } catch (IOException e) {
-                    throw new RuntimeException(e);
+            for (eu.mihosoft.vmf.runtime.core.Property p : obj.vmf().reflect().properties()) {
+                Object propValue = p.get();
+                if (propValue == null) {
+                    continue;
                 }
-            });
+                // if property holds contained value or is external or immutable, serialize it
+                if (VMFTypeUtils.isParentOfPropContainer(p)
+                        || !p.getType().isModelType()
+                        || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable) {
+                    gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
+                    gen.writeObject(propValue);
+                } else if (session != null && VMFReferences.isReferenceProperty(p)) {
+                    // non-containment reference (references enabled): ids instead of objects
+                    gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
+                    gen.writeObject(VMFReferences.referenceValue(session, obj, p, propValue, gen));
+                }
+            }
 
             // End writing the object
             gen.writeEndObject();
