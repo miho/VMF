@@ -45,7 +45,7 @@ VMF comes with excellent Gradle support. Just add the plugin like so (get the la
 
 ```gradle
 plugins {
-  id "eu.mihosoft.vmf" version "0.2.9.4" // use latest version
+  id "eu.mihosoft.vmf" version "0.2.11" // use latest version
 }
 ```
 
@@ -82,6 +82,41 @@ buildscript {
   ext.vmfPluginIntelliJIntegration = true
 }
 ```
+
+### Snapshots
+
+Between releases, `master` is published as `-SNAPSHOT` (e.g. `0.2.12-SNAPSHOT`) to the Maven Central snapshot repository. To use it, add the repository for plugins (`settings.gradle`) and, for other VMF artifacts such as `vmf-jackson`, for dependencies:
+
+```gradle
+// settings.gradle
+pluginManagement {
+  repositories {
+    maven {
+      url = uri('https://central.sonatype.com/repository/maven-snapshots/')
+      mavenContent { snapshotsOnly() }
+    }
+    gradlePluginPortal()
+    mavenCentral()
+  }
+}
+```
+
+```gradle
+// build.gradle
+plugins {
+  id "eu.mihosoft.vmf" version "0.2.12-SNAPSHOT"
+}
+
+repositories {
+  mavenCentral()
+  maven {
+    url = uri('https://central.sonatype.com/repository/maven-snapshots/')
+    mavenContent { snapshotsOnly() }
+  }
+}
+```
+
+Snapshots change without notice and are deleted after 90 days; Gradle caches them for 24 hours (`--refresh-dependencies` fetches the latest). How snapshots and releases are published: [docs/RELEASING.md](docs/RELEASING.md).
 
 ## Building VMF (Core, Runtime and Plugin)
 

@@ -13,6 +13,25 @@ group   = publishingInfo.groupId
 version = publishingInfo.versionId
 apply plugin: 'signing'
 
+// build information in the manifest, as in vmf-runtime and the plugin (the commit
+// a snapshot was built from: scripts/central-staging.sh snapshots)
+Date buildTimeAndDate = new Date()
+jar {
+    manifest {
+        attributes(
+                'Built-By': System.properties['user.name'],
+                'Created-By': System.properties['java.version'] + " (" + System.properties['java.vendor'] + " " + System.properties['java.vm.version'] + ")",
+                'Build-Date': new java.text.SimpleDateFormat('yyyy-MM-dd').format(buildTimeAndDate),
+                'Build-Time': new java.text.SimpleDateFormat('HH:mm:ss.SSSZ').format(buildTimeAndDate),
+                'Build-Revision': rootProject.versioning.info.commit,
+                'Specification-Title': project.name,
+                'Specification-Version': project.version,
+                'Implementation-Title': project.name,
+                'Implementation-Version': project.version
+        )
+    }
+}
+
 // This replaces the old manual `javadocJar` and `sourcesJar` tasks.
 java {
     withJavadocJar()
