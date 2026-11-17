@@ -90,6 +90,8 @@ public class VMFJacksonModule extends SimpleModule {
      * {@link JsonMappingException} for a reference to an object outside of that tree (for instance
      * an object that is not contained anywhere), reading fails for an id that does not occur in the
      * input. With references disabled, the module reads and writes exactly as before.</p>
+     * <p>Generate a matching JSON schema with
+     * {@link VMFJsonSchemaGenerator#withReferences(boolean)} enabled as well.</p>
      *
      * @param enabled {@code true} to read and write non-containment references
      * @return this module
@@ -507,7 +509,12 @@ public class VMFJacksonModule extends SimpleModule {
                                 // Invoke the builder method
                                 method.invoke(builder, collection);
                             } else {
-                                var paramValue = deserializeField(ctxt, value, paramType);
+                                // Scalar model properties need the same polymorphic type
+                                // resolution as collection elements, including immutable
+                                // implementations of an interface-only declared type.
+                                Class<?> valueType = isVMFObj(paramType)
+                                        ? getVMFTypeClass(ctxt.getParser(), value, paramType) : paramType;
+                                var paramValue = deserializeField(ctxt, value, valueType);
                                 method.invoke(builder, paramValue);
                             }
                         } catch (Exception e) {

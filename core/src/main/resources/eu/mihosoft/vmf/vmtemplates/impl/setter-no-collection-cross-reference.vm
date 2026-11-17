@@ -79,6 +79,15 @@
   }    
   // ----------------------------------------
 #else##                                                        collection opposite
+  // Release an occupied target before registering this owner. Retain this
+  // primary owner change so transaction undo can restore the displaced pair.
+  if($prop.name != null) {
+    Object previousOwner = ((__VMF_TYPE_${prop.type.implementation.typeName})$prop.name).__vmf_get_prop_${prop.referenceInfo.opposite.name}();
+    if(previousOwner != null && previousOwner != this) {
+      ((__VMF_TYPE_${prop.referenceInfo.opposite.type.implementation.typeName})previousOwner).__vmf_set_prop_${prop.name}(null);
+      ((__VMF_TYPE_${prop.referenceInfo.opposite.type.implementation.typeName})previousOwner)._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", $prop.name, null);
+    }
+  }
   // ----------------------------------------
   // set the new value
   // ----------------------------------------
@@ -90,7 +99,10 @@
   // remove this object as reference from old value 
   // ----------------------------------------
   if(oldValue!=null) {
-    oldValue.set${prop.referenceInfo.opposite.nameWithUpperCase}(null);
+    if(((__VMF_TYPE_${prop.type.implementation.typeName})oldValue).__vmf_get_prop_${prop.referenceInfo.opposite.name}() == this) {
+      ((__VMF_TYPE_${prop.type.implementation.typeName})oldValue).__vmf_set_prop_${prop.referenceInfo.opposite.name}(null);
+      ((__VMF_TYPE_${prop.type.implementation.typeName})oldValue)._vmf_firePropertyChangeIfListenersArePresent("${prop.referenceInfo.opposite.name}", this, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+    }
   }
   // ----------------------------------------
 

@@ -7,6 +7,7 @@ import eu.mihosoft.vmf.runtime.core.*;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +40,26 @@ public class VMFJsonSchemaGenerator {
 
     private final Map<String, String> typeAliases        = new HashMap<>();
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
+    private boolean referencesEnabled;
+
+    /**
+     * Includes the native id/reference wire fields used by
+     * {@link VMFJacksonModule#withReferences(boolean)}. Disabled by default.
+     * Id uniqueness and resolution are checked by the native reader, which
+     * restores opposite relationships. JSON Schema does not express those
+     * graph constraints or validate the consistency of supplied opposites.
+     * @param enabled whether to describe reference-enabled serialization
+     * @return this generator
+     */
+    public VMFJsonSchemaGenerator withReferences(boolean enabled) {
+        referencesEnabled = enabled;
+        return this;
+    }
+
+    /**
+     * @return whether native id/reference wire fields are included in the schema
+     */
+    public boolean isReferencesEnabled() { return referencesEnabled; }
 
     /** All types of the model currently being generated. Captured from the reflectable root so
      *  subtypes can be resolved even for {@code @InterfaceOnly} element types, which cannot
@@ -197,6 +218,7 @@ public class VMFJsonSchemaGenerator {
 
         Map<String, Object> properties = new LinkedHashMap<>();
         schema.put("properties", properties);
+        if (referencesEnabled) properties.put(VMFReferences.ID_FIELD, idSchema(false));
 
         Type type = VMFTypeUtils.forClass(modelClass);
 
@@ -267,6 +289,17 @@ public class VMFJsonSchemaGenerator {
 
         if (isToBeExcludedFromSerialization(property)) {
             return propertySchema;
+        } else if (referencesEnabled && isIdReference(property)) {
+            Type elementType = VMFTypeUtils.forClass(property.getType().isListType()
+                    ? property.getType().getElementTypeName().get() : property.getType().getName());
+            Map<String, Object> referenceSchema = referenceValueSchema(elementType);
+            if (property.getType().isListType()) {
+                propertySchema.put("type", "array");
+                propertySchema.put("items", referenceSchema);
+            } else {
+                propertySchema.putAll(referenceSchema);
+            }
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (isValueType(property.getType())) {
             propertySchema.put("type", mapValueType(property.getType()));
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
@@ -340,6 +373,7 @@ public class VMFJsonSchemaGenerator {
             VObject propParent = createPrototypeIfPossible(subType);
 
             Map<String, Object> properties = new LinkedHashMap<>();
+            if (referencesEnabled) properties.put(VMFReferences.ID_FIELD, idSchema(false));
             int order = 0;
             for (Property property : propParent!=null?propParent.vmf().reflect().properties() : subType.reflect().properties()) {
                 if (!isToBeExcludedFromSerialization(property)) {
@@ -374,7 +408,7 @@ public class VMFJsonSchemaGenerator {
      * @param property the property to check
      * @return {@code true} if the given property should be excluded from serialization, {@code false} otherwise
      */
-    private static boolean isToBeExcludedFromSerialization(Property property) {
+    private boolean isToBeExcludedFromSerialization(Property property) {
         boolean immutableType = false;
         try {
             immutableType = isValueType(property.getType()) ||
@@ -387,7 +421,42 @@ public class VMFJsonSchemaGenerator {
             throw new RuntimeException(e);
         }
 
-        return property.getType().isModelType() && !immutableType && !VMFTypeUtils.isParentOfPropContainer(property);
+        return property.getType().isModelType() && !immutableType && !VMFTypeUtils.isParentOfPropContainer(property)
+                && !(referencesEnabled && VMFReferences.isReferenceProperty(property));
+    }
+
+    private static boolean isIdReference(Property property) {
+        if (!VMFReferences.isReferenceProperty(property)) return false;
+        String name = property.getType().isListType()
+                ? property.getType().getElementTypeName().get() : property.getType().getName();
+        try { return !Immutable.class.isAssignableFrom(Class.forName(name)); }
+        catch (ClassNotFoundException ex) { throw new IllegalArgumentException(name, ex); }
+    }
+
+    /** Runtime immutable implementations of an interface-only reference type
+     * are written by value, while mutable implementations are written as ids. */
+    private Map<String, Object> referenceValueSchema(Type declaredType) {
+        List<Map<String, Object>> immutableOptions = subTypesOf(declaredType).stream()
+                .filter(t -> {
+                    try { return Immutable.class.isAssignableFrom(Class.forName(t.getName())); }
+                    catch (ClassNotFoundException ex) { throw new IllegalArgumentException(t.getName(), ex); }
+                })
+                .map(t -> polymorphicOption(getTypeAlias(t)))
+                .collect(Collectors.toList());
+        if (immutableOptions.isEmpty()) return idSchema(true);
+
+        List<Map<String, Object>> options = new ArrayList<>();
+        options.add(idSchema(true));
+        options.addAll(immutableOptions);
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("oneOf", options);
+        return schema;
+    }
+
+    private static Map<String, Object> idSchema(boolean nullable) {
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("type", nullable ? new String[]{"string", "integer", "null"} : new String[]{"string", "integer"});
+        return schema;
     }
 
     /**

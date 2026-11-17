@@ -118,9 +118,7 @@ class ListChangeImpl implements ChangeInternal {
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         VList list = (VList) internal._vmf_getPropertyValueById(propId);
         if(evt.wasSet()) {
-            if (evt.added().indices().length == list.size()) {
-                list.setAll(evt.added().indices()[0], evt.added().elements());
-            }
+            applySet(list, evt.added());
         } else if (evt.wasAdded()) {
             list.addAll(evt.added().indices(), evt.added().elements());
         } else if(evt.wasRemoved()) {
@@ -135,15 +133,28 @@ class ListChangeImpl implements ChangeInternal {
         if (!isUndoable()) return;
 
         if (evt.wasSet()) {
-            if (evt.removed().indices().length == list.size()) {
-                list.setAll(evt.removed().indices()[0], evt.removed().elements());
-            }
+            applySet(list, evt.removed());
         } else if (evt.wasAdded()) {
             list.removeAll(evt.added().indices());
         } else if(evt.wasRemoved()) {
             list.addAll(evt.removed().indices(),evt.removed().elements());
         }
 
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static void applySet(VList list, VListChange<Object> change) {
+        int[] indices = change.indices();
+        if (indices.length == 0) return;
+        boolean contiguous = true;
+        for (int i = 1; i < indices.length; i++) {
+            if (indices[i] != indices[0] + i) { contiguous = false; break; }
+        }
+        if (contiguous) {
+            list.setAll(indices[0], change.elements());
+        } else {
+            for (int i = 0; i < indices.length; i++) list.set(indices[i], change.elements().get(i));
+        }
     }
 
     @Override
