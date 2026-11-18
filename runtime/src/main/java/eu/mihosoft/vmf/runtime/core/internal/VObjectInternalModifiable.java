@@ -26,6 +26,7 @@
  */
 package eu.mihosoft.vmf.runtime.core.internal;
 
+import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vmf.runtime.core.Changes;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
@@ -85,5 +86,16 @@ public interface VObjectInternalModifiable extends VObjectInternal {
      * Unregisters 'this' from its current container.
     */
     default void _vmf_unregisterFromContainers() {}
+
+    /**
+     * Unregisters this object before a collection in its current container adds or replaces an entry.
+     * @param destination the list containing the incoming entry
+     * @param replacing whether the entry was set in place
+     * @return whether the destination needs to register this object again
+     */
+    default boolean _vmf_unregisterFromContainers(VList<?> destination, boolean replacing) {
+        _vmf_unregisterFromContainers();
+        return true;
+    }
 
 }

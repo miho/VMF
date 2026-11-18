@@ -29,6 +29,9 @@ import eu.mihosoft.vmf.runtime.core.VObject;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -169,6 +172,151 @@ public class SetterIdentityTest {
         Assert.assertSame("the equal sibling must stay in the list", first, a.getArguments().get(0));
         Assert.assertSame(a, first.getParent());
         Assert.assertSame(b, second.getParent());
+    }
+
+    @Test
+    public void sortingContainedChildrenRetainsIdentityAndParent() {
+        BinaryExpression parent = BinaryExpression.newInstance();
+        NumberExpression first = number(2);
+        NumberExpression second = number(1);
+        NumberExpression third = number(2);
+        Assert.assertEquals(first, third);
+        parent.getArguments().addAll(List.of(first, second, third));
+        var changes = parent.vmf().changes();
+        changes.start();
+        changes.startTransaction();
+
+        parent.getArguments().sort(Comparator.comparingDouble(argument -> ((NumberExpression) argument).getValue()));
+
+        changes.publishTransaction();
+        assertArgumentOrder(parent, second, first, third);
+        assertArgumentChangesRecorded(parent, first, second, third);
+        changes.stop();
+
+        var reorder = changes.transactions().get(0);
+        reorder.undo();
+        assertArgumentOrder(parent, first, second, third);
+        reorder.changes().forEach(change -> change.apply(change.object()));
+        assertArgumentOrder(parent, second, first, third);
+    }
+
+    @Test
+    public void swappingContainedChildrenRetainsIdentityAndParent() {
+        BinaryExpression parent = BinaryExpression.newInstance();
+        NumberExpression first = number(1);
+        NumberExpression second = number(2);
+        NumberExpression third = number(1);
+        Assert.assertEquals(first, third);
+        parent.getArguments().addAll(List.of(first, second, third));
+        var changes = parent.vmf().changes();
+        changes.start();
+        changes.startTransaction();
+
+        Collections.swap(parent.getArguments(), 0, 2);
+
+        changes.publishTransaction();
+        assertArgumentOrder(parent, third, second, first);
+        assertArgumentChangesRecorded(parent, first, second, third);
+        changes.stop();
+
+        var reorder = changes.transactions().get(0);
+        reorder.undo();
+        assertArgumentOrder(parent, first, second, third);
+        reorder.changes().forEach(change -> change.apply(change.object()));
+        assertArgumentOrder(parent, third, second, first);
+    }
+
+    @Test
+    public void sortingEqualButDistinctChildrenPreservesIdentityOrderInNativeReplay() {
+        BinaryExpression parent = BinaryExpression.newInstance();
+        NumberExpression first = number(1);
+        NumberExpression second = number(1);
+        NumberExpression third = number(2);
+        NumberExpression stationary = number(3);
+        Assert.assertEquals(first, second);
+        Assert.assertNotSame(first, second);
+        parent.getArguments().addAll(List.of(first, stationary, second, third));
+
+        var rank = new IdentityHashMap<Expression, Integer>();
+        rank.put(second, 0);
+        rank.put(stationary, 1);
+        rank.put(third, 2);
+        rank.put(first, 3);
+        var changes = parent.vmf().changes();
+        changes.start();
+        changes.startTransaction();
+
+        parent.getArguments().sort(Comparator.comparingInt(rank::get));
+
+        changes.publishTransaction();
+        changes.stop();
+        assertArgumentOrder(parent, second, stationary, third, first);
+
+        Assert.assertEquals(1, changes.transactions().size());
+        var reorder = changes.transactions().get(0);
+        Assert.assertEquals(1, reorder.changes().size());
+        var change = reorder.changes().get(0);
+        var event = change.listChange().orElseThrow();
+        Assert.assertTrue(event.wasSet());
+        Assert.assertArrayEquals(new int[]{0, 2, 3}, event.added().indices());
+        Assert.assertArrayEquals(new int[]{0, 2, 3}, event.removed().indices());
+        Assert.assertSame(first, event.removed().elements().get(0));
+        Assert.assertSame(second, event.added().elements().get(0));
+
+        reorder.undo();
+        assertArgumentOrder(parent, first, stationary, second, third);
+        change.apply(parent);
+        assertArgumentOrder(parent, second, stationary, third, first);
+    }
+
+    @Test
+    public void replacingAnArgumentCanMoveAChildFromAnotherPropertyOfTheSameParent() {
+        BinaryExpression parent = BinaryExpression.newInstance();
+        NumberExpression oldArgument = number(1);
+        NumberExpression left = number(2);
+        parent.getArguments().add(oldArgument);
+        parent.setLeft(left);
+
+        Assert.assertSame(oldArgument, parent.getArguments().set(0, left));
+
+        assertArgumentOrder(parent, left);
+        Assert.assertNull(parent.getLeft());
+        Assert.assertNull(oldArgument.getParent());
+    }
+
+    @Test
+    public void reparentingReleasesEveryOldOccurrenceWithoutRemovingEqualSiblings() {
+        BinaryExpression oldParent = BinaryExpression.newInstance();
+        BinaryExpression newParent = BinaryExpression.newInstance();
+        NumberExpression child = number(1);
+        NumberExpression replaced = number(2);
+        NumberExpression equalSibling = number(1);
+        oldParent.getArguments().addAll(List.of(child, replaced, equalSibling));
+        oldParent.getArguments().set(1, child);
+        assertArgumentOrder(oldParent, child, child, equalSibling);
+        Assert.assertNull(replaced.getParent());
+
+        newParent.getArguments().add(child);
+
+        assertArgumentOrder(oldParent, equalSibling);
+        assertArgumentOrder(newParent, child);
+    }
+
+    private static void assertArgumentOrder(BinaryExpression parent, Expression... expected) {
+        Assert.assertEquals(expected.length, parent.getArguments().size());
+        for (int i = 0; i < expected.length; i++) {
+            Assert.assertSame(expected[i], parent.getArguments().get(i));
+            Assert.assertSame(parent, expected[i].getParent());
+        }
+    }
+
+    private static void assertArgumentChangesRecorded(BinaryExpression parent, NumberExpression... arguments) {
+        for (NumberExpression argument : arguments) {
+            argument.setValue(argument.getValue() + 1);
+            Assert.assertTrue("the reordered child must still be recorded by the parent",
+                    parent.vmf().changes().all().stream().anyMatch(change ->
+                            change.object() == argument && "value".equals(change.propertyName())));
+        }
     }
 
     @Test

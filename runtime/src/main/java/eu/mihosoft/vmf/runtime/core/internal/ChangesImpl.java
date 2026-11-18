@@ -385,10 +385,16 @@ public class ChangesImpl implements Changes {
                                         () -> v.removePropertyChangeListener(objListener));
                             });
 
-                            evt.removed().elements().stream().
-                            filter(e -> e instanceof VObject).
-                            map(e -> (VObject) e).
-                            forEach(v -> unregisterChangeListener(v, objListener));
+                            if (evt.removed().elements().stream().anyMatch(VObject.class::isInstance)) {
+                                // SET can move an existing child or replace just one occurrence.
+                                Set<Object> remaining = Collections.newSetFromMap(new IdentityHashMap<>());
+                                remaining.addAll(list);
+                                evt.removed().elements().stream()
+                                        .filter(VObject.class::isInstance)
+                                        .filter(v -> !remaining.contains(v))
+                                        .map(VObject.class::cast)
+                                        .forEach(v -> unregisterChangeListener(v, objListener));
+                            }
                         }
                 );
 

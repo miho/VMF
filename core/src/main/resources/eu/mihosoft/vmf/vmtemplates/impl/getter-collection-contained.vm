@@ -29,18 +29,22 @@
         this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
 
         this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
-            evt.added().elements().forEach( (e) -> {
+            if (${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(evt.eventInfo())) return;
 
-                if(e==null || ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(evt.eventInfo())) return;
+            for (Object child : evt.added().elements()) {
+                if (child == null) continue;
+                ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)child;
 
-                // unregister from previous container
-                ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
-                //if(valueInternal._vmf_getContainer()!=this) {
+                // The list already contains the incoming values. Check the owner's
+                // other properties before treating a SET as a same-list reorder.
+                if (valueInternal._vmf_getContainer() == this) {
+                    if (!valueInternal._vmf_unregisterFromContainers(this.__vmf_prop_${prop.name}, evt.wasSet())) continue;
+                } else {
                     valueInternal._vmf_unregisterFromContainers();
-                //}
+                }
 
                 // register with this container
-                ${VMFPKG}.VObject oldContainer = valueInternal._vmf_getContainer(); 
+                ${VMFPKG}.VObject oldContainer = valueInternal._vmf_getContainer();
                 valueInternal._vmf_setContainer(this);
 #if(${prop.containmentInfo.opposite})## opposite
                 valueInternal._vmf_setContainerPropertyId(valueInternal._vmf_getPropertyIdByName("${prop.containmentInfo.opposite.name}"));
@@ -49,20 +53,19 @@
                 valueInternal._vmf_setContainerPropertyId(-1);
                 ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #end##                                       ## opposite
-                
-            }); // end of evt.added()     
+            }
 
-            evt.removed().elements().forEach( (e) -> {
-
-                if(e==null || ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(evt.eventInfo())) return;
-
-                // unregister from previous container
-                ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)e;
-
-                // finally, set the container to 'null' and fire the corresponding event
-                valueInternal._vmf_unregisterFromContainers();      
-                
-            }); // end of evt.added()     
+            if (!evt.removed().elements().isEmpty()) {
+                java.util.Set<Object> remainingChildren = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                remainingChildren.addAll(this.__vmf_prop_${prop.name});
+                // Collections.swap uses two SETs. An identity can occur twice
+                // between them and still belong here after one occurrence is removed.
+                for (Object child : evt.removed().elements()) {
+                    if (child == null || remainingChildren.contains(child)) continue;
+                    ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)child;
+                    if (valueInternal._vmf_getContainer() == this) valueInternal._vmf_unregisterFromContainers();
+                }
+            }
         }); // end of addChangeListener
              
 

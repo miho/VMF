@@ -123,9 +123,9 @@ Ask before publishing a release to Central: the monthly limits are shared.
 A release must not depend on `-SNAPSHOT` versions: check the dependencies
 first (`grep -n -- "-SNAPSHOT['\"]" build.gradle */build.gradle` lists the
 literal ones; the VMF version itself comes from `config/common.properties`).
-`vmf-runtime` depends on VCollections: a VMF release needs a released
-VCollections version (VCollections 0.3.5 was released for this on
-2026-11-18, see its `docs/RELEASING.md`).
+The current VMF snapshot uses VCollections `0.3.6-SNAPSHOT` for identity-aware
+sort events. Before releasing VMF, release VCollections with this fix and update
+`vcollectionsVersion` in `runtime/build.gradle` to the released version.
 
 1. **Git** (on `master`, after `sh ./build-and-test-all.sh` is green):
    - set `publication.version=X` in `config/common.properties`,
