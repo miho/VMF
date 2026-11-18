@@ -10,13 +10,19 @@ import java.util.*;
 /**
  * Utility class that can compute differences between two VMF objects, apply
  * them and merge objects.
+ * @deprecated Diffs are bound to their source graph. For replay on an independent
+ * graph, use {@link eu.mihosoft.vmf.runtime.core.journal.JournalReplayer}.
  */
 @Deprecated
 public final class ModelDiff {
+    private static final String SOURCE_REQUIRED = "ModelDiff can only apply changes to their recorded source graph. "
+            + "Use JournalReplayer for another model.";
+
     private ModelDiff() {}
 
     /** Represents a property change used for diffing. */
     public static class PropChange implements Change, PropertyChange {
+        private final VObject source;
         private final VObject object;
         private final String propertyName;
         private final Object oldValue;
@@ -28,6 +34,12 @@ public final class ModelDiff {
         }
 
         public PropChange(VObject object, String propertyName, Object oldValue, Object newValue, long timestamp) {
+            this(object, object, propertyName, oldValue, newValue, timestamp);
+        }
+
+        private PropChange(VObject source, VObject object, String propertyName, Object oldValue, Object newValue,
+                           long timestamp) {
+            this.source = source;
             this.object = object;
             this.propertyName = propertyName;
             this.oldValue = oldValue;
@@ -64,7 +76,8 @@ public final class ModelDiff {
 
         @Override
         public void apply(VObject obj) {
-            VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
+            if (obj != object) throw new IllegalArgumentException(SOURCE_REQUIRED);
+            VObjectInternalModifiable internal = (VObjectInternalModifiable) obj;
             int pid = internal._vmf_getPropertyIdByName(propertyName);
             if(newValue instanceof VList && internal._vmf_getPropertyValueById(pid) instanceof VList) {
                 VList<Object> target = (VList<Object>) internal._vmf_getPropertyValueById(pid);
@@ -109,16 +122,16 @@ public final class ModelDiff {
 
     /**
      * Computes the list of changes required to transform {@code a} into
-     * {@code b}.
+     * {@code b}. The changes are bound to the original graph rooted at {@code a}.
      */
     public static List<Change> diff(VObject a, VObject b) {
         List<Change> result = new ArrayList<>();
         if(a == null || b == null) return result;
-        diffObjects(a, b, result);
+        diffObjects(a, a, b, result);
         return result;
     }
 
-    private static void diffObjects(VObject a, VObject b, List<Change> out) {
+    private static void diffObjects(VObject source, VObject a, VObject b, List<Change> out) {
         Reflect ra = a.vmf().reflect();
         Reflect rb = b.vmf().reflect();
         for(Property pa : ra.properties()) {
@@ -134,20 +147,20 @@ public final class ModelDiff {
                     if(va == null && vb == null) {
                         continue;
                     } else if(va == null || vb == null) {
-                        out.add(new PropChange(a, pa.getName(), va, cloneValue(vb)));
+                        out.add(new PropChange(source, a, pa.getName(), va, cloneValue(vb), System.nanoTime()));
                     } else {
-                        diffObjects((VObject) va, (VObject) vb, out);
+                        diffObjects(source, (VObject) va, (VObject) vb, out);
                     }
                 } else {
                     if(!Objects.equals(va, vb)) {
-                        out.add(new PropChange(a, pa.getName(), va, vb));
+                        out.add(new PropChange(source, a, pa.getName(), va, vb, System.nanoTime()));
                     }
                 }
             } else {
                 VList<?> la = (VList<?>) va;
                 VList<?> lb = (VList<?>) vb;
                 if(!listsEqual(la, lb)) {
-                    out.add(new PropChange(a, pa.getName(), cloneList(la), cloneList(lb)));
+                    out.add(new PropChange(source, a, pa.getName(), cloneList(la), cloneList(lb), System.nanoTime()));
                 }
             }
         }
@@ -185,11 +198,29 @@ public final class ModelDiff {
         return result;
     }
 
-    /** Applies the specified diff to the given target object. */
+    /**
+     * Applies the diff in place to the exact source root used to create it.
+     * All affected objects must still be reachable from that root. Standalone
+     * changes are accepted when their affected object is the supplied target.
+     * @throws IllegalArgumentException if a change belongs to a different source graph
+     */
     public static void apply(VObject target, List<Change> diff) {
-        for(Change c : diff) {
-            c.apply(target);
+        List<Change> changes = List.copyOf(diff);
+        Set<VObject> affected = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Change change : changes) {
+            VObject source = change instanceof PropChange ? ((PropChange) change).source : change.object();
+            if (source != target) throw new IllegalArgumentException(SOURCE_REQUIRED);
+            affected.add(change.object());
         }
+
+        affected.remove(target);
+        if (!affected.isEmpty()) {
+            Iterator<VObject> nodes = target.vmf().content().iterator(VIterator.IterationStrategy.UNIQUE_NODE);
+            while (!affected.isEmpty() && nodes.hasNext()) affected.remove(nodes.next());
+            if (!affected.isEmpty()) throw new IllegalArgumentException(SOURCE_REQUIRED);
+        }
+
+        for (Change change : changes) change.apply(change.object());
     }
 
     /**

@@ -23,10 +23,13 @@
  */
 package eu.mihosoft.vmf.jackson.test.journal;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.jackson.VMFJournalCodec;
+import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Kind;
@@ -117,7 +120,7 @@ class JournalTest {
     }
 
     @Test
-    void replayRemapsNewContainmentAndSelectionToIndependentInstances() throws Exception {
+    void roundTripRemapsNewContainmentAndSelectionToIndependentInstances() throws Exception {
         Document source = document("a");
         ObjectMapper mapper = checkpointMapper();
         String checkpointJson = mapper.writeValueAsString(source);
@@ -126,7 +129,7 @@ class JournalTest {
         Item original = item("i1", "original");
         source.getItems().add(original);
         source.setSelectedItem(original);
-        ChangeJournal journal = recorder.finish();
+        ChangeJournal journal = VMFJournalCodec.read(VMFJournalCodec.write(recorder.finish()));
 
         Document before = mapper.readValue(checkpointJson, Document.class);
         Document result = JournalReplayer.replay(before, BINDING, CHECKPOINT, journal);
@@ -145,6 +148,29 @@ class JournalTest {
         assertSame(source, original.getSelectedBy());
         assertTrue(before.getItems().isEmpty());
         assertNull(before.getSelectedItem());
+    }
+
+    @Test
+    void liveChangeJsonFailsWithPortableJournalGuidance() {
+        Document source = document("a");
+        var changes = source.vmf().changes();
+        changes.start();
+        source.setTitle("b");
+        source.getItems().add(item("i1", "added"));
+        changes.stop();
+
+        ObjectMapper mapper = checkpointMapper();
+        assertTrue(changes.all().stream().anyMatch(change -> change.getType() == Change.ChangeType.PROPERTY));
+        assertTrue(changes.all().stream().anyMatch(change -> change.getType() == Change.ChangeType.LIST));
+        JsonMappingException writeError = assertThrows(JsonMappingException.class,
+                () -> mapper.writeValueAsString(changes.all()));
+        assertTrue(writeError.getMessage().contains("JournalRecorder"));
+        assertTrue(writeError.getMessage().contains("VMFJournalCodec"));
+
+        String oldJson = "[{\"timestamp\":1,\"type\":\"PROPERTY\",\"undoable\":true}]";
+        JsonMappingException readError = assertThrows(JsonMappingException.class,
+                () -> mapper.readValue(oldJson, new TypeReference<List<Change>>() {}));
+        assertTrue(readError.getMessage().contains("VMFJournalCodec"));
     }
 
     @Test

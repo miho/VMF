@@ -26,6 +26,14 @@ The recorder owns one native recording session and replaces the previous native 
 
 The checkpoint identifier comes from the caller. A digest of the stored checkpoint bytes is one option. Verify the checkpoint identity when loading it. Replay checks that identifier, the model version, the root ID, and the old values at edited positions. Use separate journal and model versions when evolving the format or the model. Unknown versions and operation kinds are rejected.
 
+## Live edits and portable replay
+
+`Changes.all()` exposes live `Change` objects for observation and undo on the original model. Each change refers to the actual affected object. `Change.apply()` takes that object, or the corresponding affected object for a plain value edit. VMF rejects model-valued changes applied to a different instance before assigning any values. Use a `JournalRecorder` from the starting checkpoint for replay on another graph, including edits to nested objects, containment changes, and references.
+
+`VMFJacksonModule` rejects native `Change` JSON. Save the `ChangeJournal` with `VMFJournalCodec.write()` and restore it with `VMFJournalCodec.read()`, as in the example above. The envelope preserves ordered transaction sequences and stores stable IDs for affected objects and reference payloads.
+
+The deprecated `ModelDiff.apply(source, diff)` accepts changes bound to the original source. Pass that same source as the first argument. Use a change journal for recorded edits that need to replay from an independent checkpoint.
+
 ## Seek through history
 
 The experimental `History` API lives in `vmf-runtime` and is marked deprecated while its contract is being evaluated. Pass it a checkpoint and its journal as Java objects. It copies the checkpoint on registration and returns a fresh model on each seek.

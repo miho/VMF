@@ -64,6 +64,31 @@ public class OneToOneReassignmentTest {
         records.forEach(c->c.apply(c.object()));assertNull(first.getRef());assertSame(a,second.getRef());assertSame(second,a.getRef());assertNull(b.getRef());
     }
 
+    @Test
+    public void recordedReferenceAssignmentAndClearRejectAnotherOwner() {
+        EntityOneA source = EntityOneA.newInstance();
+        EntityTwoA sourceValue = EntityTwoA.newInstance();
+        EntityOneA target = EntityOneA.newInstance();
+        EntityTwoA targetValue = EntityTwoA.newInstance();
+        target.setRef(targetValue);
+
+        var changes = source.vmf().changes();
+        changes.start();
+        source.setRef(sourceValue);
+        source.setRef(null);
+        source.setRef(sourceValue);
+        changes.stop();
+
+        List<Change> records = List.copyOf(changes.all());
+        assertEquals(3, records.size());
+        assertThrows(IllegalArgumentException.class, () -> records.get(0).apply(target));
+        assertThrows(IllegalArgumentException.class, () -> records.get(1).apply(target));
+        assertSame(sourceValue, source.getRef());
+        assertSame(source, sourceValue.getRef());
+        assertSame(targetValue, target.getRef());
+        assertSame(target, targetValue.getRef());
+    }
+
     // a one-to-one reference that is its own opposite: re-pointing, taking over,
     // transferring and clearing keep every pair symmetric
     @Test public void selfOppositeReferenceStaysSymmetric() {

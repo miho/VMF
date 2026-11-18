@@ -24,6 +24,7 @@
  */
 package eu.mihosoft.vmftest.setteridentity;
 
+import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.VIterator;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import org.junit.Assert;
@@ -282,6 +283,60 @@ public class SetterIdentityTest {
         assertArgumentOrder(parent, left);
         Assert.assertNull(parent.getLeft());
         Assert.assertNull(oldArgument.getParent());
+    }
+
+    @Test
+    public void recordedContainmentListEditsRejectAnotherParent() {
+        BinaryExpression source = BinaryExpression.newInstance();
+        NumberExpression first = number(1);
+        NumberExpression second = number(2);
+        source.getArguments().addAll(List.of(first, second));
+        BinaryExpression target = source.clone();
+        Expression targetFirst = target.getArguments().get(0);
+        Expression targetSecond = target.getArguments().get(1);
+        Assert.assertNotSame(first, targetFirst);
+        Assert.assertNotSame(second, targetSecond);
+
+        NumberExpression appended = number(3);
+        NumberExpression replacement = number(4);
+        var changes = source.vmf().changes();
+        changes.start();
+        source.getArguments().add(appended);
+        source.getArguments().set(0, replacement);
+        source.getArguments().remove(1);
+        changes.stop();
+
+        List<Change> records = changes.all().stream()
+                .filter(c -> c.object() == source && c.propertyName().equals("arguments"))
+                .collect(Collectors.toList());
+        Assert.assertEquals(3, records.size());
+        Assert.assertTrue(records.get(0).listChange().orElseThrow().wasAdded());
+        Assert.assertTrue(records.get(1).listChange().orElseThrow().wasSet());
+        Assert.assertTrue(records.get(2).listChange().orElseThrow().wasRemoved());
+        for (Change record : records) {
+            Assert.assertThrows(IllegalArgumentException.class, () -> record.apply(target));
+        }
+        assertArgumentOrder(source, replacement, appended);
+        assertArgumentOrder(target, targetFirst, targetSecond);
+    }
+
+    @Test
+    public void recordedScalarChangeAppliesToExplicitNestedCounterpart() {
+        NumberExpression sourceChild = number(1);
+        BinaryExpression source = binary("+", sourceChild, number(2));
+        BinaryExpression target = source.clone();
+        NumberExpression targetChild = (NumberExpression) target.getLeft();
+        var changes = source.vmf().changes();
+        changes.start();
+        sourceChild.setValue(3);
+        changes.stop();
+
+        List<Change> records = List.copyOf(changes.all());
+        Assert.assertEquals(1, records.size());
+        Assert.assertSame(sourceChild, records.get(0).object());
+        records.get(0).apply(targetChild);
+        Assert.assertEquals(3, sourceChild.getValue(), 0);
+        Assert.assertEquals(3, targetChild.getValue(), 0);
     }
 
     @Test

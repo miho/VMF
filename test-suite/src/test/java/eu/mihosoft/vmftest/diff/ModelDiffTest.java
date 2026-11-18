@@ -1,11 +1,11 @@
 package eu.mihosoft.vmftest.diff;
 
-import eu.mihosoft.vmf.runtime.core.VObject;
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.diff.ModelDiff;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -35,6 +35,56 @@ public class ModelDiffTest {
         Assert.assertEquals(node2.getValue(), node1.getValue());
         Assert.assertEquals(node2.getChildren().size(), node1.getChildren().size());
         Assert.assertEquals(node2.getValues().size(), node1.getValues().size());
+    }
+
+    @Test
+    public void rejectsDiffOnAnIndependentRoot() {
+        NodeToDiff source = NodeToDiff.newBuilder().withName("Original").build();
+        NodeToDiff target = source.clone();
+        NodeToDiff desired = source.clone();
+        desired.setName("Updated");
+        List<Change> diff = ModelDiff.diff(source, desired);
+
+        Assert.assertThrows(IllegalArgumentException.class, () -> ModelDiff.apply(target, diff));
+        Assert.assertThrows(IllegalArgumentException.class, () -> diff.get(0).apply(target));
+        Assert.assertEquals("Original", source.getName());
+        Assert.assertEquals("Original", target.getName());
+        Assert.assertEquals("Updated", desired.getName());
+    }
+
+    @Test
+    public void validatesAllChangeRootsBeforeApplyingTheDiff() {
+        NodeToDiff source = NodeToDiff.newBuilder().withName("Original").build();
+        NodeToDiff desired = source.clone();
+        desired.setName("Updated");
+        NodeToDiff other = source.clone();
+        List<Change> mixed = new ArrayList<>(ModelDiff.diff(source, desired));
+        var standalone = new ModelDiff.PropChange(other, "name", "Original", "Other");
+        mixed.add(standalone);
+
+        Assert.assertThrows(IllegalArgumentException.class, () -> ModelDiff.apply(source, mixed));
+        Assert.assertEquals("Original", source.getName());
+        Assert.assertEquals("Original", other.getName());
+
+        ModelDiff.apply(other, List.of(standalone));
+        Assert.assertEquals("Other", other.getName());
+    }
+
+    @Test
+    public void rejectsDiffAfterAnAffectedChildLeavesTheSourceGraph() {
+        NodeToDiff child = NodeToDiff.newBuilder().withName("Original child").build();
+        NodeToDiff source = NodeToDiff.newBuilder().withName("Original root").withChild(child).build();
+        NodeToDiff desired = source.clone();
+        desired.setName("Updated root");
+        desired.getChild().setName("Updated child");
+        List<Change> diff = ModelDiff.diff(source, desired);
+
+        source.setChild(null);
+        NodeToDiff other = NodeToDiff.newBuilder().withChild(child).build();
+        Assert.assertThrows(IllegalArgumentException.class, () -> ModelDiff.apply(source, diff));
+        Assert.assertEquals("Original root", source.getName());
+        Assert.assertSame(child, other.getChild());
+        Assert.assertEquals("Original child", child.getName());
     }
 
     @Test

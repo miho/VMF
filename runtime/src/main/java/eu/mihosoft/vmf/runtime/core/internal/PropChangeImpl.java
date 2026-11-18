@@ -108,6 +108,11 @@ class PropChangeImpl implements ChangeInternal, PropertyChange {
     @Override
     @SuppressWarnings({"deprecation", "unchecked"})
     public void apply(VObject obj) {
+        if (obj != object && (oldValue instanceof VObject || newValue instanceof VObject)) {
+            throw new IllegalArgumentException("Model-valued changes require their original object. "
+                    + "Use JournalRecorder and JournalReplayer to replay onto another graph.");
+        }
+
         VObjectInternalModifiable internal = (VObjectInternalModifiable) obj;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
 

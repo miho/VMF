@@ -36,7 +36,9 @@ import java.util.function.Predicate;
 
 
 /**
- * A model change.
+ * A live model change. For portable recording and replay, use
+ * {@link eu.mihosoft.vmf.runtime.core.journal.JournalRecorder} and
+ * {@link eu.mihosoft.vmf.runtime.core.journal.JournalReplayer}.
  *
  * @author Michael Hoffer (info@michaelhoffer.de)
  */
@@ -61,8 +63,14 @@ public interface Change {
     void undo();
 
     /**
-     * Applies this change to the specified object.
+     * Applies this change to the specified affected object. VMF's native changes with
+     * model-valued payloads require the original object returned by {@link #object()}.
+     * For a change with scalar or external values, the caller can supply the corresponding
+     * object in another compatible graph. This method does not resolve a target from a
+     * graph root or check that the target is at the recorded checkpoint.
      * @param obj target object affected by this change
+     * @throws IllegalArgumentException if a native change with a model-valued payload is
+     * applied to a different object
      */
     void apply(VObject obj);
 

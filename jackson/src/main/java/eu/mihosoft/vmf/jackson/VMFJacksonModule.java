@@ -3,12 +3,14 @@ package eu.mihosoft.vmf.jackson;
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
+import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
@@ -43,8 +45,36 @@ import java.util.*;
  * container) are not written. With {@link #withReferences(boolean) withReferences(true)} they are
  * written as ids and restored by identity, see {@link #withReferences(boolean)}.</p>
  *
+ * <p>For durable edit history, capture a journal with
+ * {@link eu.mihosoft.vmf.runtime.core.journal.JournalRecorder} and persist it with
+ * {@link VMFJournalCodec}. The module rejects serialization and deserialization of live
+ * {@link Change} events.</p>
+ *
  */
 public class VMFJacksonModule extends SimpleModule {
+
+    private static final String LIVE_CHANGE_MESSAGE = "VMF Change events represent live model edits. "
+            + "Capture a ChangeJournal with JournalRecorder and use VMFJournalCodec to write or read it.";
+
+    private static final JsonSerializer<Change> LIVE_CHANGE_SERIALIZER = new StdSerializer<Change>(Change.class) {
+        @Override
+        public void serialize(Change value, JsonGenerator gen, SerializerProvider provider) throws IOException {
+            throw JsonMappingException.from(gen, LIVE_CHANGE_MESSAGE);
+        }
+
+        @Override
+        public void serializeWithType(Change value, JsonGenerator gen, SerializerProvider provider,
+                                      TypeSerializer typeSerializer) throws IOException {
+            serialize(value, gen, provider);
+        }
+    };
+
+    private static final JsonDeserializer<Change> LIVE_CHANGE_DESERIALIZER = new StdDeserializer<Change>(Change.class) {
+        @Override
+        public Change deserialize(JsonParser parser, DeserializationContext context) throws IOException {
+            throw JsonMappingException.from(parser, LIVE_CHANGE_MESSAGE);
+        }
+    };
 
     public enum RUNTIME_TYPE {
         RELEASE, EXPERIMENTAL
@@ -149,7 +179,9 @@ public class VMFJacksonModule extends SimpleModule {
         setSerializerModifier(new BeanSerializerModifier() {
             @Override
             public JsonSerializer<?> modifySerializer(SerializationConfig config, BeanDescription beanDesc, JsonSerializer<?> serializer) {
-
+                if (Change.class.isAssignableFrom(beanDesc.getBeanClass())) {
+                    return LIVE_CHANGE_SERIALIZER;
+                }
                 if (isVMFObj(beanDesc.getBeanClass())) {
                     return new GenericBuilderSerializer<>(serializer, VMFJacksonModule.this);
                 }
@@ -290,6 +322,9 @@ public class VMFJacksonModule extends SimpleModule {
         @Override
         public JsonDeserializer<?> modifyDeserializer(DeserializationConfig config, BeanDescription beanDesc,
                                                       JsonDeserializer<?> deserializer) {
+            if (Change.class.isAssignableFrom(beanDesc.getBeanClass())) {
+                return LIVE_CHANGE_DESERIALIZER;
+            }
             if (isVMFObj(beanDesc.getBeanClass()) && hasBuilder(beanDesc.getBeanClass())) {
 
                 // Check if we have XML deserializer by examining the deserializer or its config

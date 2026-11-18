@@ -113,6 +113,11 @@ class ListChangeImpl implements ChangeInternal {
     @Override
     @SuppressWarnings("unchecked")
     public void apply(VObject obj) {
+        if (obj != object && (evt.added().elements().stream().anyMatch(VObject.class::isInstance)
+                || evt.removed().elements().stream().anyMatch(VObject.class::isInstance))) {
+            throw new IllegalArgumentException("Model-valued changes require their original object. "
+                    + "Use JournalRecorder and JournalReplayer to replay onto another graph.");
+        }
 
         VObjectInternal internal = (VObjectInternal) obj;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
