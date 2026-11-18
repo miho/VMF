@@ -63,4 +63,48 @@ public class OneToOneReassignmentTest {
         changes.transactions().get(0).undo();assertSame(a,first.getRef());assertSame(first,a.getRef());assertSame(b,second.getRef());assertSame(second,b.getRef());
         records.forEach(c->c.apply(c.object()));assertNull(first.getRef());assertSame(a,second.getRef());assertSame(second,a.getRef());assertNull(b.getRef());
     }
+
+    // a one-to-one reference that is its own opposite: re-pointing, taking over,
+    // transferring and clearing keep every pair symmetric
+    @Test public void selfOppositeReferenceStaysSymmetric() {
+        Partner a=partner("a"),b=partner("b"),c=partner("c"),d=partner("d");
+
+        a.setPartner(b);
+        assertSame(b,a.getPartner());assertSame(a,b.getPartner());
+
+        a.setPartner(c);
+        assertSame(c,a.getPartner());assertSame(a,c.getPartner());assertNull(b.getPartner());
+
+        d.setPartner(c);
+        assertSame(c,d.getPartner());assertSame(d,c.getPartner());assertNull(a.getPartner());
+
+        b.setPartner(a);
+        c.setPartner(b);
+        assertSame(b,c.getPartner());assertSame(c,b.getPartner());assertNull(a.getPartner());assertNull(d.getPartner());
+
+        c.setPartner(null);
+        assertNull(c.getPartner());assertNull(b.getPartner());
+    }
+
+    // a one-to-one reference declared on interface-only types
+    @Test public void interfaceOnlyReferenceCanBeRepointedAndTakenOver() {
+        Panel first=Panel.newBuilder().withName("first").build(),second=Panel.newBuilder().withName("second").build();
+        Button a=Button.newBuilder().withName("a").build(),b=Button.newBuilder().withName("b").build();
+
+        first.setSelected(a);
+        assertSame(a,first.getSelected());assertSame(first,a.getSelectedBy());
+
+        first.setSelected(b);
+        assertSame(b,first.getSelected());assertSame(first,b.getSelectedBy());assertNull(a.getSelectedBy());
+
+        second.setSelected(b);
+        assertSame(b,second.getSelected());assertSame(second,b.getSelectedBy());assertNull(first.getSelected());
+
+        a.setSelectedBy(second);
+        assertSame(a,second.getSelected());assertSame(second,a.getSelectedBy());assertNull(b.getSelectedBy());
+    }
+
+    private static Partner partner(String name) {
+        return Partner.newBuilder().withName(name).build();
+    }
 }
