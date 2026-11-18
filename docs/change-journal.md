@@ -26,6 +26,18 @@ The recorder owns one native recording session and replaces the previous native 
 
 The checkpoint identifier comes from the caller. A digest of the stored checkpoint bytes is one option. Verify the checkpoint identity when loading it. Replay checks that identifier, the model version, the root ID, and the old values at edited positions. Use separate journal and model versions when evolving the format or the model. Unknown versions and operation kinds are rejected.
 
+## Seek through history
+
+The experimental `History` API lives in `vmf-runtime` and is marked deprecated while its contract is being evaluated. Pass it a checkpoint and its journal as Java objects. It copies the checkpoint on registration and returns a fresh model on each seek.
+
+```java
+History<Document> history = new History<>(binding);
+history.addSegment(checkpointId, checkpoint, journal);
+Document atSequenceOne = history.seek(1);
+```
+
+Supply segments from one timeline. Each covers its base sequence through its final transaction. `seek` uses the latest checkpoint whose segment covers the requested sequence and replays the required prefix. `Transaction.undo()` remains the live operation on a recorded transaction. Applications can supply checkpoints and journals entirely in memory or load them using the optional `vmf-jackson` module.
+
 ## Version 1 JSON
 
 ```json
