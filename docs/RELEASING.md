@@ -123,9 +123,9 @@ Ask before publishing a release to Central: the monthly limits are shared.
 A release must not depend on `-SNAPSHOT` versions: check the dependencies
 first (`grep -n -- "-SNAPSHOT['\"]" build.gradle */build.gradle` lists the
 literal ones; the VMF version itself comes from `config/common.properties`).
-Since #98, `vmf-runtime` depends on
-`vcollections 0.3.5-SNAPSHOT`; VCollections 0.3.5 has to be released (and the
-dependency updated) before VMF 0.2.12.
+`vmf-runtime` depends on VCollections: a VMF release needs a released
+VCollections version (VCollections 0.3.5 was released for this on
+2026-11-18, see its `docs/RELEASING.md`).
 
 1. **Git** (on `master`, after `sh ./build-and-test-all.sh` is green):
    - set `publication.version=X` in `config/common.properties`,
@@ -149,10 +149,10 @@ dependency updated) before VMF 0.2.12.
    for this account. `releaseToCentralPortal` skips `-SNAPSHOT` versions.
 
    Check the result: <https://central.sonatype.com/publishing/deployments>,
-   `sh scripts/central-staging.sh status <deploymentId>`, or per artifact
-   `https://central.sonatype.com/api/v1/publisher/published?namespace=eu.mihosoft.vmf&name=vmf&version=X`
-   (`"published":true` after a minute or two; repo1.maven.org follows within
-   about 30 minutes).
+   `sh scripts/central-staging.sh status <deploymentId>`, or
+   `sh scripts/central-staging.sh published X` (per artifact, Portal API with the
+   token; `"published":true` after a minute or two; repo1.maven.org follows
+   within about 30 minutes).
 3. **Gradle Plugin Portal**, once `vmf` X is published on Central:
 
    ```sh
