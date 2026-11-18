@@ -61,11 +61,14 @@ final class JournalSupport {
         }
     }
 
-    static Value scalar(Object value) {
+    static boolean isScalarType(Class<?> type) {
+        return SCALAR_KINDS.containsKey(type);
+    }
+
+    static Value scalar(Object value, JournalBinding binding) {
         if (value == null) return new Value(ValueKind.NULL, null);
         ValueKind kind = SCALAR_KINDS.get(value.getClass());
-        if (kind == null) throw new IllegalArgumentException("Unsupported journal value type " + value.getClass().getName());
-        return new Value(kind, scalarText(value));
+        return kind == null ? binding.valueCodecs().encode(value) : new Value(kind, scalarText(value));
     }
 
     private static String scalarText(Object value) {
@@ -177,7 +180,7 @@ final class JournalSupport {
                 throw new IllegalArgumentException("Model reference outside the checkpoint containment tree");
             }
         } else {
-            scalar(value);
+            scalar(value, binding);
         }
     }
 

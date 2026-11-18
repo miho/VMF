@@ -33,6 +33,7 @@ import java.util.Objects;
 public final class ChangeJournal {
     public static final String FORMAT = "vmf-journal";
     public static final int VERSION = 1;
+    public static final int EXTERNAL_VALUES_VERSION = 2;
 
     private final String model;
     private final int modelVersion;
@@ -68,34 +69,64 @@ public final class ChangeJournal {
     public long baseSequence() { return baseSequence; }
     public List<Frame> transactions() { return transactions; }
 
+    /** Returns the oldest wire version that can represent these records. */
+    public int wireVersion() {
+        boolean external = transactions.stream().flatMap(frame -> frame.operations().stream())
+                .anyMatch(operation -> hasExternalValues(operation.before()) || hasExternalValues(operation.after())
+                        || operation.created().stream().flatMap(creation -> creation.properties().values().stream())
+                        .anyMatch(ChangeJournal::hasExternalValues));
+        return external ? EXTERNAL_VALUES_VERSION : VERSION;
+    }
+
+    private static boolean hasExternalValues(List<Value> values) {
+        return values.stream().anyMatch(value -> value.kind() == ValueKind.EXTERNAL);
+    }
+
     public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET }
 
-    public enum ValueKind { NULL, REFERENCE, STRING, BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, CHAR }
+    public enum ValueKind { NULL, REFERENCE, STRING, BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, CHAR, EXTERNAL }
 
-    /** A scalar in canonical Java spelling, or a persistent model-object reference. */
+    /** A canonical scalar, a persistent model-object reference, or a registered external value. */
     public static final class Value {
         private final ValueKind kind;
         private final String text;
+        private final String codecId;
 
         public Value(ValueKind kind, String text) {
             this.kind = Objects.requireNonNull(kind, "value kind");
+            if (kind == ValueKind.EXTERNAL) throw new IllegalArgumentException("External values need a codec ID");
             JournalSupport.validateValue(kind, text);
             this.text = text;
+            this.codecId = null;
+        }
+
+        private Value(String codecId, String text) {
+            this.kind = ValueKind.EXTERNAL;
+            this.codecId = JournalSupport.requireName(codecId, "external codec ID");
+            JournalSupport.validateValue(ValueKind.STRING, text);
+            this.text = text;
+        }
+
+        /** Creates an external value in the registered codec's canonical representation. */
+        public static Value external(String codecId, String text) {
+            return new Value(codecId, text);
         }
 
         public ValueKind kind() { return kind; }
         public String text() { return text; }
+        /** Returns the wire codec ID for an external value, or null for other values. */
+        public String codecId() { return codecId; }
 
         @Override
         public boolean equals(Object other) {
             if (!(other instanceof Value)) return false;
             Value value = (Value) other;
-            return kind == value.kind && Objects.equals(text, value.text);
+            return kind == value.kind && Objects.equals(text, value.text) && Objects.equals(codecId, value.codecId);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(kind, text);
+            return Objects.hash(kind, text, codecId);
         }
     }
 

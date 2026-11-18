@@ -66,7 +66,10 @@ import java.util.function.Function;
  * by property name with an ordered array of values for each property. Each value
  * uses {@code kind} and {@code text}. The text is a JSON string for every kind
  * except {@code NULL}, which requires JSON null. Kind tags are the names of
- * the corresponding {@link Kind} and {@link ValueKind} constants.
+ * the corresponding {@link Kind} and {@link ValueKind} constants. An
+ * {@code EXTERNAL} value requires version 2 and adds a {@code codec} string
+ * identifying the binding's value codec. This class preserves the codec ID
+ * and text for replay.
  *
  * <p>The codec writes fixed field order, sorts the keys of creation properties,
  * and escapes non-ASCII text for reproducible output.
@@ -89,12 +92,13 @@ public final class VMFJournalCodec {
     private static final Set<String> OPERATION_FIELDS = Set.of("kind", "target", "property", "indices", "before", "after", "created");
     private static final Set<String> CREATION_FIELDS = Set.of("id", "type", "properties");
     private static final Set<String> VALUE_FIELDS = Set.of("kind", "text");
+    private static final Set<String> EXTERNAL_VALUE_FIELDS = Set.of("kind", "text", "codec");
 
     private VMFJournalCodec() {
     }
 
     /**
-     * Writes a journal as JSON using the current wire version.
+     * Writes a journal as JSON using the wire version required by its values.
      * @param journal journal to encode
      * @return the journal JSON
      * @throws IOException when writing fails
@@ -103,7 +107,7 @@ public final class VMFJournalCodec {
         Objects.requireNonNull(journal, "journal");
         ObjectNode envelope = NODES.objectNode()
                 .put("format", ChangeJournal.FORMAT)
-                .put("version", ChangeJournal.VERSION);
+                .put("version", journal.wireVersion());
         envelope.set("model", NODES.objectNode().put("id", journal.model()).put("version", journal.modelVersion()));
         envelope.put("root", journal.root());
         envelope.set("base", NODES.objectNode().put("checkpoint", journal.checkpoint()).put("sequence", journal.baseSequence()));
@@ -123,16 +127,22 @@ public final class VMFJournalCodec {
         String format = text(envelope.get("format"), "$.format");
         if (!ChangeJournal.FORMAT.equals(format)) throw invalid("$.format", "unsupported journal format " + format);
         int version = integer(envelope.get("version"), "$.version");
-        if (version != ChangeJournal.VERSION) throw invalid("$.version", "unsupported journal version " + version);
+        if (version != ChangeJournal.VERSION && version != ChangeJournal.EXTERNAL_VALUES_VERSION) {
+            throw invalid("$.version", "unsupported journal version " + version);
+        }
         fields(envelope, "$", ENVELOPE_FIELDS);
 
         ObjectNode model = object(envelope.get("model"), "$.model", MODEL_FIELDS);
         ObjectNode base = object(envelope.get("base"), "$.base", BASE_FIELDS);
         try {
-            return new ChangeJournal(text(model.get("id"), "$.model.id"), integer(model.get("version"), "$.model.version"),
+            ChangeJournal journal = new ChangeJournal(text(model.get("id"), "$.model.id"), integer(model.get("version"), "$.model.version"),
                     text(envelope.get("root"), "$.root"), text(base.get("checkpoint"), "$.base.checkpoint"),
                     longInteger(base.get("sequence"), "$.base.sequence"),
                     readArray(envelope.get("transactions"), "$.transactions", VMFJournalCodec::readFrame));
+            if (journal.wireVersion() > version) {
+                throw invalid("$.version", "external values require journal version " + journal.wireVersion());
+            }
+            return journal;
         } catch (IllegalArgumentException | ArithmeticException exception) {
             throw invalid("$", exception);
         }
@@ -164,7 +174,9 @@ public final class VMFJournalCodec {
     }
 
     private static ObjectNode writeValue(Value value) {
-        return NODES.objectNode().put("kind", value.kind().name()).put("text", value.text());
+        ObjectNode node = NODES.objectNode().put("kind", value.kind().name()).put("text", value.text());
+        if (value.kind() == ValueKind.EXTERNAL) node.put("codec", value.codecId());
+        return node;
     }
 
     private static <T> ArrayNode writeArray(List<T> values, Function<T, JsonNode> writer) {
@@ -203,8 +215,13 @@ public final class VMFJournalCodec {
     }
 
     private static Value readValue(JsonNode json, String path) throws IOException {
-        ObjectNode node = object(json, path, VALUE_FIELDS);
+        ObjectNode node = object(json, path);
         ValueKind kind = kind(ValueKind.class, node.get("kind"), path + ".kind");
+        if (kind == ValueKind.EXTERNAL) {
+            fields(node, path, EXTERNAL_VALUE_FIELDS);
+            return Value.external(text(node.get("codec"), path + ".codec"), text(node.get("text"), path + ".text"));
+        }
+        fields(node, path, VALUE_FIELDS);
         JsonNode payload = node.get("text");
         if (kind == ValueKind.NULL) {
             if (!payload.isNull()) throw invalid(path + ".text", "expected JSON null");

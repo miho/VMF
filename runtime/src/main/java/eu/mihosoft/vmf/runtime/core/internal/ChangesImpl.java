@@ -66,8 +66,7 @@ public class ChangesImpl implements Changes {
 
     private VObject model;
 
-    private final List<Subscription> subscriptions = new ArrayList<>();
-    private final List<Subscription> nonRecursiveSubscriptions = new ArrayList<>();
+    private final Set<VObjectInternal> observedObjects = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<Object, Subscription> listSubscriptions = new IdentityHashMap<>();
     private final Map<Object, Subscription> nonRecursiveListSubscriptions = new IdentityHashMap<>();
 
@@ -78,6 +77,7 @@ public class ChangesImpl implements Changes {
     private Subscription modelVersioningSubscription;
 
     private boolean recording;
+    private boolean recursiveObservationActive;
 
     private long timestamp;
     private final AtomicLong modelVersionNumber = new AtomicLong(0);
@@ -155,18 +155,7 @@ public class ChangesImpl implements Changes {
             }
         };
 
-        AtomicBoolean recursiveRegistered = new AtomicBoolean(false);
-        changeListeners.addChangeListener((evt) -> {
-            if (changeListeners.isEmpty() && !recording && recursiveRegistered.get()) {
-                // System.out.println("rc-unregister");
-                unregisterChangeListener(model, objListener);
-                recursiveRegistered.set(false);
-            } else if (!changeListeners.isEmpty() && !recursiveRegistered.get()) {
-                // System.out.println("rc-register");
-                registerChangeListener(model, objListener);
-                recursiveRegistered.set(true);
-            }
-        });
+        changeListeners.addChangeListener(evt -> updateRecursiveObservation());
 
         nonRecursiveObjListener = new PropertyChangeListener() {
             @Override
@@ -189,10 +178,9 @@ public class ChangesImpl implements Changes {
 
         AtomicBoolean nonrecursiveRegistered = new AtomicBoolean(false);
         nonRecursiveChangeListeners.addChangeListener((evt) -> {
-            if (nonRecursiveChangeListeners.isEmpty() && !recording && nonrecursiveRegistered.get()) {
+            if (nonRecursiveChangeListeners.isEmpty() && nonrecursiveRegistered.get()) {
                 // System.out.println("nr-unregister");
                 unregisterChangeListenerNonRecursive(model, nonRecursiveObjListener);
-                nonRecursiveSubscriptions.forEach(s->s.unsubscribe());
                 nonrecursiveRegistered.set(false);
             } else if (!nonRecursiveChangeListeners.isEmpty() && !nonrecursiveRegistered.get()) {
                 // System.out.println("nr-register");
@@ -281,26 +269,43 @@ public class ChangesImpl implements Changes {
 
         recording = true;
 
-        registerChangeListener(model, objListener);
+        updateRecursiveObservation();
 
         enableModelVersioning();
     }
 
+    private void updateRecursiveObservation() {
+        boolean shouldObserve = recording || !changeListeners.isEmpty();
+        if (shouldObserve == recursiveObservationActive) {
+            return;
+        }
+        recursiveObservationActive = shouldObserve;
+        if (shouldObserve) {
+            registerChangeListener(model, objListener);
+        } else {
+            observedObjects.forEach(object -> object.removePropertyChangeListener(objListener));
+            observedObjects.clear();
+            listSubscriptions.values().forEach(Subscription::unsubscribe);
+            listSubscriptions.clear();
+        }
+    }
+
     @SuppressWarnings("unchecked")
     private void registerChangeListener(VObject vObj, PropertyChangeListener objListener) {
+
+        if (!recursiveObservationActive) {
+            return;
+        }
 
         Iterator<VObject> it = vObj.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
         while (it.hasNext()) {
 
             VObjectInternal obj = (VObjectInternal) it.next();
 
-            removeListListenersFromPropertiesOf(obj, objListener);
-            addListListenersToPropertiesOf(obj, objListener);
-
-            obj.removePropertyChangeListener(objListener);
-            obj.addPropertyChangeListener(objListener);
-
-            subscriptions.add(() -> obj.removePropertyChangeListener(objListener));
+            if (observedObjects.add(obj)) {
+                addListListenersToPropertiesOf(obj, objListener);
+                obj.addPropertyChangeListener(objListener);
+            }
         }
     }
 
@@ -312,8 +317,10 @@ public class ChangesImpl implements Changes {
 
             VObjectInternal obj = (VObjectInternal) it.next();
 
-            removeListListenersFromPropertiesOf(obj, objListener);
-            obj.removePropertyChangeListener(objListener);
+            if (observedObjects.remove(obj)) {
+                removeListListenersFromPropertiesOf(obj, objListener);
+                obj.removePropertyChangeListener(objListener);
+            }
         }
     }
 
@@ -351,7 +358,6 @@ public class ChangesImpl implements Changes {
                         }
                 );
 
-                nonRecursiveSubscriptions.add(subscription);
                 nonRecursiveListSubscriptions.put(list, subscription);
             }
         }
@@ -374,16 +380,10 @@ public class ChangesImpl implements Changes {
 
                             fireChange(c, evt);
 
-                            evt.added().elements().stream().filter(
-                                    e -> e instanceof VObjectInternal).
-                            map(e -> (VObjectInternal) e).forEach(v
-                            -> {
-
-                                v.removePropertyChangeListener(objListener);
-                                registerChangeListener(v, objListener);
-                                subscriptions.add(
-                                        () -> v.removePropertyChangeListener(objListener));
-                            });
+                            evt.added().elements().stream()
+                                    .filter(VObjectInternal.class::isInstance)
+                                    .map(VObjectInternal.class::cast)
+                                    .forEach(value -> registerChangeListener(value, objListener));
 
                             if (evt.removed().elements().stream().anyMatch(VObject.class::isInstance)) {
                                 // SET can move an existing child or replace just one occurrence.
@@ -398,7 +398,6 @@ public class ChangesImpl implements Changes {
                         }
                 );
 
-                subscriptions.add(subscription);
                 listSubscriptions.put(list, subscription);
             }
         }
@@ -565,14 +564,9 @@ public class ChangesImpl implements Changes {
             publishTransaction();
         }
 
-        subscriptions.forEach(s -> s.unsubscribe());
-        subscriptions.clear();
-
         recording = false;
-
-        unregisterChangeListener(model, objListener);
-
         disableModelVersioning();
+        updateRecursiveObservation();
     }
 
     @Override

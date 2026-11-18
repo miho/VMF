@@ -108,8 +108,9 @@ public interface Content {
     VList<VObject> references();
     
     /**
-     * Returns a deep copy of this object.
-     * @return a deep copy of this object
+     * Copies the VMF object graph using {@link VObject#clone()}. External property
+     * values and external list elements are shared by reference.
+     * @return a copy of the VMF object graph
      */
     <T> T deepCopy();
     

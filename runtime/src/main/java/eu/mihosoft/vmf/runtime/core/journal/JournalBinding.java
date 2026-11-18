@@ -40,6 +40,11 @@ public interface JournalBinding {
     /** Creates a fresh mutable object of the bound type with the specified persistent ID. */
     VObject create(String type, String id);
 
+    /** Returns the external value codecs for this model version and its checkpoints. */
+    default JournalValueCodecs valueCodecs() {
+        return JournalValueCodecs.standard();
+    }
+
     /** Maps a VMF property name to its stable wire key. */
     default String propertyKey(VObject object, String propertyName) {
         return propertyName;

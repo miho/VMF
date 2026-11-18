@@ -35,9 +35,11 @@ import java.util.List;
 import java.util.function.Consumer;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 @SuppressWarnings("deprecation")
 public class HistoryTest {
@@ -170,6 +172,59 @@ public class HistoryTest {
         assertThrows(IllegalArgumentException.class, () -> history.seek(12));
         assertEquals(100, history.seek(10).getReachMm());
         assertEquals(110, history.seek(11).getReachMm());
+    }
+
+    @Test
+    public void rejectsMissedDetachedEditEvenWhenTheFinalStateMatches() {
+        RobotArm checkpoint = arm(100);
+        RobotArm work = checkpoint.clone();
+        var changes = work.vmf().changes();
+        try (JournalRecorder recorder = JournalRecorder.start(work, BINDING, "initial", 0)) {
+            changes.startTransaction();
+            Joint shoulder = work.getJoints().remove(0);
+            shoulder.setAngleDegrees(45);
+            work.getJoints().add(shoulder);
+            changes.publishTransaction();
+            assertEquals(45, work.getJoints().get(0).getAngleDegrees());
+
+            changes.startTransaction();
+            work.getJoints().remove(0);
+            shoulder.setAngleDegrees(10);
+            work.getJoints().add(shoulder);
+            changes.publishTransaction();
+            assertEquals(10, work.getJoints().get(0).getAngleDegrees());
+            assertEquals(2, changes.transactions().size());
+
+            IllegalStateException problem = assertThrows(IllegalStateException.class, recorder::finish);
+            assertTrue(problem.getCause().getMessage().contains("Published transaction state"));
+            assertFalse(changes.isModelVersioningEnabled());
+        }
+    }
+
+    @Test
+    public void unmodifiedDetachedJointCanBeReattachedInALaterTransaction() {
+        RobotArm checkpoint = arm(100);
+        RobotArm work = checkpoint.clone();
+        var changes = work.vmf().changes();
+        ChangeJournal journal;
+        try (JournalRecorder recorder = JournalRecorder.start(work, BINDING, "initial", 0)) {
+            changes.startTransaction();
+            Joint shoulder = work.getJoints().remove(0);
+            changes.publishTransaction();
+
+            changes.startTransaction();
+            work.getJoints().add(shoulder);
+            changes.publishTransaction();
+            journal = recorder.finish();
+        }
+
+        History<RobotArm> history = new History<>(BINDING);
+        history.addSegment("initial", checkpoint, journal);
+        assertTrue(history.seek(1).getJoints().isEmpty());
+        RobotArm restored = history.seek(2);
+        assertEquals("shoulder", restored.getJoints().get(0).getId());
+        assertEquals(10, restored.getJoints().get(0).getAngleDegrees());
+        assertSame(restored, restored.getJoints().get(0).getArm());
     }
 
     private static RobotArm arm(int reachMm) {

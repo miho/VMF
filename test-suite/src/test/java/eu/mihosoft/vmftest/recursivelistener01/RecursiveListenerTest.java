@@ -28,6 +28,7 @@ package eu.mihosoft.vmftest.recursivelistener01;
 import eu.mihosoft.vmftest.recursivelistener01.nocontainment.NodeNoContainment;
 import org.junit.Assert;
 import org.junit.Test;
+import vjavax.observer.Subscription;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -109,6 +110,79 @@ public class RecursiveListenerTest {
         nonRecursiveChanges.set(0);
         recursiveChanges.set(0);
 
+    }
+
+    @Test
+    public void liveListenersSurviveRepeatedRecordingSessions() {
+        Node root = Node.newInstance();
+        Node child = Node.newInstance();
+        root.getChildren().add(child);
+        var changes = root.vmf().changes();
+        AtomicInteger recursiveEvents = new AtomicInteger();
+        AtomicInteger rootEvents = new AtomicInteger();
+        Subscription recursive = changes.addListener(event -> recursiveEvents.incrementAndGet(), true);
+        Subscription rootOnly = changes.addListener(event -> rootEvents.incrementAndGet(), false);
+
+        try {
+            for (int session = 0; session < 2; session++) {
+                root.setName("root before " + session);
+                child.setName("child before " + session);
+                changes.start();
+                root.setName("root during " + session);
+                child.setName("child during " + session);
+                changes.stop();
+
+                root.setName("root after " + session);
+                child.setName("child after " + session);
+                Assert.assertEquals(6 * (session + 1), recursiveEvents.get());
+                Assert.assertEquals(3 * (session + 1), rootEvents.get());
+                Assert.assertEquals(2, changes.all().size());
+                Assert.assertEquals(1, changes.transactions().size());
+            }
+        } finally {
+            changes.stop();
+            recursive.unsubscribe();
+            rootOnly.unsubscribe();
+        }
+    }
+
+    @Test
+    public void listenersCanBeAddedAndRemovedDuringRecording() {
+        Node root = Node.newInstance();
+        Node child = Node.newInstance();
+        root.getChildren().add(child);
+        var changes = root.vmf().changes();
+        AtomicInteger removedEvents = new AtomicInteger();
+        Subscription recursive = changes.addListener(event -> removedEvents.incrementAndGet(), true);
+        Subscription rootOnly = changes.addListener(event -> removedEvents.incrementAndGet(), false);
+
+        changes.start();
+        recursive.unsubscribe();
+        rootOnly.unsubscribe();
+        child.setName("recorded with no public listeners");
+        Assert.assertEquals(1, changes.all().size());
+
+        AtomicInteger recursiveEvents = new AtomicInteger();
+        AtomicInteger rootEvents = new AtomicInteger();
+        Subscription newRecursive = changes.addListener(event -> recursiveEvents.incrementAndGet(), true);
+        Subscription newRootOnly = changes.addListener(event -> rootEvents.incrementAndGet(), false);
+        changes.stop();
+        try {
+            root.setName("root after recording");
+            child.setName("child after recording");
+            Assert.assertEquals(2, recursiveEvents.get());
+            Assert.assertEquals(1, rootEvents.get());
+            Assert.assertEquals(0, removedEvents.get());
+            Assert.assertEquals(1, changes.all().size());
+        } finally {
+            newRecursive.unsubscribe();
+            newRootOnly.unsubscribe();
+        }
+
+        root.setName("root after unsubscribe");
+        child.setName("child after unsubscribe");
+        Assert.assertEquals(2, recursiveEvents.get());
+        Assert.assertEquals(1, rootEvents.get());
     }
 
     @Test

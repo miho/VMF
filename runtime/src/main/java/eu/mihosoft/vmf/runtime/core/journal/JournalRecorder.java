@@ -67,7 +67,8 @@ import static eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.*;
 /** Captures a model's native change stream as an independent, portable forward journal. */
 public final class JournalRecorder implements AutoCloseable {
     private final VObject root;
-    private final VObject initial;
+    private final VObject replayRoot;
+    private final JournalReplayer verifier;
     private final JournalBinding binding;
     private final String model;
     private final int modelVersion;
@@ -75,11 +76,14 @@ public final class JournalRecorder implements AutoCloseable {
     private final long baseSequence;
     private final String rootId;
     private final Changes changes;
-    private final Subscription subscription;
+    private final List<Subscription> subscriptions = new ArrayList<>(2);
     private final Map<String, VObject> known;
     private final Map<VObject, String> identities = new IdentityHashMap<>();
     private final List<Change> captured = new ArrayList<>();
     private final List<Operation> operations = new ArrayList<>();
+    private final List<List<Change>> published = new ArrayList<>();
+    private final List<Frame> frames = new ArrayList<>();
+    private int nextChange;
     private RuntimeException failure;
     private boolean closed;
 
@@ -110,11 +114,12 @@ public final class JournalRecorder implements AutoCloseable {
         this.known = new LinkedHashMap<>(JournalSupport.index(root, binding));
         known.forEach((id, object) -> identities.put(object, id));
         this.rootId = identities.get(root);
-        this.initial = root.clone();
-        JournalSupport.verifyState(root, initial, binding);
+        this.replayRoot = root.clone();
+        JournalSupport.verifyState(root, replayRoot, binding);
+        this.verifier = new JournalReplayer(binding, known, JournalSupport.index(replayRoot, binding));
         try {
             changes.start();
-            subscription = changes.all().addChangeListener(event -> {
+            subscriptions.add(changes.all().addChangeListener(event -> {
                 if (failure != null) return;
                 if (event.wasRemoved()) {
                     failure = new IllegalStateException("Native change history was cleared during recording");
@@ -131,10 +136,27 @@ public final class JournalRecorder implements AutoCloseable {
                         break;
                     }
                 }
-            });
+            }));
+            subscriptions.add(changes.transactions().addChangeListener(event -> {
+                if (failure != null) return;
+                if (event.wasRemoved()) {
+                    failure = new IllegalStateException("Native transaction history was cleared during recording");
+                    return;
+                }
+                try {
+                    for (Transaction transaction : event.added().elements()) captureBoundary(transaction);
+                } catch (RuntimeException ex) {
+                    // Leave native publication intact. The journal will be rejected at finish().
+                    failure = new IllegalStateException("Published transaction state could not be reproduced", ex);
+                }
+            }));
         } catch (RuntimeException | Error ex) {
             try {
-                changes.stop();
+                try {
+                    subscriptions.forEach(Subscription::unsubscribe);
+                } finally {
+                    changes.stop();
+                }
             } catch (RuntimeException | Error stopFailure) {
                 if (stopFailure != ex) ex.addSuppressed(stopFailure);
             }
@@ -196,7 +218,7 @@ public final class JournalRecorder implements AutoCloseable {
         if (value instanceof VObject) {
             return new Value(ValueKind.REFERENCE, reference((VObject) value, created));
         }
-        return JournalSupport.scalar(value);
+        return JournalSupport.scalar(value, binding);
     }
 
     private String reference(VObject object, List<Creation> created) {
@@ -208,6 +230,7 @@ public final class JournalRecorder implements AutoCloseable {
         }
         JournalSupport.mutable(object);
         if (known.putIfAbsent(id, object) != null) throw new IllegalArgumentException("Duplicate object ID: " + id);
+        verifier.excludeLiveInstance(object);
         // Register the identity before capturing properties to allow forward and cyclic references.
         identities.put(object, id);
         Map<String, List<Value>> properties = new LinkedHashMap<>();
@@ -254,57 +277,69 @@ public final class JournalRecorder implements AutoCloseable {
                 throw new IllegalStateException("Object entered the graph without a recorded change: " + entry.getKey());
             }
         }
-        ChangeJournal journal = new ChangeJournal(model, modelVersion, rootId, checkpoint, baseSequence, frames());
+        verifyNativeHistory();
         try {
-            VObject replayed = JournalReplayer.replay(initial, binding, checkpoint, journal);
-            JournalSupport.verifyState(root, replayed, binding);
+            appendUngroupedUntil(captured.size());
+            JournalSupport.verifyState(root, replayRoot, binding);
         } catch (IllegalArgumentException ex) {
             throw new IllegalStateException("Recorded changes could not reproduce the model state", ex);
         }
-        return journal;
+        return new ChangeJournal(model, modelVersion, rootId, checkpoint, baseSequence, frames);
     }
 
-    private List<Frame> frames() {
-        List<Change> history = changes.all();
-        if (history.size() != captured.size()) throw new IllegalStateException("Native change history was replaced");
-        Map<Change, Integer> positions = new IdentityHashMap<>();
-        for (int i = 0; i < history.size(); i++) {
-            if (history.get(i) != captured.get(i)) throw new IllegalStateException("Native change history was replaced");
-            positions.put(history.get(i), i);
+    private void captureBoundary(Transaction transaction) {
+        List<Change> group = transaction.changes();
+        int end = captured.size();
+        int start = end - group.size();
+        if (group.isEmpty() || start < nextChange || !sameChanges(captured.subList(start, end), group)) {
+            throw new IllegalStateException("Native transaction does not match recorded changes");
         }
+        appendUngroupedUntil(start);
+        appendFrame(start, end);
+        nextChange = end;
+        JournalSupport.verifyState(root, replayRoot, binding);
+        published.add(List.copyOf(group));
+    }
 
-        List<Frame> result = new ArrayList<>();
-        int cursor = 0;
-        for (Transaction transaction : changes.transactions()) {
-            List<Change> group = transaction.changes();
-            Integer first = group.isEmpty() ? null : positions.get(group.get(0));
-            if (first == null || first < cursor || group.size() > captured.size() - first) {
+    private void verifyNativeHistory() {
+        if (!sameChanges(changes.all(), captured)) {
+            throw new IllegalStateException("Native change history was replaced");
+        }
+        List<Transaction> transactions = changes.transactions();
+        if (transactions.size() != published.size()) {
+            throw new IllegalStateException("Native transaction history was replaced");
+        }
+        for (int i = 0; i < transactions.size(); i++) {
+            if (!sameChanges(transactions.get(i).changes(), published.get(i))) {
                 throw new IllegalStateException("Native transaction does not match recorded changes");
             }
-            while (cursor < first) {
-                appendFrame(result, cursor, cursor + 1);
-                cursor++;
-            }
-            for (Change change : group) {
-                if (captured.get(cursor++) != change) {
-                    throw new IllegalStateException("Native transaction does not match recorded changes");
-                }
-            }
-            appendFrame(result, first, cursor);
         }
-        while (cursor < captured.size()) {
-            appendFrame(result, cursor, cursor + 1);
-            cursor++;
-        }
-        return result;
     }
 
-    private void appendFrame(List<Frame> frames, int from, int to) {
-        List<Operation> frame = new ArrayList<>();
-        for (Operation operation : operations.subList(from, to)) {
-            if (operation != null) frame.add(operation);
+    private static boolean sameChanges(List<Change> a, List<Change> b) {
+        if (a.size() != b.size()) return false;
+        for (int i = 0; i < a.size(); i++) {
+            if (a.get(i) != b.get(i)) return false;
         }
-        if (!frame.isEmpty()) frames.add(new Frame(Math.addExact(baseSequence, frames.size() + 1L), frame));
+        return true;
+    }
+
+    private void appendUngroupedUntil(int end) {
+        while (nextChange < end) {
+            appendFrame(nextChange, nextChange + 1);
+            nextChange++;
+        }
+    }
+
+    private void appendFrame(int from, int to) {
+        List<Operation> edits = new ArrayList<>();
+        for (Operation operation : operations.subList(from, to)) {
+            if (operation != null) edits.add(operation);
+        }
+        if (edits.isEmpty()) return;
+        Frame frame = new Frame(Math.addExact(baseSequence, frames.size() + 1L), edits);
+        verifier.applyFrame(frame, replayRoot);
+        frames.add(frame);
     }
 
     @Override
@@ -314,7 +349,7 @@ public final class JournalRecorder implements AutoCloseable {
         try {
             if (changes.isModelVersioningEnabled()) changes.stop();
         } finally {
-            subscription.unsubscribe();
+            subscriptions.forEach(Subscription::unsubscribe);
         }
     }
 }

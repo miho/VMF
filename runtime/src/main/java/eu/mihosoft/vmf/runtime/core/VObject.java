@@ -39,13 +39,16 @@ public interface VObject {
     VMF vmf();
     
     /**
-     * Returns a deep clone of this object.
-     * @return a deep clone of this object
+     * Copies the VMF object graph. External property values and external list elements
+     * are shared by reference. Store immutable values or copy mutable payloads separately
+     * when the result needs to be an isolated snapshot.
+     * @return a copy of the VMF object graph
      */
     VObject clone();
     
     /**
-     * Returns a read-only wrapper of this object.
+     * Returns a live read-only wrapper of this object. External property values
+     * and external list elements keep their original mutability.
      * @return a read-only wrapper of this object
      */
     VObject asReadOnly();

@@ -55,7 +55,7 @@ public final class JournalReplayer {
     private final Map<String, VObject> objects;
     private final Set<VObject> usedInstances = Collections.newSetFromMap(new IdentityHashMap<>());
 
-    private JournalReplayer(JournalBinding binding, Map<String, VObject> original, Map<String, VObject> objects) {
+    JournalReplayer(JournalBinding binding, Map<String, VObject> original, Map<String, VObject> objects) {
         this.binding = binding;
         this.objects = objects;
         require(original.keySet().equals(objects.keySet()), "Checkpoint copy changed its IDs");
@@ -81,11 +81,17 @@ public final class JournalReplayer {
         require(original.get(journal.root()) == checkpointRoot, "Journal root does not match");
         T copy = (T) checkpointRoot.clone();
         JournalReplayer replay = new JournalReplayer(binding, original, JournalSupport.index(copy, binding));
-        for (Frame frame : journal.transactions()) {
-            for (Operation operation : frame.operations()) replay.apply(operation);
-            replay.verifyGraph(copy);
-        }
+        for (Frame frame : journal.transactions()) replay.applyFrame(frame, copy);
         return copy;
+    }
+
+    void excludeLiveInstance(VObject object) {
+        require(usedInstances.add(object), "Replay factory reused a live object");
+    }
+
+    void applyFrame(Frame frame, VObject root) {
+        for (Operation operation : frame.operations()) apply(operation);
+        verifyGraph(root);
     }
 
     private void verifyGraph(VObject root) {
@@ -219,8 +225,12 @@ public final class JournalReplayer {
         Class<?> boxed = BOXES.getOrDefault(type, type);
         List<Object> result = new ArrayList<>(values.size());
         for (Value value : values) {
-            Object decoded = value.kind() == ValueKind.REFERENCE ? object(value.text())
-                    : JournalSupport.decodeScalar(value.kind(), value.text());
+            Object decoded;
+            switch (value.kind()) {
+                case REFERENCE: decoded = object(value.text()); break;
+                case EXTERNAL: decoded = binding.valueCodecs().decode(value); break;
+                default: decoded = JournalSupport.decodeScalar(value.kind(), value.text());
+            }
             require(decoded == null ? !type.isPrimitive() : boxed.isInstance(decoded),
                     "Journal value has the wrong type for " + property.getName());
             result.add(decoded);

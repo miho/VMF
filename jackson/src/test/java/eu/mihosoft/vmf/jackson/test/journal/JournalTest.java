@@ -24,11 +24,14 @@
 package eu.mihosoft.vmf.jackson.test.journal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.jackson.VMFJournalCodec;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Kind;
+import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Value;
+import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.ValueKind;
 import eu.mihosoft.vmf.runtime.core.journal.JournalBinding;
 import eu.mihosoft.vmf.runtime.core.journal.JournalRecorder;
 import eu.mihosoft.vmf.runtime.core.journal.JournalReplayer;
@@ -310,8 +313,59 @@ class JournalTest {
                 + "\"after\":[{\"kind\":\"STRING\",\"text\":\"b\"}],\"created\":[]}]}]}";
         ChangeJournal journal = VMFJournalCodec.read(fixture);
         assertEquals("b", JournalReplayer.replay(document("a"), BINDING, CHECKPOINT, journal).getTitle());
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":2")));
+        var mapper = new ObjectMapper();
+        assertEquals(fixture, mapper.writeValueAsString(mapper.readTree(VMFJournalCodec.write(journal))));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":3")));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":1,\"version\":1")));
+    }
+
+    @Test
+    void preservesOpaqueExternalValuesInVersionTwoAndValidatesTheirWireShape() throws Exception {
+        Value external = Value.external("example.quantity.v1", "5\u00a0mm\nlength");
+        var operation = new ChangeJournal.Operation(Kind.SET, "document", "length", List.of(),
+                List.of(new Value(ValueKind.NULL, null)), List.of(external), List.of());
+        var journal = new ChangeJournal(BINDING.modelId(), BINDING.modelVersion(), "document", CHECKPOINT,
+                BASE_SEQUENCE, List.of(new ChangeJournal.Frame(BASE_SEQUENCE + 1, List.of(operation))));
+        String json = VMFJournalCodec.write(journal);
+
+        var decoded = VMFJournalCodec.read(json);
+        assertEquals(external, decoded.transactions().get(0).operations().get(0).after().get(0));
+        assertEquals(json, VMFJournalCodec.write(decoded));
+
+        var envelope = (ObjectNode) new ObjectMapper().readTree(json);
+        assertEquals(2, envelope.get("version").intValue());
+        envelope.put("version", 1);
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
+        envelope.put("version", 2);
+
+        var value = (ObjectNode) envelope.at("/transactions/0/operations/0/after/0");
+        assertEquals(external.codecId(), value.get("codec").textValue());
+        value.remove("codec");
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
+        value.put("codec", 42);
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
+        value.put("codec", external.codecId());
+        value.put("kind", "STRING");
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
+    }
+
+    @Test
+    void writesVersionTwoForAnExternalValueInInitialCreationProperties() throws Exception {
+        Value external = Value.external("example.quantity.v1", "5 mm");
+        var creation = new ChangeJournal.Creation("item-1", "item", Map.of("length", List.of(external)));
+        var operation = new ChangeJournal.Operation(Kind.LIST_ADD, "document", "items", List.of(0),
+                List.of(), List.of(new Value(ValueKind.REFERENCE, "item-1")), List.of(creation));
+        var journal = new ChangeJournal(BINDING.modelId(), BINDING.modelVersion(), "document", CHECKPOINT,
+                BASE_SEQUENCE, List.of(new ChangeJournal.Frame(BASE_SEQUENCE + 1, List.of(operation))));
+
+        String json = VMFJournalCodec.write(journal);
+        var envelope = (ObjectNode) new ObjectMapper().readTree(json);
+        assertEquals(2, envelope.get("version").intValue());
+        String path = "/transactions/0/operations/0/created/0/properties/length/0/codec";
+        assertEquals(external.codecId(), envelope.at(path).textValue());
+        assertEquals(json, VMFJournalCodec.write(VMFJournalCodec.read(json)));
+        envelope.put("version", 1);
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
     }
 
     @Test
