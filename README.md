@@ -24,6 +24,7 @@ It generates/supports:
 - deep and shallow cloning
 - change notification
 - undo/redo
+- [portable change journals](docs/change-journal.md)
 - object graph traversal API via iterators and streams
 - immutable types and read-only wrappers
 - delegation

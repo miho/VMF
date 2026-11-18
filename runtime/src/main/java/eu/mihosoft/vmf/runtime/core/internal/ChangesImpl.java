@@ -587,6 +587,7 @@ public class ChangesImpl implements Changes {
 
     @Override
     public void clear() {
+        currentTransactionStartIndex = 0;
         all.clear();
         transactions.clear();
     }

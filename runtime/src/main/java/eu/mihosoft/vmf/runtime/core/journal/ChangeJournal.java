@@ -1,0 +1,182 @@
+/*
+ * Copyright 2017-2024 Michael Hoffer <info@michaelhoffer.de>. All rights reserved.
+ * Copyright 2017-2019 Goethe Center for Scientific Computing, University Frankfurt. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * If you use this software for scientific research then please cite the following publication(s):
+ *
+ * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
+ * a framework for declarative GUI programming on the Java platform.
+ * Computing and Visualization in Science, 2013, 16(4),
+ * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ */
+package eu.mihosoft.vmf.runtime.core.journal;
+
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+
+/** Immutable, model-independent records of forward changes from a checkpoint. */
+public final class ChangeJournal {
+    public static final String FORMAT = "vmf-journal";
+    public static final int VERSION = 1;
+
+    private final String model;
+    private final int modelVersion;
+    private final String root;
+    private final String checkpoint;
+    private final long baseSequence;
+    private final List<Frame> transactions;
+
+    public ChangeJournal(String model, int modelVersion, String root, String checkpoint,
+                         long baseSequence, List<Frame> transactions) {
+        this.model = JournalSupport.requireName(model, "model");
+        this.root = JournalSupport.requireName(root, "root ID");
+        this.checkpoint = JournalSupport.requireName(checkpoint, "checkpoint");
+        if (modelVersion < 1 || baseSequence < 0) {
+            throw new IllegalArgumentException("Invalid model version or base sequence");
+        }
+        this.modelVersion = modelVersion;
+        this.baseSequence = baseSequence;
+        this.transactions = List.copyOf(transactions);
+        long sequence = baseSequence;
+        for (Frame frame : this.transactions) {
+            if (sequence == Long.MAX_VALUE || frame.sequence() != sequence + 1) {
+                throw new IllegalArgumentException("Journal sequence must be consecutive");
+            }
+            sequence = frame.sequence();
+        }
+    }
+
+    public String model() { return model; }
+    public int modelVersion() { return modelVersion; }
+    public String root() { return root; }
+    public String checkpoint() { return checkpoint; }
+    public long baseSequence() { return baseSequence; }
+    public List<Frame> transactions() { return transactions; }
+
+    public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET }
+
+    public enum ValueKind { NULL, REFERENCE, STRING, BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, CHAR }
+
+    /** A scalar in canonical Java spelling, or a persistent model-object reference. */
+    public static final class Value {
+        private final ValueKind kind;
+        private final String text;
+
+        public Value(ValueKind kind, String text) {
+            this.kind = Objects.requireNonNull(kind, "value kind");
+            JournalSupport.validateValue(kind, text);
+            this.text = text;
+        }
+
+        public ValueKind kind() { return kind; }
+        public String text() { return text; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (!(other instanceof Value)) return false;
+            Value value = (Value) other;
+            return kind == value.kind && Objects.equals(text, value.text);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(kind, text);
+        }
+    }
+
+    /** Initial properties of an object, with a singleton value for each scalar property. */
+    public static final class Creation {
+        private final String id;
+        private final String type;
+        private final Map<String, List<Value>> properties;
+
+        public Creation(String id, String type, Map<String, List<Value>> properties) {
+            this.id = JournalSupport.requireName(id, "creation ID");
+            this.type = JournalSupport.requireName(type, "creation type");
+            Map<String, List<Value>> copy = new LinkedHashMap<>();
+            properties.forEach((key, values) -> copy.put(JournalSupport.requireName(key, "property key"), List.copyOf(values)));
+            this.properties = Collections.unmodifiableMap(copy);
+        }
+
+        public String id() { return id; }
+        public String type() { return type; }
+        public Map<String, List<Value>> properties() { return properties; }
+    }
+
+    /** LIST_ADD indices refer to the resulting list. Other list indices refer to the preceding list. */
+    public static final class Operation {
+        private final Kind kind;
+        private final String target;
+        private final String property;
+        private final List<Integer> indices;
+        private final List<Value> before;
+        private final List<Value> after;
+        private final List<Creation> created;
+
+        public Operation(Kind kind, String target, String property, List<Integer> indices,
+                         List<Value> before, List<Value> after, List<Creation> created) {
+            this.kind = Objects.requireNonNull(kind, "operation kind");
+            this.target = JournalSupport.requireName(target, "target ID");
+            this.property = JournalSupport.requireName(property, "property key");
+            this.indices = List.copyOf(indices);
+            this.before = List.copyOf(before);
+            this.after = List.copyOf(after);
+            this.created = List.copyOf(created);
+            validateShape();
+        }
+
+        private void validateShape() {
+            int previous = -1;
+            for (int index : indices) {
+                if (index <= previous) throw new IllegalArgumentException("List indices must be nonnegative and strictly increasing");
+                previous = index;
+            }
+            int size = indices.size();
+            int expectedBefore = kind == Kind.SET ? 1 : kind == Kind.LIST_ADD ? 0 : size;
+            int expectedAfter = kind == Kind.SET ? 1 : kind == Kind.LIST_REMOVE ? 0 : size;
+            if ((kind == Kind.SET) != indices.isEmpty() || before.size() != expectedBefore || after.size() != expectedAfter) {
+                throw new IllegalArgumentException("Invalid value/position count for " + kind);
+            }
+        }
+
+        public Kind kind() { return kind; }
+        public String target() { return target; }
+        public String property() { return property; }
+        public List<Integer> indices() { return indices; }
+        public List<Value> before() { return before; }
+        public List<Value> after() { return after; }
+        public List<Creation> created() { return created; }
+    }
+
+    /** One recorded VMF transaction, or one ungrouped change. */
+    public static final class Frame {
+        private final long sequence;
+        private final List<Operation> operations;
+
+        public Frame(long sequence, List<Operation> operations) {
+            this.sequence = sequence;
+            this.operations = List.copyOf(operations);
+            if (sequence < 1 || this.operations.isEmpty()) {
+                throw new IllegalArgumentException("A transaction needs a positive sequence and at least one operation");
+            }
+        }
+
+        public long sequence() { return sequence; }
+        public List<Operation> operations() { return operations; }
+    }
+}
