@@ -7,6 +7,7 @@
 #   scripts/central-staging.sh snapshots [version]       latest snapshot build of each artifact + the commit it was built from
 #   scripts/central-staging.sh repos [open|closed|released]  staging repositories: key, state, deployment id
 #   scripts/central-staging.sh status <deploymentId>      deployment state + purls (Portal API)
+#   scripts/central-staging.sh published [version]        whether a release version is published on Central (Portal API)
 #   scripts/central-staging.sh props                      the -P arguments for Gradle (for $(...))
 set -e
 cd "$(dirname "$0")/.."
@@ -62,9 +63,19 @@ case "$1" in
       "https://central.sonatype.com/api/v1/publisher/status?id=$2" \
       | python -c 'import json,sys; d=json.load(sys.stdin); print("state:", d.get("deploymentState")); print("purls:", d.get("purls")); print("errors:", d.get("errors"))'
     ;;
+  published)
+    VERSION="${2:-$(grep -E '^publication.version' config/common.properties | sed -E 's/^[^=]*=\s*//' | tr -d '\r ')}"
+    for a in $ARTIFACTS; do
+      [ "$a" = "eu.mihosoft.vmf.gradle.plugin" ] && continue
+      printf '%-32s %s ' "$a" "$VERSION"
+      curl -s -H "Authorization: Bearer $(bearer)" \
+        "https://central.sonatype.com/api/v1/publisher/published?namespace=$(echo "$GROUP_PATH" | tr / .)&name=$a&version=$VERSION"
+      echo
+    done
+    ;;
   props)
     props_file
     grep -E '^[A-Za-z]' "$PROPS" | tr -d '\r' | sed 's/^/-P/'
     ;;
-  *) echo "usage: $0 snapshots [version] | repos [state] | status <deploymentId> | props" >&2; exit 2 ;;
+  *) echo "usage: $0 snapshots [version] | repos [state] | status <deploymentId> | published [version] | props" >&2; exit 2 ;;
 esac
