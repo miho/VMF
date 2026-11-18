@@ -120,6 +120,13 @@ published in the meantime. This includes CI runs that restore a Gradle cache.
 
 Ask before publishing a release to Central: the monthly limits are shared.
 
+A release must not depend on `-SNAPSHOT` versions: check the dependencies
+first (`grep -n -- "-SNAPSHOT['\"]" build.gradle */build.gradle` lists the
+literal ones; the VMF version itself comes from `config/common.properties`).
+Since #98, `vmf-runtime` depends on
+`vcollections 0.3.5-SNAPSHOT`; VCollections 0.3.5 has to be released (and the
+dependency updated) before VMF 0.2.12.
+
 1. **Git** (on `master`, after `sh ./build-and-test-all.sh` is green):
    - set `publication.version=X` in `config/common.properties`,
      `git commit config/common.properties -m "release X"`

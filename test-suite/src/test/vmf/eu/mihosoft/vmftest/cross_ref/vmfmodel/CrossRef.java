@@ -26,6 +26,7 @@ package eu.mihosoft.vmftest.cross_ref.vmfmodel;
 
 import eu.mihosoft.vmf.core.Refers;
 import eu.mihosoft.vmf.core.Contains;
+import eu.mihosoft.vmf.core.InterfaceOnly;
 
 interface CrossRefGraph {
     @Contains EntityOneA[] getLefts();
@@ -61,4 +62,30 @@ interface EntityOneC {
 interface EntityTwoC {
     @Refers(opposite="refs")
     EntityOneC[] getRefs();
+}
+
+// one-to-one reference that is its own opposite (#97)
+interface Partner {
+    String getName();
+
+    @Refers(opposite="partner")
+    Partner getPartner();
+}
+
+// one-to-one reference declared on interface-only types (#97)
+@InterfaceOnly
+interface Selector {
+    @Refers(opposite="selectedBy")
+    Selectable getSelected();
+}
+@InterfaceOnly
+interface Selectable {
+    @Refers(opposite="selected")
+    Selector getSelectedBy();
+}
+interface Panel extends Selector {
+    String getName();
+}
+interface Button extends Selectable {
+    String getName();
 }
