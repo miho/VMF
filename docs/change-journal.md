@@ -1,6 +1,6 @@
 # Portable change journals
 
-`JournalRecorder` captures native VMF changes as immutable records. `VMFJournalCodec` writes and reads those records as versioned JSON. `JournalReplayer` resolves IDs in a copy of a checkpoint and returns the replayed root.
+`JournalRecorder` captures native VMF changes as immutable records. `VMFJournalCodec` writes and reads those records in JSON, YAML, and XML. `JournalReplayer` resolves IDs in a copy of a checkpoint and returns the replayed root.
 
 ```java
 // Register stable wire type names and factories in a model-specific JournalBinding.
@@ -30,7 +30,7 @@ The checkpoint identifier comes from the caller. A digest of the stored checkpoi
 
 `Changes.all()` exposes live `Change` objects for observation and undo on the original model. Each change refers to the actual affected object. `Change.apply()` takes that object, or the corresponding affected object for a plain value edit. VMF rejects model-valued changes applied to a different instance before assigning any values. Use a `JournalRecorder` from the starting checkpoint for replay on another graph, including edits to nested objects, containment changes, and references.
 
-`VMFJacksonModule` rejects native `Change` JSON. Save the `ChangeJournal` with `VMFJournalCodec.write()` and restore it with `VMFJournalCodec.read()`, as in the example above. The envelope preserves ordered transaction sequences and stores stable IDs for affected objects and reference payloads.
+`VMFJacksonModule` rejects serialization and deserialization of live `Change` objects. Save the `ChangeJournal` with `VMFJournalCodec.write()` and restore it with `VMFJournalCodec.read()`, as in the example above. The envelope preserves ordered transaction sequences and stores stable IDs for affected objects and reference payloads.
 
 The deprecated `ModelDiff.apply(source, diff)` accepts changes bound to the original source. Pass that same source as the first argument. Use a change journal for recorded edits that need to replay from an independent checkpoint.
 
@@ -63,6 +63,24 @@ public JournalValueCodecs valueCodecs() {
 ```
 
 Registration asserts deep immutability, including everything reachable through the value. The encoder and decoder must be deterministic and side-effect free. The canonical Unicode text must round-trip to an equal value of the same exact class. Keep the codec ID and encoding stable for readers of existing journals and supply the same registry for recording, replay, and seeking. An immutable quantity can encode its magnitude and unit in its own codec. To use mutable input, convert it to an immutable value before storing it in the journaled model. Journal codecs run in the core runtime. Checkpoint serialization uses its own configuration, such as a Jackson module for the model's value types.
+
+## Journal document formats
+
+The default `write(journal)` and `read(document)` overloads use canonical JSON. Pass `VMFJournalCodec.Format.YAML` or `VMFJournalCodec.Format.XML` to select another format. The journal and its model checkpoint may use different formats.
+
+```java
+String yaml = VMFJournalCodec.write(journal, VMFJournalCodec.Format.YAML);
+ChangeJournal fromYaml = VMFJournalCodec.read(yaml, VMFJournalCodec.Format.YAML);
+
+String xml = VMFJournalCodec.write(journal, VMFJournalCodec.Format.XML);
+ChangeJournal fromXml = VMFJournalCodec.read(xml, VMFJournalCodec.Format.XML);
+```
+
+YAML uses the same envelope keys, value types, and ordered sequences as JSON. Quote strings that resemble numbers, booleans, or null when editing a journal by hand. Journals reject YAML aliases.
+
+XML uses a `vmf-journal` root in place of the `format` field. Lists use explicit wrappers such as `<transactions><transaction>…</transaction></transactions>`. Creation properties are ordered `property` elements with `name` and `values` children. Null text uses `<text null="true"/>`. Strings that XML cannot preserve verbatim, such as control characters or carriage returns, use an `encoding="base64"` attribute and UTF-8 bytes. The XML reader rejects document type declarations.
+
+All three formats use the same v1 and v2 journal records and validation rules. Version 2 adds registered external values.
 
 ## Version 1 JSON
 

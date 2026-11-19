@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.jackson.VMFJournalCodec;
+import eu.mihosoft.vmf.jackson.VMFJournalCodec.Format;
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal;
@@ -129,25 +130,29 @@ class JournalTest {
         Item original = item("i1", "original");
         source.getItems().add(original);
         source.setSelectedItem(original);
-        ChangeJournal journal = VMFJournalCodec.read(VMFJournalCodec.write(recorder.finish()));
+        ChangeJournal journal = recorder.finish();
 
-        Document before = mapper.readValue(checkpointJson, Document.class);
-        Document result = JournalReplayer.replay(before, BINDING, CHECKPOINT, journal);
-        assertNotSame(before, result);
-        assertEquals(List.of("i1"), itemIds(result));
-        Item replayed = result.getItems().get(0);
-        assertNotSame(original, replayed);
-        assertSame(replayed, result.getSelectedItem());
-        assertSame(result, replayed.getDocument());
-        assertSame(result, replayed.getSelectedBy());
+        for (Format format : Format.values()) {
+            ChangeJournal decoded = VMFJournalCodec.read(VMFJournalCodec.write(journal, format), format);
+            assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(decoded), format.name());
+            Document before = mapper.readValue(checkpointJson, Document.class);
+            Document result = JournalReplayer.replay(before, BINDING, CHECKPOINT, decoded);
+            assertNotSame(before, result);
+            assertEquals(List.of("i1"), itemIds(result));
+            Item replayed = result.getItems().get(0);
+            assertNotSame(original, replayed);
+            assertSame(replayed, result.getSelectedItem());
+            assertSame(result, replayed.getDocument());
+            assertSame(result, replayed.getSelectedBy());
+            assertTrue(before.getItems().isEmpty());
+            assertNull(before.getSelectedItem());
+        }
 
         assertEquals(List.of("i1"), itemIds(source));
         assertSame(original, source.getItems().get(0));
         assertSame(original, source.getSelectedItem());
         assertSame(source, original.getDocument());
         assertSame(source, original.getSelectedBy());
-        assertTrue(before.getItems().isEmpty());
-        assertNull(before.getSelectedItem());
     }
 
     @Test
@@ -239,7 +244,7 @@ class JournalTest {
         source.getItems().sort(Comparator.comparingInt(value -> ranks.get(value.getId())));
         changes.publishTransaction();
 
-        ChangeJournal journal = VMFJournalCodec.read(VMFJournalCodec.write(recorder.finish()));
+        ChangeJournal journal = recorder.finish();
         assertEquals(2, journal.transactions().size());
         var firstFrame = journal.transactions().get(0);
         var secondFrame = journal.transactions().get(1);
@@ -254,17 +259,21 @@ class JournalTest {
         assertEquals("items", secondFrame.operations().get(0).property());
         assertEquals(List.of(0, 2), secondFrame.operations().get(0).indices());
 
-        Document before = mapper.readValue(checkpointJson, Document.class);
-        Document result = JournalReplayer.replay(before, BINDING, CHECKPOINT, journal);
-        assertEquals(List.of("right", "middle", "left"), itemIds(result));
-        assertEquals("recorded nested edit", result.getItems().get(2).getLabel());
-        assertSame(result.getItems().get(2), result.getSelectedItem());
-        assertSame(result, result.getSelectedItem().getSelectedBy());
-        result.getItems().forEach(child -> assertSame(result, child.getDocument()));
-        assertNotSame(left, result.getSelectedItem());
-        assertNotSame(before.getItems().get(0), result.getSelectedItem());
-        assertEquals(List.of("left", "middle", "right"), itemIds(before));
-        assertEquals("original label", before.getItems().get(0).getLabel());
+        for (Format format : Format.values()) {
+            ChangeJournal decoded = VMFJournalCodec.read(VMFJournalCodec.write(journal, format), format);
+            assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(decoded), format.name());
+            Document before = mapper.readValue(checkpointJson, Document.class);
+            Document result = JournalReplayer.replay(before, BINDING, CHECKPOINT, decoded);
+            assertEquals(List.of("right", "middle", "left"), itemIds(result), format.name());
+            assertEquals("recorded nested edit", result.getItems().get(2).getLabel());
+            assertSame(result.getItems().get(2), result.getSelectedItem());
+            assertSame(result, result.getSelectedItem().getSelectedBy());
+            result.getItems().forEach(child -> assertSame(result, child.getDocument()));
+            assertNotSame(left, result.getSelectedItem());
+            assertNotSame(before.getItems().get(0), result.getSelectedItem());
+            assertEquals(List.of("left", "middle", "right"), itemIds(before));
+            assertEquals("original label", before.getItems().get(0).getLabel());
+        }
         assertSame(left, source.getSelectedItem());
     }
 
@@ -341,8 +350,72 @@ class JournalTest {
         assertEquals("b", JournalReplayer.replay(document("a"), BINDING, CHECKPOINT, journal).getTitle());
         var mapper = new ObjectMapper();
         assertEquals(fixture, mapper.writeValueAsString(mapper.readTree(VMFJournalCodec.write(journal))));
+        assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(journal, Format.JSON));
+        assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(VMFJournalCodec.read(fixture, Format.JSON)));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":3")));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":1,\"version\":1")));
+    }
+
+    @Test
+    void allFormatsPreserveOpaqueValuesAndArbitraryCreationKeys() throws Exception {
+        String key = "quantity \r\n<&> / 1\u0085tail";
+        Value external = Value.external("example.quantity.v1", "5\u00a0mm\r\n<length> & \t\ud83d\ude80\0");
+        List<Value> labels = List.of(new Value(ValueKind.NULL, null), new Value(ValueKind.STRING, ""),
+                new Value(ValueKind.STRING, "null"), new Value(ValueKind.STRING, "true"),
+                new Value(ValueKind.STRING, "001"), new Value(ValueKind.STRING, " line\nbreak "),
+                new Value(ValueKind.STRING, "<tag> & ]]> \ud83d\ude80"));
+        var creation = new ChangeJournal.Creation("item-1", "item", Map.of(
+                key, List.of(external), "labels", labels, "next\u0085line", List.of(), "empty-list", List.of()));
+        var operation = new ChangeJournal.Operation(Kind.LIST_ADD, "document", "items", List.of(0),
+                List.of(), List.of(new Value(ValueKind.REFERENCE, "item-1")), List.of(creation));
+        var journal = new ChangeJournal(BINDING.modelId(), BINDING.modelVersion(), "document", CHECKPOINT,
+                Long.MAX_VALUE - 1, List.of(new ChangeJournal.Frame(Long.MAX_VALUE, List.of(operation))));
+
+        for (Format format : Format.values()) {
+            String encoded = VMFJournalCodec.write(journal, format);
+            ChangeJournal decoded = VMFJournalCodec.read(encoded, format);
+            assertEquals(2, decoded.wireVersion(), format.name());
+            assertEquals(Long.MAX_VALUE - 1, decoded.baseSequence());
+            var frame = decoded.transactions().get(0);
+            assertEquals(Long.MAX_VALUE, frame.sequence());
+            var properties = frame.operations().get(0).created().get(0).properties();
+            assertEquals(creation.properties(), properties, format.name());
+            assertEquals(encoded, VMFJournalCodec.write(decoded, format), format.name());
+        }
+    }
+
+    @Test
+    void yamlReadsNativeMappingsAndRejectsInvalidEnvelopeShapes() throws IOException {
+        String yaml = String.join("\n", "format: vmf-journal", "version: 1",
+                "model: {id: test.document, version: 1}", "root: document",
+                "base: {checkpoint: document-at-40, sequence: 40}", "transactions: []", "");
+        ChangeJournal journal = VMFJournalCodec.read(yaml, Format.YAML);
+        assertEquals(CHECKPOINT, journal.checkpoint());
+        assertTrue(journal.transactions().isEmpty());
+        String encoded = VMFJournalCodec.write(journal, Format.YAML);
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(encoded));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "version: 1\n", Format.YAML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "unexpected: true\n", Format.YAML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "---\n" + yaml, Format.YAML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml.replace("sequence: 40", "sequence: '40'"), Format.YAML));
+        String alias = yaml.replace("id: test.document", "id: &model-id test.document")
+                .replace("root: document", "root: *model-id");
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(alias, Format.YAML));
+    }
+
+    @Test
+    void xmlReadsNativeElementsAndRejectsInvalidEnvelopeShapes() throws IOException {
+        String xml = "<vmf-journal><version>1</version><model><id>test.document</id><version>1</version></model>"
+                + "<root>document</root><base><checkpoint>document-at-40</checkpoint><sequence>40</sequence></base>"
+                + "<transactions/></vmf-journal>";
+        ChangeJournal journal = VMFJournalCodec.read(xml, Format.XML);
+        assertEquals(CHECKPOINT, journal.checkpoint());
+        assertTrue(journal.transactions().isEmpty());
+        assertTrue(VMFJournalCodec.write(journal, Format.XML).contains("<vmf-journal>"));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml.replace("<root>", "<version>1</version><root>"), Format.XML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml.replace("<transactions/>", "<transactions/><unexpected/>"), Format.XML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml + xml, Format.XML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read("<!DOCTYPE vmf-journal []>" + xml, Format.XML));
     }
 
     @Test

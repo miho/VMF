@@ -24,9 +24,11 @@
 package eu.mihosoft.vmf.jackson;
 
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.core.json.JsonWriteFeature;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
+import com.fasterxml.jackson.core.util.JsonParserDelegate;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,6 +36,8 @@ import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.fasterxml.jackson.dataformat.yaml.YAMLParser;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Creation;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Frame;
@@ -41,6 +45,7 @@ import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Kind;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Operation;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Value;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.ValueKind;
+import org.yaml.snakeyaml.DumperOptions;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -53,7 +58,7 @@ import java.util.TreeMap;
 import java.util.function.Function;
 
 /**
- * Reads and writes the versioned JSON format of a portable {@link ChangeJournal}.
+ * Reads and writes versioned portable {@link ChangeJournal} records in JSON, YAML, or XML.
  *
  * <p>The envelope contains {@code format}, {@code version}, {@code model} with
  * an {@code id} and {@code version}, {@code root}, {@code base} with a
@@ -64,24 +69,26 @@ import java.util.function.Function;
  * {@code indices}, {@code before}, {@code after}, and {@code created}. A creation
  * contains its {@code id}, {@code type}, and {@code properties}, an object keyed
  * by property name with an ordered array of values for each property. Each value
- * uses {@code kind} and {@code text}. The text is a JSON string for every kind
- * except {@code NULL}, which requires JSON null. Kind tags are the names of
+ * uses {@code kind} and {@code text}. JSON and YAML use strings for every kind
+ * except {@code NULL}, which requires null. Kind tags are the names of
  * the corresponding {@link Kind} and {@link ValueKind} constants. An
  * {@code EXTERNAL} value requires version 2 and adds a {@code codec} string
  * identifying the binding's value codec. This class preserves the codec ID
- * and text for replay.
+ * and text for replay. YAML uses the same maps and sequences as JSON. XML projects
+ * the same records onto elements with explicit list wrappers.
  *
- * <p>The codec writes fixed field order, sorts the keys of creation properties,
- * and escapes non-ASCII text for reproducible output.
- * It reads objects in any field order. Every documented field is required.
+ * <p>The writer uses fixed field order and sorts the keys of creation properties.
+ * The JSON writer also escapes non-ASCII text. The reader accepts fields in any
+ * order and requires every documented field.
  */
 public final class VMFJournalCodec {
-    private static final ObjectMapper MAPPER = new ObjectMapper()
-            .enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
-            .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    /** The transport format of a journal document. */
+    public enum Format { JSON, YAML, XML }
+
+    private static final ObjectMapper JSON_MAPPER = strictMapper(new ObjectMapper());
     private static final JsonNodeFactory NODES = JsonNodeFactory.instance;
     private static final DefaultIndenter INDENTER = new DefaultIndenter("  ", "\n");
-    private static final ObjectWriter WRITER = MAPPER.writer(new DefaultPrettyPrinter()
+    private static final ObjectWriter JSON_WRITER = JSON_MAPPER.writer(new DefaultPrettyPrinter()
             .withObjectIndenter(INDENTER).withArrayIndenter(INDENTER))
             .with(JsonWriteFeature.ESCAPE_NON_ASCII);
 
@@ -104,7 +111,19 @@ public final class VMFJournalCodec {
      * @throws IOException when writing fails
      */
     public static String write(ChangeJournal journal) throws IOException {
+        return write(journal, Format.JSON);
+    }
+
+    /**
+     * Writes a journal in the selected format using the wire version its values require.
+     * @param journal journal to encode
+     * @param format the document format
+     * @return the journal document
+     * @throws IOException when writing fails
+     */
+    public static String write(ChangeJournal journal, Format format) throws IOException {
         Objects.requireNonNull(journal, "journal");
+        Objects.requireNonNull(format, "format");
         ObjectNode envelope = NODES.objectNode()
                 .put("format", ChangeJournal.FORMAT)
                 .put("version", journal.wireVersion());
@@ -112,7 +131,12 @@ public final class VMFJournalCodec {
         envelope.put("root", journal.root());
         envelope.set("base", NODES.objectNode().put("checkpoint", journal.checkpoint()).put("sequence", journal.baseSequence()));
         envelope.set("transactions", writeArray(journal.transactions(), VMFJournalCodec::writeFrame));
-        return WRITER.writeValueAsString(envelope);
+        switch (format) {
+            case JSON: return JSON_WRITER.writeValueAsString(envelope);
+            case YAML: return Yaml.MAPPER.writeValueAsString(envelope);
+            case XML: return VMFJournalXml.write(envelope);
+            default: throw new AssertionError(format);
+        }
     }
 
     /**
@@ -122,8 +146,30 @@ public final class VMFJournalCodec {
      * @throws IOException when the JSON or journal contents are invalid or the format is unsupported
      */
     public static ChangeJournal read(String json) throws IOException {
-        if (json == null) throw invalid("$", "expected journal JSON");
-        ObjectNode envelope = object(MAPPER.readTree(json), "$");
+        return read(json, Format.JSON);
+    }
+
+    /**
+     * Reads one document in the specified format and validates its version and records.
+     * @param document the complete journal document
+     * @param format the document format
+     * @return the decoded journal
+     * @throws IOException when the document or journal contents are invalid or unsupported
+     */
+    public static ChangeJournal read(String document, Format format) throws IOException {
+        Objects.requireNonNull(format, "format");
+        if (document == null) throw invalid("$", "expected journal " + format);
+        JsonNode tree;
+        switch (format) {
+            case JSON: tree = JSON_MAPPER.readTree(document); break;
+            case YAML: tree = Yaml.read(document); break;
+            case XML: tree = VMFJournalXml.read(document); break;
+            default: throw new AssertionError(format);
+        }
+        return readEnvelope(object(tree, "$"));
+    }
+
+    private static ChangeJournal readEnvelope(ObjectNode envelope) throws IOException {
         String format = text(envelope.get("format"), "$.format");
         if (!ChangeJournal.FORMAT.equals(format)) throw invalid("$.format", "unsupported journal format " + format);
         int version = integer(envelope.get("version"), "$.version");
@@ -145,6 +191,40 @@ public final class VMFJournalCodec {
             return journal;
         } catch (IllegalArgumentException | ArithmeticException exception) {
             throw invalid("$", exception);
+        }
+    }
+
+    private static ObjectMapper strictMapper(ObjectMapper mapper) {
+        return mapper.enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION)
+                .enable(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
+                .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS);
+    }
+
+    private static final class Yaml {
+        private static final YAMLFactory FACTORY = factory();
+        private static final ObjectMapper MAPPER = strictMapper(new ObjectMapper(FACTORY));
+
+        private static YAMLFactory factory() {
+            DumperOptions options = new DumperOptions();
+            // Escape Unicode line separators in map keys as well as values.
+            options.setAllowUnicode(false);
+            return YAMLFactory.builder().dumperOptions(options).build();
+        }
+
+        private static JsonNode read(String document) throws IOException {
+            YAMLParser yaml = FACTORY.createParser(document);
+            try (JsonParser parser = new JsonParserDelegate(yaml) {
+                @Override
+                public JsonToken nextToken() throws IOException {
+                    JsonToken token = super.nextToken();
+                    if (token != null && yaml.isCurrentAlias()) {
+                        throw invalid("$", "YAML aliases are unsupported in journals");
+                    }
+                    return token;
+                }
+            }) {
+                return MAPPER.readTree(parser);
+            }
         }
     }
 
