@@ -86,7 +86,7 @@ buildscript {
 
 ### Snapshots
 
-Between releases, `main` is published as `-SNAPSHOT` (e.g. `0.3.12-SNAPSHOT`) to the Maven Central snapshot repository. To use it, add the repository for plugins (`settings.gradle`) and, for other VMF artifacts such as `vmf-jackson`, for dependencies:
+Between releases, `main` is published as `-SNAPSHOT` (e.g. `0.4.0-SNAPSHOT`) to the Maven Central snapshot repository. To use it, add the repository for plugins (`settings.gradle`) and, for other VMF artifacts such as `vmf-jackson`, for dependencies:
 
 ```gradle
 // settings.gradle
@@ -105,7 +105,7 @@ pluginManagement {
 ```gradle
 // build.gradle
 plugins {
-  id "eu.mihosoft.vmf" version "0.3.12-SNAPSHOT"
+  id "eu.mihosoft.vmf" version "0.4.0-SNAPSHOT"
 }
 
 repositories {

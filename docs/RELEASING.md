@@ -93,7 +93,7 @@ pluginManagement {
 
 ```groovy
 plugins {
-    id 'eu.mihosoft.vmf' version '0.3.12-SNAPSHOT'
+    id 'eu.mihosoft.vmf' version '0.4.0-SNAPSHOT'
 }
 
 repositories {
@@ -106,7 +106,7 @@ repositories {
 
 dependencies {
     // only if needed
-    implementation 'eu.mihosoft.vmf:vmf-jackson:0.3.12-SNAPSHOT'
+    implementation 'eu.mihosoft.vmf:vmf-jackson:0.4.0-SNAPSHOT'
 }
 ```
 
@@ -123,9 +123,9 @@ Ask before publishing a release to Central: the monthly limits are shared.
 A release must not depend on `-SNAPSHOT` versions: check the dependencies
 first (`grep -n -- "-SNAPSHOT['\"]" build.gradle */build.gradle` lists the
 literal ones; the VMF version itself comes from `config/common.properties`).
-The current VMF snapshot uses VCollections `0.3.6-SNAPSHOT` for identity-aware
-sort events. Before releasing VMF, release VCollections with this fix and update
-`vcollectionsVersion` in `runtime/build.gradle` to the released version.
+VMF pins the released VCollections version in `runtime/build.gradle`. When VMF
+requires a new VCollections fix, release VCollections first and update
+`vcollectionsVersion` before releasing VMF.
 
 1. **Git** (on `main`, after `sh ./build-and-test-all.sh` is green):
    - set `publication.version=X` in `config/common.properties`,

@@ -9,7 +9,7 @@ plugins {
 
 ext.commonProps = new Properties()
 file(new File(projectDir.parentFile,"config/common.properties")).withInputStream { commonProps.load(it) }
-def vcollectionsVersion = '0.3.6-SNAPSHOT'
+def vcollectionsVersion = '0.3.6'
 
 apply plugin: 'java-library'
 apply from: 'gradle/publishing.gradle'
@@ -37,11 +37,6 @@ if (!hasProperty('mainClass')) {
 
 repositories {
     mavenCentral()
-    maven {
-        url = uri('https://central.sonatype.com/repository/maven-snapshots/')
-        mavenContent { snapshotsOnly() }
-        content { includeModule 'eu.mihosoft.vcollections', 'vcollections' }
-    }
 }
 
 dependencies {
