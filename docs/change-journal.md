@@ -26,6 +26,8 @@ The recorder owns one native recording session and replaces the previous native 
 
 The checkpoint identifier comes from the caller. A digest of the stored checkpoint bytes is one option. Verify the checkpoint identity when loading it. Replay checks that identifier, the model version, the root ID, and the old values at edited positions. Use separate journal and model versions when evolving the format or the model. Unknown versions and operation kinds are rejected.
 
+Regenerating a model can change its mutation behavior. Older generated one-to-many `@Refers` lists could retain the former owner's entry after a list-side move. An older journal containing just the destination addition will remove that former entry when replayed with regenerated models. Keep the matching generated model and binding version for exact replay of affected archived histories, or migrate those histories explicitly. The fixed generator records the removal and addition in order using the existing journal format.
+
 ## Live edits and portable replay
 
 `Changes.all()` exposes live `Change` objects for observation and undo on the original model. Each change refers to the actual affected object. `Change.apply()` takes that object, or the corresponding affected object for a plain value edit. VMF rejects model-valued changes applied to a different instance before assigning any values. Use a `JournalRecorder` from the starting checkpoint for replay on another graph, including edits to nested objects, containment changes, and references.
