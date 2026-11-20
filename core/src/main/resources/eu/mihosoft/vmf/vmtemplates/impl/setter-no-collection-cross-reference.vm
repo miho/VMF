@@ -71,12 +71,16 @@
   // ----------------------------------------
   // registering with the opposite collection
   // ----------------------------------------
-  if(this.__vmf_prop_${prop.name}!=null) {
-    String eventInfo = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
-    this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
-    this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().add(this);
-    this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
-  }    
+  if (this.__vmf_prop_${prop.name} != null) {
+    var opposite = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}();
+    String eventInfo = opposite.getEventInfo();
+    opposite.setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+    try {
+      opposite.add(this);
+    } finally {
+      opposite.setEventInfo(eventInfo);
+    }
+  }
   // ----------------------------------------
 #else##                                                        collection opposite
   // Release an occupied target before registering this owner. Retain this

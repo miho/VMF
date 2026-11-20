@@ -46,11 +46,20 @@ interface SpecializedEntityOneA extends EntityOneA {
 }
 
 
+interface OneToManyGraph {
+    @Contains EntityOneB[] getMembers();
+    @Contains EntityTwoB[] getOwners();
+}
+
 interface EntityOneB {
+    String getId();
+
     @Refers(opposite="refs")
     EntityTwoB getRef();
 }
 interface EntityTwoB {
+    String getId();
+
     @Refers(opposite="ref")
     EntityOneB[] getRefs();
 }
