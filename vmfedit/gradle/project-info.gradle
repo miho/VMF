@@ -12,7 +12,7 @@ ext.publishingInfo.inceptionYear         = '2017'
 
 ext.publishingInfo.desc                  = 'VMF JSon Schema Editor Support (VRL Modeling Framework) adds editor support via json schema.'
 ext.publishingInfo.license               = 'Apache-2.0'
-ext.publishingInfo.licenseUrl            = 'https://github.com/miho/VMF/blob/master/LICENSE'
+ext.publishingInfo.licenseUrl            = 'https://github.com/miho/VMF/blob/main/LICENSE'
 ext.publishingInfo.labels                = ['vmf', 'modeling', 'data model', 'vrl', 'modeling framework']
 ext.publishingInfo.websiteUrl            = 'https://github.com/miho/VMF'
 ext.publishingInfo.issueTrackerUrl       = 'https://github.com/miho/VMF/issues'

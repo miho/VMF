@@ -17,7 +17,7 @@ below.
 `vmfedit` (`vmf-edit` on Central) has its own publishing and is not covered here.
 
 One version for all of them: `publication.version` in
-`config/common.properties`. Between releases `master` carries the next version
+`config/common.properties`. Between releases `main` carries the next version
 as `-SNAPSHOT`.
 
 The Sonatype namespace is `eu.mihosoft`. It belongs to an organization that
@@ -52,7 +52,7 @@ with VMF-Text on 2026-10-20: two snapshot pushes left the organization's
 numbers in the Usage Center unchanged; snapshots are listed under a separate
 `eu.mihosoft.snapshots` row).
 
-Publish a snapshot from a clean `master` whose `sh ./build-and-test-all.sh` is
+Publish a snapshot from a clean `main` whose `sh ./build-and-test-all.sh` is
 green:
 
 ```sh
@@ -69,7 +69,7 @@ built from (`Build-Revision` in the jar manifests), no credentials needed:
 sh scripts/central-staging.sh snapshots
 ```
 
-Publish snapshots from `master` only, so that the snapshot repository always
+Publish snapshots from `main` only, so that the snapshot repository always
 shows a merged state; try branches with `publishToMavenLocal`.
 
 ### Using a snapshot
@@ -127,12 +127,12 @@ The current VMF snapshot uses VCollections `0.3.6-SNAPSHOT` for identity-aware
 sort events. Before releasing VMF, release VCollections with this fix and update
 `vcollectionsVersion` in `runtime/build.gradle` to the released version.
 
-1. **Git** (on `master`, after `sh ./build-and-test-all.sh` is green):
+1. **Git** (on `main`, after `sh ./build-and-test-all.sh` is green):
    - set `publication.version=X` in `config/common.properties`,
      `git commit config/common.properties -m "release X"`
    - `git tag vX`
    - set the next `Y-SNAPSHOT`, `git commit config/common.properties -m "development version Y-SNAPSHOT"`
-   - `git push origin master && git push origin vX`
+   - `git push origin main && git push origin vX`
 2. **Maven Central**, from the tag (`git checkout vX`):
 
    ```sh
@@ -163,4 +163,4 @@ sort events. Before releasing VMF, release VCollections with this fix and update
    (since #88). 0.2.11 was published with
    `-Pgroup=eu.mihosoft.vmf -Pversion=0.2.11`, before that change.
    `publishPlugins --validate-only` checks without publishing.
-4. `git checkout master`.
+4. `git checkout main`.

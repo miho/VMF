@@ -86,7 +86,7 @@ buildscript {
 
 ### Snapshots
 
-Between releases, `master` is published as `-SNAPSHOT` (e.g. `0.3.12-SNAPSHOT`) to the Maven Central snapshot repository. To use it, add the repository for plugins (`settings.gradle`) and, for other VMF artifacts such as `vmf-jackson`, for dependencies:
+Between releases, `main` is published as `-SNAPSHOT` (e.g. `0.3.12-SNAPSHOT`) to the Maven Central snapshot repository. To use it, add the repository for plugins (`settings.gradle`) and, for other VMF artifacts such as `vmf-jackson`, for dependencies:
 
 ```gradle
 // settings.gradle
