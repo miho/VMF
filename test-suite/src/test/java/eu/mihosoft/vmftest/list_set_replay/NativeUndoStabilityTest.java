@@ -26,6 +26,7 @@ package eu.mihosoft.vmftest.list_set_replay;
 
 import eu.mihosoft.vmf.runtime.core.Transaction;
 import eu.mihosoft.vmftest.setteridentity.BinaryExpression;
+import eu.mihosoft.vmftest.setteridentity.Holder;
 import eu.mihosoft.vmftest.setteridentity.NumberExpression;
 import org.junit.Test;
 
@@ -75,6 +76,25 @@ public class NativeUndoStabilityTest {
         transaction.undo();
         assertSame(equalReplacement, model.getArguments().get(0));
         assertEquals("after", model.getOperator());
+    }
+
+    @Test
+    public void staleScalarReferencePreservesAnEqualReplacement() {
+        var model = Holder.newInstance();
+        var added = NumberExpression.newBuilder().withValue(1).build();
+        var equalReplacement = NumberExpression.newBuilder().withValue(1).build();
+        assertEquals(added, equalReplacement);
+        assertNotSame(added, equalReplacement);
+        var changes = model.vmf().changes();
+        changes.start();
+        model.setValue(added);
+        changes.stop();
+
+        model.setValue(equalReplacement);
+        var transaction = changes.transactions().get(0);
+        assertFalse(transaction.isUndoable());
+        transaction.undo();
+        assertSame(equalReplacement, model.getValue());
     }
 
     @Test

@@ -136,7 +136,9 @@ class PropChangeImpl implements ChangeInternal, PropertyChange {
         VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
 
-        return Objects.equals(newValue, internal._vmf_getPropertyValueById(propId));
+        Object currentValue = internal._vmf_getPropertyValueById(propId);
+        return newValue instanceof VObject || currentValue instanceof VObject
+                ? newValue == currentValue : Objects.equals(newValue, currentValue);
     }
 
     @Override
