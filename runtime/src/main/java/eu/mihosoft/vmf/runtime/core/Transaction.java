@@ -39,18 +39,22 @@ public interface Transaction {
 
     /**
      * Returns the atomic changes that are part of this transaction.
-     * @return a list of the atomic changes that are part of this transaction
+     * @return an unmodifiable list of the transaction's changes in recording order
      */
     List<Change> changes();
 
     /**
-     * Indicates whether this transaction is undoable.
-     * @return {@code true} if this transaction (and all contained atomic changes) is undoable; {@code false} otherwise
+     * Checks the most recent change for each affected object and property against the live model.
+     * Earlier changes are checked as they are undone. This check assumes the transaction
+     * is being undone in reverse order and that intervening writes have already been undone.
+     * @return {@code true} if the latest changes pass the undo checks
      */
     boolean isUndoable();
 
     /**
-     * Undos this transaction.
+     * Undoes the changes in reverse order when the initial undo checks pass.
+     * Undo is not atomic. Generated reciprocal mutations or synchronous observers
+     * may affect later checks, and a failure can leave some changes already undone.
      */
     void undo();
 }

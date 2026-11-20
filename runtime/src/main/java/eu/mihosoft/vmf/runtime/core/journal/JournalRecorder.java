@@ -147,13 +147,7 @@ public final class JournalRecorder implements AutoCloseable {
 
     private void discardPendingFrame(Throwable failure) {
         try {
-            // Advance past the partial edits so stop() cannot publish them as a group.
-            if (changes.isModelVersioningEnabled()) changes.startTransaction();
-        } catch (RuntimeException | Error discardFailure) {
-            if (discardFailure != failure) failure.addSuppressed(discardFailure);
-        }
-        try {
-            closeRecording();
+            closeRecording(false);
         } catch (RuntimeException | Error closeFailure) {
             if (closeFailure != failure) failure.addSuppressed(closeFailure);
         }
@@ -413,7 +407,8 @@ public final class JournalRecorder implements AutoCloseable {
      */
     public ChangeJournal finish() {
         if (closed) throw new IllegalStateException("Journal recorder is closed");
-        close();
+        requireIdlePublication();
+        closeRecording(true);
         requireHealthyRecording();
         for (Map.Entry<VObject, String> entry : identities.entrySet()) {
             if (!entry.getValue().equals(binding.id(entry.getKey()))) {
@@ -494,17 +489,29 @@ public final class JournalRecorder implements AutoCloseable {
         frames.add(frame);
     }
 
+    /**
+     * Stops recording without publishing pending edits. Live edits and already published
+     * native transactions remain available. Use {@link #finish()} to publish pending edits
+     * and return a verified journal.
+     */
     @Override
     public void close() {
         requireIdlePublication();
-        closeRecording();
+        closeRecording(false);
     }
 
-    private void closeRecording() {
+    private void closeRecording(boolean publishPending) {
         if (closed) return;
         closed = true;
         try {
-            if (changes.isModelVersioningEnabled()) changes.stop();
+            if (changes.isModelVersioningEnabled()) {
+                try {
+                    // Advance past pending edits so stop() leaves them outside published groups.
+                    if (!publishPending) changes.startTransaction();
+                } finally {
+                    changes.stop();
+                }
+            }
         } finally {
             subscriptions.forEach(Subscription::unsubscribe);
         }

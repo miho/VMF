@@ -190,22 +190,18 @@ public interface Changes {
     void stop();
 
     /**
-     * Returns all changes to the model (observable collection) that were
-     * recorded since the last {@link eu.mihosoft.vmf.runtime.core.Changes#start()
-     * } call.
+     * Returns a live, read-only, observable view of the changes recorded since the last
+     * {@link #start()} call. Use {@link #clear()} to remove the recorded history.
      *
-     * @return all changes to the model (observable collection) that were
-     * recorded since the last {@link eu.mihosoft.vmf.runtime.core.Changes#start()
-     * } call
+     * @return the read-only view of the recorded changes
      */
     VList<Change> all();
 
     /**
-     * Returns all model transactions (observable collection) that were
-     * published since the last {@link eu.mihosoft.vmf.runtime.core.Changes#start()
-     * } call.
+     * Returns a live, read-only, observable view of the transactions published since
+     * the last {@link #start()} call. Use {@link #clear()} to remove the recorded history.
      *
-     * @return all model transactions (observable collection)
+     * @return the read-only view of the published transactions
      */
     VList<Transaction> transactions();
 

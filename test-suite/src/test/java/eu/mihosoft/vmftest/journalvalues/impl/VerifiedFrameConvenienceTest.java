@@ -138,6 +138,60 @@ public class VerifiedFrameConvenienceTest {
     }
 
     @Test
+    public void closingAfterFailedEditsPreservesLiveChangesAndPreviouslyPublishedGroups() {
+        var working = workingCopy();
+        var changes = working.vmf().changes();
+        var published = new AtomicInteger();
+        var observer = changes.transactions().addChangeListener(event -> {
+            if (event.wasAdded()) published.incrementAndGet();
+        });
+        var failure = new AssertionError("edit failed");
+        try {
+            var actual = assertThrows(AssertionError.class, () -> {
+                try (var recorder = start(working)) {
+                    working.setSourceId(SECOND);
+                    assertTrue(recorder.publishFrame().isPresent());
+                    working.getRelatedIds().add(SECOND);
+                    throw failure;
+                }
+            });
+            assertSame(failure, actual);
+            assertEquals(SECOND, working.getSourceId());
+            assertEquals(List.of(FIRST, SECOND), working.getRelatedIds());
+            assertEquals(2, changes.all().size());
+            assertEquals(1, published.get());
+            assertEquals(1, changes.transactions().size());
+            assertEquals("sourceId", changes.transactions().get(0).changes().get(0).propertyName());
+            assertEquals(1, changes.transactions().get(0).changes().size());
+            assertFalse(changes.isModelVersioningEnabled());
+        } finally {
+            observer.unsubscribe();
+        }
+    }
+
+    @Test
+    public void finishPublishesAndVerifiesThePendingGroup() {
+        var working = workingCopy();
+        var changes = working.vmf().changes();
+        ChangeJournal journal;
+        try (var recorder = start(working)) {
+            working.setSourceId(SECOND);
+            assertTrue(recorder.publishFrame().isPresent());
+            working.getRelatedIds().add(SECOND);
+            assertEquals(1, changes.transactions().size());
+
+            journal = recorder.finish();
+        }
+
+        assertEquals(2, changes.transactions().size());
+        assertEquals(2, journal.transactions().size());
+        assertFalse(changes.isModelVersioningEnabled());
+        var replayed = JournalReplayer.replay(workingCopy(), BINDING, CHECKPOINT, journal);
+        assertEquals(SECOND, replayed.getSourceId());
+        assertEquals(List.of(FIRST, SECOND), replayed.getRelatedIds());
+    }
+
+    @Test
     public void rejectsAnUnobservedEditFromALaterPublicationListener() {
         var working = workingCopy();
         var changes = working.vmf().changes();

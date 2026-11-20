@@ -39,6 +39,7 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Function;
 
 /**
  * Don't rely on this API. Seriously, <b>don't</b> rely on it!
@@ -57,18 +58,11 @@ public class ChangesImpl implements Changes {
     private VList<Change> transactionChanges;
 
     private final VList<Change> all = VList.newInstance(new ArrayList<>());
-    private final VList<Change> unmodifiableAll
-            = VMappedList.newInstance(all, (e) -> e,
-                    (e) -> {
-                        throw new UnsupportedOperationException("List modification not supported!");
-                    });
+    private final VList<Change> unmodifiableAll = VMappedList.newUnmodifiableInstance(all, Function.identity());
     private final VList<Transaction> transactions
             = VList.newInstance(new ArrayList<>());
-    private final VList<Transaction> unmodifiableTransactions
-            = VMappedList.newInstance(transactions, (e) -> e,
-                    (e) -> {
-                        throw new UnsupportedOperationException("List modification not supported!");
-                    });
+    private final VList<Transaction> unmodifiableTransactions =
+            VMappedList.newUnmodifiableInstance(transactions, Function.identity());
     private int currentTransactionStartIndex = 0;
 
     private VObject model;
@@ -583,10 +577,7 @@ public class ChangesImpl implements Changes {
         private final List<Change> changes;
 
         public TransactionImpl(List<Change> changes) {
-            this.changes = new ArrayList<>(changes);
-
-            // try to reduce property changes
-            // TODO 14.10.2019
+            this.changes = List.copyOf(changes);
         }
 
         @Override
@@ -597,17 +588,26 @@ public class ChangesImpl implements Changes {
         @Override
         public boolean isUndoable() {
 
-            for (Change c : changes) {
-                if (!c.isUndoable()) {
-                    return false;
-                }
-            }
+            for (int i = changes.size() - 1; i >= 0; i--) {
+                Change change = changes.get(i);
+                if (change.isUndoable()) continue;
 
+                boolean superseded = false;
+                for (int j = i + 1; j < changes.size(); j++) {
+                    Change later = changes.get(j);
+                    if (later.object() == change.object() && later.propertyName().equals(change.propertyName())) {
+                        superseded = true;
+                        break;
+                    }
+                }
+                if (!superseded) return false;
+            }
             return true;
         }
 
         @Override
         public void undo() {
+            if (!isUndoable()) return;
             for (int i = changes.size() - 1; i > -1; i--) {
                 changes.get(i).undo();
             }

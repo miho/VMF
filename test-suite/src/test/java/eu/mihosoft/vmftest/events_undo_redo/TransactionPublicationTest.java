@@ -23,6 +23,8 @@
  */
 package eu.mihosoft.vmftest.events_undo_redo;
 
+import eu.mihosoft.vcollections.VList;
+import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.Changes;
 import eu.mihosoft.vmf.runtime.core.Transaction;
 import org.junit.Test;
@@ -38,6 +40,106 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class TransactionPublicationTest {
+    @Test
+    public void historyViewsStayLiveAndRejectMembershipChanges() {
+        var node = ChildListContainment.newInstance();
+        var changes = node.vmf().changes();
+        var all = changes.all();
+        var transactions = changes.transactions();
+
+        changes.start();
+        try {
+            node.setName("first");
+            changes.publishTransaction();
+            assertReadOnly(all);
+            assertReadOnly(transactions);
+
+            var first = all.get(0);
+            var firstTransaction = transactions.get(0);
+            assertSame(first, firstTransaction.changes().get(0));
+            assertThrows(UnsupportedOperationException.class, firstTransaction.changes()::clear);
+            assertThrows(UnsupportedOperationException.class, () -> firstTransaction.changes().remove(0));
+
+            node.setName("second");
+            changes.publishTransaction();
+            assertEquals(2, all.size());
+            assertEquals(List.of("first", "second"), names(changes));
+            assertSame(all, changes.all());
+            assertSame(transactions, changes.transactions());
+
+            changes.clear();
+            assertTrue(all.isEmpty());
+            assertTrue(transactions.isEmpty());
+            assertSame(first, firstTransaction.changes().get(0));
+        } finally {
+            changes.stop();
+        }
+    }
+
+    @Test
+    public void historyEventsExposeTheReadOnlyViewAndOriginalEntries() {
+        var node = ChildListContainment.newInstance();
+        var changes = node.vmf().changes();
+        var all = changes.all();
+        var transactions = changes.transactions();
+        var addedChanges = new ArrayList<Change>();
+        var removedChanges = new ArrayList<Change>();
+        var addedTransactions = new ArrayList<Transaction>();
+        var removedTransactions = new ArrayList<Transaction>();
+        var changeObserver = all.addChangeListener(event -> {
+            assertSame(all, event.source());
+            if (event.wasAdded()) {
+                assertThrows(UnsupportedOperationException.class, () -> event.source().remove(0));
+                addedChanges.addAll(event.added().elements());
+            }
+            if (event.wasRemoved()) removedChanges.addAll(event.removed().elements());
+        });
+        var transactionObserver = transactions.addChangeListener(event -> {
+            assertSame(transactions, event.source());
+            if (event.wasAdded()) {
+                assertThrows(UnsupportedOperationException.class, event.source()::clear);
+                addedTransactions.addAll(event.added().elements());
+            }
+            if (event.wasRemoved()) removedTransactions.addAll(event.removed().elements());
+        });
+        try {
+            changes.start();
+            node.setName("recorded");
+            changes.stop();
+            assertEquals(1, addedChanges.size());
+            assertEquals(1, addedTransactions.size());
+            assertSame(all.get(0), addedChanges.get(0));
+            assertSame(transactions.get(0), addedTransactions.get(0));
+
+            changes.clear();
+            assertEquals(addedChanges, removedChanges);
+            assertEquals(addedTransactions, removedTransactions);
+        } finally {
+            transactionObserver.unsubscribe();
+            changeObserver.unsubscribe();
+            changes.stop();
+        }
+    }
+
+    private static <T> void assertReadOnly(VList<T> view) {
+        T first = view.get(0);
+        assertThrows(UnsupportedOperationException.class, () -> view.add(first));
+        assertThrows(UnsupportedOperationException.class, () -> view.addAll(new int[]{0}, List.of(first)));
+        assertThrows(UnsupportedOperationException.class, () -> view.set(0, first));
+        assertThrows(UnsupportedOperationException.class, () -> view.setAll(0, List.of(first)));
+        assertThrows(UnsupportedOperationException.class, () -> view.remove(0));
+        assertThrows(UnsupportedOperationException.class, () -> view.remove(first));
+        assertThrows(UnsupportedOperationException.class, () -> view.removeAll(0));
+        assertThrows(UnsupportedOperationException.class, () -> view.removeIf(element -> true));
+        assertThrows(UnsupportedOperationException.class, () -> view.subList(0, 1).clear());
+        assertThrows(UnsupportedOperationException.class, view::clear);
+
+        var iterator = view.iterator();
+        assertSame(first, iterator.next());
+        assertThrows(UnsupportedOperationException.class, iterator::remove);
+        assertSame(first, view.get(0));
+    }
+
     @Test
     public void explicitPublicationFailureKeepsCommittedTransactionAndRecordsLaterEditsOnce() {
         var node = ChildListContainment.newInstance();

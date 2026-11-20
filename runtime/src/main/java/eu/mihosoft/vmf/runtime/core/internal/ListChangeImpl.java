@@ -34,6 +34,9 @@ import eu.mihosoft.vmf.runtime.core.PropertyChange;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
 import vjavax.observer.collection.CollectionChangeEvent;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -51,34 +54,15 @@ class ListChangeImpl implements ChangeInternal {
     private final VList list;
     private final long timestamp;
     private final String internalChangeInfo;
+    private final int removalSize;
 
     
-    @SuppressWarnings({"deprecation", "unchecked"})
     public ListChangeImpl(VObject object, String propertyName, CollectionChangeEvent<Object,VList<Object>, VListChange<Object>> evt) {
-        this.object = object;
-        this.propertyName = propertyName;
-        this.evt = evt;
-        
-        VObjectInternal internal = (VObjectInternal) object;
-        int propId = internal._vmf_getPropertyIdByName(propertyName);
-        list = (VList) internal._vmf_getPropertyValueById(propId);
-        
-        this.timestamp = System.nanoTime();
-        this.internalChangeInfo = evt.eventInfo();
+        this(object, propertyName, evt, evt.eventInfo());
     }
 
-    @SuppressWarnings({"deprecation", "unchecked"})
     public ListChangeImpl(VObject object, String propertyName, CollectionChangeEvent<Object,VList<Object>, VListChange<Object>> evt, String internalChangeInfo) {
-        this.object = object;
-        this.propertyName = propertyName;
-        this.evt = evt;
-        
-        VObjectInternal internal = (VObjectInternal) object;
-        int propId = internal._vmf_getPropertyIdByName(propertyName);
-        list = (VList) internal._vmf_getPropertyValueById(propId);
-        
-        this.timestamp = System.nanoTime();
-        this.internalChangeInfo = internalChangeInfo;
+        this(object, propertyName, evt, System.nanoTime(), internalChangeInfo);
     }
 
     @SuppressWarnings({"deprecation", "unchecked"})
@@ -93,6 +77,7 @@ class ListChangeImpl implements ChangeInternal {
 
         this.timestamp = timestamp;
         this.internalChangeInfo = internalChangeInfo;
+        this.removalSize = evt.wasRemoved() && !evt.wasSet() ? list.size() : -1;
     }
     
     @Override
@@ -150,7 +135,15 @@ class ListChangeImpl implements ChangeInternal {
         } else if (evt.wasAdded()) {
             list.removeAll(evt.added().indices());
         } else if(evt.wasRemoved()) {
-            list.addAll(evt.removed().indices(),evt.removed().elements());
+            int[] indices = evt.removed().indices();
+            List<Object> elements = evt.removed().elements();
+            int start = 0;
+            while (start < indices.length) {
+                int end = start + 1;
+                while (end < indices.length && indices[end] == indices[end - 1] + 1) end++;
+                list.addAll(indices[start], elements.subList(start, end));
+                start = end;
+            }
         }
 
     }
@@ -179,34 +172,36 @@ class ListChangeImpl implements ChangeInternal {
 
     @Override
     public boolean isUndoable() {
+        if (evt.wasSet() && (!Arrays.equals(evt.added().indices(), evt.removed().indices())
+                || evt.removed().indices().length != evt.removed().elements().size())) {
+            return false;
+        }
 
-        // System.err.println("WARNING/TODO: implement proper isUndoable check for list changes!");
+        VListChange<Object> change = evt.wasAdded() ? evt.added() : evt.removed();
+        int[] indices = change.indices();
+        List<Object> elements = change.elements();
+        if (indices.length != elements.size()) return false;
 
+        int size = list.size();
+        if (!evt.wasAdded() && size != removalSize) return false;
+
+        int previous = -1;
+        for (int i = 0; i < indices.length; i++) {
+            int index = indices[i];
+            if (index <= previous) return false;
+            if (evt.wasAdded()) {
+                if (index >= size || !sameItem(elements.get(i), list.get(index))) return false;
+            } else if (index - i > size) {
+                return false;
+            }
+            previous = index;
+        }
         return true;
+    }
 
-        // if (evt.wasSet()) {
-        //     for(int index : evt.removed().indices()) {
-        //         if(index > evt.removed().indices().length) {
-        //             return false;
-        //         }
-        //     }
-        // } else if (evt.wasAdded()) {
-        //     // TODO check size changes
-        //     for(int index : evt.added().indices()) {
-        //         if (index > evt.added().indices().length) {
-        //             return false;
-        //         }
-        //     }
-        // } else if(evt.wasRemoved()) {
-        //     // TODO check size changes
-        //     for(int index : evt.removed().indices()) {
-        //         if(index > evt.removed().indices().length) {
-        //             return false;
-        //         }
-        //     }
-        // }
-
-        // return true;
+    private static boolean sameItem(Object expected, Object actual) {
+        return expected instanceof VObject || actual instanceof VObject
+                ? expected == actual : Objects.equals(expected, actual);
     }
 
     @Override
