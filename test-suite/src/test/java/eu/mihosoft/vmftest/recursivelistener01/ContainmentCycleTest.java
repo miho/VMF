@@ -197,4 +197,26 @@ public class ContainmentCycleTest {
 
         assertEquals(List.of("first", "read-only view", "last"), delivery);
     }
+
+    @Test
+    public void subscriptionChangesDuringReparentingAffectOnlyLaterListEvents() {
+        var previous = Node.newInstance();
+        var destination = Node.newInstance();
+        var moving = Node.newInstance();
+        previous.getChildren().add(moving);
+        var delivery = new ArrayList<String>();
+        var destinationChildren = destination.getChildren();
+        var original = destinationChildren.addChangeListener(event -> delivery.add("original"));
+        previous.getChildren().addChangeListener(event -> {
+            if (event.wasRemoved()) {
+                original.unsubscribe();
+                destinationChildren.addChangeListener(next -> delivery.add("replacement"));
+            }
+        });
+
+        destinationChildren.add(moving);
+        destinationChildren.add(Node.newInstance());
+
+        assertEquals(List.of("original", "replacement"), delivery);
+    }
 }

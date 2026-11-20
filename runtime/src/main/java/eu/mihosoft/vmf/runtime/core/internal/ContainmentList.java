@@ -27,7 +27,6 @@ import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vcollections.VListChange;
 import eu.mihosoft.vcollections.VListChangeEvent;
 import eu.mihosoft.vcollections.VListChangeListener;
-import eu.mihosoft.vcollections.VListChangeSupport;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import vjavax.observer.Subscription;
 import vjavax.observer.collection.CollectionChangeEvent;
@@ -54,7 +53,7 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 
     private final VList<T> observable;
     private final VListChangeListener<T> internalListener;
-    private VListChangeSupport<T> listeners;
+    private List<CollectionChangeListener<T, VList<T>, VListChange<T>>> listeners;
     private VList<T> unmodifiable;
 
     private ContainmentList(VObject parent, VList<T> observable, VListChangeListener<T> internalListener) {
@@ -75,20 +74,36 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     }
 
     private void fire(CollectionChangeEvent<T, VList<T>, VListChange<T>> event) {
-        if (listeners != null) {
-            listeners.fireEvent(new Change<>(this, (VListChangeEvent<T>) event));
+        int count = listenerCount();
+        if (count != 0) {
+            fireObserved(new Change<>(this, (VListChangeEvent<T>) event), count);
         } else if (internalListener != null) {
             // The generated listener only reads change contents and event info.
             internalListener.onChange(event);
         }
     }
 
-    private VListChangeSupport<T> listeners() {
-        if (listeners == null) {
-            listeners = new VListChangeSupport<>();
-            if (internalListener != null) listeners.addChangeListener(internalListener);
+    private int listenerCount() {
+        return listeners == null ? 0 : listeners.size();
+    }
+
+    private void fireForwarded(CollectionChangeEvent<T, VList<T>, VListChange<T>> event) {
+        int count = listenerCount();
+        if (count != 0) fireObserved(event, count);
+    }
+
+    private void fireObserved(CollectionChangeEvent<T, VList<T>, VListChange<T>> event, int count) {
+        // Capture the subscriptions before running the generated callback, as it
+        // can make more edits and change subscriptions during nested notifications.
+        if (count == 1) {
+            var listener = listeners.get(0);
+            if (internalListener != null) internalListener.onChange(event);
+            listener.onChange(event);
+        } else {
+            var snapshot = new ArrayList<>(listeners);
+            if (internalListener != null) internalListener.onChange(event);
+            for (var listener : snapshot) listener.onChange(event);
         }
-        return listeners;
     }
 
     private static void requireAcyclic(VObject parent, Object child, Attachment pending) {
@@ -138,6 +153,23 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
         if (child == null || parent == null) return NO_ATTACHMENT;
         var stack = PENDING.get();
         requireAcyclic(parent, child, stack.active);
+        return stack.open(parent, child, null);
+    }
+
+    static Attachment attachingToList(VObject parent, Object child, boolean replacing) {
+        if (child == null || parent == null) return NO_ATTACHMENT;
+        var stack = PENDING.get();
+        var pending = stack.active;
+        requireAcyclic(parent, child, pending);
+        if (pending == null) {
+            VObject source = ((VObjectInternalModifiable) child)._vmf_getContainer();
+            // A detached child needs no removal callback. A replacement of a child
+            // already in the owner's sole containment is a same-list permutation.
+            if (source == null || (source == parent && replacing
+                    && ((VObjectInternal) parent)._vmf_getChildrenIndices().length == 1)) {
+                return NO_ATTACHMENT;
+            }
+        }
         return stack.open(parent, child, null);
     }
 
@@ -247,18 +279,21 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     @Override public VList<T> asUnmodifiable() {
         if (unmodifiable == null) {
             var view = new ContainmentList<>(null, VList.newInstance(Collections.unmodifiableList(observable)), null);
-            listeners().addChangeListener(view.listeners()::fireEvent);
+            addChangeListener(view::fireForwarded);
             unmodifiable = view;
         }
         return unmodifiable;
     }
 
+    @SuppressWarnings("unchecked")
     @Override public Subscription addChangeListener(CollectionChangeListener<T, ? super VList<T>, ? super VListChange<T>> listener) {
-        return listeners().addChangeListener(listener);
+        if (listeners == null) listeners = new ArrayList<>();
+        listeners.add((CollectionChangeListener<T, VList<T>, VListChange<T>>) listener);
+        return () -> removeChangeListener(listener);
     }
 
     @Override public boolean removeChangeListener(CollectionChangeListener<T, ? super VList<T>, ? super VListChange<T>> listener) {
-        return listeners != null && listeners.removeChangeListener(listener);
+        return listeners != null && listeners.remove(listener);
     }
 
     private static final class Change<T> implements VListChangeEvent<T> {
@@ -297,13 +332,13 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     }
 
     @Override public boolean add(T value) {
-        try (var attachment = ContainmentList.attaching(parent, value)) {
+        try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
             return list.add(value);
         }
     }
 
     @Override public void add(int index, T value) {
-        try (var attachment = ContainmentList.attaching(parent, value)) {
+        try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
             list.add(index, value);
         }
     }
@@ -323,7 +358,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     }
 
     @Override public T set(int index, T value) {
-        try (var attachment = ContainmentList.attaching(parent, value)) {
+        try (var attachment = ContainmentList.attachingToList(parent, value, true)) {
             return list.set(index, value);
         }
     }
@@ -359,12 +394,12 @@ class CheckedContainmentView<T> extends AbstractList<T> {
             @Override public int previousIndex() { return iterator.previousIndex(); }
             @Override public void remove() { iterator.remove(); }
             @Override public void set(T value) {
-                try (var attachment = ContainmentList.attaching(parent, value)) {
+                try (var attachment = ContainmentList.attachingToList(parent, value, true)) {
                     iterator.set(value);
                 }
             }
             @Override public void add(T value) {
-                try (var attachment = ContainmentList.attaching(parent, value)) {
+                try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
                     iterator.add(value);
                 }
             }
