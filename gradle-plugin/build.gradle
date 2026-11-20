@@ -68,7 +68,7 @@ gradlePlugin {
             implementationClass = 'eu.mihosoft.vmf.gradle.plugin.VMFPlugin' // <- plugin class name
             displayName = 'Gradle VMF plugin'
             description = 'Gradle VMF plugin'
-            tags.set(['vmf', 'modeling framework']) // note the .set(...)
+            tags.set(['vmf', 'modeling-framework']) // note the .set(...)
         }
     }
 }
