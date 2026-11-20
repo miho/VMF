@@ -26,9 +26,11 @@ package eu.mihosoft.vmf.runtime.core.internal;
 import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vcollections.VListChange;
 import eu.mihosoft.vcollections.VListChangeEvent;
+import eu.mihosoft.vcollections.VListChangeListener;
 import eu.mihosoft.vcollections.VListChangeSupport;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import vjavax.observer.Subscription;
+import vjavax.observer.collection.CollectionChangeEvent;
 import vjavax.observer.collection.CollectionChangeListener;
 
 import java.util.AbstractList;
@@ -47,23 +49,46 @@ import java.util.function.UnaryOperator;
 
 /** Internal adapter that validates incoming containment before an observable list changes. */
 public final class ContainmentList<T> extends CheckedContainmentView<T> implements VList<T> {
-    private static final ThreadLocal<Attachment> PENDING = new ThreadLocal<>();
-    private static final Attachment NO_ATTACHMENT = new Attachment(null, null, null, null);
+    private static final ThreadLocal<AttachmentStack> PENDING = ThreadLocal.withInitial(AttachmentStack::new);
+    private static final Attachment NO_ATTACHMENT = new Attachment(null, null);
 
     private final VList<T> observable;
-    private final VListChangeSupport<T> listeners = new VListChangeSupport<>();
+    private final VListChangeListener<T> internalListener;
+    private VListChangeSupport<T> listeners;
     private VList<T> unmodifiable;
 
-    private ContainmentList(VObject parent, VList<T> observable) {
+    private ContainmentList(VObject parent, VList<T> observable, VListChangeListener<T> internalListener) {
         super(parent, observable);
         this.observable = observable;
+        this.internalListener = internalListener;
     }
 
     public static <T> VList<T> newInstance(VObject parent, List<T> backing) {
+        return newInstance(parent, backing, null);
+    }
+
+    public static <T> VList<T> newInstance(VObject parent, List<T> backing, VListChangeListener<T> internalListener) {
         VList<T> observable = VList.newInstance(backing);
-        var result = new ContainmentList<>(parent, observable);
-        observable.addChangeListener(event -> result.listeners.fireEvent(new Change<>(result, (VListChangeEvent<T>) event)));
+        var result = new ContainmentList<>(parent, observable, internalListener);
+        observable.addChangeListener(result::fire);
         return result;
+    }
+
+    private void fire(CollectionChangeEvent<T, VList<T>, VListChange<T>> event) {
+        if (listeners != null) {
+            listeners.fireEvent(new Change<>(this, (VListChangeEvent<T>) event));
+        } else if (internalListener != null) {
+            // The generated listener only reads change contents and event info.
+            internalListener.onChange(event);
+        }
+    }
+
+    private VListChangeSupport<T> listeners() {
+        if (listeners == null) {
+            listeners = new VListChangeSupport<>();
+            if (internalListener != null) listeners.addChangeListener(internalListener);
+        }
+        return listeners;
     }
 
     private static void requireAcyclic(VObject parent, Object child, Attachment pending) {
@@ -111,48 +136,91 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 
     public static Attachment attaching(VObject parent, Object child) {
         if (child == null || parent == null) return NO_ATTACHMENT;
-        Attachment previous = PENDING.get();
-        requireAcyclic(parent, child, previous);
-        var attachment = new Attachment(parent, child, null, previous);
-        PENDING.set(attachment);
-        return attachment;
+        var stack = PENDING.get();
+        requireAcyclic(parent, child, stack.active);
+        return stack.open(parent, child, null);
     }
 
     static Attachment attachingAll(VObject parent, List<?> children) {
         if (parent == null || children.isEmpty()) return NO_ATTACHMENT;
-        Attachment previous = PENDING.get();
-        for (Object child : children) requireAcyclic(parent, child, previous);
-        var attachment = new Attachment(parent, null, children, previous);
-        PENDING.set(attachment);
-        return attachment;
+        var stack = PENDING.get();
+        for (Object child : children) requireAcyclic(parent, child, stack.active);
+        return stack.open(parent, null, children);
+    }
+
+    public static void attached(VObject parent, Object child) {
+        Attachment attachment = PENDING.get().active;
+        if (attachment != null && attachment.parent == parent) attachment.completeChild(child);
+    }
+
+    private static final class AttachmentStack {
+        private final Attachment first = new Attachment(this, null);
+        private Attachment active;
+
+        private Attachment open(VObject parent, Object child, List<?> children) {
+            var saved = active;
+            if (saved == null) {
+                active = first;
+            } else {
+                if (saved.next == null) saved.next = new Attachment(this, saved);
+                active = saved.next;
+            }
+            active.parent = parent;
+            active.child = child;
+            active.children = children;
+            return active;
+        }
     }
 
     /** Limits the lifetime of the proposed parent edges to a synchronous model edit. */
     public static final class Attachment implements AutoCloseable {
-        private final VObject parent;
-        private final Object child;
-        private final List<?> children;
+        private final AttachmentStack stack;
         private final Attachment previous;
+        private Attachment next;
+        private VObject parent;
+        private Object child;
+        private List<?> children;
+        private int completedChildren;
 
-        private Attachment(VObject parent, Object child, List<?> children, Attachment previous) {
-            this.parent = parent;
-            this.child = child;
-            this.children = children;
+        private Attachment(AttachmentStack stack, Attachment previous) {
+            this.stack = stack;
             this.previous = previous;
         }
 
         private boolean contains(VObject value) {
             if (child == value) return true;
             if (children != null) {
-                for (Object item : children) {
-                    if (item == value) return true;
+                for (int i = completedChildren; i < children.size(); i++) {
+                    if (children.get(i) == value) return true;
                 }
             }
             return false;
         }
 
+        private void completeChild(Object value) {
+            if (child == value) child = null;
+            if (children != null) {
+                while (completedChildren < children.size() && children.get(completedChildren) == null) {
+                    completedChildren++;
+                }
+                if (completedChildren < children.size() && children.get(completedChildren) == value) {
+                    completedChildren++;
+                }
+            }
+        }
+
+        public void completed() {
+            if (parent != null) child = null;
+        }
+
         @Override public void close() {
-            if (parent != null) PENDING.set(previous);
+            if (stack != null) {
+                stack.active = previous;
+                parent = null;
+                child = null;
+                children = null;
+                completedChildren = 0;
+            }
         }
     }
 
@@ -178,19 +246,19 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 
     @Override public VList<T> asUnmodifiable() {
         if (unmodifiable == null) {
-            var view = new ContainmentList<>(null, VList.newInstance(Collections.unmodifiableList(observable)));
-            listeners.addChangeListener(view.listeners::fireEvent);
+            var view = new ContainmentList<>(null, VList.newInstance(Collections.unmodifiableList(observable)), null);
+            listeners().addChangeListener(view.listeners()::fireEvent);
             unmodifiable = view;
         }
         return unmodifiable;
     }
 
     @Override public Subscription addChangeListener(CollectionChangeListener<T, ? super VList<T>, ? super VListChange<T>> listener) {
-        return listeners.addChangeListener(listener);
+        return listeners().addChangeListener(listener);
     }
 
     @Override public boolean removeChangeListener(CollectionChangeListener<T, ? super VList<T>, ? super VListChange<T>> listener) {
-        return listeners.removeChangeListener(listener);
+        return listeners != null && listeners.removeChangeListener(listener);
     }
 
     private static final class Change<T> implements VListChangeEvent<T> {

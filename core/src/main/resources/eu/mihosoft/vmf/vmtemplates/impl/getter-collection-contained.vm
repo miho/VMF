@@ -26,9 +26,7 @@
 
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
-        this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ContainmentList.newInstance(this, __vmf_get_prop_${prop.name}__vmf_RawList());
-
-        this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
+        this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ContainmentList.newInstance(this, __vmf_get_prop_${prop.name}__vmf_RawList(), (evt) -> {
             if (${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(evt.eventInfo())) return;
 
             for (Object child : evt.added().elements()) {
@@ -38,7 +36,10 @@
                 // The list already contains the incoming values. Check the owner's
                 // other properties before treating a SET as a same-list reorder.
                 if (valueInternal._vmf_getContainer() == this) {
-                    if (!valueInternal._vmf_unregisterFromContainers(this.__vmf_prop_${prop.name}, evt.wasSet())) continue;
+                    if (!valueInternal._vmf_unregisterFromContainers(this.__vmf_prop_${prop.name}, evt.wasSet())) {
+                        ${VMFPKG_INT}.ContainmentList.attached(this, child);
+                        continue;
+                    }
                 } else {
                     valueInternal._vmf_unregisterFromContainers();
                 }
@@ -48,9 +49,13 @@
                 valueInternal._vmf_setContainer(this);
 #if(${prop.containmentInfo.opposite})## opposite
                 valueInternal._vmf_setContainerPropertyId(valueInternal._vmf_getPropertyIdByName("${prop.containmentInfo.opposite.name}"));
-                ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #else##                                      ## opposite
                 valueInternal._vmf_setContainerPropertyId(-1);
+#end##                                       ## opposite
+                ${VMFPKG_INT}.ContainmentList.attached(this, child);
+#if(${prop.containmentInfo.opposite})## opposite
+                ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+#else##                                      ## opposite
                 ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #end##                                       ## opposite
             }
@@ -78,7 +83,7 @@
                     if (valueInternal._vmf_getContainer() == this) valueInternal._vmf_unregisterFromContainers();
                 }
             }
-        }); // end of addChangeListener
+        }); // end of containment listener
              
 
     } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)

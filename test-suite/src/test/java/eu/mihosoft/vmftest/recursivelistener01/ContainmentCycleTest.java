@@ -123,6 +123,32 @@ public class ContainmentCycleTest {
     }
 
     @Test
+    public void callbackCanReverseAnAttachmentAfterRemovingTheCompletedEdge() {
+        var parent = Node.newInstance();
+        var child = Node.newInstance();
+        var changes = new ArrayList<String>();
+        var callback = parent.getChildren().addChangeListener(event -> {
+            if (event.wasAdded()) {
+                assertSame(parent, child.getParent());
+                parent.getChildren().remove(child);
+                child.getChildren().add(parent);
+                changes.add("reversed");
+            }
+        });
+        try {
+            parent.getChildren().add(child);
+        } finally {
+            callback.unsubscribe();
+        }
+
+        assertEquals(List.of("reversed"), changes);
+        assertTrue(parent.getChildren().isEmpty());
+        assertSame(parent, child.getChildren().get(0));
+        assertSame(child, parent.getParent());
+        assertNull(child.getParent());
+    }
+
+    @Test
     public void scalarContainmentRejectsCyclesBeforeReplacingTheExistingChild() {
         var root = BinaryExpression.newInstance();
         var branch = BinaryExpression.newInstance();

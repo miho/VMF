@@ -69,6 +69,7 @@
   // ----------------------------------------
   ${prop.typeName} oldValue = this.__vmf_prop_${prop.name};
   this.__vmf_prop_${prop.name} = ${prop.name};
+  attachment.completed();
   // ----------------------------------------
 
   // ----------------------------------------
