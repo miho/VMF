@@ -36,6 +36,7 @@ public $prop.setterDeclaration {
 #parse("${VMF_TEMPLATE_PATH}impl/setter-no-collection-cross-reference.vm")
 
 } // end setterDeclaration (setter method) : $prop.setterDeclaration     
+#parse("${VMF_TEMPLATE_PATH}impl/setter-observed-reference.vm")
 #end##                                  end  (prop is writable property)
 #end## end for-each property
 
@@ -75,7 +76,7 @@ public boolean _vmf_unregisterFromContainers(${VCOLL_PKG}.VList<?> destination, 
         // if old value is this contained instance then unregister from the container
         if(oldValue == this) {
           container_internal.__vmf_set_prop_${contained.name}(null);
-          container_internal._vmf_firePropertyChangeIfListenersArePresent("${contained.name}", oldValue, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+          container_internal._vmf_fireContainmentRemoval("${contained.name}", this);
           found = true; // unregistered
         }
 #end##                                     contained prop is collection
@@ -96,7 +97,7 @@ public boolean _vmf_unregisterFromContainers(${VCOLL_PKG}.VList<?> destination, 
           ? this._vmf_getPropertyNames()[containerPropertyId] : "__vmf_prop_unnamed_container";
       this._vmf_setContainer(null);
       this._vmf_setContainerPropertyId(-1);
-      this._vmf_firePropertyChangeIfListenersArePresent(containerPropertyName, container, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+      this._vmf_fireContainmentPropertyChange(containerPropertyName, container, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
     } // end if getContainer!=null
    return true;
 } // end _vmf_unregisterFromContainers
@@ -121,13 +122,7 @@ private boolean _vmf_removeFromContainmentList(${VCOLL_PKG}.VList<?> list, boole
     }
     if (count != indices.length) indices = java.util.Arrays.copyOf(indices, count);
 
-    String eventInfo = list.getEventInfo();
-    list.setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
-    try {
-        list.removeAll(indices);
-    } finally {
-        list.setEventInfo(eventInfo);
-    }
+    ${VMFPKG_INT}.ContainmentList.removeForContainment(list, indices, this);
     return true;
 }
 

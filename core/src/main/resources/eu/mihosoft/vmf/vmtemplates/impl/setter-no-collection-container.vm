@@ -42,7 +42,10 @@ ERROR: @DEVS: ONLY USE THIS 'setter-no-collection-container' FOR PROPERTIES WITH
     // ----------------------------------------
     // unregister this from current container
     // ----------------------------------------  
-    this._vmf_unregisterFromContainers();   
+    ${VMFPKG_INT}.ContainmentList.requireDetachable(this);
+    try (${VMFPKG_INT}.ContainmentMutation mutation = ${VMFPKG_INT}.ContainmentMutation.open()) {
+      this._vmf_unregisterFromContainers();
+    }
   } else {
     // ----------------------------------------
     // (un)register this from/with old/new container

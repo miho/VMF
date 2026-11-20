@@ -39,94 +39,80 @@
   if (this.__vmf_prop_${prop.name} == ${prop.name}) {
     return;
   }
+  if (this.__vmf_reference_pending_${prop.name}) {
+    throw new IllegalArgumentException("A reference update for '${prop.name}' is already in progress");
+  }
   // ----------------------------------------
 
 
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION")## collection opposite 
 
-  // ----------------------------------------
-  // store the old value ...
-  // ----------------------------------------
   ${prop.typeName} oldValue = this.__vmf_prop_${prop.name};
-  // ----------------------------------------
-
-  // ----------------------------------------
-  // remove this object as reference from old value 
-  // ----------------------------------------
-  if(oldValue!=null) {
-## String eventInfo = oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().getEventInfo();
-## oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
-    oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().remove(this);
-## oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}().setEventInfo(eventInfo);
-  }
-  // ----------------------------------------
-
-  // ----------------------------------------
-  // set the new value + fire change event
-  // ----------------------------------------
-  this.__vmf_prop_$prop.name = $prop.name;
-  _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
-  // ----------------------------------------
-
-  // ----------------------------------------
-  // registering with the opposite collection
-  // ----------------------------------------
-  if (this.__vmf_prop_${prop.name} != null) {
-    var opposite = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}();
-    String eventInfo = opposite.getEventInfo();
-    opposite.setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+  Throwable observerFailure = null;
+  var oldRefs = oldValue == null ? null : oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}();
+  try (var removal = ${VMFPKG_INT}.OppositeReferenceRemoval.begin(oldRefs, this)) {
+    boolean observed = oldRefs != null || _vmf_hasPropertyChangeListeners();
+    if (observed) this.__vmf_reference_pending_${prop.name} = true;
     try {
-      opposite.add(this);
+    if (oldRefs != null) {
+      // Keep this removal primary so native undo can restore the original index.
+      for (int index = 0; index < oldRefs.size(); index++) {
+        if (oldRefs.get(index) == this) {
+          try {
+            oldRefs.remove(index);
+          } catch (RuntimeException | Error failure) {
+            observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
+          }
+          break;
+        }
+      }
+    }
+
+    boolean clearedByRemoval = oldValue != null && this.__vmf_prop_${prop.name} == null;
+    this.__vmf_prop_$prop.name = $prop.name;
+    try {
+      _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name,
+          clearedByRemoval ? ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_SCALAR_AFTER_OPPOSITE_REMOVAL : "");
+    } catch (RuntimeException | Error failure) {
+      observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
+    }
     } finally {
-      opposite.setEventInfo(eventInfo);
+      if (observed) this.__vmf_reference_pending_${prop.name} = false;
+    }
+
+    if (this.__vmf_prop_${prop.name} != null) {
+      var opposite = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}();
+      try {
+        ${VMFPKG_INT}.ObservableModelList.addCrossReference(opposite, this);
+      } catch (RuntimeException | Error failure) {
+        observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
+      }
     }
   }
-  // ----------------------------------------
+  ${VMFPKG_INT}.ObserverFailures.rethrow(observerFailure);
 #else##                                                        collection opposite
-  // Release an occupied target before registering this owner. Retain this
-  // primary owner change so transaction undo can restore the displaced pair.
-  if($prop.name != null) {
-    Object previousOwner = ((__VMF_TYPE_${prop.type.implementation.typeName})$prop.name).__vmf_get_prop_${prop.referenceInfo.opposite.name}();
-    if(previousOwner != null && previousOwner != this) {
-      ((__VMF_TYPE_${prop.referenceInfo.opposite.type.implementation.typeName})previousOwner).__vmf_set_prop_${prop.name}(null);
-      ((__VMF_TYPE_${prop.referenceInfo.opposite.type.implementation.typeName})previousOwner)._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", $prop.name, null);
-    }
+  var target = (__VMF_TYPE_${prop.type.implementation.typeName})${prop.name};
+  if (target != null && target.__vmf_is_reference_pending_${prop.referenceInfo.opposite.name}()) {
+    throw new IllegalArgumentException("The opposite reference '${prop.referenceInfo.opposite.name}' is already updating");
   }
-  // ----------------------------------------
-  // set the new value
-  // ----------------------------------------
-  $prop.typeName oldValue = this.__vmf_prop_$prop.name;
-  this.__vmf_prop_$prop.name = $prop.name;
-  // ----------------------------------------
-
-  // ----------------------------------------
-  // remove this object as reference from old value 
-  // ----------------------------------------
-  if(oldValue!=null) {
-    if(((__VMF_TYPE_${prop.type.implementation.typeName})oldValue).__vmf_get_prop_${prop.referenceInfo.opposite.name}() == this) {
-      ((__VMF_TYPE_${prop.type.implementation.typeName})oldValue).__vmf_set_prop_${prop.referenceInfo.opposite.name}(null);
-      ((__VMF_TYPE_${prop.type.implementation.typeName})oldValue)._vmf_firePropertyChangeIfListenersArePresent("${prop.referenceInfo.opposite.name}", this, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
-    }
+  var oldTarget = (__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name};
+  var previousOwner = target == null ? null : (__VMF_TYPE_${prop.referenceInfo.opposite.type.implementation.typeName})
+          target.__vmf_get_prop_${prop.referenceInfo.opposite.name}();
+  if (propertyChanges != null
+      || (oldTarget != null && oldTarget._vmf_hasPropertyChangeListeners())
+      || (target != null && target._vmf_hasPropertyChangeListeners())
+      || (previousOwner != null && previousOwner != this && previousOwner._vmf_hasPropertyChangeListeners())) {
+    __vmf_set_reference_with_observers_${prop.name}(${prop.name}, target, oldTarget, previousOwner);
+    return;
   }
-  // ----------------------------------------
-
-  // ----------------------------------------
-  // fire property change event
-  // ----------------------------------------
-  _vmf_firePropertyChangeIfListenersArePresent("$prop.name", oldValue, this.__vmf_prop_$prop.name);
-
-  // ----------------------------------------
-  // register this with opposite if new value is not null
-  // ----------------------------------------
-  if(this.__vmf_prop_${prop.name}!=null) {
-    Object refOldVal = ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name}).__vmf_get_prop_${prop.referenceInfo.opposite.name}();
-    ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name}).__vmf_set_prop_${prop.referenceInfo.opposite.name}(this);
-    // fire property change event
-    if(refOldVal != this) {
-      ((__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name})._vmf_firePropertyChangeIfListenersArePresent("${prop.referenceInfo.opposite.name}", refOldVal, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
-    }
+  if (previousOwner != null && previousOwner != this) {
+    previousOwner.__vmf_set_prop_${prop.name}(null);
   }
-  // ----------------------------------------
+  this.__vmf_prop_${prop.name} = ${prop.name};
+  if (oldTarget != null && oldTarget.__vmf_get_prop_${prop.referenceInfo.opposite.name}() == this) {
+    oldTarget.__vmf_set_prop_${prop.referenceInfo.opposite.name}(null);
+  }
+  if (target != null) target.__vmf_set_prop_${prop.referenceInfo.opposite.name}(this);
 #end##                                                         collection opposite 
 
 #end##

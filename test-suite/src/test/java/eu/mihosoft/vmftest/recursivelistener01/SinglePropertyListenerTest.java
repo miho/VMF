@@ -35,8 +35,42 @@ import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
 
 public class SinglePropertyListenerTest {
+    @Test
+    public void failingBeanListenerPreservesLaterDeliveryAndRecording() {
+        var node = Node.newInstance();
+        var observable = (ObservableObject) node;
+        var first = new IllegalStateException("first listener");
+        var second = new AssertionError("named listener");
+        var order = new ArrayList<String>();
+        PropertyChangeListener early = event -> { order.add("early"); throw first; };
+        PropertyChangeListener named = new PropertyChangeListenerProxy("name", event -> {
+            order.add("named");
+            throw second;
+        });
+        observable.addPropertyChangeListener(early);
+        observable.addPropertyChangeListener(named);
+        var changes = node.vmf().changes();
+        var subscription = changes.addLocalListener(event -> order.add("model"));
+        changes.start();
+        try {
+            assertSame(first, assertThrows(IllegalStateException.class, () -> node.setName("applied")));
+            assertEquals(List.of("early", "model", "named"), order);
+            assertEquals(1, first.getSuppressed().length);
+            assertSame(second, first.getSuppressed()[0]);
+            assertEquals(1, changes.all().size());
+            assertEquals("applied", changes.all().get(0).propertyChange().orElseThrow().newValue());
+        } finally {
+            changes.stop();
+            subscription.unsubscribe();
+            observable.removePropertyChangeListener(early);
+            observable.removePropertyChangeListener(named);
+        }
+    }
+
     @Test
     public void namedAndOrdinaryListenersKeepTheirDeliveryOrder() {
         var node = Node.newInstance();

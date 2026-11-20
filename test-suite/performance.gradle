@@ -86,6 +86,8 @@ def performanceTask = { String name, String mode, String purpose ->
 def performanceTestTask = performanceTask('performanceTest', 'test', 'Fail on performance regressions against this machineâ€™s saved baseline.')
 performanceTask('performanceBaseline', 'baseline', 'Measure and explicitly replace this machineâ€™s saved performance baseline.')
 performanceTask('performanceReport', 'report', 'Measure performance without comparing or replacing the saved baseline.')
+performanceTask('performanceObserverReport', 'observer-report', 'Measure selective observer latency and allocation.')
+performanceTask('performanceFrameReport', 'frame-report', 'Measure native and verified journal frame publication.')
 
 if (providers.gradleProperty('withPerformanceTests').isPresent()) {
     tasks.named('check') { dependsOn performanceTestTask }

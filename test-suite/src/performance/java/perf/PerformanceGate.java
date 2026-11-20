@@ -27,7 +27,9 @@ package perf;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.sun.management.ThreadMXBean;
 
+import java.lang.management.ManagementFactory;
 import java.nio.channels.FileChannel;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -53,12 +55,15 @@ public final class PerformanceGate {
     private static final int FORKS = 3;
     private static final int MIN_SAMPLES = 128;
     private static final int MAX_SAMPLES = 4096;
+    private static final int ALLOCATION_SAMPLES = 32;
     private static final long WARMUP_NS = TimeUnit.MILLISECONDS.toNanos(900);
     private static final long MEASURE_NS = TimeUnit.MILLISECONDS.toNanos(275);
     private static final long FORK_TIMEOUT_MINUTES = 5;
     private static final double MIN_RELATIVE_NOISE = 0.25;
     private static final double MAX_RELATIVE_NOISE = 0.50;
     private static final double MIN_ABSOLUTE_NOISE_NS = 2.5;
+    private static final String OBSERVER_REPORT = "observer-report";
+    private static final String FRAME_REPORT = "frame-report";
     private static final List<String> JVM_OPTIONS = List.of("-Xms256m", "-Xmx256m", "-XX:+UseG1GC",
             "-XX:ActiveProcessorCount=4");
 
@@ -67,12 +72,13 @@ public final class PerformanceGate {
 
     public static void main(String[] args) throws Exception {
         if (args.length != 3) throw new IllegalArgumentException("Expected mode, baseline path and report path");
-        if ("worker".equals(args[0])) {
-            worker(Integer.parseInt(args[1]), Path.of(args[2]));
+        String mode = args[0];
+        if ("worker".equals(mode) || (mode.startsWith("worker-") && isDiagnosticReport(mode.substring(7)))) {
+            String reportMode = "worker".equals(mode) ? "report" : mode.substring(7);
+            worker(reportMode, Integer.parseInt(args[1]), Path.of(args[2]));
             return;
         }
-        String mode = args[0];
-        if (!List.of("baseline", "test", "report").contains(mode)) {
+        if (!List.of("baseline", "test", "report").contains(mode) && !isDiagnosticReport(mode)) {
             throw new IllegalArgumentException("Unknown performance mode: " + mode);
         }
         Path baselineFile = Path.of(args[1]).toAbsolutePath();
@@ -85,9 +91,23 @@ public final class PerformanceGate {
         }
     }
 
-    private static List<Scenario> scenarios() {
-        List<Scenario> cases = new ArrayList<>(ModelScenarios.cases());
-        cases.addAll(JournalScenarios.cases());
+    private static boolean isDiagnosticReport(String mode) {
+        return OBSERVER_REPORT.equals(mode) || FRAME_REPORT.equals(mode);
+    }
+
+    private static List<Scenario> scenarios(String mode) {
+        List<Scenario> cases = new ArrayList<>();
+        switch (mode) {
+            case OBSERVER_REPORT:
+                cases.addAll(ModelScenarios.observerCases());
+                break;
+            case FRAME_REPORT:
+                cases.addAll(JournalScenarios.verifiedFrameCases());
+                break;
+            default:
+                cases.addAll(ModelScenarios.cases());
+                cases.addAll(JournalScenarios.cases());
+        }
         Set<String> names = new HashSet<>();
         for (Scenario scenario : cases) {
             if (!names.add(scenario.name)) {
@@ -98,7 +118,7 @@ public final class PerformanceGate {
     }
 
     private static void run(String mode, Path baselineFile, Path reportFile) throws Exception {
-        var cases = scenarios();
+        var cases = scenarios(mode);
         // Compare the JSON representation used by saved baselines, including numeric node types.
         var environment = JSON.readTree(environment(cases).toString());
         JsonNode baseline = null;
@@ -119,7 +139,7 @@ public final class PerformanceGate {
         var forks = new ArrayList<JsonNode>();
         for (int fork = 0; fork < FORKS; fork++) {
             Path forkReport = forkDir.resolve("fork-" + (fork + 1) + ".json");
-            forks.add(launchFork(fork, forkReport));
+            forks.add(launchFork(mode, fork, forkReport));
         }
 
         ObjectNode result = JSON.createObjectNode();
@@ -143,6 +163,9 @@ public final class PerformanceGate {
             if (forks.get(0).path(scenario.name).has("tick_p99")) {
                 entry.put("tick_median", median(values(forks, scenario.name, "tick_median")));
                 entry.put("tick_p99", median(values(forks, scenario.name, "tick_p99")));
+            }
+            if (forks.get(0).path(scenario.name).has("allocated_bytes_per_op")) {
+                entry.put("allocated_bytes_per_op", median(values(forks, scenario.name, "allocated_bytes_per_op")));
             }
             entry.put("fork_median_min", low).put("fork_median_max", high).put("fork_median_mad", spread);
             String gate = "-";
@@ -200,13 +223,13 @@ public final class PerformanceGate {
         }
     }
 
-    private static JsonNode launchFork(int fork, Path output) throws Exception {
+    private static JsonNode launchFork(String mode, int fork, Path output) throws Exception {
         String executable = System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java";
         var command = new ArrayList<String>();
         command.add(Path.of(System.getProperty("java.home"), "bin", executable).toString());
         command.addAll(JVM_OPTIONS);
         Collections.addAll(command, "-cp", System.getProperty("java.class.path"), PerformanceGate.class.getName(),
-                "worker", Integer.toString(fork), output.toString());
+                isDiagnosticReport(mode) ? "worker-" + mode : "worker", Integer.toString(fork), output.toString());
         var worker = new ProcessBuilder(command).inheritIO().start();
         try {
             if (!worker.waitFor(FORK_TIMEOUT_MINUTES, TimeUnit.MINUTES)) {
@@ -221,8 +244,9 @@ public final class PerformanceGate {
         }
     }
 
-    private static void worker(int fork, Path output) throws Exception {
-        var cases = scenarios();
+    private static void worker(String mode, int fork, Path output) throws Exception {
+        var cases = scenarios(mode);
+        ThreadMXBean allocationBean = isDiagnosticReport(mode) ? allocationBean() : null;
         Collections.rotate(cases, -(fork * cases.size() / FORKS));
         ObjectNode result = JSON.createObjectNode();
         System.out.printf(Locale.ROOT, "Performance fork %d/%d, PID %d%n",
@@ -255,6 +279,9 @@ public final class PerformanceGate {
                 metrics.put("tick_median", median(sortedTicks)).put("tick_p99", percentile(sortedTicks, 0.99));
                 metrics.set("tick_samples_ns", JSON.valueToTree(ticks));
             }
+            if (allocationBean != null) {
+                metrics.put("allocated_bytes_per_op", allocatedBytesPerOperation(scenario, allocationBean));
+            }
         }
         writeJson(output, result);
     }
@@ -277,11 +304,35 @@ public final class PerformanceGate {
     private static double[] values(List<JsonNode> forks, String scenario, String metric) {
         return forks.stream().mapToDouble(fork -> {
             double value = fork.path(scenario).path(metric).asDouble(Double.NaN);
-            if (!(value > 0) || !Double.isFinite(value)) {
+            if (!Double.isFinite(value) || value < 0 || (value == 0 && !"allocated_bytes_per_op".equals(metric))) {
                 throw new IllegalStateException("Invalid sample data for " + scenario);
             }
             return value;
         }).sorted().toArray();
+    }
+
+    private static ThreadMXBean allocationBean() {
+        var platformBean = ManagementFactory.getThreadMXBean();
+        if (!(platformBean instanceof ThreadMXBean)) return null;
+        ThreadMXBean bean = (ThreadMXBean) platformBean;
+        if (!bean.isThreadAllocatedMemorySupported()) return null;
+        if (!bean.isThreadAllocatedMemoryEnabled()) bean.setThreadAllocatedMemoryEnabled(true);
+        return bean;
+    }
+
+    private static double allocatedBytesPerOperation(Scenario scenario, ThreadMXBean bean) {
+        double[] samples = new double[ALLOCATION_SAMPLES];
+        long thread = Thread.currentThread().getId();
+        for (int i = 0; i < samples.length; i++) {
+            var batch = scenario.setup.get();
+            long before = bean.getThreadAllocatedBytes(thread);
+            batch.run(scenario.operations);
+            long bytes = bean.getThreadAllocatedBytes(thread) - before;
+            batch.verify(scenario.operations);
+            samples[i] = (double) bytes / scenario.operations;
+        }
+        Arrays.sort(samples);
+        return median(samples);
     }
 
     private static double median(double[] sorted) {

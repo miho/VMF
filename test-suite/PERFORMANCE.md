@@ -17,6 +17,19 @@ Each operation is the unit in its case name. For example, a listener lifecycle o
 
 The ordered journal cases vary node count and retained tags independently and exercise one, eight, and 32 frames per sealed session on the large graph. Every frame includes a write followed by restoration of the old value. The report includes median and p99 for the sealed session and for ticks from opening a transaction through verified publication. Tick samples exclude opening and finishing the recorder.
 
+## Observer and verified-frame diagnostics
+
+Run `performanceObserverReport` for selective scalar and containment observation. Run
+`performanceFrameReport` to compare native publication with `JournalRecorder.publishFrame()`
+over 32 ticks on each of the 13-node and 101-node fixtures. The frame report measures
+the edit and publication together for each tick, with the recorder open throughout the
+session. The session measurements also include opening and finishing the recorder.
+
+These tasks write separate reports next to the gate report. They measure thread-allocated
+bytes per operation on supporting JVMs in a separate pass after the latency samples. The
+observer report counts one edit as an operation. The frame report counts one session as
+an operation. Both use the same fork settings as the gate.
+
 ## Failure threshold
 
 For each case the gate compares the median of the three process medians in nanoseconds per operation. A case fails when the result exceeds the baseline median by more than the largest of these three values.

@@ -32,19 +32,40 @@ import eu.mihosoft.vcollections.VList;
 
 import vjavax.observer.Subscription;
 
+import java.util.Objects;
+import java.util.function.Predicate;
+
 /**
  * Contains change related functionality of this object graph. The change API of an object can be
  * accessed via the {@code vmf()} method:
  * 
  * <pre><code>
  * VObject o = ...
- * Change r = o.vmf().change()
- * </code></pre> * 
+ * Changes changes = o.vmf().changes();
+ * </code></pre>
+ *
+ * <p>Live listeners run synchronously. A recursive subscription follows containment.
+ * Changes to a reference property are visible on its owner. Pointing a reference
+ * at an object does not subscribe the listener to that object's properties.</p>
+ *
+ * <p>In generated VMF models, if a live listener throws, delivery continues to the
+ * other listeners in the dispatch snapshot. Applied edits remain on the model.
+ * A containment mutation completes its parent and child updates before returning
+ * the first unchecked listener failure to the caller. Further failures may be
+ * inspected with {@link Throwable#getSuppressed()}.</p>
  * 
  * @author Michael Hoffer (info@michaelhoffer.de)
  * @see {@link VMF}
  */
 public interface Changes {
+
+    /** The objects to observe when subscribing to a filtered change stream. */
+    enum Scope {
+        /** Observe only the object whose change stream this is. */
+        LOCAL,
+        /** Observe the object and its descendants using recursive observation. */
+        RECURSIVE
+    }
 
     /**
      * Adds the specified change listener. Listeners will be notified about changes regardless
@@ -63,14 +84,82 @@ public interface Changes {
      * changes without the overhead of storing all previous events in a collection. Optionally the
      * listener registers with all objects of the current object graph.
      *
-     * @param l the listher to add
-     * @param recursive determines whether to add the listener recuirsively to all objects of the
+     * @param l the listener to add
+     * @param recursive determines whether to add the listener recursively to all objects of the
      *                  current object graph
      * @return a subscription which allows to unsubscribe the specified listener
      */
     Subscription addListener(ChangeListener l, boolean recursive);
 
+    /**
+     * Observes changes to this object, including edits to its list properties.
+     *
+     * @param listener the listener to add
+     * @return a subscription that removes the listener
+     */
+    default Subscription addLocalListener(ChangeListener listener) {
+        return addListener(listener, false);
+    }
 
+    /**
+     * Observes changes to this object and to objects it contains, including
+     * descendants added while the listener is subscribed.
+     *
+     * @param listener the listener to add
+     * @return a subscription that removes the listener
+     */
+    default Subscription addRecursiveListener(ChangeListener listener) {
+        return addListener(listener, true);
+    }
+
+    /**
+     * Observes changes to the named property of this object. List edits also
+     * match the name of their list property.
+     *
+     * @param propertyName the exact name to match
+     * @param listener the listener to add
+     * @return a subscription that removes the listener
+     */
+    default Subscription addPropertyListener(String propertyName, ChangeListener listener) {
+        return addPropertyListener(propertyName, listener, Scope.LOCAL);
+    }
+
+    /**
+     * Observes changes to properties with the given name in the selected
+     * scope. With recursive observation, the name is matched on each source
+     * object, including when the property is absent on the root.
+     *
+     * @param propertyName the exact name to match
+     * @param listener the listener to add
+     * @param scope the objects to observe
+     * @return a subscription that removes the listener
+     */
+    default Subscription addPropertyListener(String propertyName, ChangeListener listener, Scope scope) {
+        Objects.requireNonNull(propertyName, "propertyName");
+        return addFilteredListener(change -> propertyName.equals(change.propertyName()), listener, scope);
+    }
+
+    /**
+     * Observes changes accepted by a predicate. The predicate runs during
+     * normal change delivery, at the point where this listener would have
+     * run. Filtering only affects delivery to this listener.
+     *
+     * @param filter the predicate to evaluate for each change in scope
+     * @param listener the listener to add
+     * @param scope the objects to observe
+     * @return a subscription that removes the listener and filter
+     */
+    default Subscription addFilteredListener(Predicate<? super Change> filter, ChangeListener listener,
+                                             Scope scope) {
+        Objects.requireNonNull(filter, "filter");
+        Objects.requireNonNull(listener, "listener");
+        Objects.requireNonNull(scope, "scope");
+        return addListener(change -> {
+            if (filter.test(change)) {
+                listener.onChange(change);
+            }
+        }, scope == Scope.RECURSIVE);
+    }
 
     /**
      * Starts recording changes. Previously recorded changes will be removed

@@ -100,6 +100,14 @@ class ListChangeImpl implements ChangeInternal {
         return internalChangeInfo;
     }
 
+    boolean removesFrom(VList<?> source, VObject member) {
+        if (list != source || evt.wasAdded()) return false;
+        for (Object removed : evt.removed().elements()) {
+            if (removed == member) return true;
+        }
+        return false;
+    }
+
     @Override
     public VObject object() {
         return object;

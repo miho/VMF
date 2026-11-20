@@ -1,0 +1,18 @@
+  default void _vmf_fireContainmentPropertyChange(
+    String propertyName, Object oldValue, Object newValue, String eventInfo) {
+    try {
+      _vmf_firePropertyChangeIfListenersArePresent(propertyName, oldValue, newValue, eventInfo);
+    } catch (RuntimeException | Error failure) {
+      ${VMFPKG_INT}.ContainmentMutation.defer(failure);
+    }
+  }
+
+  default void _vmf_fireContainmentRemoval(String propertyName, ${VMFPKG}.VObject child) {
+    if (!_vmf_hasPropertyChangeListeners()) return;
+    try (var outgoing = ${VMFPKG_INT}.ContainmentList.detaching(child)) {
+      _vmf_fireContainmentPropertyChange(propertyName, child, null,
+          ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+    }
+  }
+
+  default boolean _vmf_hasPropertyChangeListeners() { return true; }

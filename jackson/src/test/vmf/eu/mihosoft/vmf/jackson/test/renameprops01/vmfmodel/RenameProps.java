@@ -9,3 +9,10 @@ interface RenamePropsModel {
     String getCOMPort();
 
 }
+interface LocaleAliasProbe {
+    @Annotation(key = "vmf:jackson:rename", value = "deviceId")
+    String getId();
+
+    @Annotation(key = "vmf:jackson:rename", value = "serialPort")
+    String getCOMPort();
+}

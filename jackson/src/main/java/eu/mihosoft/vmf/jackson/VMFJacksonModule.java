@@ -12,6 +12,8 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.Property;
+import eu.mihosoft.vmf.runtime.core.Reflect;
+import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
 import javax.xml.namespace.QName;
@@ -363,6 +365,17 @@ public class VMFJacksonModule extends SimpleModule {
      */
     private static class GenericBuilderDeserializer<T> extends StdDeserializer<T> {
 
+        private static final ClassValue<BuilderPlan> BUILDER_PLANS = new ClassValue<>() {
+            @Override
+            protected BuilderPlan computeValue(Class<?> modelClass) {
+                try {
+                    return new BuilderPlan(modelClass);
+                } catch (ReflectiveOperationException failure) {
+                    throw new IllegalArgumentException("Cannot inspect the builder of " + modelClass.getName(), failure);
+                }
+            }
+        };
+
         private final JsonDeserializer<T> defaultDeserializer;
 
         private final VMFJacksonModule module;
@@ -429,49 +442,9 @@ public class VMFJacksonModule extends SimpleModule {
                 final Map<String, VMFReferences.ReferenceProperty> referenceProperties = session == null
                         ? Collections.emptyMap() : VMFReferences.referenceProperties(actualClass);
 
-                // Get the builder class and instance
-                Class<?> builderClass = getBuilderClass(actualClass);
-                Object builder = builderClass.getDeclaredMethod("newInstance").invoke(null);
-
-                // Get all methods from the builder
-                Method[] methods = builderClass.getDeclaredMethods();
-
-                // Map of field names to builder methods
-                Map<String, Method> methodMap = new HashMap<>();
-                for (Method method : methods) {
-                    if (method.getName().startsWith("with")) {
-
-                        String fieldName = getFieldNameFromMethod(actualClass, method);
-
-                        try {
-
-                            // if more than one parameter, skip the method, usually this indicates a collection with
-                            // builder elements
-                            if (method.getParameterCount() != 1) {
-                                continue;
-                            }
-
-                            // if our parameter is an array, skip the method
-                            if (method.getParameterTypes()[0].isArray()) {
-                                continue;
-                            }
-
-                            // if our parameter extends the base VMF Builder interface, skip the method
-                            if (eu.mihosoft.vmf.runtime.core.Builder.class.isAssignableFrom(
-                                    getClassFromType(method.getParameterTypes()[0]))) {
-                                continue;
-                            }
-
-                        } catch (Exception e) {
-                            System.err.println("Error checking parameter type for method " + method);
-                            e.printStackTrace(System.err);
-                        }
-
-                        // we accept the method
-                        methodMap.put(fieldName, method);
-
-                    }
-                }
+                BuilderPlan plan = BUILDER_PLANS.get(actualClass);
+                Object builder = plan.newInstance.invoke(null);
+                Map<String, Method> methodMap = plan.fieldMethods();
 
                 // Iterate over JSON fields and invoke corresponding builder methods
                 node.fields().forEachRemaining(entry -> {
@@ -566,8 +539,7 @@ public class VMFJacksonModule extends SimpleModule {
                 });
 
                 // Build the final object
-                Method buildMethod = builderClass.getDeclaredMethod("build");
-                result = buildMethod.invoke(builder);
+                result = plan.build.invoke(builder);
             } catch (Exception e) {
                 // a JsonMappingException (not a plain IOException): ObjectMapper.readValue(String, ..)
                 // replaces plain IOExceptions by an exception without cause, which hides the reason
@@ -611,37 +583,118 @@ public class VMFJacksonModule extends SimpleModule {
             return slots;
         }
 
-        private String getFieldNameFromMethod(Class<?> actualClass, Method method) {
-            String fieldName = method.getName().substring(4,5).toLowerCase()
-                    + method.getName().substring(5);
+        private static final class BuilderPlan {
+            private final boolean modelType;
+            private final Method newInstance;
+            private final Method build;
+            private final Locale describedLocale;
+            private final Map<String, Property> declarations;
+            private final List<BuilderSetter> setters;
 
-            if(isVMFObj(actualClass)) {
-                try {
-                    Class<?> builderClass = getBuilderClass(actualClass);
-                    Object builder = builderClass.getDeclaredMethod("newInstance").invoke(null);
-
-                    // Build the final object
-                    Method buildMethod = builderClass.getDeclaredMethod("build");
-                    var obj = (VObject) buildMethod.invoke(builder);
-
-                    var prop = obj.vmf().reflect().propertyByName(fieldName).get();
-
-                    var a = prop.annotationByKey("vmf:jackson:rename");
-                    if(a.isPresent()) {
-                        fieldName = a.get().getValue();
+            private BuilderPlan(Class<?> modelClass) throws ReflectiveOperationException {
+                modelType = isVMFObj(modelClass);
+                Class<?> builderClass = VMFTypeUtils.getBuilderClass(modelClass);
+                newInstance = builderClass.getDeclaredMethod("newInstance");
+                build = builderClass.getDeclaredMethod("build");
+                var methods = new ArrayList<Method>();
+                for (Method method : builderClass.getDeclaredMethods()) {
+                    if (method.getName().startsWith("with") && method.getParameterCount() == 1) {
+                        Class<?> parameter = method.getParameterTypes()[0];
+                        if (!parameter.isArray() && !eu.mihosoft.vmf.runtime.core.Builder.class.isAssignableFrom(parameter)) {
+                            methods.add(method);
+                        }
                     }
-                } catch (ClassNotFoundException e) {
-                    throw new RuntimeException(e);
-                } catch (InvocationTargetException e) {
-                    throw new RuntimeException(e);
-                } catch (IllegalAccessException e) {
-                    throw new RuntimeException(e);
-                } catch (NoSuchMethodException e) {
-                    throw new RuntimeException(e);
+                }
+
+                declarations = modelType && !methods.isEmpty() ? declaredProperties(modelClass) : Map.of();
+                describedLocale = Locale.getDefault();
+                setters = new ArrayList<>(methods.size());
+                for (Method method : methods) {
+                    String name = setterName(method, describedLocale);
+                    setters.add(new BuilderSetter(method, name, declaredProperty(method, name)));
                 }
             }
 
-            return fieldName;
+            private Map<String, Property> declaredProperties(Class<?> modelClass) {
+                try {
+                    Method method = modelClass.getDeclaredMethod("type");
+                    if (!Modifier.isStatic(method.getModifiers())
+                            || method.getReturnType() != eu.mihosoft.vmf.runtime.core.Type.class) {
+                        return Map.of();
+                    }
+                    var type = (eu.mihosoft.vmf.runtime.core.Type) method.invoke(null);
+                    if (type == null || !type.isModelType() || type.isInterfaceOnly()
+                            || !modelClass.getName().equals(type.getName())) {
+                        return Map.of();
+                    }
+
+                    // Public type reflection has a caller-mutable property list.
+                    // Inspect a private prototype once and leave that list alone.
+                    var prototype = (VObject) build.invoke(newInstance.invoke(null));
+                    Reflect reflect = prototype.vmf().reflect();
+                    if (reflect.getClass() != ReflectImpl.class) return Map.of();
+                    Map<String, Property> properties = new HashMap<>();
+                    for (Property property : ReflectImpl.readProperties(reflect)) {
+                        properties.putIfAbsent(property.getName(), property);
+                    }
+                    return properties;
+                } catch (ReflectiveOperationException | RuntimeException unavailable) {
+                    return Map.of();
+                }
+            }
+
+            private Property declaredProperty(Method method, String name) {
+                if (declarations.isEmpty()) return null;
+                Property property = declarations.get(name);
+                if (property != null) return property;
+                property = declarations.get(setterName(method, Locale.ROOT));
+                if (property != null) return property;
+
+                // Older models may have been generated under a different locale.
+                String suffix = method.getName().substring(4);
+                for (Property declaration : declarations.values()) {
+                    if (!suffix.equalsIgnoreCase(declaration.getName())) continue;
+                    if (property != null) return null;
+                    property = declaration;
+                }
+                return property;
+            }
+
+            private static String setterName(Method method, Locale locale) {
+                String name = method.getName();
+                return name.substring(4, 5).toLowerCase(locale) + name.substring(5);
+            }
+
+            private Map<String, Method> fieldMethods() throws ReflectiveOperationException {
+                Map<String, Method> result = new HashMap<>();
+                Locale locale = Locale.getDefault();
+                boolean useDescribedFields = describedLocale.equals(locale);
+                for (BuilderSetter setter : setters) {
+                    String name = useDescribedFields ? setter.name : setterName(setter.method, locale);
+                    Property property = useDescribedFields ? setter.property : declaredProperty(setter.method, name);
+                    if (modelType && property == null) {
+                        // A hand-written builder can supply its own instance metadata.
+                        var prototype = (VObject) build.invoke(newInstance.invoke(null));
+                        property = prototype.vmf().reflect().propertyByName(name).orElseThrow();
+                    }
+                    // Read the current annotations because generated reflection exposes them.
+                    if (property != null) name = VMFTypeUtils.getFieldNameForProperty(property);
+                    result.put(name, setter.method);
+                }
+                return result;
+            }
+        }
+
+        private static final class BuilderSetter {
+            private final Method method;
+            private final String name;
+            private final Property property;
+
+            private BuilderSetter(Method method, String name, Property property) {
+                this.method = method;
+                this.name = name;
+                this.property = property;
+            }
         }
 
         private static Object deserializeField(DeserializationContext ctxt, JsonNode value, Class<?> paramType) throws IllegalAccessException, InvocationTargetException, IOException {
@@ -747,15 +800,6 @@ public class VMFJacksonModule extends SimpleModule {
             return null;
         }
 
-        /**
-         * Get the builder class for a given class.
-         * @param clazz the class object
-         * @return the builder class object of the given class
-         * @throws ClassNotFoundException if the builder class cannot be found
-         */
-        static Class<?> getBuilderClass(Class<?> clazz) throws ClassNotFoundException {
-            return Class.forName(clazz.getName() + "$Builder");
-        }
     }
 
     /**

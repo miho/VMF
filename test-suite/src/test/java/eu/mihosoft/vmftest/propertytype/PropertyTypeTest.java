@@ -26,12 +26,43 @@ package eu.mihosoft.vmftest.propertytype;
 
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
+import eu.mihosoft.vmftest.annotations.AnnotatedModel;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.List;
 import java.util.Optional;
 
 public class PropertyTypeTest {
+
+    @Test
+    public void propertyMetadataDescribesStaticTypesAndDetachesFromLiveReflection() {
+        var reflect = EntityWithProperties.type().reflect();
+        var metadata = reflect.propertyMetadata();
+        var children = metadata.stream().filter(p -> p.getName().equals("children")).findFirst().orElseThrow();
+        Assert.assertTrue(children.isListType());
+        Assert.assertTrue(children.isModelType());
+        Assert.assertFalse(children.isInterfaceOnly());
+        Assert.assertEquals(ChildEntity.class.getName(), children.getElementTypeName().orElseThrow());
+        Assert.assertTrue(children.getTypeName().contains(ChildEntity.class.getName()));
+        Assert.assertThrows(UnsupportedOperationException.class, () -> metadata.remove(0));
+
+        var model = AnnotatedModel.newInstance();
+        var live = model.vmf().reflect();
+        var property = live.propertyByName("name").orElseThrow();
+        var annotations = List.copyOf(property.annotations());
+        var description = live.propertyMetadata().get(0);
+        Assert.assertEquals("name", description.getName());
+        Assert.assertEquals(String.class.getName(), description.getTypeName());
+        Assert.assertEquals("my prop value 1", description.annotations().get(0).getValue());
+        Assert.assertNotSame(property.annotations().get(0), description.annotations().get(0));
+        Assert.assertThrows(UnsupportedOperationException.class, () -> description.annotations().remove(0));
+        property.set("edited");
+        Assert.assertEquals("edited", model.getName());
+        live.properties().clear();
+        Assert.assertTrue(live.propertyMetadata().isEmpty());
+        Assert.assertEquals(annotations, description.annotations());
+    }
 
     @Test
     public void internalPropertyHintRespectsAnExposedList() {

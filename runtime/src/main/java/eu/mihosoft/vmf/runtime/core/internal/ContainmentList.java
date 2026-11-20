@@ -52,12 +52,15 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     private static final Attachment NO_ATTACHMENT = new Attachment(null, null);
 
     private final VList<T> observable;
+    private final List<T> backing;
     private final VListChangeListener<T> internalListener;
     private List<CollectionChangeListener<T, VList<T>, VListChange<T>>> listeners;
     private VList<T> unmodifiable;
+    private boolean syntheticRemovalPending;
 
-    private ContainmentList(VObject parent, VList<T> observable, VListChangeListener<T> internalListener) {
-        super(parent, observable);
+    private ContainmentList(VObject parent, List<T> backing, VList<T> observable, VListChangeListener<T> internalListener) {
+        super(parent, observable, null);
+        this.backing = backing;
         this.observable = observable;
         this.internalListener = internalListener;
     }
@@ -68,18 +71,57 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 
     public static <T> VList<T> newInstance(VObject parent, List<T> backing, VListChangeListener<T> internalListener) {
         VList<T> observable = VList.newInstance(backing);
-        var result = new ContainmentList<>(parent, observable, internalListener);
+        var result = new ContainmentList<>(parent, backing, observable, internalListener);
         observable.addChangeListener(result::fire);
         return result;
     }
 
     private void fire(CollectionChangeEvent<T, VList<T>, VListChange<T>> event) {
+        boolean internalRemoval = syntheticRemovalPending;
+        if (internalRemoval) syntheticRemovalPending = false;
         int count = listenerCount();
-        if (count != 0) {
-            fireObserved(new Change<>(this, (VListChangeEvent<T>) event), count);
-        } else if (internalListener != null) {
-            // The generated listener only reads change contents and event info.
-            internalListener.onChange(event);
+        if (internalRemoval && count == 0) return;
+        // A synthetic source removal is one stage of the destination edit.
+        boolean synthetic = internalRemoval || ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(event.eventInfo());
+        try (var mutation = ContainmentMutation.open(synthetic)) {
+            if (count != 0) {
+                var change = new Change<>(this, (VListChangeEvent<T>) event, internalRemoval);
+                fireObserved(change, count);
+            } else if (internalListener != null && !internalRemoval) {
+                // The generated listener only reads change contents and event info.
+                updateParentLinks(event);
+            }
+        }
+    }
+
+    /** Removes entries while moving or detaching the parent link in generated code. */
+    public static void removeForContainment(VList<?> list, int[] indices, VObject child) {
+        if (list instanceof ContainmentList) {
+            var containment = (ContainmentList<?>) list;
+            // Generated lists use an ArrayList. A synthetic source removal has
+            // no inverse callback of its own. If nobody can receive the event,
+            // remove the single entry without constructing its payload.
+            if (indices.length == 1 && containment.hasNoListObservers()
+                    && containment.backing != null && containment.backing.getClass() == ArrayList.class) {
+                containment.backing.remove(indices[0]);
+                return;
+            }
+            // Only the next raw event is synthetic. Nested edits by its observers
+            // must run normal containment maintenance and own their exceptions.
+            containment.syntheticRemovalPending = true;
+            try (var outgoing = containment.hasNoListObservers() ? NO_ATTACHMENT : detaching(child)) {
+                containment.observable.removeAll(indices);
+            } finally {
+                containment.syntheticRemovalPending = false;
+            }
+        } else {
+            String previous = list.getEventInfo();
+            list.setEventInfo(ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+            try (var outgoing = detaching(child)) {
+                list.removeAll(indices);
+            } finally {
+                list.setEventInfo(previous);
+            }
         }
     }
 
@@ -99,12 +141,35 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
         // can make more edits and change subscriptions during nested notifications.
         if (count == 1) {
             var listener = listeners.get(0);
-            if (internalListener != null) internalListener.onChange(event);
-            listener.onChange(event);
+            updateParentLinks(event);
+            notifyListener(listener, event);
         } else {
             var snapshot = new ArrayList<>(listeners);
-            if (internalListener != null) internalListener.onChange(event);
-            for (var listener : snapshot) listener.onChange(event);
+            updateParentLinks(event);
+            for (var listener : snapshot) notifyListener(listener, event);
+        }
+    }
+
+    private void updateParentLinks(CollectionChangeEvent<T, VList<T>, VListChange<T>> event) {
+        if (internalListener == null) return;
+        if (!containsModels() || ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(event.eventInfo())) {
+            internalListener.onChange(event);
+            return;
+        }
+        guardEntryWrites(true);
+        try {
+            internalListener.onChange(event);
+        } finally {
+            guardEntryWrites(false);
+        }
+    }
+
+    private void notifyListener(CollectionChangeListener<T, VList<T>, VListChange<T>> listener,
+                                CollectionChangeEvent<T, VList<T>, VListChange<T>> event) {
+        try {
+            listener.onChange(event);
+        } catch (RuntimeException | Error failure) {
+            ContainmentMutation.defer(failure);
         }
     }
 
@@ -126,7 +191,29 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
             }
             checkForExistingCycle = !checkForExistingCycle;
         }
-        if (pending != null) validatePendingPaths(parent, child, pending);
+        if (pending != null) {
+            requireChildAvailable((VObject) child, pending);
+            validatePendingPaths(parent, child, pending);
+        }
+    }
+
+    private static void requireChildAvailable(VObject child, Attachment pending) {
+        for (Attachment attachment = pending; attachment != null; attachment = attachment.previous) {
+            if (attachment.outgoingChild == child || attachment.contains(child)) {
+                throw new IllegalArgumentException("A containment edit for this child is already in progress");
+            }
+        }
+    }
+
+    public static void requireDetachable(VObject child) {
+        requireChildAvailable(child, PENDING.get().active);
+    }
+
+    /** Reserves the outgoing child while its old owner's removal notification runs. */
+    public static Attachment detaching(VObject child) {
+        var attachment = PENDING.get().open(null, null, null);
+        attachment.outgoingChild = child;
+        return attachment;
     }
 
     private static IllegalArgumentException cycle() {
@@ -156,6 +243,21 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
         var stack = PENDING.get();
         requireAcyclic(parent, child, stack.active);
         return stack.open(parent, child, null);
+    }
+
+    /** Opens the actual scalar slot before any detach or attach callbacks can run. */
+    public static Attachment attaching(VObject parent, Object child, int propertyId) {
+        var stack = PENDING.get();
+        var pending = stack.active;
+        for (Attachment attachment = pending; attachment != null; attachment = attachment.previous) {
+            if (attachment.parent == parent && attachment.scalarProperty == propertyId) {
+                throw new IllegalArgumentException("A containment edit for this property is already in progress");
+            }
+        }
+        requireAcyclic(parent, child, pending);
+        var attachment = stack.open(parent, child, null);
+        attachment.scalarProperty = propertyId;
+        return attachment;
     }
 
     static Attachment attachingToList(VObject parent, Object child, boolean replacing) {
@@ -213,8 +315,10 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
         private Attachment next;
         private VObject parent;
         private Object child;
+        private VObject outgoingChild;
         private List<?> children;
         private int completedChildren;
+        private int scalarProperty = -1;
 
         private Attachment(AttachmentStack stack, Attachment previous) {
             this.stack = stack;
@@ -245,6 +349,7 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 
         public void completed() {
             if (parent != null) child = null;
+            scalarProperty = -1;
         }
 
         @Override public void close() {
@@ -252,13 +357,16 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
                 stack.active = previous;
                 parent = null;
                 child = null;
+                outgoingChild = null;
                 children = null;
                 completedChildren = 0;
+                scalarProperty = -1;
             }
         }
     }
 
     @Override public boolean addAll(int[] indices, Collection<? extends T> values) {
+        requireWritable();
         var copy = new ArrayList<T>(values);
         try (var attachment = attachingAll(copy)) {
             return observable.addAll(indices, copy);
@@ -266,13 +374,17 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     }
 
     @Override public Collection<T> setAll(int index, Collection<T> values) {
+        requireWritable();
         var copy = new ArrayList<>(values);
         try (var attachment = attachingAll(copy)) {
             return observable.setAll(index, copy);
         }
     }
 
-    @Override public boolean removeAll(int... indices) { return observable.removeAll(indices); }
+    @Override public boolean removeAll(int... indices) {
+        requireWritable();
+        return observable.removeAll(indices);
+    }
 
     @Override public void setEventInfo(String value) { observable.setEventInfo(value); }
 
@@ -280,7 +392,7 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 
     @Override public VList<T> asUnmodifiable() {
         if (unmodifiable == null) {
-            var view = new ContainmentList<>(null, VList.newInstance(Collections.unmodifiableList(observable)), null);
+            var view = new ContainmentList<>(null, null, VList.newInstance(Collections.unmodifiableList(observable)), null);
             addChangeListener(view::fireForwarded);
             unmodifiable = view;
         }
@@ -301,10 +413,12 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     private static final class Change<T> implements VListChangeEvent<T> {
         private final VList<T> source;
         private final VListChangeEvent<T> event;
+        private final boolean internalRemoval;
 
-        private Change(VList<T> source, VListChangeEvent<T> event) {
+        private Change(VList<T> source, VListChangeEvent<T> event, boolean internalRemoval) {
             this.source = source;
             this.event = event;
+            this.internalRemoval = internalRemoval;
         }
 
         @Override public VList<T> source() { return source; }
@@ -313,7 +427,9 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
         @Override public boolean wasAdded() { return event.wasAdded(); }
         @Override public boolean wasRemoved() { return event.wasRemoved(); }
         @Override public boolean wasSet() { return event.wasSet(); }
-        @Override public String eventInfo() { return event.eventInfo(); }
+        @Override public String eventInfo() {
+            return internalRemoval ? ChangeInternal.CHANGE_TYPE_CONTAINMENT : event.eventInfo();
+        }
         @Override public String toString() { return event.toString(); }
         @Override public String toStringWithDetails() { return event.toStringWithDetails(); }
     }
@@ -323,10 +439,23 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 class CheckedContainmentView<T> extends AbstractList<T> {
     private final VObject parent;
     private final List<T> list;
+    private final CheckedContainmentView<?> owner;
+    private boolean updatingParentLinks;
 
-    CheckedContainmentView(VObject parent, List<T> list) {
+    CheckedContainmentView(VObject parent, List<T> list, CheckedContainmentView<?> owner) {
         this.parent = parent;
         this.list = list;
+        this.owner = owner == null ? this : owner;
+    }
+
+    final boolean containsModels() { return parent != null; }
+
+    final void guardEntryWrites(boolean guard) { owner.updatingParentLinks = guard; }
+
+    final void requireWritable() {
+        if (owner.updatingParentLinks) {
+            throw new IllegalArgumentException("A containment edit for this list is already in progress");
+        }
     }
 
     final ContainmentList.Attachment attachingAll(List<?> values) {
@@ -334,18 +463,21 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     }
 
     @Override public boolean add(T value) {
+        requireWritable();
         try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
             return list.add(value);
         }
     }
 
     @Override public void add(int index, T value) {
+        requireWritable();
         try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
             list.add(index, value);
         }
     }
 
     @Override public boolean addAll(Collection<? extends T> values) {
+        requireWritable();
         var copy = new ArrayList<T>(values);
         try (var attachment = attachingAll(copy)) {
             return list.addAll(copy);
@@ -353,6 +485,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     }
 
     @Override public boolean addAll(int index, Collection<? extends T> values) {
+        requireWritable();
         var copy = new ArrayList<T>(values);
         try (var attachment = attachingAll(copy)) {
             return list.addAll(index, copy);
@@ -360,12 +493,14 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     }
 
     @Override public T set(int index, T value) {
+        requireWritable();
         try (var attachment = ContainmentList.attachingToList(parent, value, true)) {
             return list.set(index, value);
         }
     }
 
     @Override public void replaceAll(UnaryOperator<T> operator) {
+        requireWritable();
         Objects.requireNonNull(operator);
         if (parent == null) {
             list.replaceAll(operator);
@@ -380,10 +515,10 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     }
 
     @Override public List<T> subList(int start, int end) {
-        return new CheckedContainmentView<>(parent, list.subList(start, end));
+        return new CheckedContainmentView<>(parent, list.subList(start, end), owner);
     }
 
-    @Override public Iterator<T> iterator() { return list.iterator(); }
+    @Override public Iterator<T> iterator() { return containsModels() ? listIterator(0) : list.iterator(); }
 
     @Override public ListIterator<T> listIterator(int index) {
         var iterator = list.listIterator(index);
@@ -394,13 +529,18 @@ class CheckedContainmentView<T> extends AbstractList<T> {
             @Override public T previous() { return iterator.previous(); }
             @Override public int nextIndex() { return iterator.nextIndex(); }
             @Override public int previousIndex() { return iterator.previousIndex(); }
-            @Override public void remove() { iterator.remove(); }
+            @Override public void remove() {
+                requireWritable();
+                iterator.remove();
+            }
             @Override public void set(T value) {
+                requireWritable();
                 try (var attachment = ContainmentList.attachingToList(parent, value, true)) {
                     iterator.set(value);
                 }
             }
             @Override public void add(T value) {
+                requireWritable();
                 try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
                     iterator.add(value);
                 }
@@ -417,12 +557,12 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     @Override public int lastIndexOf(Object value) { return list.lastIndexOf(value); }
     @Override public Object[] toArray() { return list.toArray(); }
     @Override public <U> U[] toArray(U[] result) { return list.toArray(result); }
-    @Override public boolean remove(Object value) { return list.remove(value); }
-    @Override public T remove(int index) { return list.remove(index); }
-    @Override public boolean removeAll(Collection<?> values) { return list.removeAll(values); }
-    @Override public boolean retainAll(Collection<?> values) { return list.retainAll(values); }
-    @Override public boolean removeIf(Predicate<? super T> predicate) { return list.removeIf(predicate); }
-    @Override public void sort(Comparator<? super T> comparator) { list.sort(comparator); }
-    @Override public void clear() { list.clear(); }
+    @Override public boolean remove(Object value) { requireWritable(); return list.remove(value); }
+    @Override public T remove(int index) { requireWritable(); return list.remove(index); }
+    @Override public boolean removeAll(Collection<?> values) { requireWritable(); return list.removeAll(values); }
+    @Override public boolean retainAll(Collection<?> values) { requireWritable(); return list.retainAll(values); }
+    @Override public boolean removeIf(Predicate<? super T> predicate) { requireWritable(); return list.removeIf(predicate); }
+    @Override public void sort(Comparator<? super T> comparator) { requireWritable(); list.sort(comparator); }
+    @Override public void clear() { requireWritable(); list.clear(); }
     @Override public int hashCode() { return list.hashCode(); }
 }

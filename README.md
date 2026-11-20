@@ -22,7 +22,7 @@ It generates/supports:
 - builder API
 - equals() and hashCode()
 - deep and shallow cloning
-- change notification
+- [change notification and observer scopes](docs/observing-models.md)
 - undo/redo
 - [portable change journals in JSON, YAML, and XML](docs/change-journal.md)
 - object graph traversal API via iterators and streams
@@ -86,7 +86,7 @@ buildscript {
 
 ### Snapshots
 
-Between releases, `master` is published as `-SNAPSHOT` (e.g. `0.2.12-SNAPSHOT`) to the Maven Central snapshot repository. To use it, add the repository for plugins (`settings.gradle`) and, for other VMF artifacts such as `vmf-jackson`, for dependencies:
+Between releases, `master` is published as `-SNAPSHOT` (e.g. `0.3.12-SNAPSHOT`) to the Maven Central snapshot repository. To use it, add the repository for plugins (`settings.gradle`) and, for other VMF artifacts such as `vmf-jackson`, for dependencies:
 
 ```gradle
 // settings.gradle
@@ -105,7 +105,7 @@ pluginManagement {
 ```gradle
 // build.gradle
 plugins {
-  id "eu.mihosoft.vmf" version "0.2.12-SNAPSHOT"
+  id "eu.mihosoft.vmf" version "0.3.12-SNAPSHOT"
 }
 
 repositories {

@@ -26,6 +26,7 @@ package eu.mihosoft.vmftest.journalvalues.impl;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import eu.mihosoft.vmf.runtime.core.journal.JournalBinding;
 import eu.mihosoft.vmf.runtime.core.journal.JournalRecorder;
+import eu.mihosoft.vmf.runtime.core.journal.JournalReplayer;
 import eu.mihosoft.vmftest.journalvalues.ArchiveEntry;
 import org.junit.Test;
 
@@ -34,6 +35,7 @@ import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -133,5 +135,80 @@ public class JournalVerificationTest {
             }
         }
         assertFalse(changes.isModelVersioningEnabled());
+    }
+
+    @Test
+    public void throwingPublicationObserverDuringFinishReleasesRecording() {
+        var entry = ArchiveEntry.newBuilder().withId("entry").build();
+        var changes = entry.vmf().changes();
+        var expected = new IllegalStateException("observer failed");
+        try (var recorder = JournalRecorder.start(entry, BINDING, "initial", 0)) {
+            var observer = changes.transactions().addChangeListener(event -> {
+                if (event.wasAdded()) throw expected;
+            });
+            try {
+                entry.setSourceId(FIRST);
+                assertSame(expected, assertThrows(IllegalStateException.class, recorder::finish));
+                assertFalse(changes.isModelVersioningEnabled());
+                assertEquals(1, changes.transactions().size());
+            } finally {
+                observer.unsubscribe();
+            }
+        }
+
+        try (var recorder = JournalRecorder.start(entry, BINDING, "after failure", 1)) {
+            entry.setSourceId(SECOND);
+            assertEquals(1, recorder.finish().transactions().size());
+        }
+        assertFalse(changes.isModelVersioningEnabled());
+    }
+
+    @Test
+    public void finishRejectsPublicationSkippedByAnEarlierThrowingObserver() {
+        var entry = ArchiveEntry.newBuilder().withId("entry").build();
+        var changes = entry.vmf().changes();
+        var expected = new IllegalStateException("observer failed");
+        var observer = changes.transactions().addChangeListener(event -> {
+            if (event.wasAdded()) throw expected;
+        });
+        try (var recorder = JournalRecorder.start(entry, BINDING, "initial", 0)) {
+            entry.setSourceId(FIRST);
+            assertSame(expected, assertThrows(IllegalStateException.class, changes::publishTransaction));
+            observer.unsubscribe();
+
+            var error = assertThrows(IllegalStateException.class, recorder::finish);
+            assertTrue(error.getMessage().contains("Native transaction history was replaced"));
+            assertEquals(1, changes.transactions().size());
+            assertFalse(changes.isModelVersioningEnabled());
+        } finally {
+            observer.unsubscribe();
+        }
+    }
+
+    @Test
+    public void finishVerifiesObservedPublicationEditsWithoutLeavingANativeGroupPending() {
+        var checkpoint = ArchiveEntry.newBuilder().withId("entry").build();
+        var entry = checkpoint.clone();
+        var changes = entry.vmf().changes();
+        try (var recorder = JournalRecorder.start(entry, BINDING, "initial", 0)) {
+            var observer = changes.transactions().addChangeListener(event -> {
+                if (event.wasAdded() && FIRST.equals(entry.getSourceId())) entry.setSourceId(SECOND);
+            });
+            try {
+                entry.setSourceId(FIRST);
+                var journal = recorder.finish();
+                assertFalse(changes.isModelVersioningEnabled());
+                assertEquals(2, changes.all().size());
+                assertEquals(2, journal.transactions().size());
+                assertEquals(SECOND, JournalReplayer.replay(checkpoint, BINDING, "initial", journal).getSourceId());
+
+                assertEquals(1, changes.transactions().size());
+                changes.stop();
+                changes.publishTransaction();
+                assertEquals(1, changes.transactions().size());
+            } finally {
+                observer.unsubscribe();
+            }
+        }
     }
 }

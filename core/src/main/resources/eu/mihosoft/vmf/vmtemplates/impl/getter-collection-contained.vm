@@ -36,7 +36,10 @@
                 // The list already contains the incoming values. Check the owner's
                 // other properties before treating a SET as a same-list reorder.
                 if (valueInternal._vmf_getContainer() == this) {
-                    if (!valueInternal._vmf_unregisterFromContainers(this.__vmf_prop_${prop.name}, evt.wasSet())) {
+                    // Replacing an entry with a child already in this object's only
+                    // containment cannot move it from another property of this owner.
+                    if ((evt.wasSet() && this._vmf_getChildrenIndices().length == 1)
+                            || !valueInternal._vmf_unregisterFromContainers(this.__vmf_prop_${prop.name}, evt.wasSet())) {
                         ${VMFPKG_INT}.ContainmentList.attached(this, child);
                         continue;
                     }
@@ -54,9 +57,9 @@
 #end##                                       ## opposite
                 ${VMFPKG_INT}.ContainmentList.attached(this, child);
 #if(${prop.containmentInfo.opposite})## opposite
-                ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+                ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_fireContainmentPropertyChange("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #else##                                      ## opposite
-                ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+                ((__VMF_TYPE_${prop.genericTypeName}Impl)valueInternal)._vmf_fireContainmentPropertyChange("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #end##                                       ## opposite
             }
 

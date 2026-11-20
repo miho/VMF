@@ -40,6 +40,7 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
     private static final long serialVersionUID = -4464120913442618645L;
 
     private Object source;
+    private transient volatile PropertyChangeListener[] dispatchListeners;
 
     private VMFPropertyChangeSupport(Object sourceBean) {
         super(sourceBean);
@@ -111,29 +112,59 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
         Object oldValue = event.getOldValue();
         Object newValue = event.getNewValue();
 
-        if (oldValue instanceof VObject || newValue instanceof VObject) {
-            if (oldValue == newValue) {
-                return;
-            }
-            fireToListeners(event);
-        } else {
-            super.firePropertyChange(event);
+        boolean modelValue = oldValue instanceof VObject || newValue instanceof VObject;
+        if (modelValue ? oldValue == newValue : oldValue != null && newValue != null && oldValue.equals(newValue)) return;
+        fireToListeners(event, modelValue);
+    }
+
+    private PropertyChangeListener[] dispatchSnapshot() {
+        PropertyChangeListener[] snapshot = dispatchListeners;
+        if (snapshot != null) return snapshot;
+        synchronized (this) {
+            if (dispatchListeners == null) dispatchListeners = super.getPropertyChangeListeners();
+            return dispatchListeners;
         }
     }
 
-    private void fireToListeners(PropertyChangeEvent event) {
-        String propertyName = event.getPropertyName();
+    @Override
+    public synchronized void addPropertyChangeListener(PropertyChangeListener listener) {
+        super.addPropertyChangeListener(listener);
+        dispatchListeners = null;
+    }
 
-        for (PropertyChangeListener listener : getPropertyChangeListeners()) {
+    @Override
+    public synchronized void removePropertyChangeListener(PropertyChangeListener listener) {
+        super.removePropertyChangeListener(listener);
+        dispatchListeners = null;
+    }
+
+    @Override
+    public synchronized void addPropertyChangeListener(String name, PropertyChangeListener listener) {
+        super.addPropertyChangeListener(name, listener);
+        dispatchListeners = null;
+    }
+
+    @Override
+    public synchronized void removePropertyChangeListener(String name, PropertyChangeListener listener) {
+        super.removePropertyChangeListener(name, listener);
+        dispatchListeners = null;
+    }
+
+    private void fireToListeners(PropertyChangeEvent event, boolean modelValue) {
+        String propertyName = event.getPropertyName();
+        Throwable failure = null;
+        for (PropertyChangeListener listener : dispatchSnapshot()) {
             if (listener instanceof PropertyChangeListenerProxy) {
                 PropertyChangeListenerProxy proxy = (PropertyChangeListenerProxy) listener;
-                if (propertyName == null || propertyName.equals(proxy.getPropertyName())) {
-                    proxy.propertyChange(event);
-                }
-            } else {
+                if (propertyName == null ? !modelValue : !propertyName.equals(proxy.getPropertyName())) continue;
+            }
+            try {
                 listener.propertyChange(event);
+            } catch (RuntimeException | Error ex) {
+                failure = ObserverFailures.add(failure, ex);
             }
         }
+        ObserverFailures.rethrow(failure);
     }
 
     @Override

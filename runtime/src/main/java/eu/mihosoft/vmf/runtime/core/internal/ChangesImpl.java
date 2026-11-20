@@ -27,13 +27,17 @@
 package eu.mihosoft.vmf.runtime.core.internal;
 
 import eu.mihosoft.vcollections.VList;
+import eu.mihosoft.vcollections.VListChange;
 import eu.mihosoft.vcollections.VMappedList;
 import eu.mihosoft.vmf.runtime.core.*;
 import vjavax.observer.Subscription;
+import vjavax.observer.collection.CollectionChangeEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -44,8 +48,11 @@ import java.util.concurrent.atomic.AtomicLong;
 @Deprecated
 public class ChangesImpl implements Changes {
 
-    private final VList<ChangeListener> changeListeners = VList.newInstance(new ArrayList<>());
-    private final VList<ChangeListener> nonRecursiveChangeListeners = VList.newInstance(new ArrayList<>());
+    private final List<Registration> changeListeners = new CopyOnWriteArrayList<>();
+    private final List<Registration> nonRecursiveChangeListeners = new CopyOnWriteArrayList<>();
+    // A null index means at least one listener needs every change in that scope.
+    private Set<String> recursivePropertyNames = Collections.emptySet();
+    private Set<String> localPropertyNames = Collections.emptySet();
 
     private VList<Change> transactionChanges;
 
@@ -78,186 +85,279 @@ public class ChangesImpl implements Changes {
 
     private boolean recording;
     private boolean recursiveObservationActive;
+    private boolean localObservationActive;
 
     private long timestamp;
     private final AtomicLong modelVersionNumber = new AtomicLong(0);
 
     private ModelVersion modelVersion = new ModelVersionImpl(System.currentTimeMillis(), 0);
 
-    private boolean isOldContained(PropertyChangeEvent evt) {
-        if (evt.getOldValue() instanceof VObject) {
-
-            if (evt.getSource() instanceof VObject) {
-                VObject source = (VObject) evt.getSource();
-
-                VObjectInternal sourceInternal = (VObjectInternal) source;
-                int changedId = sourceInternal._vmf_getPropertyIdByName(evt.getPropertyName());
-
-                for (int propId : sourceInternal._vmf_getChildrenIndices()) {
-                    if (changedId == propId) {
-                        return true;
-                    }
-                }
-            }
+    private static boolean isContainmentProperty(VObjectInternal owner, int propertyId) {
+        for (int id : owner._vmf_getChildrenIndices()) {
+            if (id == propertyId) return true;
         }
-
-        return false;
-    }
-
-    private boolean isNewContained(PropertyChangeEvent evt) {
-        if (evt.getNewValue() instanceof VObject) {
-            if (evt.getSource() instanceof VObject) {
-                VObject source = (VObject) evt.getSource();
-
-                VObjectInternal sourceInternal = (VObjectInternal) source;
-                int changedId = sourceInternal._vmf_getPropertyIdByName(evt.getPropertyName());
-
-                for (int propId : sourceInternal._vmf_getChildrenIndices()) {
-                    if (changedId == propId) {
-                        return true;
-                    }
-                }
-            }
-        }
-
         return false;
     }
 
     @SuppressWarnings({"deprecation"})
     public ChangesImpl() {
-        objListener = new PropertyChangeListener() {
-            @Override
-            public void propertyChange(PropertyChangeEvent evt) {
-
-                String evtInfo;
-
-                if(evt instanceof eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent) {
-                    evtInfo = ((eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent)evt).getEventInfo();
-                } else {
-                    evtInfo = "";
-                }
-
-                Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
-                        evt.getOldValue(), evt.getNewValue(), evtInfo);
-     
-                fireChange(c,evt);
-
-                if (isNewContained(evt)) {
-                    VObject newObjectToObserve = (VObject) evt.getNewValue();
-                    registerChangeListener(newObjectToObserve, this);
-                }
-                    
-                if(isOldContained(evt)) {
-                    VObject objectToRemoveFromObservation = (VObject) evt.getOldValue();
-                    unregisterChangeListener(objectToRemoveFromObservation, this);
-                }
-                
-            }
-        };
-
-        changeListeners.addChangeListener(evt -> updateRecursiveObservation());
-
-        nonRecursiveObjListener = new PropertyChangeListener() {
-            @Override
-            public void propertyChange(PropertyChangeEvent evt) {
-
-                String evtInfo;
-
-                if(evt instanceof eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent) {
-                    evtInfo = ((eu.mihosoft.vmf.runtime.core.internal.VMFPropertyChangeSupport.VMFPropertyChangeEvent)evt).getEventInfo();
-                } else {
-                    evtInfo = "";
-                }
-
-                Change c = new PropChangeImpl((VObject) evt.getSource(), evt.getPropertyName(),
-                        evt.getOldValue(), evt.getNewValue(), evtInfo);
-
-                fireChangeForNonRecursive(c, evt);
-            }
-        };
-
-        AtomicBoolean nonrecursiveRegistered = new AtomicBoolean(false);
-        nonRecursiveChangeListeners.addChangeListener((evt) -> {
-            if (nonRecursiveChangeListeners.isEmpty() && nonrecursiveRegistered.get()) {
-                // System.out.println("nr-unregister");
-                unregisterChangeListenerNonRecursive(model, nonRecursiveObjListener);
-                nonrecursiveRegistered.set(false);
-            } else if (!nonRecursiveChangeListeners.isEmpty() && !nonrecursiveRegistered.get()) {
-                // System.out.println("nr-register");
-                registerChangeListenerNonRecursive(model, nonRecursiveObjListener);
-                nonrecursiveRegistered.set(true);
-            }
-        });
-
-
+        objListener = this::observePropertyChange;
+        nonRecursiveObjListener = evt -> firePropertyChange(evt, localPropertyNames, nonRecursiveChangeListeners);
     }
 
-    private Object lastFiredEvt;
+    private void observePropertyChange(PropertyChangeEvent event) {
+        Object oldValue = event.getOldValue();
+        Object newValue = event.getNewValue();
+        if (!(event.getSource() instanceof VObjectInternal)
+                || (!(oldValue instanceof VObjectInternalModifiable) && !(newValue instanceof VObjectInternalModifiable))) {
+            firePropertyChange(event, recursivePropertyNames, changeListeners);
+            return;
+        }
+        var owner = (VObjectInternal) event.getSource();
+        int propertyId = owner._vmf_getPropertyIdByName(event.getPropertyName());
+        if (!isContainmentProperty(owner, propertyId)) {
+            firePropertyChange(event, recursivePropertyNames, changeListeners);
+            return;
+        }
+        try {
+            firePropertyChange(event, recursivePropertyNames, changeListeners);
+        } finally {
+            if (owner._vmf_getPropertyValueById(propertyId) == newValue) observeAttachedChild(owner, newValue);
+            stopObservingDetachedChild(owner, propertyId, null, oldValue);
+        }
+    }
 
-    private static void notifyListeners(List<ChangeListener> listeners, Change change) {
+    // A root event can reach both the local and recursive subscriptions. The
+    // second delivery normally follows directly, but callbacks can interleave
+    // other events or remove one of the subscriptions from the live model.
+    private Object pendingScopeEvent;
+    private boolean pendingScopeHasPeer;
+    private ReferenceQueue<Object> expiredScopeEvents;
+    private Set<ScopeEvent> overlappingScopeEvents;
+
+    private boolean deferringHistory;
+    private ArrayDeque<Change> deferredHistory;
+    private long historyGeneration;
+
+    private static Set<String> exactPropertyNames(List<Registration> listeners) {
         int count = listeners.size();
+        if (count == 0) return Collections.emptySet();
+        ChangeListener first = listeners.get(0).listener;
+        if (!(first instanceof NamedChangeListener)) return null;
+        String firstName = ((NamedChangeListener) first).propertyName;
+        if (count == 1) return Collections.singleton(firstName);
+
+        Set<String> names = null;
+        for (int i = 1; i < count; i++) {
+            ChangeListener listener = listeners.get(i).listener;
+            if (!(listener instanceof NamedChangeListener)) return null;
+            String name = ((NamedChangeListener) listener).propertyName;
+            if (!firstName.equals(name)) {
+                if (names == null) {
+                    names = new HashSet<>();
+                    names.add(firstName);
+                }
+                names.add(name);
+            }
+        }
+        return names == null ? Collections.singleton(firstName) : names;
+    }
+
+    private boolean needsChange(Set<String> propertyNames, String name) {
+        return propertyNames == null || recording || propertyNames.contains(name);
+    }
+
+    private void firePropertyChange(PropertyChangeEvent evt, Set<String> propertyNames, List<Registration> listeners) {
+        String name = evt.getPropertyName();
+        boolean firstDelivery = firstDelivery(evt.getSource(), evt);
+        if (needsChange(propertyNames, name)) {
+            String info = evt instanceof VMFPropertyChangeSupport.VMFPropertyChangeEvent
+                    ? ((VMFPropertyChangeSupport.VMFPropertyChangeEvent) evt).getEventInfo() : "";
+            var change = new PropChangeImpl((VObject) evt.getSource(), name, evt.getOldValue(), evt.getNewValue(), info);
+            fireChange(change, firstDelivery && recording, listeners);
+        }
+    }
+
+    private void fireListChange(VObject object, String name, CollectionChangeEvent<Object, VList<Object>, VListChange<Object>> evt,
+                                Set<String> propertyNames, List<Registration> listeners) {
+        boolean firstDelivery = firstDelivery(object, evt);
+        if (needsChange(propertyNames, name)) {
+            fireChange(new ListChangeImpl(object, name, evt), firstDelivery && recording, listeners);
+        }
+    }
+
+    private boolean firstDelivery(Object source, Object event) {
+        if (source != model) return true;
+        if (pendingScopeEvent == event) {
+            pendingScopeEvent = null;
+            return false;
+        }
+        if (overlappingScopeEvents != null) {
+            ScopeEvent expired;
+            while ((expired = (ScopeEvent) expiredScopeEvents.poll()) != null) {
+                overlappingScopeEvents.remove(expired);
+            }
+            if (!overlappingScopeEvents.isEmpty() && overlappingScopeEvents.remove(new ScopeEvent(event, null))) {
+                return false;
+            }
+        }
+        boolean mayReachBoth = recursiveObservationActive && !nonRecursiveChangeListeners.isEmpty();
+        if (recording || mayReachBoth) {
+            if (pendingScopeEvent != null && (mayReachBoth || pendingScopeHasPeer)) {
+                releasePendingEvent();
+            }
+            pendingScopeEvent = event;
+            pendingScopeHasPeer = mayReachBoth;
+        }
+        return true;
+    }
+
+    // A dispatcher may still hold a subscription snapshot across stop, clear or
+    // unsubscribe. Keep its deduplication identity without retaining a removed subtree.
+    private void releasePendingEvent() {
+        if (pendingScopeEvent == null) return;
+        if (overlappingScopeEvents == null) {
+            expiredScopeEvents = new ReferenceQueue<>();
+            overlappingScopeEvents = new HashSet<>();
+        }
+        overlappingScopeEvents.add(new ScopeEvent(pendingScopeEvent, expiredScopeEvents));
+        pendingScopeEvent = null;
+    }
+
+    private static final class ScopeEvent extends WeakReference<Object> {
+        private final int hash;
+
+        private ScopeEvent(Object event, ReferenceQueue<Object> queue) {
+            super(event, queue);
+            hash = System.identityHashCode(event);
+        }
+
+        @Override public int hashCode() {
+            return hash;
+        }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            Object event = get();
+            return event != null && other instanceof ScopeEvent && event == ((ScopeEvent) other).get();
+        }
+    }
+
+    private static Throwable notifyListeners(List<Registration> listeners, Change change) {
+        int count = listeners.size();
+        if (count == 0) return null;
         if (count == 1) {
-            listeners.get(0).onChange(change);
-        } else if (count > 1) {
-            // A callback can subscribe or unsubscribe during dispatch.
-            for (ChangeListener listener : new ArrayList<>(listeners)) {
-                listener.onChange(change);
+            return notifyListener(listeners.get(0).listener, change, null);
+        }
+        Throwable failure = null;
+        // A callback can subscribe or unsubscribe during dispatch.
+        for (Registration registration : listeners) {
+            failure = notifyListener(registration.listener, change, failure);
+        }
+        return failure;
+    }
+
+    private static Throwable notifyListener(ChangeListener listener, Change change, Throwable failure) {
+        try {
+            listener.onChange(change);
+        } catch (RuntimeException | Error ex) {
+            return ObserverFailures.add(failure, ex);
+        }
+        return failure;
+    }
+
+    private void fireChange(Change change, boolean record, List<Registration> listeners) {
+        if (!record || !isPrimaryChange(change)) {
+            ObserverFailures.rethrow(notifyListeners(listeners, change));
+            return;
+        }
+        long generation = historyGeneration;
+        if (listeners.isEmpty()) {
+            ObserverFailures.rethrow(recordChange(change, generation, null));
+            return;
+        }
+        if (change instanceof PropChangeImpl) {
+            var property = (PropChangeImpl) change;
+            if (!(property.oldValue() instanceof VObject) && !(property.newValue() instanceof VObject)) {
+                // Scalar setters have already applied this value. Keep it before
+                // mutations caused by its observers while delivering callbacks first.
+                if (deferringHistory) {
+                    deferChange(change);
+                    ObserverFailures.rethrow(notifyListeners(listeners, change));
+                    return;
+                }
+                deferringHistory = true;
+                try {
+                    ObserverFailures.rethrow(appendHistory(change, generation, notifyListeners(listeners, change)));
+                } finally {
+                    deferringHistory = false;
+                }
+                return;
             }
+        }
+        // A removed subtree stays observable through its detach notification.
+        // Preserve the native ordering of edits made there before the removal.
+        var failure = notifyListeners(listeners, change);
+        ObserverFailures.rethrow(recordChange(change, generation, failure));
+    }
+
+    private static boolean isPrimaryChange(Change change) {
+        var object = (VObjectInternal) change.object();
+        int property = object._vmf_getPropertyIdByName(change.propertyName());
+        for (int parent : object._vmf_getParentIndices()) {
+            if (parent == property) return false;
+        }
+        return !ChangeInternal.isCrossRefChange(change);
+    }
+
+    private Throwable recordChange(Change change, long generation, Throwable failure) {
+        if (!recording || generation != historyGeneration) return failure;
+        if (change instanceof PropChangeImpl) {
+            var property = (PropChangeImpl) change;
+            if (ChangeInternal.CHANGE_TYPE_SCALAR_AFTER_OPPOSITE_REMOVAL.equals(property.getInternalChangeInfo())
+                    && OppositeReferenceRemoval.wasRecorded(property.object(), this, generation)) {
+                // The indexed inverse removal cleared the scalar first. Keep the original listener payload,
+                // but record the actual remaining edit so replay and undo apply the two operations in order.
+                if (property.newValue() == null) return failure;
+                change = new PropChangeImpl(property.object(), property.propertyName(), null, property.newValue(),
+                        property.getTimestamp(), ChangeInternal.CHANGE_TYPE_EMPTY);
+            }
+        } else if (change instanceof ListChangeImpl) {
+            OppositeReferenceRemoval.record((ListChangeImpl) change, this, generation);
+        }
+        if (deferringHistory) {
+            deferChange(change);
+            return failure;
+        }
+        deferringHistory = true;
+        try {
+            return appendHistory(change, generation, failure);
+        } finally {
+            deferringHistory = false;
         }
     }
 
-    private void fireChange(Change c, Object evt) {
-        notifyListeners(changeListeners, c);
-
-        // if (recording)all.add(c);
-        if (recording && lastFiredEvt !=evt/*&& nonRecursiveChangeListeners.isEmpty()*/ ) {
-
-            // check whether the change belongs to a parent property of a
-            // contained object (opposite)
-            // -> in this case we omit the change from recorded changes
-            VObjectInternal modelInternal = (VObjectInternal) c.object();
-            int pIndex = modelInternal._vmf_getPropertyIdByName(c.propertyName());
-            boolean foundParent = false;
-            for(int idx : modelInternal._vmf_getParentIndices()) {
-
-                if (pIndex == idx) {
-                    foundParent = true;
-                    break;
-                }
-            }
-
-            if(!foundParent && !ChangeInternal.isCrossRefChange(c)) {
-                all.add(c);
-            }
-        }
-
-        lastFiredEvt = evt;
+    private void deferChange(Change change) {
+        if (deferredHistory == null) deferredHistory = new ArrayDeque<>();
+        deferredHistory.addLast(change);
     }
 
-    private void fireChangeForNonRecursive(Change c, Object evt) {
-        notifyListeners(nonRecursiveChangeListeners, c);
-
-        if (recording && lastFiredEvt !=evt) {
-
-            // check whether the change belongs to a parent property of a
-            // contained object (opposite)
-            // -> in this case we omit the change from recorded changes
-            VObjectInternal modelInternal = (VObjectInternal) c.object();
-            int pIndex = modelInternal._vmf_getPropertyIdByName(c.propertyName());
-            boolean foundParent = false;
-            for(int idx : modelInternal._vmf_getParentIndices()) {
-                if (pIndex == idx) {
-                    foundParent = true;
-                    break;
-                }
-            }
-            
-            if(!foundParent && !ChangeInternal.isCrossRefChange(c)) {
-                all.add(c);
-            }
+    private Throwable appendHistory(Change change, long generation, Throwable failure) {
+        if (recording && generation == historyGeneration) failure = addHistory(change, failure);
+        while (deferredHistory != null && !deferredHistory.isEmpty()) {
+            Change nested = deferredHistory.removeFirst();
+            if (recording) failure = addHistory(nested, failure);
         }
+        return failure;
+    }
 
-        lastFiredEvt = evt;
+    private Throwable addHistory(Change change, Throwable failure) {
+        try {
+            all.add(change);
+        } catch (RuntimeException | Error ex) {
+            return ObserverFailures.add(failure, ex);
+        }
+        return failure;
     }
 
     public void setModel(VObject model) {
@@ -283,7 +383,7 @@ public class ChangesImpl implements Changes {
         }
         recursiveObservationActive = shouldObserve;
         if (shouldObserve) {
-            registerChangeListener(model, objListener);
+            observeSubtree((VObjectInternal) model, true);
         } else {
             observedObjects.forEach(object -> object.removePropertyChangeListener(objListener));
             observedObjects.clear();
@@ -292,37 +392,80 @@ public class ChangesImpl implements Changes {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void registerChangeListener(VObject vObj, PropertyChangeListener objListener) {
-
-        if (!recursiveObservationActive) {
-            return;
-        }
-
-        Iterator<VObject> it = vObj.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
-        while (it.hasNext()) {
-
-            VObjectInternal obj = (VObjectInternal) it.next();
-
-            if (observedObjects.add(obj)) {
-                addListListenersToPropertiesOf(obj, objListener);
-                obj.addPropertyChangeListener(objListener);
+    private void observeAttachedChild(VObjectInternal owner, Object value) {
+        if (recursiveObservationActive && value instanceof VObjectInternalModifiable) {
+            var child = (VObjectInternalModifiable) value;
+            if (child._vmf_getContainer() == owner && !observedObjects.contains(child) && observedObjects.contains(owner)) {
+                observeSubtree(child, true);
             }
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private void unregisterChangeListener(VObject vObj, PropertyChangeListener objListener) {
-
-        Iterator<VObject> it = vObj.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
-        while (it.hasNext()) {
-
-            VObjectInternal obj = (VObjectInternal) it.next();
-
-            if (observedObjects.remove(obj)) {
-                removeListListenersFromPropertiesOf(obj, objListener);
-                obj.removePropertyChangeListener(objListener);
+    private void stopObservingDetachedChild(VObjectInternal formerOwner, int formerPropertyId,
+                                            Set<Object> currentMembers, Object value) {
+        if (!(value instanceof VObjectInternalModifiable) || value == model || !observedObjects.contains(value)) return;
+        var child = (VObjectInternalModifiable) value;
+        VObject parent = child._vmf_getContainer();
+        if (parent instanceof VObjectInternal && observedObjects.contains(parent)) {
+            var owner = (VObjectInternal) parent;
+            for (int id : owner._vmf_getChildrenIndices()) {
+                // During source removal, the generated parent pointer can still point to the old owner.
+                // Confirm the edge in the current property, including after a nested reparent or re-add.
+                if (owner == formerOwner && id == formerPropertyId && currentMembers != null) {
+                    if (currentMembers.contains(child)) return;
+                } else if (containsChild(owner._vmf_getPropertyValueById(id), child)) {
+                    return;
+                }
             }
+        }
+        observeSubtree(child, false);
+    }
+
+    private static boolean containsChild(Object property, Object child) {
+        if (property == child) return true;
+        if (property instanceof List<?>) {
+            for (Object item : (List<?>) property) {
+                if (item == child) return true;
+            }
+        }
+        return false;
+    }
+
+    /** Visits only live parent/child edges, with parents and list elements in containment order. */
+    private void observeSubtree(VObjectInternal root, boolean attach) {
+        var pending = new ArrayDeque<VObjectInternal>();
+        pending.push(root);
+        while (!pending.isEmpty()) {
+            VObjectInternal object = pending.pop();
+            if (attach) {
+                if (!observedObjects.add(object)) continue;
+                addListListenersToPropertiesOf(object);
+                object.addPropertyChangeListener(objListener);
+            } else {
+                if (!observedObjects.remove(object)) continue;
+                removeListListenersFromPropertiesOf(object);
+                object.removePropertyChangeListener(objListener);
+            }
+
+            int[] children = object._vmf_getChildrenIndices();
+            for (int i = children.length - 1; i >= 0; i--) {
+                Object value = object._vmf_getPropertyValueById(children[i]);
+                if (value instanceof List<?>) {
+                    List<?> list = (List<?>) value;
+                    for (var iterator = list.listIterator(list.size()); iterator.hasPrevious();) {
+                        pushAttachedChild(pending, object, iterator.previous());
+                    }
+                } else {
+                    pushAttachedChild(pending, object, value);
+                }
+            }
+        }
+    }
+
+    private static void pushAttachedChild(Deque<VObjectInternal> pending, VObjectInternal owner, Object value) {
+        if (value instanceof VObjectInternalModifiable) {
+            var child = (VObjectInternalModifiable) value;
+            if (child._vmf_getContainer() == owner) pending.push(child);
         }
     }
 
@@ -352,13 +495,8 @@ public class ChangesImpl implements Changes {
 
                 VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
 
-                Subscription subscription = list.addChangeListener(
-                        (evt) -> {
-                            Change c = new ListChangeImpl(object, propName, evt);
-
-                            fireChangeForNonRecursive(c, evt);
-                        }
-                );
+                Subscription subscription = list.addChangeListener(evt ->
+                        fireListChange(object, propName, evt, localPropertyNames, nonRecursiveChangeListeners));
 
                 nonRecursiveListSubscriptions.put(list, subscription);
             }
@@ -366,65 +504,45 @@ public class ChangesImpl implements Changes {
     }
 
     @SuppressWarnings({"deprecation", "unchecked"})
-    private void addListListenersToPropertiesOf(VObject object, PropertyChangeListener objListener) {
-        VObjectInternal internalModel = (VObjectInternal) object;
-        int[] types = internalModel._vmf_getPropertyTypes();
-        for (int i = 0; i < types.length; i++) {
-            if (types[i] == -2) {
-                String propName = internalModel._vmf_getPropertyNames()[i];
+    private void addListListenersToPropertiesOf(VObjectInternal owner) {
+        int[] types = owner._vmf_getPropertyTypes();
+        for (int id = 0; id < types.length; id++) {
+            if (types[id] != -2) continue;
+            String name = owner._vmf_getPropertyNames()[id];
+            var list = (VList<Object>) owner._vmf_getPropertyValueById(id);
+            int propertyId = id;
+            Subscription subscription = isContainmentProperty(owner, id)
+                    ? list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event))
+                    : list.addChangeListener(event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners));
+            listSubscriptions.put(list, subscription);
+        }
+    }
 
-                VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
-
-                Subscription subscription = list.addChangeListener(
-                        (evt) -> {
-                            
-                            Change c = new ListChangeImpl(object, propName, evt);
-
-                            fireChange(c, evt);
-
-                            for (Object value : evt.added().elements()) {
-                                if (value instanceof VObjectInternal) {
-                                    registerChangeListener((VObjectInternal) value, objListener);
-                                }
-                            }
-
-                            // SET can move an existing object or replace just one occurrence.
-                            List<?> removed = evt.removed().elements();
-                            if (removed.size() == 1) {
-                                Object value = removed.get(0);
-                                if (value instanceof VObject && !containsIdentity(list, value)) {
-                                    unregisterChangeListener((VObject) value, objListener);
-                                }
-                            } else {
-                                Set<Object> remaining = null;
-                                for (Object value : removed) {
-                                    if (!(value instanceof VObject)) continue;
-                                    if (remaining == null) {
-                                        remaining = Collections.newSetFromMap(new IdentityHashMap<>());
-                                        remaining.addAll(list);
-                                    }
-                                    if (!remaining.contains(value)) {
-                                        unregisterChangeListener((VObject) value, objListener);
-                                    }
-                                }
-                            }
-                        }
-                );
-
-                listSubscriptions.put(list, subscription);
+    private void observeContainmentListChange(VObjectInternal owner, int propertyId, VList<Object> list, String name,
+                                              CollectionChangeEvent<Object, VList<Object>, VListChange<Object>> event) {
+        try {
+            fireListChange(owner, name, event, recursivePropertyNames, changeListeners);
+        } finally {
+            List<Object> added = event.added().elements();
+            List<Object> removed = event.removed().elements();
+            Set<Object> currentMembers = null;
+            if (added.size() + removed.size() > 1) {
+                currentMembers = Collections.newSetFromMap(new IdentityHashMap<>());
+                currentMembers.addAll(list);
+            }
+            for (Object child : added) {
+                if (currentMembers == null ? containsChild(list, child) : currentMembers.contains(child)) {
+                    observeAttachedChild(owner, child);
+                }
+            }
+            for (Object child : removed) {
+                stopObservingDetachedChild(owner, propertyId, currentMembers, child);
             }
         }
     }
 
-    private static boolean containsIdentity(List<?> list, Object value) {
-        for (Object item : list) {
-            if (item == value) return true;
-        }
-        return false;
-    }
-
     @SuppressWarnings({"deprecation", "unchecked"})
-    private void removeListListenersFromPropertiesOf(VObject object, PropertyChangeListener objListener) {
+    private void removeListListenersFromPropertiesOf(VObject object) {
         VObjectInternal internalModel = (VObjectInternal) object;
         int[] types = internalModel._vmf_getPropertyTypes();
         for (int i = 0; i < types.length; i++) {
@@ -558,25 +676,31 @@ public class ChangesImpl implements Changes {
 
     @Override
     public void publishTransaction() {
-        if (currentTransactionStartIndex < unmodifiableAll.size()) {
-            transactions.add(new TransactionImpl(
-                    unmodifiableAll.subList(
-                            currentTransactionStartIndex, all.size()
-                    ))
-            );
-            currentTransactionStartIndex = unmodifiableAll.size();
+        int end = all.size();
+        if (currentTransactionStartIndex < end) {
+            var transaction = new TransactionImpl(unmodifiableAll.subList(currentTransactionStartIndex, end));
+            // Adding to the observable list commits the transaction before it calls any listeners.
+            // Reserve this range before dispatch so a listener can publish the following range.
+            currentTransactionStartIndex = end;
+            transactions.add(transaction);
         }
     }
 
     @Override
     public void stop() {
-        if (currentTransactionStartIndex < all.size()) {
-            publishTransaction();
+        try {
+            if (currentTransactionStartIndex < all.size()) {
+                publishTransaction();
+            }
+        } finally {
+            // A publication listener can record additional edits while stop is in progress.
+            // Keep those edits in all(), without leaving a group pending after recording ends.
+            currentTransactionStartIndex = all.size();
+            recording = false;
+            releasePendingEvent();
+            disableModelVersioning();
+            updateRecursiveObservation();
         }
-
-        recording = false;
-        disableModelVersioning();
-        updateRecursiveObservation();
     }
 
     @Override
@@ -591,6 +715,9 @@ public class ChangesImpl implements Changes {
 
     @Override
     public void clear() {
+        historyGeneration++;
+        releasePendingEvent();
+        if (deferredHistory != null) deferredHistory.clear();
         currentTransactionStartIndex = 0;
         all.clear();
         transactions.clear();
@@ -598,20 +725,74 @@ public class ChangesImpl implements Changes {
 
     @Override
     public Subscription addListener(ChangeListener l) {
-
-        changeListeners.add(l);
-
-        return () -> changeListeners.remove(l);
+        return addListener(l, true);
     }
 
     @Override
     public Subscription addListener(ChangeListener l, boolean recursive) {
+        Registration registration = new Registration(l, recursive);
+        registration.listeners().add(registration);
+        updateSubscriptions(recursive);
+        return registration;
+    }
 
-        if(recursive) {
-            return addListener(l);
-        } else {
-            nonRecursiveChangeListeners.add(l);
-            return () -> nonRecursiveChangeListeners.remove(l);
+    private final class Registration implements Subscription {
+        final ChangeListener listener;
+        final boolean recursive;
+
+        Registration(ChangeListener listener, boolean recursive) {
+            this.listener = listener;
+            this.recursive = recursive;
+        }
+
+        List<Registration> listeners() {
+            return recursive ? changeListeners : nonRecursiveChangeListeners;
+        }
+
+        @Override public void unsubscribe() {
+            if (listeners().remove(this)) {
+                if (listeners().isEmpty()) releasePendingEvent();
+                updateSubscriptions(recursive);
+            }
+        }
+    }
+
+    private void updateSubscriptions(boolean recursive) {
+        if (recursive) {
+            recursivePropertyNames = exactPropertyNames(changeListeners);
+            updateRecursiveObservation();
+            return;
+        }
+        localPropertyNames = exactPropertyNames(nonRecursiveChangeListeners);
+        boolean needsLocalObservation = !nonRecursiveChangeListeners.isEmpty();
+        if (needsLocalObservation == localObservationActive) return;
+        if (needsLocalObservation) registerChangeListenerNonRecursive(model, nonRecursiveObjListener);
+        else unregisterChangeListenerNonRecursive(model, nonRecursiveObjListener);
+        localObservationActive = needsLocalObservation;
+    }
+
+    @Override
+    public Subscription addPropertyListener(String propertyName, ChangeListener listener, Scope scope) {
+        Objects.requireNonNull(propertyName, "propertyName");
+        Objects.requireNonNull(listener, "listener");
+        Objects.requireNonNull(scope, "scope");
+        return addListener(new NamedChangeListener(propertyName, listener), scope == Scope.RECURSIVE);
+    }
+
+    private static final class NamedChangeListener implements ChangeListener {
+        private final String propertyName;
+        private final ChangeListener listener;
+
+        private NamedChangeListener(String propertyName, ChangeListener listener) {
+            this.propertyName = propertyName;
+            this.listener = listener;
+        }
+
+        @Override
+        public void onChange(Change change) {
+            if (propertyName.equals(change.propertyName())) {
+                listener.onChange(change);
+            }
         }
     }
 

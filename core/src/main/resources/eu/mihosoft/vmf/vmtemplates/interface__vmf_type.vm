@@ -47,6 +47,7 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.packageName}
   // --- PROP '$prop.typeName'
   default void __vmf_set_prop_${prop.name}($prop.typeName obj) {  throw new UnsupportedOperationException("Should never be called."); }
   $prop.typeName __vmf_get_prop_${prop.name}();
+#parse("${VMF_TEMPLATE_PATH}impl/reference-write-interface.vm")
 #if(${prop.propType} == "COLLECTION")
   java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
 #end## collection
@@ -58,6 +59,8 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.packageName}
     _vmf_firePropertyChangeIfListenersArePresent(propertyName, oldValue, newValue, "");
   }
   
+#parse("${VMF_TEMPLATE_PATH}impl/fire-containment-property-change.vm")
+
   void _vmf_firePropertyChangeIfListenersArePresent(
     String propertyName, Object oldValue, Object newValue, String evtInfo
   );

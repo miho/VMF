@@ -45,6 +45,7 @@ final class JournalScenarios {
     private static final int SMALL_TAGS = 4;
     private static final int LARGE_TAGS = 256;
     private static final int SESSION_FRAMES = 8;
+    private static final int PUBLICATION_FRAMES = 32;
     private static final String CHECKPOINT = "tree-checkpoint";
     private static final String MODEL = "performance-tree";
     private static final String TYPE = "tree-node";
@@ -83,6 +84,19 @@ final class JournalScenarios {
                 new Scenario("journal.replay-json.8-frames", 2, () -> replay.batch(replay.json, VMFJournalCodec.Format.JSON)),
                 new Scenario("journal.replay-yaml.8-frames", 2, () -> replay.batch(replay.yaml, VMFJournalCodec.Format.YAML)),
                 new Scenario("journal.replay-xml.8-frames", 2, () -> replay.batch(replay.xml, VMFJournalCodec.Format.XML)));
+    }
+
+    static List<Scenario> verifiedFrameCases() {
+        return List.of(
+                publicationCase("13-nodes.native", SMALL_SIBLINGS, SMALL_TAGS, false),
+                publicationCase("13-nodes.verified", SMALL_SIBLINGS, SMALL_TAGS, true),
+                publicationCase("101-nodes-256-tags.native", LARGE_SIBLINGS, LARGE_TAGS, false),
+                publicationCase("101-nodes-256-tags.verified", LARGE_SIBLINGS, LARGE_TAGS, true));
+    }
+
+    private static Scenario publicationCase(String name, int siblings, int tags, boolean verified) {
+        return new Scenario("journal.frame-delivery." + name, 1,
+                () -> new FramePublicationBatch(siblings, tags, verified));
     }
 
     private static Scenario orderedCase(String size, int siblings, int tags, int frames) {
@@ -186,6 +200,57 @@ final class JournalScenarios {
         }
 
         @Override public long[] tickNanos() { return tickNanos; }
+    }
+
+    private static final class FramePublicationBatch implements Scenario.Batch {
+        private final Work work;
+        private final int siblings;
+        private final long[] ticks = new long[PUBLICATION_FRAMES];
+        private final ChangeJournal.Frame[] returnedFrames;
+        private ChangeJournal journal;
+
+        FramePublicationBatch(int siblings, int tags, boolean verified) {
+            this.work = new Work(siblings, tags);
+            this.siblings = siblings;
+            this.returnedFrames = verified ? new ChangeJournal.Frame[PUBLICATION_FRAMES] : null;
+        }
+
+        @Override public void run(int iterations) {
+            try (var recorder = JournalRecorder.start(work.root, BINDING, CHECKPOINT, 0)) {
+                var changes = work.root.vmf().changes();
+                for (int i = 0; i < PUBLICATION_FRAMES; i++) {
+                    long start = System.nanoTime();
+                    work.step();
+                    work.moving.setLabel("transient");
+                    work.moving.setLabel("node moving");
+                    if (returnedFrames == null) {
+                        changes.publishTransaction();
+                    } else {
+                        returnedFrames[i] = recorder.publishFrame().orElseThrow();
+                    }
+                    ticks[i] = System.nanoTime() - start;
+                }
+                journal = recorder.finish();
+            }
+        }
+
+        @Override public void verify(int iterations) {
+            require(iterations == 1, "Frame delivery measures one session per sample");
+            require(journal.baseSequence() == 0 && journal.transactions().size() == PUBLICATION_FRAMES,
+                    "Unexpected frame-delivery journal range");
+            verifyState(work.root, siblings, work.tags, PUBLICATION_FRAMES);
+            verifyTransientWrites(journal);
+            if (returnedFrames != null) {
+                for (int i = 0; i < returnedFrames.length; i++) {
+                    var frame = returnedFrames[i];
+                    var finished = journal.transactions().get(i);
+                    require(frame.sequence() == finished.sequence() && frame.operations().equals(finished.operations()),
+                            "Returned frame differs from the finished journal");
+                }
+            }
+        }
+
+        @Override public long[] tickNanos() { return ticks; }
     }
 
     private static void verifyTransientWrites(ChangeJournal journal) {

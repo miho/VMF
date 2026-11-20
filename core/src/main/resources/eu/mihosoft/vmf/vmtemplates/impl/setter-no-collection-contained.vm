@@ -30,7 +30,8 @@
   }
   // ----------------------------------------
 
-  try (${VMFPKG_INT}.ContainmentList.Attachment attachment = ${VMFPKG_INT}.ContainmentList.attaching(this, ${prop.name})) {
+  try (${VMFPKG_INT}.ContainmentList.Attachment attachment = ${VMFPKG_INT}.ContainmentList.attaching(this, ${prop.name}, ${foreach.index});
+       ${VMFPKG_INT}.ContainmentMutation mutation = ${VMFPKG_INT}.ContainmentMutation.open()) {
 
   // ----------------------------------------
   // unregister current value from previous container
@@ -56,10 +57,10 @@
     value_internal._vmf_setContainer(this);
 #if(${prop.containmentInfo.opposite})## opposite
     value_internal._vmf_setContainerPropertyId(value_internal._vmf_getPropertyIdByName("${prop.containmentInfo.opposite.name}"));
-    ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_firePropertyChangeIfListenersArePresent("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+    ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_fireContainmentPropertyChange("${prop.containmentInfo.opposite.name}", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #else##                                      ## opposite
     value_internal._vmf_setContainerPropertyId(-1);
-    ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_firePropertyChangeIfListenersArePresent("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
+    ((__VMF_TYPE_${prop.simpleTypeName}Impl)value_internal)._vmf_fireContainmentPropertyChange("__vmf_prop_unnamed_container", oldContainer, this, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);
 #end##                                       ## opposite
   }  
   // ----------------------------------------  
@@ -75,8 +76,7 @@
   // ----------------------------------------
   // fire property changed event
   // ----------------------------------------
-  this._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, this.__vmf_prop_${prop.name});
-  //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+  this._vmf_fireContainmentPropertyChange("${prop.name}", oldValue, this.__vmf_prop_${prop.name}, "");
   }
   // ----------------------------------------
 #end

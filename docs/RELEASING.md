@@ -93,7 +93,7 @@ pluginManagement {
 
 ```groovy
 plugins {
-    id 'eu.mihosoft.vmf' version '0.2.12-SNAPSHOT'
+    id 'eu.mihosoft.vmf' version '0.3.12-SNAPSHOT'
 }
 
 repositories {
@@ -106,7 +106,7 @@ repositories {
 
 dependencies {
     // only if needed
-    implementation 'eu.mihosoft.vmf:vmf-jackson:0.2.12-SNAPSHOT'
+    implementation 'eu.mihosoft.vmf:vmf-jackson:0.3.12-SNAPSHOT'
 }
 ```
 

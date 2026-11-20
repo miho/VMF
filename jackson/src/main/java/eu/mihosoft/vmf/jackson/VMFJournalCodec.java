@@ -273,8 +273,8 @@ public final class VMFJournalCodec {
 
     private static Operation readOperation(JsonNode json, String path) throws IOException {
         ObjectNode node = object(json, path, OPERATION_FIELDS);
-        return new Operation(kind(Kind.class, node.get("kind"), path + ".kind"),
-                text(node.get("target"), path + ".target"), text(node.get("property"), path + ".property"),
+        return new Operation(kind(Kind.class, node.get("kind"), path, ".kind"),
+                text(node.get("target"), path, ".target"), text(node.get("property"), path, ".property"),
                 readArray(node.get("indices"), path + ".indices", VMFJournalCodec::integer),
                 readArray(node.get("before"), path + ".before", VMFJournalCodec::readValue),
                 readArray(node.get("after"), path + ".after", VMFJournalCodec::readValue),
@@ -291,15 +291,15 @@ public final class VMFJournalCodec {
             values.put(entry.getKey(), readArray(entry.getValue(), path + ".properties." + entry.getKey(),
                     VMFJournalCodec::readValue));
         }
-        return new Creation(text(node.get("id"), path + ".id"), text(node.get("type"), path + ".type"), values);
+        return new Creation(text(node.get("id"), path, ".id"), text(node.get("type"), path, ".type"), values);
     }
 
     private static Value readValue(JsonNode json, String path) throws IOException {
         ObjectNode node = object(json, path);
-        ValueKind kind = kind(ValueKind.class, node.get("kind"), path + ".kind");
+        ValueKind kind = kind(ValueKind.class, node.get("kind"), path, ".kind");
         if (kind == ValueKind.EXTERNAL) {
             fields(node, path, EXTERNAL_VALUE_FIELDS);
-            return Value.external(text(node.get("codec"), path + ".codec"), text(node.get("text"), path + ".text"));
+            return Value.external(text(node.get("codec"), path, ".codec"), text(node.get("text"), path, ".text"));
         }
         fields(node, path, VALUE_FIELDS);
         JsonNode payload = node.get("text");
@@ -307,7 +307,7 @@ public final class VMFJournalCodec {
             if (!payload.isNull()) throw invalid(path + ".text", "expected JSON null");
             return new Value(kind, null);
         }
-        return new Value(kind, text(payload, path + ".text"));
+        return new Value(kind, text(payload, path, ".text"));
     }
 
     @FunctionalInterface
@@ -317,8 +317,10 @@ public final class VMFJournalCodec {
 
     private static <T> List<T> readArray(JsonNode node, String path, Reader<T> reader) throws IOException {
         if (node == null || !node.isArray()) throw invalid(path, "expected an array");
-        List<T> items = new ArrayList<>(node.size());
-        for (int index = 0; index < node.size(); index++) {
+        int size = node.size();
+        if (size == 0) return List.of();
+        List<T> items = new ArrayList<>(size);
+        for (int index = 0; index < size; index++) {
             String itemPath = path + "[" + index + "]";
             try {
                 items.add(reader.read(node.get(index), itemPath));
@@ -346,13 +348,19 @@ public final class VMFJournalCodec {
             String name = names.next();
             if (!expected.contains(name)) throw invalid(path, "unknown field " + name);
         }
+        // The object has unique keys. A known subset of the same size is complete.
+        if (node.size() == expected.size()) return;
         for (String name : expected) {
             if (!node.has(name)) throw invalid(path, "missing field " + name);
         }
     }
 
     private static String text(JsonNode node, String path) throws IOException {
-        if (node == null || !node.isTextual()) throw invalid(path, "expected a string");
+        return text(node, path, "");
+    }
+
+    private static String text(JsonNode node, String path, String field) throws IOException {
+        if (node == null || !node.isTextual()) throw invalid(path + field, "expected a string");
         return node.textValue();
     }
 
@@ -370,12 +378,12 @@ public final class VMFJournalCodec {
         return node.longValue();
     }
 
-    private static <E extends Enum<E>> E kind(Class<E> type, JsonNode node, String path) throws IOException {
-        String name = text(node, path);
+    private static <E extends Enum<E>> E kind(Class<E> type, JsonNode node, String path, String field) throws IOException {
+        String name = text(node, path, field);
         try {
             return Enum.valueOf(type, name);
         } catch (IllegalArgumentException exception) {
-            throw new IOException(path + " unknown kind " + name, exception);
+            throw new IOException(path + field + " unknown kind " + name, exception);
         }
     }
 

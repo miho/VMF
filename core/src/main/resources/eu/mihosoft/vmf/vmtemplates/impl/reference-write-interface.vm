@@ -1,0 +1,4 @@
+#if(${prop.propType} != "COLLECTION" && !${prop.container} && !${prop.contained} && ${prop.crossRefProperty})
+  boolean __vmf_is_reference_pending_${prop.name}();
+  void __vmf_set_reference_pending_${prop.name}(boolean pending);
+#end

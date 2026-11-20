@@ -354,6 +354,16 @@ class JournalTest {
         assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(VMFJournalCodec.read(fixture, Format.JSON)));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":3")));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":1,\"version\":1")));
+
+        var unknown = assertThrows(IOException.class,
+                () -> VMFJournalCodec.read(fixture.replace("\"text\":\"a\"", "\"unexpected\":\"a\"")));
+        assertEquals("$.transactions[0].operations[0].before[0] unknown field unexpected", unknown.getMessage());
+        var missing = assertThrows(IOException.class,
+                () -> VMFJournalCodec.read(fixture.replace(",\"text\":\"a\"", "")));
+        assertEquals("$.transactions[0].operations[0].before[0] missing field text", missing.getMessage());
+        var wrongType = assertThrows(IOException.class,
+                () -> VMFJournalCodec.read(fixture.replace("\"text\":\"a\"", "\"text\":42")));
+        assertEquals("$.transactions[0].operations[0].before[0].text expected a string", wrongType.getMessage());
     }
 
     @Test

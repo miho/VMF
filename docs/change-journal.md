@@ -24,6 +24,40 @@ Document result = JournalReplayer.replay(loadCheckpoint(), binding, checkpointId
 
 The recorder owns one native recording session and replaces the previous native history at start. Publish groups with the root's `Changes` API. `finish()` stops native recording and publishes its pending group. Edits omitted from explicit groups are stored individually in recorded order. A native transaction groups edits that have already run on the working model. The recorder replays each published transaction on a private graph and checks it against the live graph at that boundary. `finish()` rejects a recording if any checked state diverged, including the final state. Edit a child after reattaching it so its property changes are observable from the root. The replayer applies a journal on an independent graph and returns it after all frames succeed.
 
+For a single edit group, `recordFrame` owns the native recording and transaction lifecycle. Its callback runs on the working model once. The helper returns after publication and final verification.
+
+```java
+ChangeJournal journal = JournalRecorder.recordFrame(working, binding, checkpointId, baseSequence, model -> {
+    model.setTitle("Revised document");
+    model.getItems().add(Item.newBuilder().withId("item-1").build());
+});
+```
+
+Use model mutators inside the callback and leave starting, clearing and publishing the recording to the helper. Already-applied edits stay on the working graph after a failure. A throwing callback skips native publication of its pending group. A successful no-op returns an empty journal. Store the journal and publish the resulting application state at your own durability boundary. Replay and shadow verification invoke model mutation logic, so keep external side effects outside model setters and factories used by replay.
+
+For a sequence of ticks, keep one recorder and its shadow graph open. Call `publishFrame()` after the edits for each group and let it manage native publication. It returns the new portable frame once the synchronous publication listeners have returned and the recorder has checked the live graph again. An empty result means the current group had no portable operations. `finish()` still checks native history and returns the complete journal.
+
+```java
+try (JournalRecorder recorder = JournalRecorder.start(working, binding, checkpointId, baseSequence)) {
+    working.setTitle("First revision");
+    Optional<ChangeJournal.Frame> first = recorder.publishFrame();
+
+    working.setTitle("Second revision");
+    Optional<ChangeJournal.Frame> second = recorder.publishFrame();
+
+    ChangeJournal journal = recorder.finish();
+}
+```
+
+Call from the model's writer after the edit methods return. Keep native transaction and recording calls out of this session's publication path, and use publication listeners to inspect the model. A verification failure or a throwing publication listener closes the recorder and leaves applied edits on the working graph. The application owns persistence and recovery.
+
+A live observer can throw after the model has applied an edit. If that exception escapes
+the editing callback of `recordFrame`, the helper returns no journal. With a writer-owned
+session, the writer can catch the exception, inspect the graph, then publish the pending
+changes through the usual verification step. Retrying a list edit can apply it twice.
+For callback ordering during reparenting and nested edits, see
+[observing model changes](observing-models.md).
+
 The checkpoint identifier comes from the caller. A digest of the stored checkpoint bytes is one option. Verify the checkpoint identity when loading it. Replay checks that identifier, the model version, the root ID, and the old values at edited positions. Use separate journal and model versions when evolving the format or the model. Unknown versions and operation kinds are rejected.
 
 Regenerating a model can change its mutation behavior. Older generated one-to-many `@Refers` lists could retain the former owner's entry after a list-side move. An older journal containing just the destination addition will remove that former entry when replayed with regenerated models. Keep the matching generated model and binding version for exact replay of affected archived histories, or migrate those histories explicitly. The fixed generator records the removal and addition in order using the existing journal format.

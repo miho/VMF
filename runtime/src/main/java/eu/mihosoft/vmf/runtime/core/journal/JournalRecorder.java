@@ -61,7 +61,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.TreeMap;
+import java.util.function.Consumer;
 
 import static eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.*;
 
@@ -86,17 +88,75 @@ public final class JournalRecorder implements AutoCloseable {
     private final List<List<Change>> published = new ArrayList<>();
     private final List<Frame> frames = new ArrayList<>();
     private int nextChange;
+    private int verifiedPublications;
+    private boolean publishingFrame;
     private RuntimeException failure;
     private boolean closed;
 
     /**
      * Starts an exclusive recording on the model's current checkpoint state. Like {@link Changes#start()},
-     * this replaces earlier native recording history. Use the model's {@link Changes} API to delimit
-     * transactions while this recorder is open. Access the recorder and model from one writer.
+     * this replaces earlier native recording history. Use {@link #publishFrame()} or the model's
+     * {@link Changes} API to delimit groups. Access the recorder and model from one writer.
      * Restarting or clearing the recording invalidates the journal.
      */
     public static JournalRecorder start(VObject root, JournalBinding binding, String checkpoint, long baseSequence) {
         return new JournalRecorder(root, binding, checkpoint, baseSequence);
+    }
+
+    /**
+     * Runs an edit on the working root and returns its verified, single-frame journal.
+     * A successful edit with no portable changes returns a journal with no frames.
+     * The edit runs once and should only mutate the model. Native transaction and
+     * recording lifecycle calls belong to this method for the duration of the edit.
+     * If the edit throws, already-applied edits stay on the working model and
+     * native publication of the pending group is skipped. The caller owns
+     * persistence and recovery of the working model.
+     *
+     * @param root the working model at the checkpoint
+     * @param binding stable model, object, property, and value identifiers
+     * @param checkpoint the caller-verified checkpoint identifier
+     * @param baseSequence the checkpoint sequence
+     * @param edit the model edit
+     * @param <T> the working model type
+     * @return the verified portable journal
+     * @throws IllegalStateException if recording or verification fails
+     */
+    public static <T extends VObject> ChangeJournal recordFrame(T root, JournalBinding binding,
+                                                               String checkpoint, long baseSequence,
+                                                               Consumer<? super T> edit) {
+        Objects.requireNonNull(edit, "edit");
+        JournalRecorder recorder = start(root, binding, checkpoint, baseSequence);
+        try {
+            edit.accept(root);
+            if (recorder.failure != null) {
+                throw new IllegalStateException("Portable journal recording failed", recorder.failure);
+            }
+            if (!recorder.changes.isModelVersioningEnabled() || !recorder.changes.transactions().isEmpty()) {
+                throw new IllegalStateException("The edit changed the native recording or published a transaction");
+            }
+        } catch (RuntimeException | Error failure) {
+            recorder.discardPendingFrame(failure);
+            throw failure;
+        }
+        ChangeJournal journal = recorder.finish();
+        if (journal.transactions().size() > 1) {
+            throw new IllegalStateException("The edit and its publication produced more than one portable frame");
+        }
+        return journal;
+    }
+
+    private void discardPendingFrame(Throwable failure) {
+        try {
+            // Advance past the partial edits so stop() cannot publish them as a group.
+            if (changes.isModelVersioningEnabled()) changes.startTransaction();
+        } catch (RuntimeException | Error discardFailure) {
+            if (discardFailure != failure) failure.addSuppressed(discardFailure);
+        }
+        try {
+            closeRecording();
+        } catch (RuntimeException | Error closeFailure) {
+            if (closeFailure != failure) failure.addSuppressed(closeFailure);
+        }
     }
 
     private JournalRecorder(VObject root, JournalBinding binding, String checkpoint, long baseSequence) {
@@ -269,24 +329,99 @@ public final class JournalRecorder implements AutoCloseable {
     }
 
     /**
+     * Publishes the pending edits and returns their verified portable frame, if any.
+     * This method checks the live graph after synchronous native publication listeners
+     * have returned. A successful call keeps this recorder and its replay shadow open.
+     * Call after model mutators return, and let this method delimit native groups.
+     * Publication listeners may inspect the graph. New edits during publication
+     * invalidate the frame. A failure closes the recorder and leaves live edits applied.
+     *
+     * @return the frame, or an empty optional if there are no portable edits
+     * @throws IllegalStateException if recording is closed, another frame is being
+     * published, or the pending edits cannot be verified as one frame
+     */
+    public Optional<Frame> publishFrame() {
+        if (closed) throw new IllegalStateException("Journal recorder is closed");
+        requireIdlePublication();
+        publishingFrame = true;
+        try {
+            requireHealthyRecording();
+            int start = nextChange;
+            int end = captured.size();
+            int before = frames.size();
+            if (!changes.isModelVersioningEnabled() || published.size() != verifiedPublications
+                    || changes.transactions().size() != verifiedPublications || changes.all().size() != end) {
+                throw new IllegalStateException("Native recording changed outside publishFrame");
+            }
+            int expectedPublications = verifiedPublications + (start == end ? 0 : 1);
+            changes.publishTransaction();
+            verifyFramePublication(start, end, expectedPublications);
+            try (var liveIndex = workspace.index(root, binding)) {
+                verifyKnownObjects(liveIndex);
+                workspace.verifyState(liveIndex, replayRoot, binding);
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalStateException("Recorded changes could not reproduce the model state after publication", ex);
+            }
+            verifyFramePublication(start, end, expectedPublications);
+            verifiedPublications = expectedPublications;
+            return frames.size() == before ? Optional.empty() : Optional.of(frames.get(before));
+        } catch (RuntimeException | Error failure) {
+            discardPendingFrame(failure);
+            throw failure;
+        } finally {
+            publishingFrame = false;
+        }
+    }
+
+    private void verifyFramePublication(int start, int end, int expectedPublications) {
+        requireHealthyRecording();
+        if (captured.size() != end || changes.all().size() != end) {
+            throw new IllegalStateException("The model was edited during frame publication or verification");
+        }
+        var nativeGroups = changes.transactions();
+        if (!changes.isModelVersioningEnabled() || nextChange != end
+                || published.size() != expectedPublications || nativeGroups.size() != expectedPublications) {
+            throw new IllegalStateException("Native publication did not match the pending frame");
+        }
+        if (start != end) {
+            var group = published.get(expectedPublications - 1);
+            if (group.size() != end - start || !sameChanges(group, nativeGroups.get(expectedPublications - 1).changes())) {
+                throw new IllegalStateException("Native publication did not match the pending frame");
+            }
+        }
+    }
+
+    private void requireIdlePublication() {
+        if (publishingFrame) throw new IllegalStateException("A portable frame is being published");
+    }
+
+    private void requireHealthyRecording() {
+        if (failure != null) throw new IllegalStateException("Portable journal recording failed", failure);
+    }
+
+    private void verifyKnownObjects(JournalSupport.GraphIndex liveIndex) {
+        liveIndex.forEach((id, object) -> {
+            if (known.get(id) != object) {
+                throw new IllegalStateException("Object entered the graph without a recorded change: " + id);
+            }
+        });
+    }
+
+    /**
      * Stops recording, publishes any pending native transaction, and returns the captured journal.
      * @throws IllegalStateException if recording failed
      */
     public ChangeJournal finish() {
         if (closed) throw new IllegalStateException("Journal recorder is closed");
         close();
-        if (failure != null) throw new IllegalStateException("Portable journal recording failed", failure);
+        requireHealthyRecording();
         for (Map.Entry<VObject, String> entry : identities.entrySet()) {
             if (!entry.getValue().equals(binding.id(entry.getKey()))) {
                 throw new IllegalStateException("Object ID changed during recording: " + entry.getValue());
             }
         }
         try (var liveIndex = workspace.index(root, binding)) {
-            liveIndex.forEach((id, object) -> {
-                if (known.get(id) != object) {
-                    throw new IllegalStateException("Object entered the graph without a recorded change: " + id);
-                }
-            });
+            verifyKnownObjects(liveIndex);
             verifyNativeHistory();
             try {
                 if (nextChange < captured.size()) {
@@ -361,6 +496,11 @@ public final class JournalRecorder implements AutoCloseable {
 
     @Override
     public void close() {
+        requireIdlePublication();
+        closeRecording();
+    }
+
+    private void closeRecording() {
         if (closed) return;
         closed = true;
         try {

@@ -89,6 +89,69 @@ public class OneToOneReassignmentTest {
         assertSame(target, targetValue.getRef());
     }
 
+    @Test
+    public void throwingObserversCannotLeaveAReferenceTakeoverIncomplete() {
+        var previousOwner = EntityOneA.newInstance();
+        var destination = EntityOneA.newInstance();
+        var desired = EntityTwoA.newInstance();
+        var released = EntityTwoA.newInstance();
+        previousOwner.setRef(desired);
+        destination.setRef(released);
+
+        var first = new IllegalStateException("previous owner observer");
+        var second = new AssertionError("destination observer");
+        var previousListener = previousOwner.vmf().changes().addListener(change -> { throw first; }, false);
+        var destinationListener = destination.vmf().changes().addListener(change -> { throw second; }, false);
+        try {
+            var thrown = assertThrows(IllegalStateException.class, () -> destination.setRef(desired));
+            assertSame(first, thrown);
+            assertEquals(List.of(second), List.of(thrown.getSuppressed()));
+            assertNull(previousOwner.getRef());
+            assertNull(released.getRef());
+            assertSame(desired, destination.getRef());
+            assertSame(destination, desired.getRef());
+        } finally {
+            destinationListener.unsubscribe();
+            previousListener.unsubscribe();
+        }
+    }
+
+    @Test
+    public void initiatingCallbackCannotClaimEitherPendingReferenceFromAnotherSetter() {
+        var source = partner("source");
+        var target = partner("target");
+        var competing = partner("competing");
+        var phases = new ArrayList<String>();
+        var initiating = source.vmf().changes().addPropertyListener("partner", change -> {
+            assertSame(target, source.getPartner());
+            assertNull(target.getPartner());
+            phases.add("source");
+            assertThrows(IllegalArgumentException.class, () -> competing.setPartner(target));
+            assertThrows(IllegalArgumentException.class, () -> target.setPartner(competing));
+            assertThrows(IllegalArgumentException.class, () -> source.setPartner(competing));
+            assertNull(competing.getPartner());
+        });
+        var reciprocal = target.vmf().changes().addPropertyListener("partner", change -> {
+            assertSame(source, target.getPartner());
+            assertSame(target, source.getPartner());
+            phases.add("target");
+        });
+        try {
+            source.setPartner(target);
+        } finally {
+            initiating.unsubscribe();
+            reciprocal.unsubscribe();
+        }
+
+        assertEquals(List.of("source", "target"), phases);
+        assertSame(source, target.getPartner());
+        assertSame(target, source.getPartner());
+        assertNull(competing.getPartner());
+        competing.setPartner(target);
+        assertSame(competing, target.getPartner());
+        assertNull(source.getPartner());
+    }
+
     // a one-to-one reference that is its own opposite: re-pointing, taking over,
     // transferring and clearing keep every pair symmetric
     @Test public void selfOppositeReferenceStaysSymmetric() {

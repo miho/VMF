@@ -23,6 +23,9 @@
  */
 package eu.mihosoft.vmf.runtime.core;
 
+import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -71,6 +74,23 @@ public interface Reflect {
      * @return the list of properties of this object
      */
     List<Property> properties();
+
+    /**
+     * Returns a snapshot of property names, declared types and annotations, in reflection order.
+     * The list and its entries are immutable and detached from the model object.
+     *
+     * @return the immutable property metadata
+     * @see #properties()
+     */
+    @SuppressWarnings("deprecation")
+    default List<PropertyMetadata> propertyMetadata() {
+        List<Property> properties = ReflectImpl.readProperties(this);
+        List<PropertyMetadata> metadata = new ArrayList<>(properties.size());
+        for (Property property : properties) {
+            metadata.add(new PropertyMetadata(property));
+        }
+        return List.copyOf(metadata);
+    }
 
     /**
      * Returns the model property specified by name.

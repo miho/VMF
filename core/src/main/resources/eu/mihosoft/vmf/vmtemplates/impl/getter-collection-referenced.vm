@@ -27,22 +27,21 @@
 
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
-        this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
+        this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ObservableModelList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
 
         this.__vmf_prop_${prop.name}.addChangeListener(evt -> {
             if (${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF.equals(evt.eventInfo())) return;
 
-            evt.added().elements().forEach(e -> {
-                if (e == null) return;
+            Throwable observerFailure = null;
+            for (var e : evt.added().elements()) {
+                if (e == null) continue;
                 var target = (${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl) e;
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION")
                 var opposite = target.get${prop.referenceInfo.opposite.nameWithUpperCase}();
-                String eventInfo = opposite.getEventInfo();
-                opposite.setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
                 try {
-                    opposite.add(this);
-                } finally {
-                    opposite.setEventInfo(eventInfo);
+                    ${VMFPKG_INT}.ObservableModelList.addCrossReference(opposite, this);
+                } catch (RuntimeException | Error failure) {
+                    observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
                 }
 #else
 #set($oppositeRefProp=${prop.referenceInfo.opposite})
@@ -56,16 +55,14 @@
                             first = i;
                             continue;
                         }
-                        String eventInfo = refs.getEventInfo();
-                        refs.setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
                         try {
-                            refs.remove(first);
-                        } finally {
-                            refs.setEventInfo(eventInfo);
+                            ${VMFPKG_INT}.ObservableModelList.removeCrossReference(refs, first);
+                        } catch (RuntimeException | Error failure) {
+                            observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
                         }
                         break;
                     }
-                    return;
+                    continue;
                 }
 
                 // Keep the old list removal in native history before the new list adds
@@ -74,37 +71,51 @@
                 if (previousOwner != null) {
                     var previousRefs = previousOwner.get${prop.nameWithUpperCase}();
                     for (int i = previousRefs.size() - 1; i >= 0; i--) {
-                        if (previousRefs.get(i) == e) previousRefs.remove(i);
+                        if (previousRefs.get(i) == e) {
+                            try {
+                                previousRefs.remove(i);
+                            } catch (RuntimeException | Error failure) {
+                                observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
+                            }
+                        }
                     }
                 }
-                target._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", previousOwner, this,
-                        ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+                try {
+                    target._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", previousOwner, this,
+                            ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+                } catch (RuntimeException | Error failure) {
+                    observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
+                }
 #end
-            });
+            }
 
-            evt.removed().elements().forEach(e -> {
-                if (e == null) return;
+            removed:
+            for (var e : evt.removed().elements()) {
+                if (e == null) continue;
                 var target = (${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl) e;
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION")
                 var opposite = target.get${prop.referenceInfo.opposite.nameWithUpperCase}();
-                String eventInfo = opposite.getEventInfo();
-                opposite.setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
                 try {
-                    opposite.remove(this);
-                } finally {
-                    opposite.setEventInfo(eventInfo);
+                    ${VMFPKG_INT}.ObservableModelList.removeCrossReference(opposite, this);
+                } catch (RuntimeException | Error failure) {
+                    observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
                 }
 #else
 #set($oppositeRefProp=${prop.referenceInfo.opposite})
-                if (target.__vmf_get_prop_${oppositeRefProp.name}() != this) return;
+                if (target.__vmf_get_prop_${oppositeRefProp.name}() != this) continue;
                 for (Object remaining : this.__vmf_prop_${prop.name}) {
-                    if (remaining == e) return;
+                    if (remaining == e) continue removed;
                 }
                 target.__vmf_set_prop_${oppositeRefProp.name}(null);
-                target._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", this, null,
-                        ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+                try {
+                    target._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", this, null,
+                            ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+                } catch (RuntimeException | Error failure) {
+                    observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
+                }
 #end
-            });
+            }
+            ${VMFPKG_INT}.ObserverFailures.rethrow(observerFailure);
         });
 
     } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)

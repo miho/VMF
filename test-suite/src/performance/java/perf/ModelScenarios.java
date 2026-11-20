@@ -25,13 +25,20 @@
 package perf;
 
 import eu.mihosoft.vmf.runtime.core.Change;
+import eu.mihosoft.vmf.runtime.core.ChangeListener;
+import eu.mihosoft.vmf.runtime.core.Changes;
+import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
 import eu.mihosoft.vmftest.performance.TreeNode;
+import vjavax.observer.Subscription;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeListenerProxy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.IntConsumer;
 
@@ -39,6 +46,7 @@ final class ModelScenarios {
     private static final int SCALARS = 64;
     private static final int SIBLINGS = 32;
     private static final int DEPTH = 6;
+    private static final int OBSERVER_FANOUT = 16;
     private static final Comparator<TreeNode> BY_VALUE = Comparator.comparingInt(TreeNode::getValue);
 
     private ModelScenarios() { }
@@ -60,6 +68,127 @@ final class ModelScenarios {
                 new Scenario("native-undo-redo", 512, ModelScenarios::undoRedo),
                 new Scenario("clone-linked-graph", 64, ModelScenarios::cloneGraph)
         );
+    }
+
+    static List<Scenario> observerCases() {
+        return List.of(
+                observer("setter", Observer.NONE, 0, Selection.SPARSE, false),
+                observer("beans-manual-1", Observer.BEANS_MANUAL, 1, Selection.SPARSE, false),
+                observer("beans-named-1", Observer.BEANS_NAMED, 1, Selection.SPARSE, false),
+                observer("native-manual-1", Observer.NATIVE_MANUAL, 1, Selection.SPARSE, false),
+                observer("native-named-1", Observer.NATIVE_NAMED, 1, Selection.SPARSE, false),
+                observer("native-predicate-1", Observer.NATIVE_PREDICATE, 1, Selection.SPARSE, false),
+                observer("native-manual-16", Observer.NATIVE_MANUAL, OBSERVER_FANOUT, Selection.SPARSE, false),
+                observer("native-named-16", Observer.NATIVE_NAMED, OBSERVER_FANOUT, Selection.SPARSE, false),
+                observer("native-predicate-16", Observer.NATIVE_PREDICATE, OBSERVER_FANOUT, Selection.SPARSE, false),
+                observer("native-mixed-16", Observer.NATIVE_MIXED, OBSERVER_FANOUT, Selection.SPARSE, false),
+                observer("native-mixed-16", Observer.NATIVE_MIXED, OBSERVER_FANOUT, Selection.SPARSE, true),
+                observer("native-named-1", Observer.NATIVE_NAMED, 1, Selection.MATCH, false),
+                observer("native-named-16", Observer.NATIVE_NAMED, OBSERVER_FANOUT, Selection.MATCH, false),
+                observer("native-named-16", Observer.NATIVE_NAMED, OBSERVER_FANOUT, Selection.MISS, false),
+                observer("native-named-1", Observer.NATIVE_NAMED, 1, Selection.SPARSE, true),
+                observer("native-named-1", Observer.NATIVE_NAMED, 1, Selection.MATCH, true),
+                new Scenario("observer-reparent-named-match", 255, () -> reparent(true, "children", false)),
+                new Scenario("observer-reparent-named-miss", 255, () -> reparent(true, "value", false)),
+                new Scenario("observer-reparent-named-miss-recording", 255, () -> reparent(true, "value", true))
+        );
+    }
+
+    private enum Observer { NONE, BEANS_MANUAL, BEANS_NAMED, NATIVE_MANUAL, NATIVE_NAMED, NATIVE_PREDICATE, NATIVE_MIXED }
+
+    private enum Selection {
+        SPARSE, MATCH, MISS;
+
+        boolean writesValue(int operation) {
+            return this == MATCH || (this == SPARSE && (operation & 7) == 0);
+        }
+
+        int matches(int operations) {
+            if (this == MATCH) return operations;
+            return this == SPARSE ? operations / 8 : 0;
+        }
+    }
+
+    private static Scenario observer(String name, Observer method, int subscribers, Selection selection, boolean record) {
+        String selectivity = selection.name().toLowerCase(Locale.ROOT);
+        return new Scenario("observer-" + name + "-" + selectivity + (record ? "-recording" : ""),
+                4_096, () -> scalarObserver(method, subscribers, selection, record));
+    }
+
+    private static Scenario.Batch scalarObserver(Observer method, int subscribers, Selection selection, boolean record) {
+        var root = node("root", 0);
+        var leaf = chain(root);
+        var changes = root.vmf().changes();
+        var counters = new ArrayList<Count>();
+        var subscriptions = new ArrayList<Subscription>();
+        for (int i = 0; i < subscribers; i++) {
+            var counter = new Count();
+            counters.add(counter);
+            if (isBroadObserver(method, i)) {
+                subscriptions.add(changes.addListener(change -> counter.observe(change, leaf, Change.ChangeType.PROPERTY), true));
+            } else {
+                subscriptions.add(subscribeObserver(method, changes, leaf, counter));
+            }
+        }
+        if (record) changes.start();
+
+        return batch(iterations -> {
+            for (int i = 1; i <= iterations; i++) {
+                if (selection.writesValue(i)) leaf.setValue(i);
+                else leaf.setWeight(i);
+            }
+        }, iterations -> {
+            int lastValue = selection == Selection.SPARSE ? iterations / 8 * 8 : selection.matches(iterations);
+            int lastWeight = selection == Selection.MATCH ? 0 : iterations - (selection.writesValue(iterations) ? 1 : 0);
+            require(leaf.getValue() == lastValue && leaf.getWeight() == lastWeight, "Observer workload lost a scalar edit");
+            for (int i = 0; i < counters.size(); i++) {
+                counters.get(i).verify(isBroadObserver(method, i) ? iterations : selection.matches(iterations));
+            }
+            subscriptions.forEach(Subscription::unsubscribe);
+            if (record) {
+                require(changes.all().size() == iterations, "Recording lost an edit filtered from delivery");
+                changes.stop();
+                require(changes.transactions().size() == 1 && changes.transactions().get(0).changes().size() == iterations,
+                        "Recording did not publish all edits");
+            }
+        });
+    }
+
+    private static boolean isBroadObserver(Observer method, int index) {
+        return method == Observer.NATIVE_MIXED && index == 0;
+    }
+
+    private static Subscription subscribeObserver(Observer method, Changes changes, TreeNode leaf, Count counter) {
+        ChangeListener handler = change -> {
+            if (!"value".equals(change.propertyName())) counter.unexpected++;
+            counter.observe(change, leaf, Change.ChangeType.PROPERTY);
+        };
+        switch (method) {
+            case BEANS_MANUAL:
+            case BEANS_NAMED:
+                PropertyChangeListener callback = event -> {
+                    if (event.getSource() != leaf) counter.unexpected++;
+                    if ("value".equals(event.getPropertyName())) counter.increment();
+                    else if (method == Observer.BEANS_NAMED) counter.unexpected++;
+                };
+                PropertyChangeListener bean = method == Observer.BEANS_NAMED
+                        ? new PropertyChangeListenerProxy("value", callback) : callback;
+                var observable = (VObjectInternal) leaf;
+                observable.addPropertyChangeListener(bean);
+                return () -> observable.removePropertyChangeListener(bean);
+            case NATIVE_MANUAL:
+                return changes.addListener(change -> {
+                    if ("value".equals(change.propertyName())) handler.onChange(change);
+                }, true);
+            case NATIVE_NAMED:
+            case NATIVE_MIXED:
+                return changes.addPropertyListener("value", handler, Changes.Scope.RECURSIVE);
+            case NATIVE_PREDICATE:
+                return changes.addFilteredListener(change -> "value".equals(change.propertyName()),
+                        handler, Changes.Scope.RECURSIVE);
+            default:
+                throw new IllegalArgumentException("An observer is required for each subscriber");
+        }
     }
 
     private static Scenario.Batch scalarAccess(boolean reflect) {
@@ -84,6 +213,10 @@ final class ModelScenarios {
     }
 
     private static Scenario.Batch reparent(boolean observed) {
+        return reparent(observed, null, false);
+    }
+
+    private static Scenario.Batch reparent(boolean observed, String propertyName, boolean record) {
         var root = node("root", 0);
         var left = node("left", 0);
         var right = node("right", 0);
@@ -97,11 +230,20 @@ final class ModelScenarios {
 
         var listEvents = new Count();
         var leafEvents = new Count();
-        var listener = observed ? root.vmf().changes().addListener(change -> {
-            if (change.getType() == Change.ChangeType.LIST
-                    && (change.object() == left || change.object() == right)) listEvents.increment();
-            if (change.object() == leaf) leafEvents.increment();
-        }, true) : null;
+        var changes = observed || record ? root.vmf().changes() : null;
+        Subscription subscription;
+        if (observed) {
+            ChangeListener handler = change -> {
+                if (change.getType() == Change.ChangeType.LIST
+                        && (change.object() == left || change.object() == right)) listEvents.increment();
+                if (change.object() == leaf) leafEvents.increment();
+            };
+            subscription = propertyName == null ? changes.addListener(handler, true)
+                    : changes.addPropertyListener(propertyName, handler, Changes.Scope.RECURSIVE);
+        } else {
+            subscription = null;
+        }
+        if (record) changes.start();
 
         return batch(iterations -> {
             for (int i = 0; i < iterations; i++) {
@@ -123,13 +265,23 @@ final class ModelScenarios {
                 descendant = child;
             }
             require(descendant == leaf, "Moved subtree lost its original leaf");
-            if (listener != null) {
-                require(listEvents.value == 2 * iterations, "Recursive listener missed a containment edit");
+            if (record) {
+                require(changes.all().size() == 2 * iterations, "Recording lost a containment edit filtered from delivery");
+                changes.stop();
+                require(changes.transactions().size() == 1
+                                && changes.transactions().get(0).changes().size() == 2 * iterations,
+                        "Recording did not publish all containment edits");
+            }
+            if (subscription != null) {
+                boolean observesContainment = propertyName == null || "children".equals(propertyName);
+                boolean observesLeaf = propertyName == null || "value".equals(propertyName);
+                require(listEvents.value == (observesContainment ? 2 * iterations : 0),
+                        "Recursive listener received an incorrect count of containment edits");
                 leaf.setValue(1);
-                require(leafEvents.value == 1, "Moved descendant must stay subscribed exactly once");
-                listener.unsubscribe();
+                require(leafEvents.value == (observesLeaf ? 1 : 0), "Incorrect delivery from reparented descendant");
+                subscription.unsubscribe();
                 leaf.setValue(2);
-                require(leafEvents.value == 1, "Removed recursive listener still receives events");
+                require(leafEvents.value == (observesLeaf ? 1 : 0), "Removed recursive listener still receives events");
             }
         });
     }

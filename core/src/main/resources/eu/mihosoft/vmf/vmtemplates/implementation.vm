@@ -59,6 +59,14 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
   // Null, a single ordinary listener, or full JavaBeans support.
   private Object propertyChanges;
 
+#foreach($prop in ${type.implementation.properties})
+#if(${prop.propType} != "COLLECTION" && !${prop.container} && !${prop.contained} && ${prop.crossRefProperty})
+  private boolean __vmf_reference_pending_${prop.name};
+  @Override public boolean __vmf_is_reference_pending_${prop.name}() { return __vmf_reference_pending_${prop.name}; }
+  @Override public void __vmf_set_reference_pending_${prop.name}(boolean pending) { __vmf_reference_pending_${prop.name} = pending; }
+#end
+#end
+
   // // TODO 17.02.2019 feature deactivated due to huge memory consumption
   // referenced by
   // private final ${VCOLL_PKG}.VList<${VMFPKG}.VObject> referencedBy = ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>());
@@ -150,6 +158,11 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
           propertyChanges = support;
       }
       return (${VMFPKG_INT}.VMFPropertyChangeSupport) propertyChanges;
+  }
+
+  @Override
+  public boolean _vmf_hasPropertyChangeListeners() {
+      return propertyChanges != null;
   }
 
   @Override
@@ -362,6 +375,7 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.typeName}${t
   default void __vmf_set_prop_${prop.name}($prop.typeName obj) { throw new UnsupportedOperationException("Should never be called."); }
 #end##-------------------------- end  inheritedprop
   $prop.typeName __vmf_get_prop_${prop.name}();
+#parse("${VMF_TEMPLATE_PATH}impl/reference-write-interface.vm")
 #if(${prop.propType} == "COLLECTION")
   java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
 #end## collection
@@ -373,6 +387,8 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.typeName}${t
     _vmf_firePropertyChangeIfListenersArePresent(propertyName, oldValue, newValue, "");
   }
   
+#parse("${VMF_TEMPLATE_PATH}impl/fire-containment-property-change.vm")
+
   void _vmf_firePropertyChangeIfListenersArePresent(
     String propertyName, Object oldValue, Object newValue, String evtInfo
   );

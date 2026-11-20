@@ -42,7 +42,7 @@ public final class VMFTypeUtils {
      * @throws ClassNotFoundException if the builder class cannot be found
      */
     public static Class<?> getBuilderClass(Class<?> clazz) throws ClassNotFoundException {
-        return Class.forName(clazz.getName() + "$Builder");
+        return Class.forName(clazz.getName() + "$Builder", true, clazz.getClassLoader());
     }
 
     /**
