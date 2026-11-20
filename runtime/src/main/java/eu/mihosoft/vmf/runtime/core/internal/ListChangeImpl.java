@@ -151,6 +151,13 @@ class ListChangeImpl implements ChangeInternal {
     private static void applySet(VList list, VListChange<Object> change) {
         int[] indices = change.indices();
         if (indices.length == 0) return;
+        // An unobserved containment sees the same generated callback for a
+        // singleton set. Keep the original event payload for public listeners.
+        if (indices.length == 1 && list instanceof ContainmentList<?>
+                && ((ContainmentList<?>) list).hasNoListObservers()) {
+            list.set(indices[0], change.elements().get(0));
+            return;
+        }
         boolean contiguous = true;
         for (int i = 1; i < indices.length; i++) {
             if (indices[i] != indices[0] + i) { contiguous = false; break; }

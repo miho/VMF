@@ -83,6 +83,8 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
         }
     }
 
+    boolean hasNoListObservers() { return listenerCount() == 0; }
+
     private int listenerCount() {
         return listeners == null ? 0 : listeners.size();
     }
