@@ -30,6 +30,8 @@
   }
   // ----------------------------------------
 
+  try (${VMFPKG_INT}.ContainmentList.Attachment attachment = ${VMFPKG_INT}.ContainmentList.attaching(this, ${prop.name})) {
+
   // ----------------------------------------
   // unregister current value from previous container
   // ----------------------------------------
@@ -74,5 +76,6 @@
   // ----------------------------------------
   this._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, this.__vmf_prop_${prop.name});
   //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
+  }
   // ----------------------------------------
 #end

@@ -26,7 +26,7 @@
 
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
-        this.__vmf_prop_$prop.name = ${VCOLL_PKG}.VList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
+        this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ContainmentList.newInstance(this, __vmf_get_prop_${prop.name}__vmf_RawList());
 
         this.__vmf_prop_${prop.name}.addChangeListener( (evt) -> {
             if (${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(evt.eventInfo())) return;
