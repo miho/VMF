@@ -194,13 +194,20 @@ public class ChangesImpl implements Changes {
 
     private Object lastFiredEvt;
 
-    private void fireChange(Change c, Object evt) {
-
-        List<ChangeListener> lList = new ArrayList<>(changeListeners);
-
-        for (ChangeListener cl : lList) {
-            cl.onChange(c);
+    private static void notifyListeners(List<ChangeListener> listeners, Change change) {
+        int count = listeners.size();
+        if (count == 1) {
+            listeners.get(0).onChange(change);
+        } else if (count > 1) {
+            // A callback can subscribe or unsubscribe during dispatch.
+            for (ChangeListener listener : new ArrayList<>(listeners)) {
+                listener.onChange(change);
+            }
         }
+    }
+
+    private void fireChange(Change c, Object evt) {
+        notifyListeners(changeListeners, c);
 
         // if (recording)all.add(c);
         if (recording && lastFiredEvt !=evt/*&& nonRecursiveChangeListeners.isEmpty()*/ ) {
@@ -228,12 +235,7 @@ public class ChangesImpl implements Changes {
     }
 
     private void fireChangeForNonRecursive(Change c, Object evt) {
-
-        List<ChangeListener> lList = new ArrayList<>(nonRecursiveChangeListeners);
-
-        for (ChangeListener cl : lList) {
-            cl.onChange(c);
-        }
+        notifyListeners(nonRecursiveChangeListeners, c);
 
         if (recording && lastFiredEvt !=evt) {
 
@@ -343,9 +345,9 @@ public class ChangesImpl implements Changes {
     @SuppressWarnings({"deprecation", "unchecked"})
     private void addNonRecursiveListListeners(VObject object, PropertyChangeListener objListener) {
         VObjectInternal internalModel = (VObjectInternal) object;
-        for (int i = 0; i < internalModel._vmf_getPropertyTypes().length; i++) {
-            int type = internalModel._vmf_getPropertyTypes()[i];
-            if (type == -2) {
+        int[] types = internalModel._vmf_getPropertyTypes();
+        for (int i = 0; i < types.length; i++) {
+            if (types[i] == -2) {
                 String propName = internalModel._vmf_getPropertyNames()[i];
 
                 VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
@@ -366,9 +368,9 @@ public class ChangesImpl implements Changes {
     @SuppressWarnings({"deprecation", "unchecked"})
     private void addListListenersToPropertiesOf(VObject object, PropertyChangeListener objListener) {
         VObjectInternal internalModel = (VObjectInternal) object;
-        for (int i = 0; i < internalModel._vmf_getPropertyTypes().length; i++) {
-            int type = internalModel._vmf_getPropertyTypes()[i];
-            if (type == -2) {
+        int[] types = internalModel._vmf_getPropertyTypes();
+        for (int i = 0; i < types.length; i++) {
+            if (types[i] == -2) {
                 String propName = internalModel._vmf_getPropertyNames()[i];
 
                 VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
@@ -380,20 +382,31 @@ public class ChangesImpl implements Changes {
 
                             fireChange(c, evt);
 
-                            evt.added().elements().stream()
-                                    .filter(VObjectInternal.class::isInstance)
-                                    .map(VObjectInternal.class::cast)
-                                    .forEach(value -> registerChangeListener(value, objListener));
+                            for (Object value : evt.added().elements()) {
+                                if (value instanceof VObjectInternal) {
+                                    registerChangeListener((VObjectInternal) value, objListener);
+                                }
+                            }
 
-                            if (evt.removed().elements().stream().anyMatch(VObject.class::isInstance)) {
-                                // SET can move an existing child or replace just one occurrence.
-                                Set<Object> remaining = Collections.newSetFromMap(new IdentityHashMap<>());
-                                remaining.addAll(list);
-                                evt.removed().elements().stream()
-                                        .filter(VObject.class::isInstance)
-                                        .filter(v -> !remaining.contains(v))
-                                        .map(VObject.class::cast)
-                                        .forEach(v -> unregisterChangeListener(v, objListener));
+                            // SET can move an existing object or replace just one occurrence.
+                            List<?> removed = evt.removed().elements();
+                            if (removed.size() == 1) {
+                                Object value = removed.get(0);
+                                if (value instanceof VObject && !containsIdentity(list, value)) {
+                                    unregisterChangeListener((VObject) value, objListener);
+                                }
+                            } else {
+                                Set<Object> remaining = null;
+                                for (Object value : removed) {
+                                    if (!(value instanceof VObject)) continue;
+                                    if (remaining == null) {
+                                        remaining = Collections.newSetFromMap(new IdentityHashMap<>());
+                                        remaining.addAll(list);
+                                    }
+                                    if (!remaining.contains(value)) {
+                                        unregisterChangeListener((VObject) value, objListener);
+                                    }
+                                }
                             }
                         }
                 );
@@ -403,21 +416,22 @@ public class ChangesImpl implements Changes {
         }
     }
 
+    private static boolean containsIdentity(List<?> list, Object value) {
+        for (Object item : list) {
+            if (item == value) return true;
+        }
+        return false;
+    }
+
     @SuppressWarnings({"deprecation", "unchecked"})
     private void removeListListenersFromPropertiesOf(VObject object, PropertyChangeListener objListener) {
         VObjectInternal internalModel = (VObjectInternal) object;
-        for (int i = 0; i < internalModel._vmf_getPropertyTypes().length; i++) {
-            int type = internalModel._vmf_getPropertyTypes()[i];
-            if (type == -2) {
-                String propName = internalModel._vmf_getPropertyNames()[i];
-
-                VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
-
-                if (listSubscriptions.containsKey(list)) {
-                    Subscription listSubscription = listSubscriptions.get(list);
-                    listSubscriptions.remove(list);
-                    listSubscription.unsubscribe();
-                }
+        int[] types = internalModel._vmf_getPropertyTypes();
+        for (int i = 0; i < types.length; i++) {
+            if (types[i] == -2) {
+                Object list = internalModel._vmf_getPropertyValueById(i);
+                Subscription listSubscription = listSubscriptions.remove(list);
+                if (listSubscription != null) listSubscription.unsubscribe();
             }
         }
     }
@@ -425,16 +439,12 @@ public class ChangesImpl implements Changes {
     @SuppressWarnings({"deprecation", "unchecked"})
     private void removeNonRecursiveListListeners(VObject object, PropertyChangeListener objListener) {
         VObjectInternal internalModel = (VObjectInternal) object;
-        for (int i = 0; i < internalModel._vmf_getPropertyTypes().length; i++) {
-            int type = internalModel._vmf_getPropertyTypes()[i];
-            if (type == -2) {
-                VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
-
-                if (nonRecursiveListSubscriptions.containsKey(list)) {
-                    Subscription listSubscription = nonRecursiveListSubscriptions.get(list);
-                    nonRecursiveListSubscriptions.remove(list);
-                    listSubscription.unsubscribe();
-                }
+        int[] types = internalModel._vmf_getPropertyTypes();
+        for (int i = 0; i < types.length; i++) {
+            if (types[i] == -2) {
+                Object list = internalModel._vmf_getPropertyValueById(i);
+                Subscription listSubscription = nonRecursiveListSubscriptions.remove(list);
+                if (listSubscription != null) listSubscription.unsubscribe();
             }
         }
     }

@@ -29,9 +29,54 @@ import static org.hamcrest.Matchers.*;
 
 import org.junit.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import vjavax.observer.Subscription;
 
 public class UndoRedoWithContainmentTest {
+    @Test
+    public void listenerChangesAffectNestedEventsButPreserveOuterDispatchOrder() {
+        for (boolean recursive : new boolean[]{false, true}) {
+            var node = ChildListContainment.newInstance();
+            var changes = node.vmf().changes();
+            List<String> delivery = new ArrayList<>();
+            Subscription[] second = new Subscription[1];
+            Subscription[] replacement = new Subscription[1];
+
+            var first = changes.addListener(change -> {
+                String value = (String) change.propertyChange().orElseThrow().newValue();
+                delivery.add("first " + value);
+                if ("outer".equals(value)) {
+                    second[0].unsubscribe();
+                    replacement[0] = changes.addListener(nested -> delivery.add(
+                            "replacement " + nested.propertyChange().orElseThrow().newValue()), recursive);
+                    node.setName("nested");
+                }
+            }, recursive);
+            second[0] = changes.addListener(
+                    change -> delivery.add("second " + change.propertyChange().orElseThrow().newValue()), recursive);
+
+            node.setName("outer");
+            assertThat(delivery, equalTo(List.of("first outer", "first nested", "replacement nested", "second outer")));
+
+            first.unsubscribe();
+            replacement[0].unsubscribe();
+            delivery.clear();
+
+            Subscription[] single = new Subscription[1];
+            single[0] = changes.addListener(change -> {
+                delivery.add("single " + change.propertyChange().orElseThrow().newValue());
+                single[0].unsubscribe();
+                changes.addListener(nested -> delivery.add(
+                        "replacement " + nested.propertyChange().orElseThrow().newValue()), recursive);
+                node.setName("nested again");
+            }, recursive);
+            node.setName("single outer");
+            assertThat(delivery, equalTo(List.of("single single outer", "replacement nested again")));
+        }
+    }
+
     @Test
     public void unoRedoWithListContainmentTestViaListAdd() {
 

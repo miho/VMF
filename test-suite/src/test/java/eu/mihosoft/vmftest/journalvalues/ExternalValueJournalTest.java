@@ -39,6 +39,7 @@ import org.junit.Test;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -130,6 +131,48 @@ public class ExternalValueJournalTest {
         assertEquals(List.of(SECOND), checkpoint.getRelatedIds());
     }
 
+    @Test
+    public void checksTheCurrentBindingAndCodecRegistryAfterPublication() {
+        var codecs = new AtomicReference<>(BINDING.valueCodecs());
+        JournalBinding binding = new ArchiveBinding(codecs.get()) {
+            @Override public String id(VObject object) {
+                // A binding may produce fresh strings with the same persistent contents.
+                return new String(super.id(object));
+            }
+
+            @Override public String type(VObject object) {
+                return new String(super.type(object));
+            }
+
+            @Override public JournalValueCodecs valueCodecs() {
+                return codecs.get();
+            }
+        };
+
+        ArchiveEntry checkpoint = initial();
+        ArchiveEntry work = checkpoint.clone();
+        try (JournalRecorder recorder = JournalRecorder.start(work, binding, CHECKPOINT, 0)) {
+            var changes = work.vmf().changes();
+            changes.startTransaction();
+            work.setRevision(new DocumentRevision(2));
+            changes.publishTransaction();
+            ChangeJournal journal = recorder.finish();
+            ArchiveEntry result = JournalReplayer.replay(checkpoint, binding, CHECKPOINT, journal);
+            assertEquals(new DocumentRevision(2), result.getRevision());
+        }
+
+        try (JournalRecorder recorder = JournalRecorder.start(work, binding, CHECKPOINT, 0)) {
+            var changes = work.vmf().changes();
+            changes.startTransaction();
+            work.getRelatedIds().add(THIRD);
+            changes.publishTransaction();
+            codecs.set(JournalValueCodecs.standard());
+            var error = assertThrows(IllegalArgumentException.class, recorder::finish);
+            assertTrue(error.getMessage().contains("Unsupported journal value type"));
+            assertFalse(changes.isModelVersioningEnabled());
+        }
+    }
+
     private static ArchiveEntry initial() {
         ArchiveEntry entry = ArchiveEntry.newBuilder().withId(ENTRY_ID).build();
         entry.setSourceId(FIRST);
@@ -145,7 +188,7 @@ public class ExternalValueJournalTest {
                 0, List.of(new Frame(1, List.of(replace))));
     }
 
-    private static final class ArchiveBinding implements JournalBinding {
+    private static class ArchiveBinding implements JournalBinding {
         private final JournalValueCodecs codecs;
 
         ArchiveBinding(JournalValueCodecs codecs) {

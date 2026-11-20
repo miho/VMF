@@ -25,12 +25,37 @@
 package eu.mihosoft.vmftest.propertytype;
 
 import eu.mihosoft.vmf.runtime.core.Property;
+import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Optional;
 
 public class PropertyTypeTest {
+
+    @Test
+    public void internalPropertyHintRespectsAnExposedList() {
+        var reflect = EntityWithProperties.newInstance().vmf().reflect();
+        var view = ReflectImpl.readProperties(reflect);
+        int position = 0;
+        while (!view.get(position).getName().equals("entity")) position++;
+        var original = view.get(position);
+        Assert.assertSame(original, ReflectImpl.propertyAtOrNamed(reflect, position, "entity"));
+        Assert.assertThrows(UnsupportedOperationException.class, () -> view.remove(0));
+
+        // Keep the old property at the hinted position, but put a distinct
+        // property with the same name earlier in the mutable public list.
+        var replacement = EntityWithProperties.newInstance().vmf().reflect().propertyByName("entity").orElseThrow();
+        var exposed = reflect.properties();
+        if (position == 0) {
+            exposed.add(0, replacement);
+            position++;
+        } else {
+            exposed.set(0, replacement);
+        }
+        Assert.assertSame(original, view.get(position));
+        Assert.assertSame(replacement, ReflectImpl.propertyAtOrNamed(reflect, position, "entity"));
+    }
 
     @Test
     public void testPropertyTypes() {

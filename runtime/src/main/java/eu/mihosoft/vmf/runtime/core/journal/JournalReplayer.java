@@ -52,11 +52,14 @@ public final class JournalReplayer {
             double.class, Double.class, char.class, Character.class);
 
     private final JournalBinding binding;
+    private final JournalSupport.Workspace workspace;
     private final Map<String, VObject> objects;
     private final Set<VObject> usedInstances = Collections.newSetFromMap(new IdentityHashMap<>());
 
-    JournalReplayer(JournalBinding binding, Map<String, VObject> original, Map<String, VObject> objects) {
+    JournalReplayer(JournalBinding binding, Map<String, VObject> original, Map<String, VObject> objects,
+                    JournalSupport.Workspace workspace) {
         this.binding = binding;
+        this.workspace = workspace;
         this.objects = objects;
         require(original.keySet().equals(objects.keySet()), "Checkpoint copy changed its IDs");
         usedInstances.addAll(original.values());
@@ -77,10 +80,11 @@ public final class JournalReplayer {
         require(journal.checkpoint().equals(checkpoint), "Journal checkpoint does not match");
         require(journal.model().equals(binding.modelId()) && journal.modelVersion() == binding.modelVersion(),
                 "Journal model version does not match");
-        Map<String, VObject> original = JournalSupport.index(checkpointRoot, binding);
+        JournalSupport.Workspace workspace = new JournalSupport.Workspace();
+        Map<String, VObject> original = workspace.snapshot(checkpointRoot, binding);
         require(original.get(journal.root()) == checkpointRoot, "Journal root does not match");
         T copy = (T) checkpointRoot.clone();
-        JournalReplayer replay = new JournalReplayer(binding, original, JournalSupport.index(copy, binding));
+        JournalReplayer replay = new JournalReplayer(binding, original, workspace.snapshot(copy, binding), workspace);
         for (Frame frame : journal.transactions()) replay.applyFrame(frame, copy);
         return copy;
     }
@@ -95,8 +99,13 @@ public final class JournalReplayer {
     }
 
     private void verifyGraph(VObject root) {
-        Map<String, VObject> reachable = JournalSupport.index(root, binding);
-        reachable.forEach((id, object) -> require(objects.get(id) == object, "Unregistered or changed object ID " + id));
+        try (var reachable = workspace.index(root, binding)) {
+            reachable.forEach((id, object) -> {
+                if (objects.get(id) != object) {
+                    throw new IllegalArgumentException("Unregistered or changed object ID " + id);
+                }
+            });
+        }
     }
 
     private void allocate(Creation creation) {
@@ -120,7 +129,7 @@ public final class JournalReplayer {
         creation.properties().forEach((key, values) -> {
             Property property = JournalSupport.property(object, key, binding);
             if (property.getType().isModelType() != modelProperties) return;
-            List<Object> decoded = decode(object, property, values);
+            List<Object> decoded = decode(property, propertyClass(object, property), values);
             if (property.getType().isListType()) {
                 VList<Object> list = list(property);
                 if (!sameList(list, decoded)) {
@@ -140,8 +149,9 @@ public final class JournalReplayer {
         VObject target = object(operation.target());
         Property property = JournalSupport.property(target, operation.property(), binding);
         operation.created().forEach(this::allocate);
-        List<Object> before = decode(target, property, operation.before());
-        List<Object> after = decode(target, property, operation.after());
+        Class<?> type = propertyClass(target, property);
+        List<Object> before = decode(property, type, operation.before());
+        List<Object> after = decode(property, type, operation.after());
         operation.created().forEach(creation -> initialize(creation, false));
         Object expected;
         if (property.getType().isListType()) {
@@ -212,16 +222,19 @@ public final class JournalReplayer {
         return (VList<Object>) property.get();
     }
 
-    private List<Object> decode(VObject target, Property property, List<Value> values) {
+    private static Class<?> propertyClass(VObject target, Property property) {
         String typeName = property.getType().getElementTypeName().orElse(property.getType().getName());
         Class<?> type = PRIMITIVES.get(typeName);
-        if (type == null) {
-            try {
-                type = Class.forName(typeName, false, target.getClass().getClassLoader());
-            } catch (ClassNotFoundException ex) {
-                throw new IllegalArgumentException("Cannot resolve property type " + typeName, ex);
-            }
+        if (type != null) return type;
+        try {
+            return Class.forName(typeName, false, target.getClass().getClassLoader());
+        } catch (ClassNotFoundException ex) {
+            throw new IllegalArgumentException("Cannot resolve property type " + typeName, ex);
         }
+    }
+
+    private List<Object> decode(Property property, Class<?> type, List<Value> values) {
+        if (values.isEmpty()) return List.of();
         Class<?> boxed = BOXES.getOrDefault(type, type);
         List<Object> result = new ArrayList<>(values.size());
         for (Value value : values) {
@@ -231,8 +244,9 @@ public final class JournalReplayer {
                 case EXTERNAL: decoded = binding.valueCodecs().decode(value); break;
                 default: decoded = JournalSupport.decodeScalar(value.kind(), value.text());
             }
-            require(decoded == null ? !type.isPrimitive() : boxed.isInstance(decoded),
-                    "Journal value has the wrong type for " + property.getName());
+            if (decoded == null ? type.isPrimitive() : !boxed.isInstance(decoded)) {
+                throw new IllegalArgumentException("Journal value has the wrong type for " + property.getName());
+            }
             result.add(decoded);
         }
         return result;

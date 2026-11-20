@@ -56,7 +56,8 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
 
 #parse("${VMF_TEMPLATE_PATH}impl/declare-delegates.vm")
 
-  private ${VMFPKG_INT}.VMFPropertyChangeSupport propertyChanges;
+  // Null, a single ordinary listener, or full JavaBeans support.
+  private Object propertyChanges;
 
   // // TODO 17.02.2019 feature deactivated due to huge memory consumption
   // referenced by
@@ -118,37 +119,49 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
   // --------------------------------------------------------------------
 
   @Override
-  public void addPropertyChangeListener(java.beans.PropertyChangeListener l) {
-      _vmf_getPropertyChanges().addPropertyChangeListener(l);
+  public void addPropertyChangeListener(java.beans.PropertyChangeListener listener) {
+      if (propertyChanges == null && listener != null
+              && !(listener instanceof java.beans.PropertyChangeListenerProxy)) {
+          propertyChanges = listener;
+      } else {
+          _vmf_getPropertyChanges().addPropertyChangeListener(listener);
+      }
   }
-  @Override
-  public void removePropertyChangeListener(java.beans.PropertyChangeListener l) {
-      _vmf_getPropertyChanges().removePropertyChangeListener(l);
 
-      if(_vmf_getPropertyChanges().getPropertyChangeListeners().length==0) {
-          propertyChanges = null;
+  @Override
+  public void removePropertyChangeListener(java.beans.PropertyChangeListener listener) {
+      if (listener != null && propertyChanges instanceof java.beans.PropertyChangeListener
+              && ${VMFPKG_INT}.VMFPropertyChangeSupport.usesIdentityLookup(listener)) {
+          if (listener.equals(propertyChanges)) propertyChanges = null;
+      } else {
+          _vmf_getPropertyChanges().removePropertyChangeListener(listener);
+          if (_vmf_getPropertyChanges().getPropertyChangeListeners().length == 0) {
+              propertyChanges = null;
+          }
       }
   }
 
   private ${VMFPKG_INT}.VMFPropertyChangeSupport _vmf_getPropertyChanges() {
-
-      if(propertyChanges==null) {
-          propertyChanges = ${VMFPKG_INT}.VMFPropertyChangeSupport.newInstance(this);
+      if (!(propertyChanges instanceof ${VMFPKG_INT}.VMFPropertyChangeSupport)) {
+          ${VMFPKG_INT}.VMFPropertyChangeSupport support = ${VMFPKG_INT}.VMFPropertyChangeSupport.newInstance(this);
+          if (propertyChanges != null) {
+              support.addPropertyChangeListener((java.beans.PropertyChangeListener) propertyChanges);
+          }
+          propertyChanges = support;
       }
-
-      return propertyChanges;
-  }
-
-  private boolean _vmf_hasListeners() {
-      return propertyChanges!=null;
+      return (${VMFPKG_INT}.VMFPropertyChangeSupport) propertyChanges;
   }
 
   @Override
   public void _vmf_firePropertyChangeIfListenersArePresent(
     String propertyName, Object oldValue, Object newValue, String evtInfo) {
-      if(_vmf_hasListeners()) {
-          _vmf_getPropertyChanges().
-                  firePropertyChange(propertyName, oldValue, newValue, evtInfo);
+      if (propertyChanges == null) return;
+      if (propertyChanges instanceof java.beans.PropertyChangeListener
+              && ${VMFPKG_INT}.VMFPropertyChangeSupport.canNotifySingleListener(oldValue, newValue)) {
+          ${VMFPKG_INT}.VMFPropertyChangeSupport.fireToSingleListener(this,
+                  (java.beans.PropertyChangeListener) propertyChanges, propertyName, oldValue, newValue, evtInfo);
+      } else {
+          _vmf_getPropertyChanges().firePropertyChange(propertyName, oldValue, newValue, evtInfo);
       }
   }
 

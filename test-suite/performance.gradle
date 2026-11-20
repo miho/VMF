@@ -1,0 +1,92 @@
+// Explicit local performance verification. Normal check/test does not run the benchmark.
+apply plugin: 'java-base'
+
+def performanceDir = file('test-suite/src/performance')
+def performanceBuild = layout.buildDirectory.dir('performance')
+def generatorClasses = performanceBuild.map { it.dir('generator') }
+def generatedModels = performanceBuild.map { it.dir('generated') }
+def benchmarkClasses = performanceBuild.map { it.dir('classes') }
+def performanceReports = layout.buildDirectory.dir('reports/performance')
+def performanceModelFiles = fileTree("${performanceDir}/vmf") { include '**/*.java' }
+def performanceVersions = new Properties()
+file('config/common.properties').withInputStream { performanceVersions.load(it) }
+
+configurations {
+    performanceGenerator {
+        canBeConsumed = false
+    }
+    performanceRuntime {
+        canBeConsumed = false
+    }
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = uri('https://central.sonatype.com/repository/maven-snapshots/')
+        mavenContent { snapshotsOnly() }
+        content { includeModule 'eu.mihosoft.vcollections', 'vcollections' }
+    }
+}
+
+dependencies {
+    performanceGenerator project(':vmf')
+    performanceRuntime project(':vmf-runtime')
+    performanceRuntime "com.fasterxml.jackson.core:jackson-databind:${performanceVersions.getProperty('deps.jackson.version')}"
+    performanceRuntime "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${performanceVersions.getProperty('deps.jackson.version')}"
+}
+
+def compilePerformanceGenerator = tasks.register('compilePerformanceGenerator', JavaCompile) {
+    source fileTree("${performanceDir}/generator") { include '**/*.java' }
+    classpath = configurations.performanceGenerator
+    destinationDirectory = generatorClasses
+    options.encoding = 'UTF-8'
+    options.release = 11
+}
+
+def generatePerformanceModels = tasks.register('generatePerformanceModels', JavaExec) {
+    dependsOn compilePerformanceGenerator
+    classpath = files(generatorClasses) + configurations.performanceGenerator
+    mainClass = 'perf.Generate'
+    inputs.files(performanceModelFiles).withPathSensitivity(PathSensitivity.RELATIVE)
+    outputs.dir(generatedModels)
+    argumentProviders.add({
+        [generatedModels.get().asFile.absolutePath] + performanceModelFiles.files.sort().collect { it.absolutePath }
+    } as org.gradle.process.CommandLineArgumentProvider)
+    doFirst {
+        def output = generatedModels.get().asFile
+        delete(output)
+        output.mkdirs()
+    }
+}
+
+def compilePerformanceBenchmarks = tasks.register('compilePerformanceBenchmarks', JavaCompile) {
+    dependsOn generatePerformanceModels
+    source fileTree("${performanceDir}/java") { include '**/*.java' }
+    source generatedModels
+    source fileTree('jackson/src/main/java') { include '**/*.java' }
+    classpath = configurations.performanceRuntime
+    destinationDirectory = benchmarkClasses
+    options.encoding = 'UTF-8'
+    options.release = 11
+}
+
+def performanceTask = { String name, String mode, String purpose ->
+    tasks.register(name, JavaExec) {
+        group = 'verification'
+        description = purpose
+        dependsOn compilePerformanceBenchmarks
+        classpath = files(benchmarkClasses) + configurations.performanceRuntime
+        mainClass = 'perf.PerformanceGate'
+        def baseline = layout.projectDirectory.file('.gradle/vmf-performance/baseline.json')
+        args mode, baseline.asFile.absolutePath, performanceReports.get().file("${mode}.json").asFile.absolutePath
+    }
+}
+
+def performanceTestTask = performanceTask('performanceTest', 'test', 'Fail on performance regressions against this machineâ€™s saved baseline.')
+performanceTask('performanceBaseline', 'baseline', 'Measure and explicitly replace this machineâ€™s saved performance baseline.')
+performanceTask('performanceReport', 'report', 'Measure performance without comparing or replacing the saved baseline.')
+
+if (providers.gradleProperty('withPerformanceTests').isPresent()) {
+    tasks.named('check') { dependsOn performanceTestTask }
+}

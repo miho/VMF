@@ -186,6 +186,68 @@ public class RecursiveListenerTest {
     }
 
     @Test
+    public void reparentingKeepsObservationAtExistingNotificationBoundaries() {
+        Node root = Node.newInstance();
+        Node source = Node.newInstance();
+        Node destination = Node.newInstance();
+        Node subtree = Node.newInstance();
+        Node leaf = Node.newInstance();
+        root.getChildren().addAll(List.of(source, destination));
+        source.getChildren().add(subtree);
+        subtree.getChildren().add(leaf);
+
+        List<String> delivery = new ArrayList<>();
+        var changes = root.vmf().changes();
+        var rootListener = changes.addListener(change -> {
+            if (change.object() == source) {
+                Assert.assertSame(source, subtree.getParent());
+                delivery.add("source removal");
+                leaf.setName("before detach");
+            } else if (change.object() == destination) {
+                Assert.assertSame(destination, subtree.getParent());
+                delivery.add("destination addition");
+                leaf.setName("before observation resumes");
+            } else if (change.object() == leaf) {
+                delivery.add("root saw " + change.propertyChange().orElseThrow().newValue());
+            }
+        });
+        var localListener = subtree.vmf().reflect().propertyByName("parent").orElseThrow()
+                .addChangeListener(change -> {
+                    String phase = subtree.getParent() == null ? "detached" : "attached";
+                    delivery.add(phase);
+                    leaf.setName(phase);
+                });
+
+        try {
+            changes.start();
+            changes.startTransaction();
+            destination.getChildren().add(subtree);
+            leaf.setName("after move");
+            changes.publishTransaction();
+            changes.stop();
+
+            Assert.assertEquals(List.of("source removal", "root saw before detach", "detached", "attached",
+                    "destination addition", "root saw after move"), delivery);
+            Assert.assertSame(destination, subtree.getParent());
+            Assert.assertSame(subtree, leaf.getParent());
+            Assert.assertTrue(source.getChildren().isEmpty());
+            Assert.assertSame(subtree, destination.getChildren().get(0));
+            var recorded = changes.transactions().get(0).changes();
+            Assert.assertEquals(4, recorded.size());
+            Assert.assertSame(leaf, recorded.get(0).object());
+            Assert.assertSame(source, recorded.get(1).object());
+            Assert.assertSame(destination, recorded.get(2).object());
+            Assert.assertSame(leaf, recorded.get(3).object());
+        } finally {
+            changes.stop();
+            localListener.unsubscribe();
+            rootListener.unsubscribe();
+        }
+        leaf.setName("after unsubscribe");
+        Assert.assertEquals(6, delivery.size());
+    }
+
+    @Test
     public void registerUnregisterSimpleProperties() {
 
         AtomicInteger changeCounter = new AtomicInteger();

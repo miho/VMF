@@ -78,7 +78,10 @@ public interface Reflect {
      * @return the model property specified by name
      */
     default Optional<Property> propertyByName(String name) {
-        return properties().stream().filter(p->name.equals(p.getName())).findFirst();
+        for (Property property : properties()) {
+            if (name.equals(property.getName())) return Optional.of(property);
+        }
+        return Optional.empty();
     }
 
     /**

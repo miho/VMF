@@ -50,6 +50,45 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
         return new VMFPropertyChangeSupport(vOBject);
     }
 
+    private static final ClassValue<Boolean> IDENTITY_EQUALITY = new ClassValue<Boolean>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            try {
+                return type.getMethod("equals", Object.class).getDeclaringClass() == Object.class;
+            } catch (ReflectiveOperationException | SecurityException ex) {
+                return false;
+            }
+        }
+    };
+
+    /** Named listeners and custom equality need the normal JavaBeans lookup. */
+    public static boolean usesIdentityLookup(PropertyChangeListener listener) {
+        return !(listener instanceof PropertyChangeListenerProxy) && IDENTITY_EQUALITY.get(listener.getClass());
+    }
+
+    /**
+     * Custom external equality can update the listeners before JavaBeans takes its
+     * dispatch snapshot. Use the normal support for such values.
+     */
+    public static boolean canNotifySingleListener(Object oldValue, Object newValue) {
+        return oldValue == null || newValue == null || oldValue instanceof VObject || newValue instanceof VObject
+                || oldValue instanceof Integer || oldValue instanceof String || oldValue instanceof Boolean
+                || oldValue instanceof Long || oldValue instanceof Double || oldValue instanceof Float
+                || oldValue instanceof Short || oldValue instanceof Byte || oldValue instanceof Character
+                || oldValue instanceof Enum<?>;
+    }
+
+    /** Fires the same VMF event when one ordinary listener is registered. */
+    public static void fireToSingleListener(VObject source, PropertyChangeListener listener, String propertyName,
+                                            Object oldValue, Object newValue, String eventInfo) {
+        boolean changed = oldValue instanceof VObject || newValue instanceof VObject
+                ? oldValue != newValue
+                : oldValue == null || newValue == null || !oldValue.equals(newValue);
+        if (changed) {
+            listener.propertyChange(VMFPropertyChangeEvent.newInstance(source, propertyName, oldValue, newValue, eventInfo));
+        }
+    }
+
     @Override
     public void fireIndexedPropertyChange(String propertyName, int index, Object oldValue, Object newValue) {
         super.fireIndexedPropertyChange(propertyName, index, oldValue, newValue);

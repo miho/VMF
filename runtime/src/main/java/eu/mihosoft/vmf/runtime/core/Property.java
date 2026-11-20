@@ -28,6 +28,7 @@ import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 import vjavax.observer.Subscription;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Gives reflective access to an objects/types property. Property objects can be used to set and
@@ -45,29 +46,58 @@ public final class Property {
     private Type type;
     private boolean staticOnly;
 
-    private static Map<String, Class<?>> primitives = new HashMap<>();
+    private static final int CLASS_CACHE_LIMIT = 64;
+    private static final ClassValue<Map<String, Class<?>>> LOADED_PROPERTY_CLASSES = new ClassValue<>() {
+        @Override
+        protected Map<String, Class<?>> computeValue(Class<?> modelClass) {
+            return new ConcurrentHashMap<>();
+        }
+    };
 
-    {
-        primitives.put("boolean", boolean.class);
-        primitives.put("short", short.class);
-        primitives.put("int", int.class);
-        primitives.put("long", long.class);
-        primitives.put("float", float.class);
-        primitives.put("double", double.class);
-        primitives.put("char", char.class);
-        primitives.put("byte", byte.class);
-    }
+    private static final Map<String, Class<?>> PRIMITIVES = Map.of(
+            "boolean", boolean.class, "short", short.class, "int", int.class,
+            "long", long.class, "float", float.class, "double", double.class,
+            "char", char.class, "byte", byte.class);
 
     static boolean isPrimitiveType(String clsName) {
-        return primitives.containsKey(clsName);
+        return clsName != null && PRIMITIVES.containsKey(clsName);
+    }
+
+    @SuppressWarnings("removal")
+    private Class<?> loadPropertyClass(String name) throws ClassNotFoundException {
+        Class<?> modelClass = parent.getClass();
+        ClassLoader loader = modelClass.getClassLoader();
+        // An application-provided loader may attach behavior to loadClass().
+        // Keep the original calls for those loaders and for security checks.
+        if (name == null || loader == null || loader.getClass().getModule() != Object.class.getModule()
+                || System.getSecurityManager() != null) {
+            return loader.loadClass(name);
+        }
+        ClassLoader systemLoader;
+        try {
+            systemLoader = ClassLoader.getSystemClassLoader();
+        } catch (IllegalStateException | SecurityException unavailable) {
+            // A custom system loader can use its built-in parent during its own construction.
+            return loader.loadClass(name);
+        }
+        if (loader != systemLoader) return loader.loadClass(name);
+
+        var classes = LOADED_PROPERTY_CLASSES.get(modelClass);
+        Class<?> cached = classes.get(name);
+        if (cached != null) return cached;
+        Class<?> resolved = loader.loadClass(name);
+        synchronized (classes) {
+            if (classes.size() < CLASS_CACHE_LIMIT) classes.putIfAbsent(name, resolved);
+        }
+        return resolved;
     }
 
     private Class<?> getClassObjectByName(String clsName) {
-        Class<?> result = primitives.get(clsName);
+        Class<?> result = clsName == null ? null : PRIMITIVES.get(clsName);
 
         if (result == null) {
             try {
-                result = parent.getClass().getClassLoader().loadClass(clsName);
+                result = loadPropertyClass(clsName);
             } catch (ClassNotFoundException e) {
                 e.printStackTrace();
             }
@@ -102,11 +132,11 @@ public final class Property {
         try {
             if (isListType) {
                 this.type = Type.newInstance(isModelType, isListType, false, typeName,
-                        parent.getClass().getClassLoader().loadClass("eu.mihosoft.vcollections.VList"));
+                        loadPropertyClass("eu.mihosoft.vcollections.VList"));
             } else if (isPrimitiveType(typeName)) {
                 this.type = Type.newInstance(isModelType, isListType, false, typeName, getClassObjectByName(typeName));
             } else {
-                var tClass = parent.getClass().getClassLoader().loadClass(typeName);
+                var tClass = loadPropertyClass(typeName);
 
                 // check if tClass implements Mutable or Immutable interfaces:
                 var isMutable = Mutable.class.isAssignableFrom(tClass);

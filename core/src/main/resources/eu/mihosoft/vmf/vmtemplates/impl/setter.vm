@@ -102,11 +102,24 @@ public boolean _vmf_unregisterFromContainers(${VCOLL_PKG}.VList<?> destination, 
 } // end _vmf_unregisterFromContainers
 
 private boolean _vmf_removeFromContainmentList(${VCOLL_PKG}.VList<?> list, boolean allOccurrences) {
-    java.util.stream.IntStream matchingIndices = java.util.stream.IntStream.range(0, list.size())
-            .filter(index -> list.get(index) == this);
-    if (!allOccurrences) matchingIndices = matchingIndices.limit(1);
-    int[] indices = matchingIndices.toArray();
-    if (indices.length == 0) return false;
+    int size = list.size();
+    int first = 0;
+    while (first < size && list.get(first) != this) first++;
+    if (first == size) return false;
+
+    int[] indices = {first};
+    int count = 1;
+    if (allOccurrences) {
+        for (int index = first + 1; index < size; index++) {
+            if (list.get(index) == this) {
+                if (count == indices.length) {
+                    indices = java.util.Arrays.copyOf(indices, count + Math.min(count, size - count));
+                }
+                indices[count++] = index;
+            }
+        }
+    }
+    if (count != indices.length) indices = java.util.Arrays.copyOf(indices, count);
 
     String eventInfo = list.getEventInfo();
     list.setEventInfo(${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CONTAINMENT);

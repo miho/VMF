@@ -30,6 +30,7 @@ import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -44,6 +45,9 @@ public class ReflectImpl implements Reflect {
 
     private VObject model;
     private List<Property> properties;
+    private List<Property> readOnlyProperties;
+    private boolean propertiesExposed;
+    private boolean sortedUniqueProperties;
     private List<Annotation> annotations;
     private boolean staticOnly;
     private Class<?> modelAPIClass;
@@ -73,19 +77,51 @@ public class ReflectImpl implements Reflect {
 
     @Override
     public List<Property> properties() {
+        propertiesExposed = true;
+        return propertyList();
+    }
 
+    private List<Property> propertyList() {
         if (properties == null) {
-
             VObjectInternal parent = (VObjectInternal) model;
+            String[] names = parent._vmf_getPropertyNames();
+            properties = new ArrayList<>(names.length);
+            boolean sorted = true;
+            String previous = null;
+            for (String name : names) {
+                properties.add(Property.newInstance(parent, name, staticOnly));
+                if (previous != null && previous.compareTo(name) >= 0) sorted = false;
+                previous = name;
+            }
+            sortedUniqueProperties = sorted;
+        }
+        return properties;
+    }
 
-            properties = new ArrayList<>(parent._vmf_getPropertyNames().length);
+    /** Visits the real property order without exposing a new writable reference. */
+    public static List<Property> readProperties(Reflect reflect) {
+        if (reflect.getClass() != ReflectImpl.class) return reflect.properties();
+        ReflectImpl internal = (ReflectImpl) reflect;
+        if (internal.readOnlyProperties == null) {
+            internal.readOnlyProperties = Collections.unmodifiableList(internal.propertyList());
+        }
+        return internal.readOnlyProperties;
+    }
 
-            for (String pName : parent._vmf_getPropertyNames()) {
-                properties.add(Property.newInstance(parent, pName, staticOnly));
+    /** Uses the matching position of an unexposed, unique property layout, if available. */
+    public static Property propertyAtOrNamed(Reflect reflect, int position, String name) {
+        if (reflect.getClass() == ReflectImpl.class) {
+            ReflectImpl internal = (ReflectImpl) reflect;
+            if (!internal.propertiesExposed) {
+                var list = internal.propertyList();
+                if (internal.sortedUniqueProperties && position >= 0 && position < list.size()) {
+                    Property property = list.get(position);
+                    if (name.equals(property.getName())) return property;
+                }
             }
         }
-
-        return properties;
+        // A caller may reorder or replace the public list, including from a binding callback.
+        return reflect.propertyByName(name).orElseThrow();
     }
 
     @Override

@@ -9,3 +9,5 @@ wrapper {
 //    gradleVersion = '8.14.2'
     gradleVersion = '9.0.0'
 }
+
+apply from: 'test-suite/performance.gradle'

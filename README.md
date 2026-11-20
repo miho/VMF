@@ -164,3 +164,7 @@ This will use the latest snapshot vmf and gradle-plugin to execute the tests def
 ### Viewing the Report
 
 An HTML version of the test report is located in the build folder `test-suite/build/reports/tests/test/index.html`.
+
+### Local performance verification
+
+Run the [local performance gate](test-suite/PERFORMANCE.md) to check containment, events, recording, and replay against a saved machine-local baseline.

@@ -52,6 +52,7 @@ import eu.mihosoft.vmf.runtime.core.Changes;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Transaction;
 import eu.mihosoft.vmf.runtime.core.VObject;
+import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 import vjavax.observer.Subscription;
 
 import java.util.ArrayList;
@@ -70,6 +71,7 @@ public final class JournalRecorder implements AutoCloseable {
     private final VObject replayRoot;
     private final JournalReplayer verifier;
     private final JournalBinding binding;
+    private final JournalSupport.Workspace workspace = new JournalSupport.Workspace();
     private final String model;
     private final int modelVersion;
     private final String checkpoint;
@@ -111,12 +113,12 @@ public final class JournalRecorder implements AutoCloseable {
         if (changes.isModelVersioningEnabled()) {
             throw new IllegalStateException("The model already has an active recording");
         }
-        this.known = new LinkedHashMap<>(JournalSupport.index(root, binding));
+        this.known = workspace.snapshot(root, binding);
         known.forEach((id, object) -> identities.put(object, id));
         this.rootId = identities.get(root);
         this.replayRoot = root.clone();
-        JournalSupport.verifyState(root, replayRoot, binding);
-        this.verifier = new JournalReplayer(binding, known, JournalSupport.index(replayRoot, binding));
+        workspace.verifyState(root, replayRoot, binding);
+        this.verifier = new JournalReplayer(binding, known, workspace.snapshot(replayRoot, binding), workspace);
         try {
             changes.start();
             subscriptions.add(changes.all().addChangeListener(event -> {
@@ -203,6 +205,13 @@ public final class JournalRecorder implements AutoCloseable {
         if (indices.length != values.size()) {
             throw new IllegalArgumentException("Native list change has mismatched indices and values");
         }
+        if (indices.length == 0) return Map.of();
+        if (indices.length == 1) {
+            if (indices[0] < 0) {
+                throw new IllegalArgumentException("Native list change has invalid or duplicate indices");
+            }
+            return Map.of(indices[0], freeze(values.get(0), created));
+        }
         Map<Integer, Value> indexed = new TreeMap<>();
         for (int i = 0; i < indices.length; i++) {
             int position = indices[i];
@@ -234,7 +243,7 @@ public final class JournalRecorder implements AutoCloseable {
         // Register the identity before capturing properties to allow forward and cyclic references.
         identities.put(object, id);
         Map<String, List<Value>> properties = new LinkedHashMap<>();
-        for (Property property : object.vmf().reflect().properties()) {
+        for (Property property : ReflectImpl.readProperties(object.vmf().reflect())) {
             String name = property.getName();
             if (JournalSupport.isContainer(object, name)) continue;
             String key = propertyKey(object, name);
@@ -272,17 +281,25 @@ public final class JournalRecorder implements AutoCloseable {
                 throw new IllegalStateException("Object ID changed during recording: " + entry.getValue());
             }
         }
-        for (Map.Entry<String, VObject> entry : JournalSupport.index(root, binding).entrySet()) {
-            if (known.get(entry.getKey()) != entry.getValue()) {
-                throw new IllegalStateException("Object entered the graph without a recorded change: " + entry.getKey());
+        try (var liveIndex = workspace.index(root, binding)) {
+            liveIndex.forEach((id, object) -> {
+                if (known.get(id) != object) {
+                    throw new IllegalStateException("Object entered the graph without a recorded change: " + id);
+                }
+            });
+            verifyNativeHistory();
+            try {
+                if (nextChange < captured.size()) {
+                    appendUngroupedUntil(captured.size());
+                    workspace.verifyState(root, replayRoot, binding);
+                } else {
+                    // Replaying pending edits can call application code. Reuse the latest
+                    // live scan only when history inspection was the sole intervening work.
+                    workspace.verifyState(liveIndex, replayRoot, binding);
+                }
+            } catch (IllegalArgumentException ex) {
+                throw new IllegalStateException("Recorded changes could not reproduce the model state", ex);
             }
-        }
-        verifyNativeHistory();
-        try {
-            appendUngroupedUntil(captured.size());
-            JournalSupport.verifyState(root, replayRoot, binding);
-        } catch (IllegalArgumentException ex) {
-            throw new IllegalStateException("Recorded changes could not reproduce the model state", ex);
         }
         return new ChangeJournal(model, modelVersion, rootId, checkpoint, baseSequence, frames);
     }
@@ -297,7 +314,7 @@ public final class JournalRecorder implements AutoCloseable {
         appendUngroupedUntil(start);
         appendFrame(start, end);
         nextChange = end;
-        JournalSupport.verifyState(root, replayRoot, binding);
+        workspace.verifyState(root, replayRoot, binding);
         published.add(List.copyOf(group));
     }
 

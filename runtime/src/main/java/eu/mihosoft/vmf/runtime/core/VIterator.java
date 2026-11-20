@@ -201,7 +201,7 @@ class VMFIterator
     private VObjectIterator prevIterator;
     private boolean usedCurrentIterator;
 
-    private final Stack<VObjectIterator> iteratorStack = new Stack<>();
+    private final Deque<VObjectIterator> iteratorStack = new ArrayDeque<>();
 
     private final TraversalListener traversalListener;
 
@@ -388,7 +388,7 @@ class VMFIterator
 
             onExit(currentIterator.object());
 
-            if (!iteratorStack.empty()) {
+            if (!iteratorStack.isEmpty()) {
                 // obtain the last iterator that has been pushed
                 currentIterator = iteratorStack.pop();
             } else {
@@ -535,21 +535,14 @@ class VMFPropertyIterator implements VObjectIterator {
             // skip forward until no empty list is present
             if (o instanceof VList) {
 
-                Predicate<Object> hasNextFilter;
-
-                if (strategy == VIterator.IterationStrategy.UNIQUE_NODE) {
-                    hasNextFilter = e -> !identityMap.containsKey(
-                            VMFIterator.unwrapIfReadOnlyInstanceForIdentityCheck(e));
-                } else {
-                    // we don't prevent multiple visits
-                    hasNextFilter = e -> true;
+                boolean hasNonEmpty = false;
+                for (Object element : (VList<?>) o) {
+                    if (element != null && (strategy != VIterator.IterationStrategy.UNIQUE_NODE
+                            || !identityMap.containsKey(VMFIterator.unwrapIfReadOnlyInstanceForIdentityCheck(element)))) {
+                        hasNonEmpty = true;
+                        break;
+                    }
                 }
-
-                @SuppressWarnings("unchecked")
-                boolean hasNonEmpty = ((VList<Object>) o).
-                        stream().filter(e -> e != null).
-                        filter(hasNextFilter).
-                        count() > 0;
 
                 if (!hasNonEmpty && index + 2 < numProperties) {
 

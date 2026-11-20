@@ -55,13 +55,25 @@
 #end##                                       ## opposite
             }
 
-            if (!evt.removed().elements().isEmpty()) {
-                java.util.Set<Object> remainingChildren = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-                remainingChildren.addAll(this.__vmf_prop_${prop.name});
+            java.util.List<?> removed = evt.removed().elements();
+            if (!removed.isEmpty()) {
                 // Collections.swap uses two SETs. An identity can occur twice
                 // between them and still belong here after one occurrence is removed.
-                for (Object child : evt.removed().elements()) {
-                    if (child == null || remainingChildren.contains(child)) continue;
+                java.util.Set<Object> remainingChildren = null;
+                if (removed.size() > 1) {
+                    remainingChildren = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                    remainingChildren.addAll(this.__vmf_prop_${prop.name});
+                }
+                removedChildren:
+                for (Object child : removed) {
+                    if (child == null) continue;
+                    if (remainingChildren == null) {
+                        for (Object remaining : this.__vmf_prop_${prop.name}) {
+                            if (remaining == child) continue removedChildren;
+                        }
+                    } else if (remainingChildren.contains(child)) {
+                        continue;
+                    }
                     ${VMFPKG_INT}.VObjectInternalModifiable valueInternal = (${VMFPKG_INT}.VObjectInternalModifiable)child;
                     if (valueInternal._vmf_getContainer() == this) valueInternal._vmf_unregisterFromContainers();
                 }

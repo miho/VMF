@@ -26,26 +26,26 @@ package eu.mihosoft.vmf.runtime.core.journal;
 import eu.mihosoft.vmf.runtime.core.Mutable;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
+import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 
 import java.util.ArrayDeque;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BiConsumer;
 
 import static eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.ValueKind;
 import static eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Value;
 
 @SuppressWarnings("deprecation")
 final class JournalSupport {
-    private static final Map<Class<?>, ValueKind> SCALAR_KINDS = Map.of(
-            String.class, ValueKind.STRING, Boolean.class, ValueKind.BOOLEAN,
-            Byte.class, ValueKind.BYTE, Short.class, ValueKind.SHORT, Integer.class, ValueKind.INT,
-            Long.class, ValueKind.LONG, Float.class, ValueKind.FLOAT, Double.class, ValueKind.DOUBLE,
-            Character.class, ValueKind.CHAR);
+    private static final String STRING_LIST_TYPE = "eu.mihosoft.vcollections.VList<java.lang.String>";
 
     private JournalSupport() { }
 
@@ -56,18 +56,89 @@ final class JournalSupport {
     }
 
     private static void requireUnicode(String value) {
-        if (value.codePoints().anyMatch(codePoint -> codePoint >= 0xd800 && codePoint <= 0xdfff)) {
-            throw new IllegalArgumentException("Text contains an unpaired surrogate");
+        for (int i = 0; i < value.length(); i++) {
+            char character = value.charAt(i);
+            if (!Character.isSurrogate(character)) continue;
+            if (!Character.isHighSurrogate(character) || i + 1 == value.length()
+                    || !Character.isLowSurrogate(value.charAt(i + 1))) {
+                throw new IllegalArgumentException("Text contains an unpaired surrogate");
+            }
+            i++;
+        }
+    }
+
+    // These checks depend only on immutable String contents. Every graph scan still
+    // reads every property and calls the binding and external codecs in their normal order.
+    private static final class ValidatedText {
+        private static final int CACHE_LIMIT = 4096;
+        private static final int MAX_CACHED_LENGTH = 256;
+        private static final int FIRST_CACHED_POSITION = 16;
+        private static final int POSITION_LIMIT = 512;
+        private final Map<String, Boolean> entries = new IdentityHashMap<>();
+        private String[] listPositions;
+
+        void name(String value, String description) {
+            if (entries.get(value) != Boolean.TRUE) {
+                requireName(value, description);
+                remember(value, Boolean.TRUE);
+            }
+        }
+
+        void unicode(String value) {
+            if (!entries.containsKey(value)) {
+                requireUnicode(value);
+                remember(value, Boolean.FALSE);
+            }
+        }
+
+        private void remember(String value, Boolean validName) {
+            if (value.length() <= MAX_CACHED_LENGTH && entries.size() < CACHE_LIMIT) {
+                entries.put(value, validName);
+            }
+        }
+
+        void validateStringList(List<?> values, JournalBinding binding, GraphIndex objects) {
+            int position = 0;
+            for (Object value : values) {
+                if (position >= FIRST_CACHED_POSITION && position < POSITION_LIMIT) {
+                    String previous = listPositions == null ? null : listPositions[position];
+                    // Position is only a lookup hint. The list is still read in iterator
+                    // order, and an identical immutable String is the only cache hit.
+                    if (previous == null || previous != value) {
+                        validateGraphValue(value, binding, objects, this);
+                        if (value instanceof String && ((String) value).length() <= MAX_CACHED_LENGTH) {
+                            if (listPositions == null) listPositions = new String[POSITION_LIMIT];
+                            listPositions[position] = (String) value;
+                        }
+                    }
+                } else {
+                    validateGraphValue(value, binding, objects, this);
+                }
+                position++;
+            }
         }
     }
 
     static boolean isScalarType(Class<?> type) {
-        return SCALAR_KINDS.containsKey(type);
+        return scalarKind(type) != null;
+    }
+
+    private static ValueKind scalarKind(Class<?> type) {
+        if (type == String.class) return ValueKind.STRING;
+        if (type == Integer.class) return ValueKind.INT;
+        if (type == Double.class) return ValueKind.DOUBLE;
+        if (type == Boolean.class) return ValueKind.BOOLEAN;
+        if (type == Long.class) return ValueKind.LONG;
+        if (type == Float.class) return ValueKind.FLOAT;
+        if (type == Short.class) return ValueKind.SHORT;
+        if (type == Byte.class) return ValueKind.BYTE;
+        if (type == Character.class) return ValueKind.CHAR;
+        return null;
     }
 
     static Value scalar(Object value, JournalBinding binding) {
         if (value == null) return new Value(ValueKind.NULL, null);
-        ValueKind kind = SCALAR_KINDS.get(value.getClass());
+        ValueKind kind = scalarKind(value.getClass());
         return kind == null ? binding.valueCodecs().encode(value) : new Value(kind, scalarText(value));
     }
 
@@ -118,7 +189,10 @@ final class JournalSupport {
         if ("__vmf_prop_unnamed_container".equals(name)) return true;
         VObjectInternalModifiable internal = mutable(object);
         int id = internal._vmf_getPropertyIdByName(name);
-        return Arrays.stream(internal._vmf_getParentIndices()).anyMatch(parent -> parent == id);
+        for (int parent : internal._vmf_getParentIndices()) {
+            if (parent == id) return true;
+        }
+        return false;
     }
 
     static Property property(VObject object, String key, JournalBinding binding) {
@@ -130,73 +204,173 @@ final class JournalSupport {
                 .orElseThrow(() -> new IllegalArgumentException("Unknown journal property " + key));
     }
 
-    /** Indexes the containment tree and verifies that all model references stay within it. */
-    static Map<String, VObject> index(VObject root, JournalBinding binding) {
-        Map<String, VObject> objects = new LinkedHashMap<>();
-        Deque<VObject> pending = new ArrayDeque<>();
-        pending.add(root);
-        while (!pending.isEmpty()) {
-            VObject object = pending.removeFirst();
-            VObjectInternalModifiable internal = mutable(object);
-            String id = requireName(binding.id(object), "object ID");
-            requireName(binding.type(object), "object type");
-            if (objects.putIfAbsent(id, object) != null) {
-                throw new IllegalArgumentException("Duplicate object ID or containment entry " + id);
+    /** Session-local space for checking complete graphs without rebuilding the lookup storage. */
+    static final class Workspace {
+        private final ValidatedText text = new ValidatedText();
+        private final Deque<GraphIndex> free = new ArrayDeque<>();
+
+        GraphIndex index(VObject root, JournalBinding binding) {
+            GraphIndex index = free.pollFirst();
+            if (index == null) index = new GraphIndex(this);
+            try {
+                index.scan(root, binding);
+                return index;
+            } catch (RuntimeException | Error failure) {
+                index.close();
+                throw failure;
             }
-            for (int child : internal._vmf_getChildrenIndices()) {
-                Object value = internal._vmf_getPropertyValueById(child);
-                if (value instanceof List<?>) {
-                    for (Object entry : (List<?>) value) enqueueChild(pending, object, entry);
-                } else {
-                    enqueueChild(pending, object, value);
+        }
+
+        Map<String, VObject> snapshot(VObject root, JournalBinding binding) {
+            try (var index = index(root, binding)) {
+                Map<String, VObject> snapshot = new LinkedHashMap<>();
+                index.forEach(snapshot::put);
+                return snapshot;
+            }
+        }
+
+        void verifyState(VObject expected, VObject actual, JournalBinding binding) {
+            try (var expectedObjects = index(expected, binding)) {
+                verifyState(expectedObjects, actual, binding);
+            }
+        }
+
+        void verifyState(GraphIndex expected, VObject actual, JournalBinding binding) {
+            try (var actualObjects = index(actual, binding)) {
+                compare(expected, actualObjects, binding);
+            }
+        }
+    }
+
+    static final class GraphIndex implements AutoCloseable {
+        private final Workspace workspace;
+        private final Map<String, IndexedObject> slots = new HashMap<>();
+        private final List<IndexedObject> reachable = new ArrayList<>();
+        private final Deque<VObjectInternalModifiable> pending = new ArrayDeque<>();
+
+        private GraphIndex(Workspace workspace) {
+            this.workspace = workspace;
+        }
+
+        private void scan(VObject root, JournalBinding binding) {
+            pending.add(mutable(Objects.requireNonNull(root)));
+            while (!pending.isEmpty()) {
+                VObjectInternalModifiable object = pending.removeFirst();
+                String id = binding.id(object);
+                workspace.text.name(id, "object ID");
+                workspace.text.name(binding.type(object), "object type");
+                var slot = slots.get(id);
+                if (slot == null) {
+                    slot = new IndexedObject(id);
+                    slots.put(id, slot);
+                } else if (slot.object != null) {
+                    throw new IllegalArgumentException("Duplicate object ID or containment entry " + id);
+                }
+                slot.object = object;
+                reachable.add(slot);
+                for (int child : object._vmf_getChildrenIndices()) {
+                    Object value = object._vmf_getPropertyValueById(child);
+                    if (value instanceof List<?>) {
+                        for (Object entry : (List<?>) value) enqueueChild(object, entry);
+                    } else {
+                        enqueueChild(object, value);
+                    }
+                }
+            }
+            for (var slot : reachable) {
+                for (Property property : ReflectImpl.readProperties(slot.object.vmf().reflect())) {
+                    Object value = property.get();
+                    var type = property.getType();
+                    if (type.isListType()) {
+                        var values = (List<?>) value;
+                        if (STRING_LIST_TYPE.equals(type.getName())) {
+                            workspace.text.validateStringList(values, binding, this);
+                        } else {
+                            for (Object entry : values) validateGraphValue(entry, binding, this, workspace.text);
+                        }
+                    } else {
+                        validateGraphValue(value, binding, this, workspace.text);
+                    }
                 }
             }
         }
-        for (VObject object : objects.values()) {
-            for (Property property : object.vmf().reflect().properties()) {
-                Object value = property.get();
-                if (property.getType().isListType()) {
-                    for (Object entry : (List<?>) value) validateGraphValue(entry, binding, objects);
-                } else {
-                    validateGraphValue(value, binding, objects);
-                }
+
+        private void enqueueChild(VObject parent, Object child) {
+            if (child == null) return;
+            if (!(child instanceof VObject)) throw new IllegalArgumentException("Invalid containment relationship");
+            var object = mutable((VObject) child);
+            if (object._vmf_getContainer() != parent) {
+                throw new IllegalArgumentException("Invalid containment relationship");
             }
+            pending.add(object);
         }
-        return objects;
+
+        private VObject get(String id) {
+            var slot = slots.get(id);
+            return slot == null ? null : slot.object;
+        }
+
+        void forEach(BiConsumer<String, VObject> visitor) {
+            for (var slot : reachable) visitor.accept(slot.id, slot.object);
+        }
+
+        @Override public void close() {
+            // Hold no model object between scans. Retire unused keys when a graph
+            // shrinks or a long-running recording has replaced much of its tree.
+            if (slots.size() > 2L * reachable.size() + 64) {
+                slots.values().removeIf(slot -> slot.object == null);
+            }
+            reachable.forEach(slot -> slot.object = null);
+            reachable.clear();
+            pending.clear();
+            workspace.free.addFirst(this);
+        }
     }
 
-    private static void enqueueChild(Deque<VObject> pending, VObject parent, Object child) {
-        if (child == null) return;
-        if (!(child instanceof VObject) || mutable((VObject) child)._vmf_getContainer() != parent) {
-            throw new IllegalArgumentException("Invalid containment relationship");
+    private static final class IndexedObject {
+        private final String id;
+        private VObject object;
+
+        private IndexedObject(String id) {
+            this.id = id;
         }
-        pending.add((VObject) child);
     }
 
-    private static void validateGraphValue(Object value, JournalBinding binding, Map<String, VObject> objects) {
+    private static void validateGraphValue(Object value, JournalBinding binding, GraphIndex objects,
+                                           ValidatedText text) {
         if (value instanceof VObject) {
             VObject reference = (VObject) value;
             if (objects.get(binding.id(reference)) != reference) {
                 throw new IllegalArgumentException("Model reference outside the checkpoint containment tree");
             }
-        } else {
-            scalar(value, binding);
+        } else if (value instanceof String) {
+            text.unicode((String) value);
+        } else if (value != null && !isScalarType(value.getClass())) {
+            binding.valueCodecs().encode(value);
         }
+        // Built-in typed scalars produce canonical wire values by construction.
     }
 
-    static void verifyState(VObject expected, VObject actual, JournalBinding binding) {
-        Map<String, VObject> expectedObjects = index(expected, binding);
-        Map<String, VObject> actualObjects = index(actual, binding);
-        if (!expectedObjects.keySet().equals(actualObjects.keySet())) {
+    private static void compare(GraphIndex expected, GraphIndex actual, JournalBinding binding) {
+        if (expected.reachable.size() != actual.reachable.size()) {
             throw new IllegalArgumentException("Replay produced a different set of object IDs");
         }
-        expectedObjects.forEach((id, object) -> {
-            VObject other = actualObjects.get(id);
+        for (var slot : expected.reachable) {
+            if (actual.get(slot.id) == null) {
+                throw new IllegalArgumentException("Replay produced a different set of object IDs");
+            }
+        }
+        for (var slot : expected.reachable) {
+            String id = slot.id;
+            VObject object = slot.object;
+            VObject other = actual.get(id);
             if (!binding.type(object).equals(binding.type(other))) {
                 throw new IllegalArgumentException("Replay produced a different type for " + id);
             }
-            for (Property property : object.vmf().reflect().properties()) {
-                Property otherProperty = other.vmf().reflect().propertyByName(property.getName()).orElseThrow();
+            int position = 0;
+            for (Property property : ReflectImpl.readProperties(object.vmf().reflect())) {
+                Property otherProperty = ReflectImpl.propertyAtOrNamed(
+                        other.vmf().reflect(), position++, property.getName());
                 Object value = property.get();
                 Object otherValue = otherProperty.get();
                 boolean same;
@@ -212,7 +386,7 @@ final class JournalSupport {
                 }
                 if (!same) throw new IllegalArgumentException("Replay differs at " + id + "." + property.getName());
             }
-        });
+        }
     }
 
     private static boolean sameStateValue(Object expected, Object actual, JournalBinding binding) {
