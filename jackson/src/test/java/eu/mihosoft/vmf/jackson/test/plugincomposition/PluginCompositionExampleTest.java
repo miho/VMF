@@ -24,6 +24,7 @@
  */
 package eu.mihosoft.vmf.jackson.test.plugincomposition;
 
+import eu.mihosoft.vmf.jackson.VMFDocumentFormat;
 import eu.mihosoft.vmf.jackson.VMFFeatureCodec;
 import eu.mihosoft.vmf.jackson.test.plugincomposition.calibration.Calibration;
 import eu.mihosoft.vmf.jackson.test.plugincomposition.calibration.CalibrationPlugin;
@@ -46,10 +47,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -156,23 +159,57 @@ class PluginCompositionExampleTest {
     }
 
     @Test
-    void usesJsonFallbackUnlessFormatIsExplicit(@TempDir Path directory) throws IOException {
+    void infersCaseInsensitiveFormatsAndDefaultsExtensionlessFilesToJson(@TempDir Path directory) throws IOException {
         ModelRegistry registry = modelRegistry();
         Device device = Device.newBuilder().withLabel("Positioning stage").build();
         FeatureAttachments features = new FeatureAttachments(registry);
         VMFFeatureCodec codec = new VMFFeatureCodec(registry);
 
-        for (String name : List.of("device", "device.snapshot")) {
-            Path path = directory.resolve(name);
-            codec.save(path, device, features);
-            assertNativeFormat(path, "json");
-            assertEquals(device.getLabel(), codec.load(path, Device.class).owner().getLabel());
-        }
+        Path noExtension = directory.resolve("device");
+        codec.save(noExtension, device, features);
+        assertNativeFormat(noExtension, "json");
+        assertEquals(device.getLabel(), codec.load(noExtension, Device.class).owner().getLabel());
 
-        Path path = directory.resolve("explicit.snapshot");
-        codec.save(path, device, features, VMFFeatureCodec.Format.XML);
+        Path upperCaseAlias = directory.resolve("device.YML");
+        codec.save(upperCaseAlias, device, features);
+        assertNativeFormat(upperCaseAlias, "yml");
+        assertEquals(device.getLabel(), codec.load(upperCaseAlias, Device.class).owner().getLabel());
+    }
+
+    @Test
+    void requiresExplicitFormatForUnknownExtension(@TempDir Path directory) throws IOException {
+        ModelRegistry registry = modelRegistry();
+        Device device = Device.newBuilder().withLabel("Positioning stage").build();
+        FeatureAttachments features = new FeatureAttachments(registry);
+        VMFFeatureCodec codec = new VMFFeatureCodec(registry);
+
+        Path path = directory.resolve("device.snapshot");
+        IOException saveError = assertThrows(IOException.class, () -> codec.save(path, device, features));
+        assertTrue(saveError.getMessage().toLowerCase(Locale.ROOT).contains("explicit"), saveError::getMessage);
+        assertFalse(Files.exists(path));
+
+        codec.save(path, device, features, VMFDocumentFormat.XML);
         assertNativeFormat(path, "xml");
-        assertEquals(device.getLabel(), codec.load(path, Device.class, VMFFeatureCodec.Format.XML).owner().getLabel());
+        IOException loadError = assertThrows(IOException.class, () -> codec.load(path, Device.class));
+        assertTrue(loadError.getMessage().toLowerCase(Locale.ROOT).contains("explicit"), loadError::getMessage);
+        assertEquals(device.getLabel(), codec.load(path, Device.class, VMFDocumentFormat.XML).owner().getLabel());
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void legacyFormatOverloadsRemainCompatible(@TempDir Path directory) throws IOException {
+        ModelRegistry registry = modelRegistry();
+        Device device = Device.newBuilder().withLabel("Positioning stage").build();
+        FeatureAttachments features = new FeatureAttachments(registry);
+        VMFFeatureCodec codec = new VMFFeatureCodec(registry);
+        Path path = directory.resolve("device.snapshot");
+
+        codec.save(path, device, features, VMFFeatureCodec.Format.YAML);
+        assertNativeFormat(path, "yaml");
+        assertEquals(device.getLabel(), codec.load(path, Device.class, VMFDocumentFormat.YAML).owner().getLabel());
+
+        codec.save(path, device, features, VMFDocumentFormat.YAML);
+        assertEquals(device.getLabel(), codec.load(path, Device.class, VMFFeatureCodec.Format.YAML).owner().getLabel());
     }
 
     private static void assertNativeFormat(Path file, String extension) throws IOException {

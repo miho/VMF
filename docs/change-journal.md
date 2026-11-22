@@ -102,14 +102,14 @@ Registration asserts deep immutability, including everything reachable through t
 
 ## Journal document formats
 
-The default `write(journal)` and `read(document)` overloads use canonical JSON. Pass `VMFJournalCodec.Format.YAML` or `VMFJournalCodec.Format.XML` to select another format. The journal and its model checkpoint may use different formats.
+The default `write(journal)` and `read(document)` overloads use canonical JSON. Pass `VMFDocumentFormat.YAML` or `VMFDocumentFormat.XML` to select another format. The journal and its model checkpoint may use different formats.
 
 ```java
-String yaml = VMFJournalCodec.write(journal, VMFJournalCodec.Format.YAML);
-ChangeJournal fromYaml = VMFJournalCodec.read(yaml, VMFJournalCodec.Format.YAML);
+String yaml = VMFJournalCodec.write(journal, VMFDocumentFormat.YAML);
+ChangeJournal fromYaml = VMFJournalCodec.read(yaml, VMFDocumentFormat.YAML);
 
-String xml = VMFJournalCodec.write(journal, VMFJournalCodec.Format.XML);
-ChangeJournal fromXml = VMFJournalCodec.read(xml, VMFJournalCodec.Format.XML);
+String xml = VMFJournalCodec.write(journal, VMFDocumentFormat.XML);
+ChangeJournal fromXml = VMFJournalCodec.read(xml, VMFDocumentFormat.XML);
 ```
 
 YAML uses the same envelope keys, value types, and ordered sequences as JSON. Quote strings that resemble numbers, booleans, or null when editing a journal by hand. Journals reject YAML aliases.

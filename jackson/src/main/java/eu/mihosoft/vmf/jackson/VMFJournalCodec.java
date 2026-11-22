@@ -82,8 +82,22 @@ import java.util.function.Function;
  * order and requires every documented field.
  */
 public final class VMFJournalCodec {
-    /** The transport format of a journal document. */
-    public enum Format { JSON, YAML, XML }
+    /**
+     * The transport format of a journal document.
+     * @deprecated Use {@link VMFDocumentFormat}.
+     */
+    @Deprecated
+    public enum Format {
+        JSON(VMFDocumentFormat.JSON),
+        YAML(VMFDocumentFormat.YAML),
+        XML(VMFDocumentFormat.XML);
+
+        private final VMFDocumentFormat documentFormat;
+
+        Format(VMFDocumentFormat documentFormat) {
+            this.documentFormat = documentFormat;
+        }
+    }
 
     private static final ObjectMapper JSON_MAPPER = strictMapper(new ObjectMapper());
     private static final JsonNodeFactory NODES = JsonNodeFactory.instance;
@@ -111,7 +125,21 @@ public final class VMFJournalCodec {
      * @throws IOException when writing fails
      */
     public static String write(ChangeJournal journal) throws IOException {
-        return write(journal, Format.JSON);
+        return write(journal, VMFDocumentFormat.JSON);
+    }
+
+    /**
+     * Writes a journal in the selected format using the wire version its values require.
+     * @param journal journal to encode
+     * @param format the document format
+     * @return the journal document
+     * @throws IOException when writing fails
+     * @deprecated Use {@link #write(ChangeJournal, VMFDocumentFormat)}.
+     */
+    @Deprecated
+    public static String write(ChangeJournal journal, Format format) throws IOException {
+        Objects.requireNonNull(journal, "journal");
+        return write(journal, Objects.requireNonNull(format, "format").documentFormat);
     }
 
     /**
@@ -121,7 +149,7 @@ public final class VMFJournalCodec {
      * @return the journal document
      * @throws IOException when writing fails
      */
-    public static String write(ChangeJournal journal, Format format) throws IOException {
+    public static String write(ChangeJournal journal, VMFDocumentFormat format) throws IOException {
         Objects.requireNonNull(journal, "journal");
         Objects.requireNonNull(format, "format");
         ObjectNode envelope = NODES.objectNode()
@@ -146,7 +174,20 @@ public final class VMFJournalCodec {
      * @throws IOException when the JSON or journal contents are invalid or the format is unsupported
      */
     public static ChangeJournal read(String json) throws IOException {
-        return read(json, Format.JSON);
+        return read(json, VMFDocumentFormat.JSON);
+    }
+
+    /**
+     * Reads one document in the specified format and validates its version and records.
+     * @param document the complete journal document
+     * @param format the document format
+     * @return the decoded journal
+     * @throws IOException when the document or journal contents are invalid or unsupported
+     * @deprecated Use {@link #read(String, VMFDocumentFormat)}.
+     */
+    @Deprecated
+    public static ChangeJournal read(String document, Format format) throws IOException {
+        return read(document, Objects.requireNonNull(format, "format").documentFormat);
     }
 
     /**
@@ -156,7 +197,7 @@ public final class VMFJournalCodec {
      * @return the decoded journal
      * @throws IOException when the document or journal contents are invalid or unsupported
      */
-    public static ChangeJournal read(String document, Format format) throws IOException {
+    public static ChangeJournal read(String document, VMFDocumentFormat format) throws IOException {
         Objects.requireNonNull(format, "format");
         if (document == null) throw invalid("$", "expected journal " + format);
         JsonNode tree;

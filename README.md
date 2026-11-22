@@ -89,7 +89,8 @@ buildscript {
 Register the core and plugin models in a `ModelRegistry`. Once the plugins have
 attached their VMF objects, use the codec from `vmf-jackson` to save and reload
 the owner and its directly attached features in one file. Use a `.json`, `.yaml`,
-`.yml`, or `.xml` filename, or specify a `VMFFeatureCodec.Format` explicitly.
+`.yml`, or `.xml` filename, or pass the shared `VMFDocumentFormat` explicitly.
+A filename without an extension uses JSON. Unrecognized extensions require an explicit format.
 
 ```java
 var codec = new VMFFeatureCodec(registry);

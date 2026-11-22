@@ -39,7 +39,6 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.Locale;
 import java.util.Objects;
 
 /**
@@ -57,8 +56,22 @@ import java.util.Objects;
  * }</pre>
  */
 public final class VMFFeatureCodec {
-    /** File formats supported for an owner and its attachments. */
-    public enum Format { JSON, YAML, XML }
+    /**
+     * Compatibility selector for callers using the original feature codec API.
+     * @deprecated Use {@link VMFDocumentFormat}.
+     */
+    @Deprecated
+    public enum Format {
+        JSON(VMFDocumentFormat.JSON),
+        YAML(VMFDocumentFormat.YAML),
+        XML(VMFDocumentFormat.XML);
+
+        private final VMFDocumentFormat documentFormat;
+
+        Format(VMFDocumentFormat documentFormat) {
+            this.documentFormat = documentFormat;
+        }
+    }
 
     private static final int VERSION = 1;
     private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
@@ -78,14 +91,14 @@ public final class VMFFeatureCodec {
     }
 
     /**
-     * Writes the owner and its attached features. The extension selects XML or YAML, with JSON as the default.
+     * Writes the owner and its attached features. The filename extension selects the format, with JSON used for extensionless filenames.
      * @param file destination file
      * @param owner VMF object to save
      * @param attachments collection holding the owner's features
      * @throws IOException if an object cannot be encoded or the file cannot be written
      */
     public void save(Path file, VObject owner, FeatureAttachments attachments) throws IOException {
-        save(file, owner, attachments, formatOf(file));
+        save(file, owner, attachments, VMFDocumentFormat.fromPath(file));
     }
 
     /**
@@ -96,7 +109,8 @@ public final class VMFFeatureCodec {
      * @param format document format
      * @throws IOException if an object cannot be encoded or the file cannot be written
      */
-    public void save(Path file, VObject owner, FeatureAttachments attachments, Format format) throws IOException {
+    public void save(Path file, VObject owner, FeatureAttachments attachments, VMFDocumentFormat format)
+            throws IOException {
         Objects.requireNonNull(format, "format");
         ObjectNode document = mapper.createObjectNode().put("version", VERSION);
         document.set("owner", encode(owner));
@@ -109,14 +123,14 @@ public final class VMFFeatureCodec {
 
     /**
      * Loads a fresh owner and attaches newly constructed feature objects to it.
-     * @param file source document, with XML or YAML selected by extension and JSON as the default
+     * @param file source document, with the format selected by extension or JSON for an extensionless filename
      * @param ownerType expected Java type of the owner
      * @param <T> expected owner type
      * @return the restored owner and its new attachment collection
      * @throws IOException if the file is invalid or refers to an unregistered model type
      */
     public <T extends VObject> Document<T> load(Path file, Class<T> ownerType) throws IOException {
-        return load(file, ownerType, formatOf(file));
+        return load(file, ownerType, VMFDocumentFormat.fromPath(file));
     }
 
     /**
@@ -128,11 +142,12 @@ public final class VMFFeatureCodec {
      * @return the restored owner and its new attachment collection
      * @throws IOException if the file is invalid or refers to an unregistered model type
      */
-    public <T extends VObject> Document<T> load(Path file, Class<T> ownerType, Format format) throws IOException {
+    public <T extends VObject> Document<T> load(Path file, Class<T> ownerType, VMFDocumentFormat format)
+            throws IOException {
         Objects.requireNonNull(format, "format");
         JsonNode document;
         try (var input = Files.newInputStream(file)) {
-            document = format == Format.XML ? VMFFeatureXml.read(input) : transportMapper(format).reader()
+            document = format == VMFDocumentFormat.XML ? VMFFeatureXml.read(input) : transportMapper(format).reader()
                     .with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
                     .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                     .readTree(input);
@@ -160,6 +175,35 @@ public final class VMFFeatureCodec {
             }
         }
         return new Document<>(owner, attachments);
+    }
+
+    /**
+     * Saves a feature document with the original feature codec format selector.
+     * @param file destination file
+     * @param owner VMF object to save
+     * @param attachments collection holding the owner's features
+     * @param format document format
+     * @throws IOException if an object cannot be encoded or the file cannot be written
+     * @deprecated Use {@link #save(Path, VObject, FeatureAttachments, VMFDocumentFormat)}.
+     */
+    @Deprecated
+    public void save(Path file, VObject owner, FeatureAttachments attachments, Format format) throws IOException {
+        save(file, owner, attachments, Objects.requireNonNull(format, "format").documentFormat);
+    }
+
+    /**
+     * Loads a feature document with the original feature codec format selector.
+     * @param file source document
+     * @param ownerType expected Java type of the owner
+     * @param format document format
+     * @param <T> expected owner type
+     * @return the restored owner and its attachment collection
+     * @throws IOException if the source document is invalid or cannot be read
+     * @deprecated Use {@link #load(Path, Class, VMFDocumentFormat)}.
+     */
+    @Deprecated
+    public <T extends VObject> Document<T> load(Path file, Class<T> ownerType, Format format) throws IOException {
+        return load(file, ownerType, Objects.requireNonNull(format, "format").documentFormat);
     }
 
     private ObjectNode encode(VObject object) throws IOException {
@@ -194,23 +238,20 @@ public final class VMFFeatureCodec {
         return expectedType.cast(mapper.treeToValue(value, javaType));
     }
 
-    private static Format formatOf(Path file) {
-        String name = file.toString().toLowerCase(Locale.ROOT);
-        if (name.endsWith(".xml")) return Format.XML;
-        if (name.endsWith(".yaml") || name.endsWith(".yml")) return Format.YAML;
-        return Format.JSON;
+    private ObjectMapper transportMapper(VMFDocumentFormat format) {
+        switch (format) {
+            case JSON: return mapper;
+            case YAML: return YAML_MAPPER;
+            default: throw new AssertionError(format);
+        }
     }
 
-    private ObjectMapper transportMapper(Format format) {
-        return format == Format.YAML ? YAML_MAPPER : mapper;
-    }
-
-    private void writeFile(Path file, ObjectNode document, Format format) throws IOException {
+    private void writeFile(Path file, ObjectNode document, VMFDocumentFormat format) throws IOException {
         Path destination = file.toAbsolutePath();
         Path temporary = Files.createTempFile(destination.getParent(), ".vmf-features-", ".tmp");
         try {
             try (var output = Files.newOutputStream(temporary)) {
-                if (format == Format.XML) {
+                if (format == VMFDocumentFormat.XML) {
                     VMFFeatureXml.write(output, document);
                 } else {
                     transportMapper(format).writerWithDefaultPrettyPrinter().writeValue(output, document);

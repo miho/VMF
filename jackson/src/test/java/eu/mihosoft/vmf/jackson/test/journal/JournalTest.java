@@ -27,9 +27,9 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import eu.mihosoft.vmf.jackson.VMFDocumentFormat;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.jackson.VMFJournalCodec;
-import eu.mihosoft.vmf.jackson.VMFJournalCodec.Format;
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal;
@@ -132,7 +132,7 @@ class JournalTest {
         source.setSelectedItem(original);
         ChangeJournal journal = recorder.finish();
 
-        for (Format format : Format.values()) {
+        for (VMFDocumentFormat format : VMFDocumentFormat.values()) {
             ChangeJournal decoded = VMFJournalCodec.read(VMFJournalCodec.write(journal, format), format);
             assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(decoded), format.name());
             Document before = mapper.readValue(checkpointJson, Document.class);
@@ -259,7 +259,7 @@ class JournalTest {
         assertEquals("items", secondFrame.operations().get(0).property());
         assertEquals(List.of(0, 2), secondFrame.operations().get(0).indices());
 
-        for (Format format : Format.values()) {
+        for (VMFDocumentFormat format : VMFDocumentFormat.values()) {
             ChangeJournal decoded = VMFJournalCodec.read(VMFJournalCodec.write(journal, format), format);
             assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(decoded), format.name());
             Document before = mapper.readValue(checkpointJson, Document.class);
@@ -350,8 +350,8 @@ class JournalTest {
         assertEquals("b", JournalReplayer.replay(document("a"), BINDING, CHECKPOINT, journal).getTitle());
         var mapper = new ObjectMapper();
         assertEquals(fixture, mapper.writeValueAsString(mapper.readTree(VMFJournalCodec.write(journal))));
-        assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(journal, Format.JSON));
-        assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(VMFJournalCodec.read(fixture, Format.JSON)));
+        assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(journal, VMFDocumentFormat.JSON));
+        assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(VMFJournalCodec.read(fixture, VMFDocumentFormat.JSON)));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":3")));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":1,\"version\":1")));
 
@@ -364,6 +364,22 @@ class JournalTest {
         var wrongType = assertThrows(IOException.class,
                 () -> VMFJournalCodec.read(fixture.replace("\"text\":\"a\"", "\"text\":42")));
         assertEquals("$.transactions[0].operations[0].before[0].text expected a string", wrongType.getMessage());
+    }
+
+    @Test
+    @SuppressWarnings("deprecation")
+    void legacyFormatOverloadsRemainCompatible() throws IOException {
+        Document source = document("before");
+        JournalRecorder recorder = JournalRecorder.start(source, BINDING, CHECKPOINT, BASE_SEQUENCE);
+        source.setTitle("after");
+        ChangeJournal journal = recorder.finish();
+
+        for (VMFDocumentFormat format : VMFDocumentFormat.values()) {
+            VMFJournalCodec.Format legacy = VMFJournalCodec.Format.valueOf(format.name());
+            String encoded = VMFJournalCodec.write(journal, format);
+            assertEquals(encoded, VMFJournalCodec.write(journal, legacy), format.name());
+            assertEquals(encoded, VMFJournalCodec.write(VMFJournalCodec.read(encoded, legacy), format), format.name());
+        }
     }
 
     @Test
@@ -381,7 +397,7 @@ class JournalTest {
         var journal = new ChangeJournal(BINDING.modelId(), BINDING.modelVersion(), "document", CHECKPOINT,
                 Long.MAX_VALUE - 1, List.of(new ChangeJournal.Frame(Long.MAX_VALUE, List.of(operation))));
 
-        for (Format format : Format.values()) {
+        for (VMFDocumentFormat format : VMFDocumentFormat.values()) {
             String encoded = VMFJournalCodec.write(journal, format);
             ChangeJournal decoded = VMFJournalCodec.read(encoded, format);
             assertEquals(2, decoded.wireVersion(), format.name());
@@ -399,18 +415,18 @@ class JournalTest {
         String yaml = String.join("\n", "format: vmf-journal", "version: 1",
                 "model: {id: test.document, version: 1}", "root: document",
                 "base: {checkpoint: document-at-40, sequence: 40}", "transactions: []", "");
-        ChangeJournal journal = VMFJournalCodec.read(yaml, Format.YAML);
+        ChangeJournal journal = VMFJournalCodec.read(yaml, VMFDocumentFormat.YAML);
         assertEquals(CHECKPOINT, journal.checkpoint());
         assertTrue(journal.transactions().isEmpty());
-        String encoded = VMFJournalCodec.write(journal, Format.YAML);
+        String encoded = VMFJournalCodec.write(journal, VMFDocumentFormat.YAML);
         assertThrows(IOException.class, () -> VMFJournalCodec.read(encoded));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "version: 1\n", Format.YAML));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "unexpected: true\n", Format.YAML));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "---\n" + yaml, Format.YAML));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml.replace("sequence: 40", "sequence: '40'"), Format.YAML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "version: 1\n", VMFDocumentFormat.YAML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "unexpected: true\n", VMFDocumentFormat.YAML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml + "---\n" + yaml, VMFDocumentFormat.YAML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(yaml.replace("sequence: 40", "sequence: '40'"), VMFDocumentFormat.YAML));
         String alias = yaml.replace("id: test.document", "id: &model-id test.document")
                 .replace("root: document", "root: *model-id");
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(alias, Format.YAML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(alias, VMFDocumentFormat.YAML));
     }
 
     @Test
@@ -418,14 +434,14 @@ class JournalTest {
         String xml = "<vmf-journal><version>1</version><model><id>test.document</id><version>1</version></model>"
                 + "<root>document</root><base><checkpoint>document-at-40</checkpoint><sequence>40</sequence></base>"
                 + "<transactions/></vmf-journal>";
-        ChangeJournal journal = VMFJournalCodec.read(xml, Format.XML);
+        ChangeJournal journal = VMFJournalCodec.read(xml, VMFDocumentFormat.XML);
         assertEquals(CHECKPOINT, journal.checkpoint());
         assertTrue(journal.transactions().isEmpty());
-        assertTrue(VMFJournalCodec.write(journal, Format.XML).contains("<vmf-journal>"));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml.replace("<root>", "<version>1</version><root>"), Format.XML));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml.replace("<transactions/>", "<transactions/><unexpected/>"), Format.XML));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml + xml, Format.XML));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read("<!DOCTYPE vmf-journal []>" + xml, Format.XML));
+        assertTrue(VMFJournalCodec.write(journal, VMFDocumentFormat.XML).contains("<vmf-journal>"));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml.replace("<root>", "<version>1</version><root>"), VMFDocumentFormat.XML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml.replace("<transactions/>", "<transactions/><unexpected/>"), VMFDocumentFormat.XML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(xml + xml, VMFDocumentFormat.XML));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read("<!DOCTYPE vmf-journal []>" + xml, VMFDocumentFormat.XML));
     }
 
     @Test
