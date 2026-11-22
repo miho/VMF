@@ -26,6 +26,7 @@ package ${packageName};
 // vmf imports
 #set($VMFPKG="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}")
 #set($VMFPKG_INT="${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal")
+#set($ModelObject="${modelSwitchName}Model__VMF_API.ObjectInternal")
 // import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.*;
 // import ${VMF_RUNTIME_API_PKG}.${VMF_CORE_PKG_EXT}.internal.*;
 
@@ -34,11 +35,16 @@ public interface ReadOnlyListenerFor${modelSwitchName}Model extends ${VMFPKG}.Tr
   @SuppressWarnings("deprecation")
   @Override
   default void onEnter(${VMFPKG}.VObject o) {
-    switch(((${VMFPKG_INT}.VObjectInternal)o)._vmf_getTypeId()) {
+    if (!(o instanceof ${ModelObject})) {
+      return;
+    }
+    switch(((${ModelObject}) o)._vmf_getTypeId()) {
 #foreach($type in $model.types)
-      #set($modifiableIdx = $foreach.index*2 + 0)
-      #set($readOnlyIdx = $foreach.index*2 + 1)
-      case $modifiableIdx:
+#if($type.immutable)
+      case $type.typeId:
+#else
+      case $type.readOnlyImplementation.typeId:
+#end
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
         onEnter${type.readOnlyInterface.typeName}((${type.readOnlyInterface.typeName}) o);
@@ -50,11 +56,16 @@ public interface ReadOnlyListenerFor${modelSwitchName}Model extends ${VMFPKG}.Tr
   @SuppressWarnings("deprecation")
   @Override
   default void onExit(${VMFPKG}.VObject o) {
-    switch(((${VMFPKG_INT}.VObjectInternal)o)._vmf_getTypeId()) {
+    if (!(o instanceof ${ModelObject})) {
+      return;
+    }
+    switch(((${ModelObject}) o)._vmf_getTypeId()) {
 #foreach($type in $model.types)
-      #set($modifiableIdx = $foreach.index*2 + 0)
-      #set($readOnlyIdx = $foreach.index*2 + 1)
-      case $modifiableIdx:
+#if($type.immutable)
+      case $type.typeId:
+#else
+      case $type.readOnlyImplementation.typeId:
+#end
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
         onExit${type.readOnlyInterface.typeName}((${type.readOnlyInterface.typeName}) o);

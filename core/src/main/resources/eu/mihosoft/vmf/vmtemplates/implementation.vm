@@ -46,7 +46,7 @@ import ${type.packageName}.*;
  * An implementation of the model object {@code $type.fullTypeName}.
  */
 @SuppressWarnings("deprecation")
-class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$type.implementation.typeName, ${VMFPKG_INT}.VObjectInternalModifiable, VCloneableInternal {
+class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$type.implementation.typeName, ${VMFPKG_INT}.VObjectInternalModifiable, ${type.packageName}.${modelName}Model__VMF_API.ObjectInternal, VCloneableInternal {
 
   // --------------------------------------------------------------------
   // --- declaration of member variables

@@ -43,7 +43,7 @@ import ${type.packageName}.*;
  * An read-only representation of the model object {@code $type.fullTypeName}.
  */
 @SuppressWarnings("deprecation")
-class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName, ${VMFPKG_INT}.VObjectInternal, VCloneableInternal {
+class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.typeName, ${type.packageName}.${modelName}Model__VMF_API.ObjectInternal, VCloneableInternal {
 
   private final $type.typeName mutableObject;
 

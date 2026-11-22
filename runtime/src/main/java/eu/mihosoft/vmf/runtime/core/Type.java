@@ -78,6 +78,10 @@ public final class Type {
         return this.name;
     }
 
+    Class<?> javaClass() {
+        return modelClass;
+    }
+
     /**
      * Returns the element type name if this type denotes a list type.
      * @return the element type name if this type denotes a list type; returns
@@ -238,14 +242,13 @@ public final class Type {
                 for (String tName : superTypeNames) {
 
                     try {
-                        var tClass = Class.forName(tName);
+                        var tClass = Class.forName(tName, false, modelClass.getClassLoader());
 
                         // check if tClass implements Mutable or Immutable interfaces:
                         var isMutable = Mutable.class.isAssignableFrom(tClass);
                         var isImmutable = Immutable.class.isAssignableFrom(tClass);
                         boolean isInterfaceOnlyType = modelType && !isMutable && !isImmutable;
-                        superTypes.add(Type.newInstance(true, false, isInterfaceOnlyType, tName,
-                                Class.forName(tName)));
+                        superTypes.add(Type.newInstance(true, false, isInterfaceOnlyType, tName, tClass));
                     } catch (ClassNotFoundException e) {
                         e.printStackTrace();
                         throw new RuntimeException(

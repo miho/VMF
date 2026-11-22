@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import eu.mihosoft.vmf.runtime.core.Change;
+import eu.mihosoft.vmf.runtime.core.ModelRegistry;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Reflect;
 import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
@@ -86,6 +87,12 @@ public class VMFJacksonModule extends SimpleModule {
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
 
     private volatile boolean referencesEnabled;
+    private volatile ModelRegistry modelRegistry;
+
+    VMFJacksonModule withModelRegistry(ModelRegistry registry) {
+        this.modelRegistry = Objects.requireNonNull(registry, "registry");
+        return this;
+    }
 
     /**
      * Enables or disables non-containment references (disabled by default). If enabled, the module
@@ -728,7 +735,7 @@ public class VMFJacksonModule extends SimpleModule {
             }
         }
 
-        private Class<?> getVMFTypeClass(JsonParser p, JsonNode node, Class<?> actualClass) {
+        private Class<?> getVMFTypeClass(JsonParser p, JsonNode node, Class<?> actualClass) throws JsonMappingException {
             String vmfTypeFieldName = "@vmf-type";
 
             var clsName = "com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser";
@@ -737,23 +744,41 @@ public class VMFJacksonModule extends SimpleModule {
                 vmfTypeFieldName = "vmf-type";
             }
 
-            if(node.has(vmfTypeFieldName)) {
-                String type = node.get(vmfTypeFieldName).asText();
+            JsonNode discriminator = node.get(vmfTypeFieldName);
+            if (discriminator == null) {
+                return actualClass;
+            }
 
-                // check if we have a type alias
-                if(module.getTypeAliases().containsKey(type)) {
-                    type = module.getTypeAliases().get(type);
+            ModelRegistry registry = module.modelRegistry;
+            if (registry != null) {
+                // External collection elements may use this field as ordinary data.
+                if (actualClass == null || !isVMFObj(actualClass)) {
+                    return actualClass;
                 }
-
-                // get the actual class
-                try {
-                    actualClass = Class.forName(type);
-                } catch (ClassNotFoundException e) {
-                    e.printStackTrace();
-                    throw new RuntimeException(e);
+                if (!discriminator.isTextual() || discriminator.textValue().isBlank()) {
+                    throw JsonMappingException.from(p, "Expected a non-empty VMF type name in '" + vmfTypeFieldName + "'");
                 }
             }
-            return actualClass;
+
+            String name = discriminator.asText();
+            String type = module.typeAliases.getOrDefault(name, name);
+            if (registry != null) {
+                Class<?> registeredClass = registry.findType(type)
+                        .filter(descriptor -> !descriptor.isInterfaceOnly())
+                        .flatMap(descriptor -> registry.findJavaType(descriptor.getName()))
+                        .orElseThrow(() -> JsonMappingException.from(p, "Unregistered or interface-only VMF type '" + type + "'"));
+                if (!actualClass.isAssignableFrom(registeredClass)) {
+                    throw JsonMappingException.from(p, "VMF type '" + type + "' is not assignable to " + actualClass.getName());
+                }
+                return registeredClass;
+            }
+
+            try {
+                return Class.forName(type);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+                throw new RuntimeException(e);
+            }
         }
 
         /**

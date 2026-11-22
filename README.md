@@ -84,6 +84,26 @@ buildscript {
 }
 ```
 
+### Saving plugin features
+
+Register the core and plugin models in a `ModelRegistry`. Once the plugins have
+attached their VMF objects, use the codec from `vmf-jackson` to save and reload
+the owner and its directly attached features in one file. Use a `.json`, `.yaml`,
+`.yml`, or `.xml` filename, or specify a `VMFFeatureCodec.Format` explicitly.
+
+```java
+var codec = new VMFFeatureCodec(registry);
+codec.save(path, device, attachments);
+
+var loaded = codec.load(path, Device.class);
+Device restored = loaded.owner();
+var calibration = loaded.attachments().find(restored, Calibration.class);
+```
+
+The codec handles modeled properties for each registered feature type. If a
+plugin required by the file is missing, loading reports its type name.
+[See the two-plugin example.](jackson/src/test/java/eu/mihosoft/vmf/jackson/test/plugincomposition/PluginCompositionExampleTest.java)
+
 ### Snapshots
 
 Between releases, `main` is published as `-SNAPSHOT` (e.g. `0.4.0-SNAPSHOT`) to the Maven Central snapshot repository. To use it, add the repository for plugins (`settings.gradle`) and, for other VMF artifacts such as `vmf-jackson`, for dependencies:
