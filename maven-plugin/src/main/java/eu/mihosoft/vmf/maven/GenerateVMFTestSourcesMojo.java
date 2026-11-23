@@ -25,10 +25,13 @@
 package eu.mihosoft.vmf.maven;
 
 import java.io.File;
+import java.util.List;
 
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
+import org.apache.maven.plugins.annotations.ResolutionScope;
 
 /**
  * Generates Java implementation classes from test source files in VMF model
@@ -39,12 +42,12 @@ import org.apache.maven.plugins.annotations.Parameter;
  * <li>vmf.testSourceDirectory - the vmf model test source directory (default:
  * ${basedir}/src/test/vmf)</li>
  * <li>vmf.testTargetDirectory - the directory with generated Java test files (default:
- * ${project.build.directory}/generated-test-sources/test-vmf)</li>
+ * ${project.build.directory}/generated-test-sources/java-vmf)</li>
  * </ul>
- * </p>
  * 
  */
-@Mojo(name = "vmf-test", defaultPhase = LifecyclePhase.GENERATE_TEST_SOURCES, threadSafe = true)
+@Mojo(name = "vmf-test", defaultPhase = LifecyclePhase.GENERATE_TEST_SOURCES, threadSafe = true,
+		requiresDependencyResolution = ResolutionScope.TEST)
 public class GenerateVMFTestSourcesMojo extends AbstractVMFMojo {
 	/** The source directory containing the vmf test model files. */
 	@Parameter(property = "vmf.testSourceDirectory", defaultValue = "${basedir}/src/test/vmf")
@@ -77,5 +80,10 @@ public class GenerateVMFTestSourcesMojo extends AbstractVMFMojo {
 	@Override
 	protected void addGeneratedFolderToProject(String folder) {
 		getProject().addTestCompileSourceRoot(folder);
+	}
+
+	@Override
+	protected List<String> getModelClasspathElements() throws DependencyResolutionRequiredException {
+		return getProject().getTestClasspathElements();
 	}
 }

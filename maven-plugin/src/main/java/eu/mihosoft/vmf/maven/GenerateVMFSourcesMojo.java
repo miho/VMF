@@ -42,7 +42,6 @@ import org.apache.maven.plugins.annotations.ResolutionScope;
  * <li>vmf.targetDirectory - the directory with generated Java files (default:
  * ${project.build.directory}/generated-sources/java-vmf)</li>
  * </ul>
- * </p>
  * 
  */
 @Mojo(name = "vmf", defaultPhase = LifecyclePhase.GENERATE_SOURCES, threadSafe = true, requiresDependencyResolution = ResolutionScope.COMPILE )
