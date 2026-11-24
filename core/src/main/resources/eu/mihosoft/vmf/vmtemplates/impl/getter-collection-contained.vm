@@ -87,6 +87,9 @@
                 }
             }
         }); // end of containment listener
+#if($prop.referenceSet)
+        this.__vmf_prop_${prop.name} = ${VMFPKG_INT}.ReferenceCollections.checked(this.__vmf_prop_${prop.name}, ${prop.elementTypeName}.class, ${prop.ordered});
+#end
              
 
     } // end of "lazy init" if(this.__vmf_prop_$prop.name==null)

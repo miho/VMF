@@ -38,6 +38,7 @@ public final class ChangeJournal {
     public static final int EXTERNAL_VALUES_VERSION = 2;
     public static final int MAPS_VERSION = 3;
     public static final int COLLECTIONS_VERSION = 4;
+    public static final int REFERENCE_SETS_VERSION = 5;
 
     private final String model;
     private final int modelVersion;
@@ -78,13 +79,14 @@ public final class ChangeJournal {
         int version = VERSION;
         for (Frame frame : transactions) {
             for (Operation operation : frame.operations()) {
-                if (operation.kind() == Kind.SET_EDIT || operation.kind() == Kind.TYPED_MAP_EDIT) return COLLECTIONS_VERSION;
+                if (operation.kind() == Kind.REF_SET_EDIT) return REFERENCE_SETS_VERSION;
+                if (operation.kind() == Kind.SET_EDIT || operation.kind() == Kind.TYPED_MAP_EDIT) version = COLLECTIONS_VERSION;
                 if (operation.kind() == Kind.MAP_EDIT) version = Math.max(version, MAPS_VERSION);
                 if (hasExternalValues(operation.before()) || hasExternalValues(operation.after())) {
                     version = Math.max(version, EXTERNAL_VALUES_VERSION);
                 }
                 for (Creation creation : operation.created()) {
-                    if (!creation.typedMapProperties().isEmpty() || !creation.setProperties().isEmpty()) return COLLECTIONS_VERSION;
+                    if (!creation.typedMapProperties().isEmpty() || !creation.setProperties().isEmpty()) version = COLLECTIONS_VERSION;
                     if (!creation.mapProperties().isEmpty()) version = Math.max(version, MAPS_VERSION);
                     if (creation.properties().values().stream().anyMatch(ChangeJournal::hasExternalValues)) {
                         version = Math.max(version, EXTERNAL_VALUES_VERSION);
@@ -99,7 +101,7 @@ public final class ChangeJournal {
         return values.stream().anyMatch(value -> value.kind() == ValueKind.EXTERNAL);
     }
 
-    public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET, MAP_EDIT, SET_EDIT, TYPED_MAP_EDIT }
+    public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET, MAP_EDIT, SET_EDIT, TYPED_MAP_EDIT, REF_SET_EDIT }
 
     public enum ValueKind { NULL, REFERENCE, STRING, BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, CHAR, EXTERNAL }
 
@@ -317,6 +319,18 @@ public final class ChangeJournal {
         }
 
         private void validateShape() {
+            if (kind == Kind.REF_SET_EDIT) {
+                Set<Value> seen = new HashSet<>();
+                if (!indices.isEmpty() || (before.isEmpty() && after.isEmpty()))
+                    throw new IllegalArgumentException("A reference membership edit requires changed IDs and no positions");
+                for (List<Value> side : List.of(before, after)) {
+                    for (Value member : side) {
+                        if (member.kind() != ValueKind.REFERENCE || !seen.add(member))
+                            throw new IllegalArgumentException("A reference membership edit requires distinct object IDs");
+                    }
+                }
+                return;
+            }
             if (kind == Kind.SET_EDIT) {
                 validateMembers(before);
                 validateMembers(after);

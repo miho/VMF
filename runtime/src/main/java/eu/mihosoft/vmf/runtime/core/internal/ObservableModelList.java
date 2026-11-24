@@ -82,6 +82,13 @@ public class ObservableModelList<T> extends AbstractList<T> implements VList<T> 
         }
     }
 
+    /** Removes all occurrences mirrored by one unique opposite edge in a single native change. */
+    public static void removeAllCrossReferences(VList<?> list, Object target) {
+        int[] positions = java.util.stream.IntStream.range(0, list.size())
+                .filter(i -> list.get(i) == target).toArray();
+        if (positions.length != 0) crossReference(list, () -> list.removeAll(positions));
+    }
+
     public static void removeCrossReference(VList<?> list, int index) {
         crossReference(list, () -> list.remove(index));
     }

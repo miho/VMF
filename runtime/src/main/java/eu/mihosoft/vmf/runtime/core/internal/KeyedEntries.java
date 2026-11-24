@@ -23,6 +23,7 @@
  */
 package eu.mihosoft.vmf.runtime.core.internal;
 
+import eu.mihosoft.vcollections.VList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -38,6 +39,11 @@ public final class KeyedEntries {
 
     /** Finds an entry by scalar equality or by the identity of a referenced model object. */
     public static <E, K> Optional<E> find(List<E> entries, Function<? super E, ? extends K> keyOf, K key) {
+        return find((Iterable<E>) entries, keyOf, key);
+    }
+
+    /** Finds an entry in any generated collection of keyed model objects. */
+    public static <E, K> Optional<E> find(Iterable<E> entries, Function<? super E, ? extends K> keyOf, K key) {
         Objects.requireNonNull(key, "lookup key");
         E match = null;
         for (E entry : entries) {
@@ -50,10 +56,7 @@ public final class KeyedEntries {
     }
 
     private static Object identity(Object key) {
-        if (key instanceof VObjectInternal && ((VObjectInternal) key)._vmf_isReadOnly()) {
-            return ((VObjectInternal) key)._vmf_getMutableObject();
-        }
-        return key;
+        return ReferenceCollections.identity(key);
     }
 
     private static boolean sameKey(Object first, Object second) {
@@ -71,14 +74,17 @@ public final class KeyedEntries {
         if (parent == null) return;
         for (int id : parent._vmf_getChildrenIndices()) {
             Object siblings = parent._vmf_getPropertyValueById(id);
-            if (siblings instanceof ContainmentList) {
-                ((ContainmentList<?>) siblings).requireKeyChange(child, property, next);
-            }
+            ContainmentList<?> list = ReferenceCollections.containment(siblings);
+            if (list != null) list.requireKeyChange(child, property, next);
         }
     }
 
     /** Replaces or appends keyed entries after validating the complete proposed edit. */
     public static <E> void copy(List<E> target, Collection<? extends E> incoming, boolean append) {
+        if (ReferenceCollections.isReferenceList(target)) {
+            ReferenceCollections.copy((VList<E>) target, incoming, append);
+            return;
+        }
         var list = (ContainmentList<E>) target;
         if (incoming == target && !append) return;
         var entries = new java.util.ArrayList<E>(incoming);

@@ -77,7 +77,20 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
 #foreach( $prop in ${type.implementation.properties} )
   @Override
   public $prop.getterDeclaration {
-  #if($prop.mapType || $prop.managedValues)
+  #if($prop.referenceSet)
+    if (__vmf_refs_${prop.name} == null) {
+      __vmf_refs_${prop.name} = ${VMFPKG}.internal.ReferenceCollections.readOnly(
+          ${VMFPKG}.internal.ReferenceCollections.${prop.referenceCollectionFactory}(__vmf_get_prop_${prop.name}()), e -> e);
+    }
+    return __vmf_refs_${prop.name};
+  }
+  private ${prop.typeName} __vmf_get_prop_${prop.name}() {
+    if (this.__vmf_prop_${prop.name} == null) {
+      this.__vmf_prop_${prop.name} = ${VMFPKG}.internal.ReferenceCollections.checked(
+          ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<${prop.elementTypeName}>()), ${prop.elementTypeName}.class, ${prop.ordered});
+    }
+    return this.__vmf_prop_${prop.name};
+  #elseif($prop.mapType || $prop.managedValues)
     return this.__vmf_prop_${prop.name}.asUnmodifiable();
   #elseif($prop.propType == "COLLECTION")
     if(this.__vmf_prop_$prop.name==null) {

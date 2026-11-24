@@ -4,6 +4,8 @@ import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vcollections.VListChangeEvent;
 import eu.mihosoft.vmf.runtime.core.*;
 import eu.mihosoft.vmf.runtime.core.internal.ManagedMaps;
+import eu.mihosoft.vmf.runtime.core.internal.ReferenceCollections;
+import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 
 import java.util.*;
@@ -94,6 +96,13 @@ public final class ModelDiff {
             VObjectInternalModifiable internal = (VObjectInternalModifiable) object;
             int pid = internal._vmf_getPropertyIdByName(propertyName);
             Object current = internal._vmf_getPropertyValueById(pid);
+            if (newValue instanceof List && !(newValue instanceof VList)) {
+                Property property = object.vmf().reflect().propertyByName(propertyName).orElseThrow();
+                if (property.getType().isReferenceSetType()) {
+                    return ReferenceCollections.sameMembers((Iterable<?>) newValue, (Iterable<?>) current,
+                            property.getMultiplicity().isOrdered());
+                }
+            }
             if(newValue instanceof VList && current instanceof VList) {
                 return listsEqual((VList<?>) newValue, (VList<?>) current);
             }
@@ -128,11 +137,23 @@ public final class ModelDiff {
     public static List<Change> diff(VObject a, VObject b) {
         List<Change> result = new ArrayList<>();
         if(a == null || b == null) return result;
-        diffObjects(a, a, b, result);
+        Comparison comparison = new Comparison();
+        diffObjects(a, a, b, result, comparison);
+        comparison.referenceEdits.forEach(Runnable::run);
         return result;
     }
 
-    private static void diffObjects(VObject source, VObject a, VObject b, List<Change> out) {
+    private static final class Comparison {
+        final Set<VObjectInternal.EqualsPair> visited = new HashSet<>();
+        final List<Runnable> referenceEdits = new ArrayList<>();
+        final IdentityHashMap<Object,Object> counterparts = new IdentityHashMap<>();
+        // Clone into an isolated graph. Its generated opposite setters must never see the source graph during diff().
+        final IdentityHashMap<Object,Object> copies = new IdentityHashMap<>();
+    }
+
+    private static void diffObjects(VObject source, VObject a, VObject b, List<Change> out, Comparison comparison) {
+        if (!comparison.visited.add(new VObjectInternal.EqualsPair(a,b))) return;
+        comparison.counterparts.putIfAbsent(b, a);
         Reflect ra = a.vmf().reflect();
         Reflect rb = b.vmf().reflect();
         for(Property pa : ra.properties()) {
@@ -143,7 +164,26 @@ public final class ModelDiff {
             Object va = pa.get();
             Object vb = pb.get();
 
-            if (pa.getType().isMapType()) {
+            if (pa.getType().isReferenceSetType()) {
+                if (!pa.getType().getDescriptor().equals(pb.getType().getDescriptor())) {
+                    throw new IllegalArgumentException("Incompatible reference collection " + pa.getName());
+                }
+                List<Object> previous = new ArrayList<>();
+                ((RefSet<?>) va).forEach(previous::add);
+                var desired = (RefSet<?>) vb;
+                if (isContainment(a, pa)) {
+                    matchContainedMembers(previous, desired, comparison);
+                }
+                // Relationships may precede their targets' containment properties in reflection order.
+                comparison.referenceEdits.add(() -> {
+                    List<Object> next = new ArrayList<>(desired.size());
+                    desired.forEach(child -> next.add(comparison.counterparts.getOrDefault(child, child)));
+                    if (!ReferenceCollections.sameMembers(previous, next, pa.getMultiplicity().isOrdered())) {
+                        out.add(new PropChange(source, a, pa.getName(), List.copyOf(previous),
+                                List.copyOf(next), System.nanoTime()));
+                    }
+                });
+            } else if (pa.getType().isMapType()) {
                 if (!pa.getType().getDescriptor().equals(pb.getType().getDescriptor())) {
                     throw new IllegalArgumentException("Incompatible managed map property " + pa.getName());
                 }
@@ -166,9 +206,11 @@ public final class ModelDiff {
                     if(va == null && vb == null) {
                         continue;
                     } else if(va == null || vb == null) {
-                        out.add(new PropChange(source, a, pa.getName(), va, cloneValue(vb), System.nanoTime()));
+                        Object next = isContainment(a, pa) ? copyMember(vb, comparison.copies) : cloneValue(vb);
+                        if (isContainment(a, pa)) rememberChildren(vb, next, comparison.counterparts);
+                        out.add(new PropChange(source, a, pa.getName(), va, next, System.nanoTime()));
                     } else {
-                        diffObjects(source, (VObject) va, (VObject) vb, out);
+                        diffObjects(source, (VObject) va, (VObject) vb, out, comparison);
                     }
                 } else {
                     if(!Objects.equals(va, vb)) {
@@ -178,11 +220,76 @@ public final class ModelDiff {
             } else {
                 VList<?> la = (VList<?>) va;
                 VList<?> lb = (VList<?>) vb;
+                VList<?> next = la;
                 if(!listsEqual(la, lb)) {
-                    out.add(new PropChange(source, a, pa.getName(), cloneList(la), cloneList(lb), System.nanoTime()));
+                    next = pa.getType().isModelType() && isContainment(a, pa)
+                            ? copyMembers(lb, comparison.copies) : cloneList(lb);
+                    out.add(new PropChange(source, a, pa.getName(), cloneList(la), next, System.nanoTime()));
+                }
+                if (pa.getType().isModelType() && isContainment(a, pa)) {
+                    rememberChildren(lb, next, comparison.counterparts);
                 }
             }
         }
+    }
+
+    private static void matchContainedMembers(List<?> previous, RefSet<?> desired, Comparison comparison) {
+        // Reserve exact matches first, then pair equal-content children one to one across graphs.
+        var available = new ArrayList<>(previous);
+        available.removeIf(desired::contains);
+        Set<Object> original = Collections.newSetFromMap(new IdentityHashMap<>());
+        original.addAll(previous);
+        for (VObject child : desired) {
+            if (original.contains(child)) {
+                rememberChildren(child, child, comparison.counterparts);
+                continue;
+            }
+            int i = 0;
+            while (i < available.size() && !child.vmf().content().equals(available.get(i))) i++;
+            if (i < available.size()) rememberChildren(child, available.remove(i), comparison.counterparts);
+        }
+        for (VObject child : desired) {
+            if (!comparison.counterparts.containsKey(child)) {
+                rememberChildren(child, copyMember(child, comparison.copies), comparison.counterparts);
+            }
+        }
+    }
+
+    private static Object copyMember(Object child, IdentityHashMap<Object,Object> counterparts) {
+        if (child == null) return null;
+        Object match = counterparts.get(child);
+        if (match != null) return match;
+        Object copy = ((VObjectInternal) child)._vmf_deepCopy(counterparts);
+        counterparts.put(child, copy);
+        return copy;
+    }
+
+    private static VList<?> copyMembers(List<?> source, IdentityHashMap<Object,Object> counterparts) {
+        VList<Object> result = VList.newInstance(new ArrayList<>());
+        for (Object member : source) result.add(copyMember(member, counterparts));
+        return result;
+    }
+
+    /** Remember contained descendants so a separate reference can point back into a copied subtree. */
+    private static void rememberChildren(Object from, Object to, Map<Object,Object> counterparts) {
+        if (from instanceof List && to instanceof List) {
+            List<?> src = (List<?>) from, dst = (List<?>) to;
+            for (int i = 0; i < src.size(); i++) rememberChildren(src.get(i), dst.get(i), counterparts);
+        } else if (from instanceof VObjectInternal && to instanceof VObjectInternal) {
+            if (counterparts.put(from, to) == to) return;
+            var src = (VObjectInternal) from;
+            var dst = (VObjectInternal) to;
+            for (int id : src._vmf_getChildrenIndices()) {
+                rememberChildren(src._vmf_getPropertyValueById(id), dst._vmf_getPropertyValueById(id), counterparts);
+            }
+        }
+    }
+
+    private static boolean isContainment(VObject owner, Property property) {
+        var internal = (VObjectInternal) owner;
+        int id = internal._vmf_getPropertyIdByName(property.getName());
+        for (int child : internal._vmf_getChildrenIndices()) if (child == id) return true;
+        return false;
     }
 
     private static boolean listsEqual(VList<?> a, VList<?> b) {
@@ -253,6 +360,16 @@ public final class ModelDiff {
 
         VObject result = template.clone();
 
+        IdentityHashMap<Object, Object> containedCopies = new IdentityHashMap<>();
+        var owner = (VObjectInternal) override;
+        for (int id : owner._vmf_getChildrenIndices()) {
+            Object children = owner._vmf_getPropertyValueById(id);
+            if (children instanceof List) {
+                for (Object child : (List<?>) children) copyMember(child, containedCopies);
+            } else {
+                copyMember(children, containedCopies);
+            }
+        }
         override.vmf().reflect().properties().forEach(p -> {
             Optional<Property> targetPropOpt = result.vmf().reflect().propertyByName(p.getName());
             if (!targetPropOpt.isPresent()) {
@@ -260,11 +377,14 @@ public final class ModelDiff {
             }
             Property targetProp = targetPropOpt.get();
 
-            if (!p.getType().isListType()) {
+            if (p.getType().isReferenceSetType()) {
+                RefSet<VObject> target = (RefSet<VObject>) targetProp.get();
+                for (Object child : (RefSet<?>) p.get()) target.add((VObject) containedCopies.getOrDefault(child, child));
+            } else if (!p.getType().isListType()) {
                 if (p.isSet()) {
                     Object val = p.get();
                     if (val instanceof VObject) {
-                        targetProp.set(((VObject) val).clone());
+                        targetProp.set(containedCopies.containsKey(val) ? containedCopies.get(val) : ((VObject) val).clone());
                     } else {
                         targetProp.set(val);
                     }
@@ -277,7 +397,7 @@ public final class ModelDiff {
                 List tgtList = (List) targetProp.get();
                 for(Object item : src) {
                     if (item instanceof VObject) {
-                        tgtList.add(((VObject) item).clone());
+                        tgtList.add(containedCopies.containsKey(item) ? containedCopies.get(item) : ((VObject) item).clone());
                     } else {
                         tgtList.add(item);
                     }

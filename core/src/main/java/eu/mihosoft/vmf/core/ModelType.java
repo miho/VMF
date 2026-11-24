@@ -847,6 +847,14 @@ public class ModelType {
                         collect(Collectors.toList());
     }
 
+    public boolean hasReferenceDefaults() {
+        return getImplementation().getProperties().stream().anyMatch(Prop::hasReferenceDefault);
+    }
+
+    public boolean hasReferenceSets() {
+        return getImplementation().getProperties().stream().anyMatch(Prop::isReferenceSet);
+    }
+
     public void initPropIds() {
         int i = 0;
         // System.out.println("!!!Type: " + getTypeName());

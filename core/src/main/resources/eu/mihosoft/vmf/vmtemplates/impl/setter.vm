@@ -72,7 +72,7 @@ public boolean _vmf_unregisterFromContainers(${VCOLL_PKG}.VList<?> destination, 
       if(!found && container instanceof __VMF_TYPE_${container.typeName}Impl) {
         __VMF_TYPE_${container.typeName}Impl container_internal = (__VMF_TYPE_${container.typeName}Impl)container;
 #if(${contained.propType}=="COLLECTION")## contained prop is collection
-        ${VCOLL_PKG}.VList<?> containedList = container_internal.get${contained.nameWithUpperCase}();
+        ${VCOLL_PKG}.VList<?> containedList = ${contained.internalGetter("container_internal")};
         if (containedList != destination) found = _vmf_removeFromContainmentList(containedList, true);
 #else##                                    contained prop is collection
         ${contained.typeName} oldValue = container_internal.__vmf_get_prop_${contained.name}();

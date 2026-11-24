@@ -147,7 +147,10 @@ public class Model {
         // PASS 7
         for (ModelType t : types.values()) {
 
-            for (Prop property : t.getImplementation().getProperties()) property.validateEntryKey(t);
+            for (Prop property : t.getImplementation().getProperties()) {
+                property.validateEntryKey(t);
+                property.validateReferenceSetOverride(t);
+            }
 
             if(t.isHashCodeMethodDelegated()!=t.isEqualsMethodDelegated()) {
                 if(t.isHashCodeMethodDelegated()) {
@@ -427,6 +430,8 @@ public class Model {
         return Optional.empty();
     }
 
+
+    boolean declares(Class<?> type) { return interfaces.contains(type); }
 
     public boolean isModelType(String type) {
         for (Class<?> clazz : interfaces) {

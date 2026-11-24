@@ -258,6 +258,17 @@ public final class JournalRecorder implements AutoCloseable {
             return Operation.setEdit(target, property, freezeMembers(event.removed()), freezeMembers(event.added()));
         }
 
+        if (change.getType() == Change.ChangeType.REFERENCE_SET) {
+            var edit = change.referenceSetChange().orElseThrow();
+            List<Value> before = new ArrayList<>(), after = new ArrayList<>();
+            for (VObject member : edit.removed()) before.add(freeze(member, created));
+            for (VObject member : edit.added()) after.add(freeze(member, created));
+            if (before.isEmpty() && after.isEmpty()) return null;
+            Kind kind = Kind.REF_SET_EDIT;
+            if (!edit.indices().isEmpty())
+                kind = before.isEmpty() ? Kind.LIST_ADD : after.isEmpty() ? Kind.LIST_REMOVE : Kind.LIST_SET;
+            return new Operation(kind, target, property, edit.indices(), before, after, created);
+        }
         var event = listChange.orElseThrow();
         Map<Integer, Value> before = indexed(event.removed(), created);
         Map<Integer, Value> after = indexed(event.added(), created);
@@ -353,9 +364,9 @@ public final class JournalRecorder implements AutoCloseable {
                 else typedMaps.put(key, freezeTypedEntries((Map<?, ?>) value));
             } else if (property.getType().isSetType()) {
                 sets.put(key, freezeMembers((java.util.Set<?>) value));
-            } else if (property.getType().isListType()) {
+            } else if (property.getType().isListType() || property.getType().isReferenceSetType()) {
                 List<Value> items = new ArrayList<>();
-                for (Object item : (List<?>) value) items.add(freeze(item, created));
+                for (Object item : (Iterable<?>) value) items.add(freeze(item, created));
                 properties.put(key, items);
             } else {
                 properties.put(key, List.of(freeze(value, created)));

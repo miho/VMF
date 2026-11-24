@@ -68,7 +68,12 @@
 
         return #if($type.implementation.propertiesForEquals.isEmpty())true;#end
 #foreach ($prop in $type.implementation.propertiesForEquals)
+#if($prop.referenceSet && !$prop.ordered)
+          ${VMFPKG_INT}.ReferenceContent.unorderedEquals(this.__vmf_prop_${prop.name}, other.__vmf_prop_${prop.name},
+            (left, right) -> _vmf_equals_helper(_vmf_getThreadLocalEquals(), left, right))#if($foreach.hasNext) &&#else;#end
+#else
           _vmf_equals_helper(_vmf_getThreadLocalEquals(), this.__vmf_prop_$prop.name, other.__vmf_prop_$prop.name)#if($foreach.hasNext) &&#else;#end
+#end
 
 #end## for-each property
       }
@@ -239,7 +244,11 @@
 #if(${type.isEqualsAndHashCodeCallSuper()})super.hashCode() + #end
             _vmf_deepHashCode( 
 #foreach ($prop in $type.implementation.propertiesForEquals)
+#if($prop.referenceSet)
+            ${VMFPKG_INT}.ReferenceContent.hash(this.__vmf_prop_${prop.name}, ${prop.ordered})#if($foreach.hasNext),#end
+#else
             this.__vmf_prop_$prop.name#if($foreach.hasNext),#end
+#end
 #end        );
             entry = true;
             return value;

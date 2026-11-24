@@ -37,7 +37,8 @@ public final class ManagedValues {
     }
 
     static boolean isOrderedSet(List<?> list) {
-        return list instanceof CheckedList && ((CheckedList<?>) list).unique;
+        return list instanceof CheckedList && !ReferenceCollections.isReferenceList(list)
+                && ((CheckedList<?>) list).unique;
     }
 
     /** Replace or append only after checking the entire proposed value. */
@@ -60,13 +61,18 @@ public final class ManagedValues {
         return set ? Collections.unmodifiableSet(new LinkedHashSet<>(target)) : Collections.unmodifiableList(new ArrayList<>(target));
     }
 
-    private static final class CheckedList<E> extends ObservableModelList<E> {
+    /** Applies one preflight to direct edits, iterators and sublists. Model reference storage
+     * supplies identity membership and its relationship-aware observable delegate. */
+    static class CheckedList<E> extends ObservableModelList<E> {
         private final Class<E> type;
         private final int upper;
         private final boolean unique;
         private int revision;
         CheckedList(Class<E> type, int upper, boolean unique) {
-            super(VList.newInstance(new ArrayList<>()));
+            this(type, upper, unique, VList.newInstance(new ArrayList<>()));
+        }
+        CheckedList(Class<E> type, int upper, boolean unique, VList<E> storage) {
+            super(storage);
             this.type = type;
             this.upper = upper;
             this.unique = unique;
@@ -76,11 +82,16 @@ public final class ManagedValues {
             return unmodifiableView(true);
         }
 
-        private void check(List<E> next) {
+        void checkElement(E value) { type.cast(Objects.requireNonNull(value, "list member")); }
+        Set<E> newMembershipSet() { return new HashSet<>(); }
+        boolean sameSequence(List<E> values) { return equals(values); }
+        void invalidateIterators() { revision++; }
+
+        void check(List<E> next) {
             checkSize(next.size());
-            Set<E> seen = unique ? new HashSet<>() : null;
+            Set<E> seen = unique ? newMembershipSet() : null;
             for (E value : next) {
-                type.cast(Objects.requireNonNull(value, "list member"));
+                checkElement(value);
                 if (seen != null && !seen.add(value))
                     throw new IllegalArgumentException("Duplicate member in unique list: " + value);
             }
@@ -88,7 +99,7 @@ public final class ManagedValues {
 
         private boolean insert(int index, E value, boolean ignoreDuplicate) {
             Objects.checkIndex(index, size() + 1);
-            type.cast(Objects.requireNonNull(value, "list member"));
+            checkElement(value);
             if (unique && contains(value)) {
                 if (ignoreDuplicate) return false;
                 throw new IllegalArgumentException("Duplicate member in ordered set: " + value);
@@ -109,9 +120,10 @@ public final class ManagedValues {
         @Override public boolean addAll(int index, Collection<? extends E> entries) {
             Objects.checkIndex(index, size() + 1);
             List<E> added = new ArrayList<>();
-            Set<E> seen = unique ? new HashSet<>(this) : null;
+            Set<E> seen = unique ? newMembershipSet() : null;
+            if (seen != null) seen.addAll(this);
             for (E entry : entries) {
-                type.cast(Objects.requireNonNull(entry, "list member"));
+                checkElement(entry);
                 if (seen == null || seen.add(entry)) added.add(entry);
             }
             if (added.isEmpty()) return false;
@@ -152,7 +164,7 @@ public final class ManagedValues {
         void replace(Collection<? extends E> entries) {
             List<E> next = new ArrayList<>(entries);
             check(next);
-            if (equals(next)) return;
+            if (sameSequence(next)) return;
             if (size() == next.size()) { setAll(0, next); return; }
             Throwable failure = null;
             try { clear(); } catch (RuntimeException | Error ex) { failure = ex; }
@@ -173,7 +185,7 @@ public final class ManagedValues {
         @Override public void sort(Comparator<? super E> comparator) {
             List<E> next = new ArrayList<>(this);
             next.sort(comparator);
-            if (!equals(next)) setAll(0, next);
+            if (!sameSequence(next)) setAll(0, next);
         }
 
         @Override public E remove(int index) {

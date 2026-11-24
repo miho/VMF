@@ -33,9 +33,18 @@
     boolean deepCopy, java.util.IdentityHashMap<Object,Object> identityMap
   ) {
 
-      this(); // default constructor
+      this(#if($type.hasReferenceDefaults())false#end); // initialize properties before copying
 
       identityMap.put(other,this);
+#if($type.hasReferenceSets())
+#foreach($prop in $type.implementation.properties)
+#if($prop.referenceSet && ($prop.contained || ($prop.crossRefProperty && $prop.referenceInfo.opposite.propType != "COLLECTION")))
+      if (!deepCopy && other.__vmf_prop_${prop.name} != null && !other.__vmf_prop_${prop.name}.isEmpty()) {
+        throw new IllegalStateException("Shallow copying '${prop.name}' would change its existing owner. Use deepCopy().");
+      }
+#end
+#end
+#end
 
 #foreach ($prop in $type.implementation.properties)
 #if(!$prop.container)
@@ -54,7 +63,8 @@
         // element type is a model type
         for($prop.genericType.typeName e : other.__vmf_prop_${prop.name}) {
           // TODO do a bulk operation instead
-          ${VMFPKG_INT}.VObjectInternal eClone = (${VMFPKG_INT}.VObjectInternal)($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap);
+          ${VMFPKG_INT}.VObjectInternal eClone = e == null ? null :
+              (${VMFPKG_INT}.VObjectInternal)(($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap));
           this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)eClone);
         }
 #else ## if prop genericType
@@ -65,9 +75,15 @@
         // nothing to copy
       }
     } else {
+#if($prop.referenceSet)
+      if (other.__vmf_prop_${prop.name} != null && !other.__vmf_prop_${prop.name}.isEmpty()) {
+        __vmf_get_prop_${prop.name}().addAll(other.__vmf_prop_${prop.name});
+      }
+#else
       this.__vmf_prop_$prop.name = other.__vmf_prop_$prop.name;
+#end
     }
-#if($prop.contained)
+#if($prop.contained && !$prop.referenceSet)
     if(this.__vmf_prop_${prop.name}!=null && !deepCopy) {
       throw new RuntimeException("Cannot create shallow copy of containment properties. Use 'deepCopy()' instead.");
 ##       this.__vmf_prop_${prop.name}.forEach((e) -> {
@@ -96,7 +112,30 @@
 #end ## if container type
 #end ## for-each property
 
+#if($type.hasReferenceSets())
+#foreach ($prop in $type.implementation.properties)
+#if($prop.hasReferenceDefault())
+    this.__vmf_declared_default_${prop.name} = __vmf_copyReferenceDefaults(other.__vmf_declared_default_${prop.name}, deepCopy, identityMap);
+#end
+#if($prop.referenceSet && !$prop.containmentProperty)
+    if (other._VMF_DEFAULT_VALUES[$foreach.index] != null) {
+      this._VMF_DEFAULT_VALUES[$foreach.index] = __vmf_copyReferenceDefaults(
+          (java.util.List<${prop.elementTypeName}>) other._VMF_DEFAULT_VALUES[$foreach.index], deepCopy, identityMap);
+    }
+#end
+#end
+#end
    } // end copy constructor
+
+#if($type.hasReferenceSets())
+   private static <E extends ${VMFPKG}.VObject> java.util.List<E> __vmf_copyReferenceDefaults(java.util.List<E> values,
+           boolean deepCopy, java.util.IdentityHashMap<Object,Object> identityMap) {
+     if (!deepCopy || values.isEmpty()) return values;
+     var result = new java.util.ArrayList<E>(values.size());
+     for (E member : values) result.add((E) ((VCloneableInternal) member)._vmf_deepCopy(identityMap));
+     return java.util.List.copyOf(result);
+   }
+#end
 
    @Override
    public ${type.implementation.typeName} _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> identityMap) {

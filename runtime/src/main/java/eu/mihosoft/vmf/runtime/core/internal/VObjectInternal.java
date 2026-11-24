@@ -86,6 +86,16 @@ public interface VObjectInternal extends VObject, ObservableObject {
      */
     public Object _vmf_getPropertyValueById(int propertyId);
 
+    /** Value exposed by the generated Java getter, including projected relationship collections. */
+    default Object _vmf_getPublicPropertyValueById(int propertyId) {
+        return _vmf_getPropertyValueById(propertyId);
+    }
+
+    /** Generated models share an identity map across copies of related properties. */
+    default VObject _vmf_deepCopy(java.util.IdentityHashMap<Object,Object> copies) {
+        return (VObject) copies.computeIfAbsent(this, ignored -> clone());
+    }
+
     /**
      * Returns the indices of all properties with model types or collections
      * that contain model instances.

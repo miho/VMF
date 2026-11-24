@@ -26,6 +26,9 @@ package eu.mihosoft.vmftest.multiplicity.invalid.vmfmodel;
 import eu.mihosoft.vmf.VMF;
 import eu.mihosoft.vmf.core.*;
 import eu.mihosoft.vmf.core.io.MemoryResourceSet;
+import eu.mihosoft.vmf.runtime.core.RefSet;
+import eu.mihosoft.vmf.runtime.core.OrderedRefSet;
+import eu.mihosoft.vmf.runtime.core.VObject;
 import java.util.*;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -39,16 +42,45 @@ public class InvalidMultiplicityTest {
         assertTrue(error.getMessage(), error.getMessage().contains("B.getLabels"));
     }
 
+    @Test public void generatesUniqueReferencesForNamedModelTargets() throws java.io.IOException {
+        VMF.generate(new MemoryResourceSet(), ModelSet.class, UniqueRelation.class, Element.class);
+    }
+
+    @Test public void rejectsChangingInheritedGetterFromListToUniqueReference() {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () ->
+                VMF.generate(new MemoryResourceSet(), LegacyList.class, RefinedList.class, Element.class));
+        assertTrue(error.getMessage(), error.getMessage().contains("RefinedList.getEntries"));
+    }
+
+    @Test public void generatedReferenceInterfacesAreRejectedInModelDeclarations() {
+        for (Class<?> invalid : List.of(RawRefs.class, RawOrderedRefs.class, RuntimeRefs.class, WildcardRefs.class,
+                ArrayOfRefs.class, NestedRefs.class, NestedWildcardRefs.class)) {
+            IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                    () -> VMF.generate(new MemoryResourceSet(), invalid));
+            assertTrue(error.getMessage(), error.getMessage().contains(invalid.getSimpleName() + ".getEntries"));
+            assertTrue(error.getMessage(), error.getMessage().contains("Declare Set<Model>"));
+            assertTrue(error.getMessage(), error.getMessage().contains("@Multiplicity(kind = ORDERED_SET) Model[]"));
+        }
+    }
+
     @Test public void reportsThePropertyAndUnsupportedContract() {
         for (Class<?> invalid : List.of(Raw.class, Wildcard.class, Bag.class, SetOfLists.class,
-                OrderedSet.class, NegativeBound.class, InvertedBounds.class, BadScalar.class, ModelSet.class,
-                UniqueRelation.class, SetSequence.class, ScalarKind.class, MapKind.class, WrongListKind.class, OptionalPrimitive.class)) {
+                OrderedSet.class, NegativeBound.class, InvertedBounds.class, BadScalar.class,
+                SetSequence.class, ScalarKind.class, MapKind.class, WrongListKind.class, OptionalPrimitive.class)) {
             IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                     () -> VMF.generate(new MemoryResourceSet(), invalid, Element.class));
             assertTrue(error.getMessage(), error.getMessage().contains(invalid.getSimpleName() + ".getEntries"));
         }
     }
 }
+
+interface RawRefs { RefSet getEntries(); }
+interface RawOrderedRefs { OrderedRefSet getEntries(); }
+interface RuntimeRefs { RefSet<VObject> getEntries(); }
+interface WildcardRefs { OrderedRefSet<?> getEntries(); }
+interface ArrayOfRefs { RefSet[] getEntries(); }
+interface NestedRefs { List<RefSet> getEntries(); }
+interface NestedWildcardRefs { Map<String, List<? super OrderedRefSet<?>[]>> getEntries(); }
 
 interface Raw { Set getEntries(); }
 interface Wildcard { Set<?> getEntries(); }
@@ -58,6 +90,8 @@ interface OrderedSet { @Multiplicity(kind=Multiplicity.Kind.ORDERED_SET) Set<Str
 interface InvertedBounds { @Multiplicity(lower=3,upper=2) Set<String> getEntries(); }
 interface NegativeBound { @Multiplicity(lower=-1) int getEntries(); }
 interface BadScalar { @Multiplicity(upper=3) String getEntries(); }
+@InterfaceOnly interface LegacyList { Element[] getEntries(); }
+interface RefinedList extends LegacyList { @Override @Multiplicity(kind=Multiplicity.Kind.ORDERED_SET) Element[] getEntries(); }
 interface ModelSet { Set<Element> getEntries(); }
 interface UniqueRelation { @Contains @Multiplicity(kind=Multiplicity.Kind.ORDERED_SET) List<Element> getEntries(); }
 interface Element { String getName(); }

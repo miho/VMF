@@ -134,9 +134,9 @@ public final class JournalReplayer {
             require(!property.getType().isSetType(), "Set property requires set members for " + key);
             if (property.getType().isModelType() != modelProperties) return;
             List<Object> decoded = decode(property, propertyClass(object, property), values);
-            if (property.getType().isListType()) {
-                VList<Object> list = list(property);
-                if (!sameList(list, decoded)) {
+            if (property.getType().isListType() || property.getType().isReferenceSetType()) {
+                VList<Object> list = list(object, property);
+                if (!matchesCollection(property, list, decoded)) {
                     if (property.getMultiplicity().isUnique()) {
                         property.set(decoded);
                     } else {
@@ -144,7 +144,7 @@ public final class JournalReplayer {
                         list.addAll(decoded);
                     }
                 }
-                require(sameList(list, decoded), "Failed to initialize " + key);
+                require(matchesCollection(property, list, decoded), "Failed to initialize " + key);
             } else {
                 require(decoded.size() == 1, "Creation scalar needs one value for " + key);
                 if (!sameValue(property.get(), decoded.get(0))) property.set(decoded.get(0));
@@ -229,8 +229,13 @@ public final class JournalReplayer {
         operation.created().forEach(creation -> initialize(creation, false));
         initializeEntryKeys(property, operation);
         Object expected;
-        if (property.getType().isListType()) {
-            expected = applyList(property, operation, before, after);
+        boolean references = property.getType().isReferenceSetType();
+        boolean many = property.getType().isListType() || references;
+        if (many) {
+            var list = list(target, property);
+            expected = references && !property.getMultiplicity().isOrdered()
+                    ? applyReferenceMembership(property, list, operation, before, after)
+                    : applyList(list, property, operation, before, after);
         } else {
             require(operation.kind() == ChangeJournal.Kind.SET, "Expected a scalar operation");
             require(sameValue(property.get(), before.get(0)), "Old value differs for " + operation.property());
@@ -240,8 +245,8 @@ public final class JournalReplayer {
         // The edit can already wire an opposite on a new object. Initialization
         // keeps that relation if it matches the recorded initial value.
         operation.created().forEach(creation -> initialize(creation, true));
-        if (property.getType().isListType()) {
-            require(sameList(list(property), (List<?>) expected), "List result differs for " + operation.property());
+        if (many) {
+            require(matchesCollection(property, list(target, property), (List<?>) expected), "Collection result differs for " + operation.property());
         } else {
             require(sameValue(property.get(), expected), "Value result differs for " + operation.property());
         }
@@ -323,8 +328,22 @@ public final class JournalReplayer {
         return decoded;
     }
 
-    private List<Object> applyList(Property property, Operation operation, List<Object> before, List<Object> after) {
-        VList<Object> list = list(property);
+    private List<Object> applyReferenceMembership(Property property, VList<Object> list, Operation operation, List<Object> before, List<Object> after) {
+        require(operation.kind() == ChangeJournal.Kind.REF_SET_EDIT, "Expected a reference membership edit");
+        Set<Object> removed = Collections.newSetFromMap(new IdentityHashMap<>());
+        removed.addAll(before);
+        Set<Object> present = Collections.newSetFromMap(new IdentityHashMap<>());
+        present.addAll(list);
+        require(present.containsAll(before) && after.stream().noneMatch(present::contains),
+                "Reference membership precondition differs for " + operation.property());
+        List<Object> expected = new ArrayList<>(list.size() - before.size() + after.size());
+        for (Object value : list) if (!removed.contains(value)) expected.add(value);
+        expected.addAll(after);
+        property.set(expected);
+        return expected;
+    }
+
+    private List<Object> applyList(VList<Object> list, Property property, Operation operation, List<Object> before, List<Object> after) {
         List<Object> expected = new ArrayList<>(list);
         List<Integer> positions = operation.indices();
         switch (operation.kind()) {
@@ -376,8 +395,23 @@ public final class JournalReplayer {
     }
 
     @SuppressWarnings("unchecked")
-    private static VList<Object> list(Property property) {
+    private static VList<Object> list(VObject owner, Property property) {
+        if (property.getType().isReferenceSetType()) {
+            var internal = (eu.mihosoft.vmf.runtime.core.internal.VObjectInternal) owner;
+            return (VList<Object>) internal._vmf_getPropertyValueById(internal._vmf_getPropertyIdByName(property.getName()));
+        }
         return (VList<Object>) property.get();
+    }
+
+    private static boolean matchesCollection(Property property, List<?> actual, List<?> expected) {
+        if (property.getType().isReferenceSetType() && !property.getMultiplicity().isOrdered()) {
+            if (actual.size() != expected.size()) return false;
+            Set<Object> members = Collections.newSetFromMap(new IdentityHashMap<>());
+            members.addAll(actual);
+            for (Object value : expected) if (!members.remove(value)) return false;
+            return members.isEmpty();
+        }
+        return sameList(actual, expected);
     }
 
     private static Class<?> propertyClass(VObject target, Property property) {

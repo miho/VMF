@@ -53,6 +53,9 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #foreach( $prop in $type.implementation.properties )
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
+#if($prop.referenceSet)
+  private ${prop.readOnlyReferenceCollectionType} __vmf_refs_${prop.name};
+#end
   private ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.name};
 #else
   private ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name};
@@ -70,6 +73,22 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
   // generic type is a model-type
+#if($prop.referenceSet)
+  public ${prop.readOnlyReferenceCollectionType} ${prop.getterPrefix}${prop.nameWithUpperCase}() {
+    if (__vmf_refs_${prop.name} == null) {
+      __vmf_refs_${prop.name} = ${VMFPKG_INT}.ReferenceCollections.readOnly(
+          mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}(), e -> e.asReadOnly());
+    }
+    return __vmf_refs_${prop.name};
+  }
+
+  private ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> __vmf_get_prop_${prop.name}() {
+    if (this.${prop.name} == null) {
+      this.${prop.name} = ${VCOLL_PKG}.VMappedList.newUnmodifiableInstance(
+          ((__VMF_TYPE_${type.implementation.typeName}) mutableObject).__vmf_get_prop_${prop.name}(), e -> e.asReadOnly());
+    }
+    return this.${prop.name};
+#else
   public ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}() {
 
     // we return an unmodifiable mapped list that contains read-only versions of the list elements
@@ -80,6 +99,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     }
 
     return this.${prop.name};
+#end
 
 #else
   // generic type is an external type

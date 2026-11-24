@@ -106,7 +106,7 @@ public interface ${type.readOnlyInterface.typeName}${type.typeParameters} extend
 #if($prop.propType == "COLLECTION")
 #if($prop.genericType)
   // generic model type
-  public ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+  public #if($prop.referenceSet)${prop.readOnlyReferenceCollectionType}#else${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}>#end ${prop.getterPrefix}${prop.nameWithUpperCase}();
 //  public java.util.List<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #else
   public ${VCOLL_PKG}.VList<${prop.elementTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();

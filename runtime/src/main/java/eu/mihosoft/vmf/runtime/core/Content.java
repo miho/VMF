@@ -63,11 +63,16 @@ public interface Content {
                 var bounds = property.getMultiplicity();
                 if (bounds.getLower() == 0 && bounds.getUpper() < 0) continue;
                 Type type = property.getType();
-                boolean many = type.isListType() || type.isSetType() || type.isMapType();
+                boolean many = type.isListType() || type.isSetType() || type.isMapType() || type.isReferenceSetType();
                 if (!many && bounds.getLower() == 0 && bounds.getUpper() == 1) continue;
                 Object value = property.get();
                 int count;
-                if (many && value instanceof Map) count = ((Map<?, ?>) value).size();
+                if (type.isReferenceSetType() && value instanceof RefSet) count = ((RefSet<?>) value).size();
+                else if (type.isListType() && type.isModelType() && value instanceof Collection) {
+                    // Legacy relationship lists accept null slots. Only actual targets satisfy the bound.
+                    count = 0;
+                    for (Object member : (Collection<?>) value) if (member != null) count++;
+                } else if (many && value instanceof Map) count = ((Map<?, ?>) value).size();
                 else if (many && value instanceof Collection) count = ((Collection<?>) value).size();
                 else count = value == null ? 0 : 1;
                 if (count < bounds.getLower() || (bounds.getUpper() >= 0 && count > bounds.getUpper())) {

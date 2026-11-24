@@ -295,8 +295,8 @@ public class VMFJsonSchemaGenerator {
             return propertySchema;
         } else if (referencesEnabled && isIdReference(property, types)) {
             Type elementType = VMFTypeUtils.forClass(types.load(property.getType().getElementTypeName().orElse(property.getType().getName())));
-            Map<String, Object> referenceSchema = referenceValueSchema(elementType, types);
-            if (property.getType().isListType()) {
+            Map<String, Object> referenceSchema = property.getType().isReferenceSetType() ? idSchema(false) : referenceValueSchema(elementType, types);
+            if (property.getType().isListType() || property.getType().isReferenceSetType()) {
                 propertySchema.put("type", "array");
                 propertySchema.put("items", referenceSchema);
             } else {
@@ -329,7 +329,7 @@ public class VMFJsonSchemaGenerator {
         } else if (isValueType(property.getType())) {
             propertySchema.put("type", mapValueType(property.getType()));
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
-        } else if (property.getType().isModelType() && !property.getType().isListType()) {
+        } else if (property.getType().isModelType() && !property.getType().isListType() && !property.getType().isReferenceSetType()) {
             // Handle polymorphic types
             Type elementType = property.getType();
 
@@ -345,7 +345,7 @@ public class VMFJsonSchemaGenerator {
                 propertySchema.put("$ref", "#/definitions/" + typeAlias);
             }
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
-        } else if (property.getType().isListType()) {
+        } else if (property.getType().isListType() || property.getType().isReferenceSetType()) {
             propertySchema.put("type", "array");
             Map<String, Object> itemsSchema = new LinkedHashMap<>();
 
@@ -376,14 +376,16 @@ public class VMFJsonSchemaGenerator {
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         }
 
-        if (property.getType().isSetType() || property.getType().isListType()) {
+        if (property.getType().isSetType() || property.getType().isListType() || property.getType().isReferenceSetType()) {
             var multiplicity = property.getMultiplicity();
             if (multiplicity.getLower() > 0) propertySchema.put("minItems", multiplicity.getLower());
             if (multiplicity.getUpper() >= 0) propertySchema.put("maxItems", multiplicity.getUpper());
             String element = property.getType().getDescriptor().getArguments().get(0).getName();
             // JSON Schema equates signed zeroes and structurally equal objects. Java model identity and
             // Float/Double membership can distinguish them, so the runtime enforces uniqueness in these cases.
-            if (multiplicity.isUnique() && !property.getType().isModelType()
+            if (property.getType().isReferenceSetType() && referencesEnabled && isIdReference(property, types)) {
+                propertySchema.put("uniqueItems", true);
+            } else if (multiplicity.isUnique() && !property.getType().isModelType()
                     && !Float.class.getName().equals(element) && !Double.class.getName().equals(element)) {
                 propertySchema.put("uniqueItems", true);
             }
@@ -468,6 +470,7 @@ public class VMFJsonSchemaGenerator {
      */
     private boolean isToBeExcludedFromSerialization(Property property, SchemaTypes types) {
         if (!property.getType().isModelType()) return false;
+        if (property.getType().isReferenceSetType() && VMFReferences.isReferenceProperty(property)) return !referencesEnabled;
         String valueType = property.getType().getElementTypeName().orElse(property.getType().getName());
         boolean immutableType = Immutable.class.isAssignableFrom(types.load(valueType));
         return property.getType().isModelType() && !immutableType && !VMFTypeUtils.isParentOfPropContainer(property)
@@ -476,6 +479,7 @@ public class VMFJsonSchemaGenerator {
 
     private static boolean isIdReference(Property property, SchemaTypes types) {
         if (!VMFReferences.isReferenceProperty(property)) return false;
+        if (property.getType().isReferenceSetType()) return true;
         String name = property.getType().isListType()
                 ? property.getType().getElementTypeName().get() : property.getType().getName();
         return !Immutable.class.isAssignableFrom(types.load(name));

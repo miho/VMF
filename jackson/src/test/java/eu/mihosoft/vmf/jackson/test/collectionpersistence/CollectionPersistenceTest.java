@@ -52,6 +52,7 @@ class CollectionPersistenceTest {
         @Override public String id(VObject object) { return ((Identified) object).getId(); }
         @Override public String type(VObject object) { return object.vmf().reflect().type().getName(); }
         @Override public VObject create(String type, String id) {
+            if (type.equals(ReferenceGroup.class.getName())) return ReferenceGroup.newBuilder().withId(id).build();
             if (type.equals(Entry.class.getName())) return Entry.newBuilder().withId(id).build();
             if (type.equals(Item.class.getName())) return Item.newBuilder().withId(id).build();
             throw new IllegalArgumentException("Unknown type " + type);
@@ -239,6 +240,151 @@ class CollectionPersistenceTest {
         var result = JournalReplayer.replay(checkpoint, BINDING, "base", journal);
         assertEquals(List.of("c", "b", "a"), result.getPriority());
         assertEquals(List.of("a", "b", "c"), checkpoint.getPriority());
+    }
+
+    @Test void referenceCollectionsRoundTripAcrossAllModelFormats() throws IOException {
+        var first = Item.newBuilder().withId("first").withCode("same").build();
+        var second = Item.newBuilder().withId("second").withCode("same").build();
+        var source = ReferenceGroup.newBuilder().withId("group").withItems(first, second).build();
+        source.getPriority().addAll(List.of(second, first));
+        source.getSelected().addAll(List.of(first, second));
+        var withoutIds = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE));
+        assertThrows(IOException.class, () -> withoutIds.writeValueAsString(source));
+        for (var mapper : List.of(new ObjectMapper(), new YAMLMapper(), new XmlMapper())) {
+            mapper.registerModule(VMFJacksonModule.newInstance(MODE).withReferences(true));
+            var copy = mapper.readValue(mapper.writeValueAsString(source), ReferenceGroup.class);
+            assertEquals(2, copy.getItems().size());
+            assertSame(copy.getItems().get(1), copy.getPriority().get(0));
+            assertSame(copy.getItems().get(0), copy.getPriority().get(1));
+            assertTrue(copy.getSelected().contains(copy.getItems().get(0)));
+            assertTrue(copy.getSelected().contains(copy.getItems().get(1)));
+        }
+        var mapper = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE).withReferences(true));
+        String item = "\"items\":[{\"@vmf-id\":\"1\"}]";
+        for (String invalid : List.of("[1]", "[\"not an object\"]", "[null]", "{}")) {
+            assertThrows(IOException.class, () -> mapper.readValue("{\"items\":" + invalid + "}", ReferenceGroup.class));
+        }
+        for (String invalid : List.of("[1,\"1\"]", "[null]", "[{}]", "[\"unknown\"]", "\"1\"", "null")) {
+            for (String name : List.of("priority", "selected")) {
+                assertThrows(IOException.class, () -> mapper.readValue("{" + item + ",\"" + name + "\":" + invalid + "}", ReferenceGroup.class));
+            }
+        }
+    }
+
+    @Test void unorderedJournalEditsUseIdsAndOrderedEditsKeepPositions() throws IOException {
+        var group = ReferenceGroup.newBuilder().withId("group").build();
+        var a = Item.newBuilder().withId("a").build();
+        var b = Item.newBuilder().withId("b").build();
+        group.getItems().addAll(List.of(a, b));
+        group.getPriority().addAll(List.of(a, b));
+        group.getSelected().addAll(List.of(a, b));
+        var working = ReferenceShelf.newBuilder().withId("shelf").withGroups(group).build();
+        var checkpoint = working.clone();
+        var originalGroup = checkpoint.getGroups().iterator().next();
+        originalGroup.getSelected().clear();
+        originalGroup.getSelected().addAll(List.of(originalGroup.getItems().get(1), originalGroup.getItems().get(0)));
+        var journal = JournalRecorder.recordFrame(working, BINDING, "base", 0, shelf -> {
+            group.getSelected().remove(b);
+            group.getPriority().move(1, 0);
+            var newItem = Item.newBuilder().withId("new-item").build();
+            var created = ReferenceGroup.newBuilder().withId("new-group").withItems(newItem).withSelected(newItem).build();
+            shelf.getGroups().add(created);
+        });
+        assertEquals(ChangeJournal.REFERENCE_SETS_VERSION, journal.wireVersion());
+        for (var format : VMFDocumentFormat.values()) {
+            var decoded = VMFJournalCodec.read(VMFJournalCodec.write(journal, format), format);
+            var result = JournalReplayer.replay(checkpoint, BINDING, "base", decoded);
+            var original = result.getGroups().stream().filter(g -> g.getId().equals("group")).findFirst().orElseThrow();
+            assertSame(original.getItems().get(1), original.getPriority().get(0));
+            assertSame(original.getItems().get(0), original.getSelected().iterator().next());
+            var added = result.getGroups().stream().filter(g -> g.getId().equals("new-group")).findFirst().orElseThrow();
+            assertSame(added.getItems().get(0), added.getSelected().iterator().next());
+        }
+        var membership = journal.transactions().get(0).operations().stream()
+                .filter(op -> op.property().equals("selected")).findFirst().orElseThrow();
+        assertEquals(ChangeJournal.Kind.REF_SET_EDIT, membership.kind());
+        assertTrue(membership.indices().isEmpty());
+        assertTrue(membership.created().isEmpty());
+        assertThrows(IllegalArgumentException.class, () -> new ChangeJournal.Operation(ChangeJournal.Kind.REF_SET_EDIT,
+                "group", "selected", List.of(), List.of(), java.util.Collections.nCopies(2, membership.before().get(0)), List.of()));
+        var json = new ObjectMapper();
+        var envelope = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(VMFJournalCodec.write(journal));
+        envelope.put("version", ChangeJournal.COLLECTIONS_VERSION);
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(json.writeValueAsString(envelope)));
+    }
+
+    @Test void identityReferencesUseIdSchemaAndRequireAReachableTarget() throws IOException {
+        var mapper = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE).withReferences(true));
+        var schema = mapper.readTree(VMFJsonSchemaGenerator.newInstance(MODE).withReferences(true).generateSchemaAsString(ReferenceGroup.class));
+        assertTrue(schema.at("/properties/priority/uniqueItems").booleanValue());
+        assertTrue(schema.at("/properties/selected/uniqueItems").booleanValue());
+        assertTrue(schema.at("/properties/items/uniqueItems").isMissingNode());
+        var selection = LabelSelection.newBuilder().withSelected(Label.newBuilder().withText("A").build()).build();
+        assertThrows(IOException.class, () -> mapper.writeValueAsString(selection));
+    }
+
+    @Test void exactReferenceInputChecksBothEndsOfAnAssociation() throws IOException {
+        var a = Vertex.newInstance();
+        var b = Vertex.newInstance();
+        var c = Vertex.newInstance();
+        var network = Network.newBuilder().withVertices(a, b, c).build();
+        a.getNext().addAll(List.of(c, b));
+        b.getNext().add(c);
+        var mapper = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE).withReferences(true));
+        var document = mapper.readTree(mapper.writeValueAsString(network));
+        var copy = mapper.treeToValue(document, Network.class);
+        assertSame(copy.getVertices().get(2), copy.getVertices().get(0).getNext().get(0));
+        assertTrue(copy.getVertices().get(2).getPrevious().contains(copy.getVertices().get(1)));
+        var third = (com.fasterxml.jackson.databind.node.ObjectNode) document.at("/vertices/2");
+        third.putArray("previous");
+        assertThrows(IOException.class, () -> mapper.treeToValue(document, Network.class));
+        third.remove("previous");
+        copy = mapper.treeToValue(document, Network.class);
+        assertEquals(2, copy.getVertices().get(2).getPrevious().size());
+    }
+
+    @Test void referenceChangeKeepsTheObservedProjectionAndIdentity() {
+        var group = ReferenceGroup.newInstance();
+        var view = group.asReadOnly();
+        var observed = new java.util.ArrayList<eu.mihosoft.vmf.runtime.core.Change>();
+        var subscription = view.vmf().changes().addListener(observed::add, false);
+        var a = Item.newInstance();
+        var b = Item.newInstance();
+        group.getSelected().addAll(List.of(a, b));
+        assertEquals(1, observed.size());
+        var change = observed.get(0);
+        var edit = change.referenceSetChange().orElseThrow();
+        assertTrue(change.listChange().isEmpty());
+        assertSame(view.getSelected(), edit.source());
+        assertFalse(change.isUndoable());
+        assertEquals(2, edit.added().size());
+        assertSame(a.asReadOnly(), edit.added().get(0));
+        assertSame(b.asReadOnly(), edit.added().get(1));
+        assertTrue(edit.indices().isEmpty());
+        assertThrows(UnsupportedOperationException.class, edit.added()::clear);
+        assertThrows(UnsupportedOperationException.class, () -> edit.source().remove(b));
+        subscription.unsubscribe();
+    }
+
+    @Test void journalCanEditEitherEndOfAnOrderedToUnorderedReference() {
+        var a = Vertex.newBuilder().withId("a").build();
+        var b = Vertex.newBuilder().withId("b").build();
+        var c = Vertex.newBuilder().withId("c").build();
+        var working = Network.newBuilder().withId("graph").withVertices(a, b, c).build();
+        var checkpoint = working.clone();
+        var journal = JournalRecorder.recordFrame(working, BINDING, "base", 0, graph -> {
+            a.getNext().addAll(List.of(c, b));
+            c.getPrevious().remove(a);
+            c.getPrevious().add(b);
+        });
+        var copy = JournalReplayer.replay(checkpoint, BINDING, "base", journal);
+        var first = copy.getVertices().get(0);
+        var second = copy.getVertices().get(1);
+        var third = copy.getVertices().get(2);
+        assertSame(second, first.getNext().get(0));
+        assertEquals(1, first.getNext().size());
+        assertSame(second, third.getPrevious().iterator().next());
+        assertSame(third, second.getNext().get(0));
     }
 
     @Test void genericImmutableModelBindingsPersistByValueWithReferencesOnAndOff() throws IOException {

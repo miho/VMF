@@ -138,7 +138,7 @@ class ListChangeImpl implements ChangeInternal {
         } else if(evt.wasRemoved()) {
             int[] indices = evt.removed().indices();
             List<Object> elements = evt.removed().elements();
-            if (ManagedValues.isOrderedSet(list)) {
+            if (ManagedValues.isOrderedSet(list) || ReferenceCollections.isReferenceList(list)) {
                 list.addAll(indices, elements);
                 return;
             }
@@ -201,6 +201,14 @@ class ListChangeImpl implements ChangeInternal {
         if (!evt.wasAdded() && size != removalSize) return false;
         if (evt.wasRemoved() && !evt.wasSet() && ManagedValues.isOrderedSet(list)
                 && !java.util.Collections.disjoint(list, elements)) return false;
+        if (ReferenceCollections.isReferenceList(list) && evt.wasRemoved()) {
+            // Restoring the old edges must not claim an identity now present outside the edited slots.
+            var restored = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            restored.addAll(evt.removed().elements());
+            for (int i = 0; i < size; i++) {
+                if ((!evt.wasSet() || Arrays.binarySearch(indices, i) < 0) && restored.contains(list.get(i))) return false;
+            }
+        }
 
         int previous = -1;
         for (int i = 0; i < indices.length; i++) {

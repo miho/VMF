@@ -104,6 +104,7 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 
     /** Removes entries while moving or detaching the parent link in generated code. */
     public static void removeForContainment(VList<?> list, int[] indices, VObject child) {
+        list = ReferenceCollections.removingForContainment(list);
         if (list instanceof ContainmentList) {
             var containment = (ContainmentList<?>) list;
             // Generated lists use an ArrayList. A synthetic source removal has

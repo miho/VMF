@@ -109,6 +109,9 @@ public class Prop {
     private int upperBound;
     private boolean ordered;
     private boolean unique;
+    private boolean referenceSet;
+    private Contains uniqueContainment;
+    private Refers uniqueReference;
     private String constrainedElementType;
 
     private static final String VMAP_NAME = "eu.mihosoft.vcollections.VMap";
@@ -173,6 +176,9 @@ public class Prop {
         this.upperBound = other.upperBound;
         this.ordered = other.ordered;
         this.unique = other.unique;
+        this.referenceSet = other.referenceSet;
+        this.uniqueContainment = other.uniqueContainment;
+        this.uniqueReference = other.uniqueReference;
         this.constrainedElementType = other.constrainedElementType;
         this.mapValueTypeName = other.mapValueTypeName;
         this.nestedBinaryName = other.nestedBinaryName;
@@ -317,6 +323,31 @@ public class Prop {
         if (map) return;
         if (!set && (!list || (!unique && upperBound == -1))) return;
 
+        Class<?> target = getValueClass();
+        if (target != null && owner.getModel().declares(target) && unique) {
+            referenceSet = true;
+            for (Method declaration : owner.genericTypes().propertyDeclarations(getter.getName())) {
+                Contains contains = declaration.getAnnotation(Contains.class);
+                Refers refers = declaration.getAnnotation(Refers.class);
+                if (contains != null) {
+                    if (uniqueContainment != null && !uniqueContainment.equals(contains))
+                        throw GenericModelTypes.unsupportedProperty(getter, "conflicting containment opposites on a unique reference");
+                    uniqueContainment = contains;
+                }
+                if (refers != null) {
+                    if (uniqueReference != null && !uniqueReference.equals(refers))
+                        throw GenericModelTypes.unsupportedProperty(getter, "conflicting reference opposites on a unique reference");
+                    uniqueReference = refers;
+                }
+                if (declaration.isAnnotationPresent(Container.class) || declaration.isAnnotationPresent(SyncWith.class))
+                    throw GenericModelTypes.unsupportedProperty(getter, "unique reference ends allow @Contains or @Refers");
+            }
+            if (uniqueContainment != null && uniqueReference != null)
+                throw GenericModelTypes.unsupportedProperty(getter, "a unique reference cannot combine @Contains and @Refers");
+            if (target.isAnnotationPresent(Immutable.class) && (uniqueContainment != null || uniqueReference != null))
+                throw GenericModelTypes.unsupportedProperty(getter, "an immutable target cannot receive a container or opposite reference");
+            return;
+        }
         if (relation && list && !unique) return;
         if (relation) throw GenericModelTypes.unsupportedProperty(getter, "constrained collections of model relationships are unsupported");
         Type declared = getter.getGenericReturnType();
@@ -367,6 +398,11 @@ public class Prop {
     void initType(Model m, Method getterMethod) {
 
         Class<?> propClass = getterMethod.getReturnType();
+        if (GenericModelTypes.containsReferenceFacade(getterMethod.getGenericReturnType())) {
+            throw GenericModelTypes.unsupportedProperty(getterMethod,
+                    "RefSet and OrderedRefSet are generated runtime interfaces. Declare Set<Model> "
+                    + "or @Multiplicity(kind = ORDERED_SET) Model[] in the model definition.");
+        }
 
         intitCustomDocumentation(getterMethod);
 
@@ -400,7 +436,7 @@ public class Prop {
                 }
                 component = propClass.getComponentType();
             } else {
-                if (!List.class.isAssignableFrom(propClass)) {
+                if (!List.class.isAssignableFrom(propClass) && !referenceSet) {
                     throw GenericModelTypes.unsupportedProperty(getterMethod, "only List is supported as a collection");
                 }
                 Type declared = getterMethod.getGenericReturnType();
@@ -480,6 +516,7 @@ public class Prop {
 
     /** JVM class lookup requires the binary name of an external nested class. */
     public String getMetadataTypeName() {
+        if (referenceSet) return getTypeNameForInterface();
         if (nestedBinaryName == null) return typeName;
         return isCollectionType() ? PRIVATE_LIST_TYPE_WITH_PKG + "<" + nestedBinaryName + ">" : nestedBinaryName;
     }
@@ -549,7 +586,7 @@ public class Prop {
                 component = ((Class<?>) declared).getComponentType();
             } else if (declared instanceof GenericArrayType) {
                 component = ((GenericArrayType) declared).getGenericComponentType();
-            } else if (declared instanceof ParameterizedType && List.class.isAssignableFrom(declaration.getReturnType())) {
+            } else if (declared instanceof ParameterizedType && Collection.class.isAssignableFrom(declaration.getReturnType())) {
                 component = ((ParameterizedType) declared).getActualTypeArguments()[0];
             }
             if (component != null) {
@@ -722,7 +759,7 @@ public class Prop {
 
         // containment
         Container container = getterMethod.getAnnotation(Container.class);
-        Contains contained = isKeyed() ? keyedContainment : getterMethod.getAnnotation(Contains.class);
+        Contains contained = isKeyed() ? keyedContainment : referenceSet ? uniqueContainment : getterMethod.getAnnotation(Contains.class);
 
         if (container != null) {
 
@@ -911,7 +948,7 @@ public class Prop {
     void initCrossRefInfo() {
 
         // containment
-        Refers referenceInfo = getterMethod.getAnnotation(Refers.class);
+        Refers referenceInfo = referenceSet ? uniqueReference : getterMethod.getAnnotation(Refers.class);
 
         if (referenceInfo != null) {
 
@@ -1000,7 +1037,49 @@ public class Prop {
         return getType()!=null;//getParent().getModel().isModelType(getPackageName() + "." + getTypeName());
     }
 
+    public boolean isReferenceSet() { return referenceSet; }
+
+    public boolean hasReferenceDefault() {
+        return referenceSet && !"null".equals(getDefaultValueAsString());
+    }
+
+    /** The checked relationship list used by opposite maintenance and model infrastructure. */
+    public String internalGetter(String receiver) {
+        if (referenceSet) {
+            return "((__VMF_TYPE_" + parent.getImplementation().getTypeName() + ") " + receiver + ").__vmf_get_prop_" + name + "()";
+        }
+        return receiver + "." + getterPrefix + getNameWithUpperCase() + "()";
+    }
+
+    public boolean hasUniqueReferenceOpposite() {
+        return isCrossRefProperty() && (referenceSet || getReferenceInfo().getOpposite().isReferenceSet());
+    }
+
+    public String getReferenceCollectionFactory() { return ordered ? "ordered" : "unordered"; }
+
+    public String getReferenceCollectionClass() {
+        return ordered ? GenericModelTypes.ORDERED_REF_SET : GenericModelTypes.REF_SET;
+    }
+
+    void validateReferenceSetOverride(ModelType owner) {
+        if (!referenceSet) return;
+        for (ModelType base : owner.getAllInheritedTypes()) {
+            for (Prop inherited : base.getImplementation().getProperties()) {
+                if (!name.equals(inherited.name)) continue;
+                if (!inherited.referenceSet || ordered != inherited.ordered
+                        || !Objects.equals(getElementTypeName(), inherited.getElementTypeName()))
+                    throw GenericModelTypes.unsupportedProperty(getterMethod,
+                            "a unique reference getter must preserve its inherited collection kind and model element type");
+            }
+        }
+    }
+
+    public String getReadOnlyReferenceCollectionType() {
+        return getReferenceCollectionClass() + "<" + getGenericType().getReadOnlyInterface().getFullTypeName() + ">";
+    }
+
     public String getTypeNameForInterface() {
+        if (referenceSet) return getReferenceCollectionClass() + "<" + getElementTypeName() + ">";
         return getTypeName().replace(PRIVATE_LIST_TYPE_WITH_PKG, PUBLIC_LIST_TYPE_WITH_PKG);
     }
 
@@ -1052,7 +1131,7 @@ public class Prop {
     }
 
     public String getGetterDeclaration() {
-        return getTypeName() + " " + getGetterPrefix() + getNameWithUpperCase() + "()";
+        return getTypeNameForInterface() + " " + getGetterPrefix() + getNameWithUpperCase() + "()";
     }
 
     public String getSetterDeclaration() {

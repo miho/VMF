@@ -38,6 +38,7 @@ public final class PropertyMetadata {
     private final TypeDescriptor descriptor;
     private final boolean mapType;
     private final boolean setType;
+    private final boolean referenceSetType;
     private final Multiplicity multiplicity;
     private final String typeName;
     private final Optional<String> elementTypeName;
@@ -52,6 +53,7 @@ public final class PropertyMetadata {
         this.descriptor = type.getDescriptor();
         this.mapType = type.isMapType();
         this.setType = type.isSetType();
+        this.referenceSetType = type.isReferenceSetType();
         this.multiplicity = property.getMultiplicity();
         this.typeName = type.getName();
         this.elementTypeName = type.getElementTypeName();
@@ -70,6 +72,9 @@ public final class PropertyMetadata {
     public TypeDescriptor getDescriptor() { return descriptor; }
 
     public boolean isSetType() { return setType; }
+
+    /** Whether the property holds unique model references. See its multiplicity for ordering. */
+    public boolean isReferenceSetType() { return referenceSetType; }
 
     public Multiplicity getMultiplicity() { return multiplicity; }
 
@@ -91,7 +96,7 @@ public final class PropertyMetadata {
         return typeName;
     }
 
-    /** Returns the list element type name when present. */
+    /** Returns the collection element type name when present. */
     public Optional<String> getElementTypeName() {
         return elementTypeName;
     }

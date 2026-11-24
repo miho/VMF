@@ -288,6 +288,8 @@ final class JournalSupport {
                         }
                     } else if (type.isSetType()) {
                         for (Object member : (java.util.Set<?>) value) validateGraphValue(member, binding, this, workspace.text);
+                    } else if (type.isReferenceSetType()) {
+                        for (Object target : (Iterable<?>) value) validateGraphValue(target, binding, this, workspace.text);
                     } else if (type.isListType()) {
                         var values = (List<?>) value;
                         if (STRING_LIST_TYPE.equals(type.getName())) {
@@ -383,6 +385,9 @@ final class JournalSupport {
                 boolean same;
                 if (property.getType().isMapType()) {
                     same = sameMap((Map<?, ?>) value, (Map<?, ?>) otherValue);
+                } else if (property.getType().isReferenceSetType()) {
+                    same = referenceIds(value, binding, property.getMultiplicity().isOrdered())
+                            .equals(referenceIds(otherValue, binding, property.getMultiplicity().isOrdered()));
                 } else if (property.getType().isListType()) {
                     List<?> left = (List<?>) value;
                     List<?> right = (List<?>) otherValue;
@@ -396,6 +401,12 @@ final class JournalSupport {
                 if (!same) throw new IllegalArgumentException("Replay differs at " + id + "." + property.getName());
             }
         }
+    }
+
+    private static java.util.Collection<String> referenceIds(Object members, JournalBinding binding, boolean ordered) {
+        java.util.Collection<String> ids = ordered ? new ArrayList<>() : new java.util.HashSet<>();
+        for (Object member : (Iterable<?>) members) ids.add(binding.id((VObject) member));
+        return ids;
     }
 
     // The Java managed map exposes insertion order. Verify the order as well as the scalar

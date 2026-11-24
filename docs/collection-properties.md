@@ -7,12 +7,14 @@ Choose the Java getter that describes what callers do with the property.
 | `List<T> getSamples()` or `T[] getSamples()` | `VList<T>` | Ordered sequence. Repeated values are allowed. |
 | `@Multiplicity(kind = ORDERED_SET) List<String> getSteps()` | `VList<String>` | Ordered, unique scalar values. Supports indexed moves. |
 | `Set<String> getTags()` | `VSet<String>` | Unordered membership. Adding an existing tag returns false and emits no change. |
+| `Set<Station> getFavorites()` | `RefSet<Station>` | Unordered membership by model-object identity. |
+| `@Multiplicity(kind = ORDERED_SET) Station[] getStations()` | `OrderedRefSet<Station>` | Unique references with indexed access and moves. |
 | `VMap<Integer, Double> getReadings()` | `VMap<Integer,Double>` | Scalar keys and values. Each key has at most one mapping. |
 | `@Contains @Keyed(by = "sku") Item[] getItems()` | `VList<Item>` and `findItemsBySku(String)` | An owned relationship with typed lookup. Keys can be scalar values or model references. |
 
-The example uses `import static eu.mihosoft.vmf.core.Multiplicity.Kind.ORDERED_SET;`. Sets, checked scalar lists and scalar map keys accept non-null strings and boxed Java primitives. A scalar map value may be null. Unordered sets compare by membership. A set change contains immutable sets of added and removed members.
+The examples use `import static eu.mihosoft.vmf.core.Multiplicity.Kind.ORDERED_SET;`. Scalar sets, checked scalar lists and scalar map keys accept non-null strings and boxed Java primitives. A scalar map value may be null. Unordered sets compare by membership.
 
-On an ordered set, `add(value)` returns false for an existing member. `addAll(values)` and `addAll(index, values)` insert only new members, in encounter order, and check capacity after filtering. An indexed single addition rejects an existing member. Setting a slot to a member already at another index also throws. Exact replacements through builders or reflection require distinct input.
+On an ordered scalar set, `add(value)` returns false for an existing member. `addAll(values)` and `addAll(index, values)` insert only new members, in encounter order, and check capacity after filtering. An indexed single addition rejects an existing member. Setting a slot to a member already at another index also throws. Exact replacements through builders or reflection require distinct input.
 
 ## Translate a UML association
 
@@ -23,7 +25,7 @@ A workshop owns one to four stations. Each station can navigate back to its work
 ```java
 interface Workshop {
     @Contains(opposite = "workshop")
-    @Multiplicity(lower = 1, upper = 4)
+    @Multiplicity(lower = 1, upper = 4, kind = ORDERED_SET)
     Station[] getStations();
 }
 
@@ -33,11 +35,19 @@ interface Station {
 }
 ```
 
-This Java declaration chooses a sequence for stations. UML's default for a many-valued end is **unordered and unique**. Ecore defaults to **ordered and unique**. Select the collection semantics from the source diagram. VMF currently supports unique collections of scalar values. A unique end containing model objects and an unordered bag are reported as unsupported at generation time. [UML §7.5.3.2](https://www.omg.org/spec/UML/2.5.1/PDF) · [Ecore typed elements](https://download.eclipse.org/modeling/emf/emf/javadoc/2.10.0/org/eclipse/emf/ecore/ETypedElement.html) · [Unique reference ends roadmap](https://github.com/miho/VMF/issues/122)
+Two different stations named “Inspection” can belong to this workshop, even when their contents compare equal. Adding the same station twice returns `false` on the second call. `remove(second)` detaches exactly that station. `move(1, 0)` reorders the stations in one edit and preserves their workshop. A read-only workshop exposes `OrderedRefSet<ReadOnlyStation>`. A station and its read-only view identify the same member for lookup.
+
+Membership lookup scans the relationship. To load many targets, use `addAll(targets)` so VMF checks existing and incoming identities in one pass. Deep copies preserve aliases between relationships. A shallow copy can share targets on a non-owning reference end when its opposite permits sharing.
+
+For the UML default of an **unordered, unique** association end, declare `Set<Station>`. Ecore defaults to **ordered and unique**, as in the workshop example. VMF rejects unordered bags at generation time. [UML §7.5.3.2](https://www.omg.org/spec/UML/2.5.1/PDF) · [Ecore typed elements](https://download.eclipse.org/modeling/emf/emf/javadoc/2.10.0/org/eclipse/emf/ecore/ETypedElement.html)
 
 EMF also requires a many-valued containment or bidirectional reference to be unique. When translating those Ecore features, preserve that requirement explicitly. Unannotated VMF relationship lists retain their existing sequence behavior. [Ecore reference validator](https://github.com/eclipse-emf/org.eclipse.emf/blob/b940729ba08b2499b08ff505d9f038e2e33cdc73/plugins/org.eclipse.emf.ecore/src/org/eclipse/emf/ecore/util/EcoreValidator.java#L2641-L2669)
 
-`workshop.vmf().content().validate()` checks the workshop and its contained descendants. Each violation identifies its object, property, and current count. Call it when a graph is ready to publish. Building and reparenting can pass through incomplete states. Bounded managed scalar lists, sets, and maps also check their upper bound on mutation. Reflection exposes each property's lower and upper bounds, semantic ordering, and uniqueness through `getMultiplicity()`. An upper bound of `-1` means unlimited.
+`workshop.vmf().content().validate()` checks the workshop and its contained descendants. Zero or five stations produce a violation with the object, property and actual count. Building and reparenting can pass through intermediate sizes. Unique reference collections reject null on insertion. Legacy relationship lists can hold null slots, which count as zero targets. Bounded scalar lists, sets, and maps also check their upper bound on mutation. Reflection exposes lower and upper bounds, ordering, and uniqueness through `getMultiplicity()`. An upper bound of `-1` means unlimited.
+
+Listen to the owning model's changes and use `change.referenceSetChange()` for membership edits. Its `added()` and `removed()` snapshots preserve distinct objects with equal content. An ordered edit also reports its indices. [Persistence and replay](change-journal.md)
+
+Jackson writes owned targets inline. Independent reference ends use IDs of targets in the saved containment tree. VMF immutable objects live outside containment, so an independent reference to an immutable object currently works in memory and fails explicitly on save. [Jackson reference format](../jackson/README.md) · [Portable immutable target identity](https://github.com/miho/VMF/issues/124)
 
 ## Choose a map representation
 

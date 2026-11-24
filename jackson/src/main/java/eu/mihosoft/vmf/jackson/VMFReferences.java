@@ -94,6 +94,10 @@ final class VMFReferences {
             return Collections.emptyList();
         } else if (value instanceof List) {
             return (List<Object>) value;
+        } else if (value instanceof eu.mihosoft.vmf.runtime.core.RefSet) {
+            List<Object> members = new ArrayList<>();
+            ((Iterable<?>) value).forEach(members::add);
+            return members;
         } else {
             return Collections.singletonList(value);
         }
@@ -174,7 +178,7 @@ final class VMFReferences {
                     continue;
                 }
                 for (Object target : valuesOf(p.get())) {
-                    if (!isWrittenAsReference(target)) {
+                    if (!isWrittenAsReference(target) && !p.getType().isReferenceSetType()) {
                         continue;
                     }
                     if (!tree.contains(target)) {
@@ -222,10 +226,10 @@ final class VMFReferences {
      */
     static Object referenceValue(WriteSession session, VObject owner, Property p, Object value,
                                  JsonGenerator gen) throws JsonMappingException {
-        if (value instanceof List) {
-            List<Object> result = new ArrayList<>(((List<?>) value).size());
-            for (Object e : (List<?>) value) {
-                result.add(isWrittenAsReference(e) ? idOrFail(session, owner, p, e, gen) : e);
+        if (value instanceof List || p.getType().isReferenceSetType()) {
+            List<Object> result = new ArrayList<>();
+            for (Object e : (Iterable<?>) value) {
+                result.add(p.getType().isReferenceSetType() || isWrittenAsReference(e) ? idOrFail(session, owner, p, e, gen) : e);
             }
             return result;
         } else if (isWrittenAsReference(value)) {
@@ -260,13 +264,15 @@ final class VMFReferences {
         final String fieldName;
         /** whether the property is a list */
         final boolean list;
+        final boolean uniqueReferences;
         /** property type (single) or element type (list), for values written by value */
         final Class<?> valueClass;
 
-        ReferenceProperty(String name, String fieldName, boolean list, Class<?> valueClass) {
+        ReferenceProperty(String name, String fieldName, boolean list, boolean uniqueReferences, Class<?> valueClass) {
             this.name = name;
             this.fieldName = fieldName;
             this.list = list;
+            this.uniqueReferences = uniqueReferences;
             this.valueClass = valueClass;
         }
     }
@@ -293,7 +299,7 @@ final class VMFReferences {
             if (!isReferenceProperty(p)) {
                 continue;
             }
-            boolean list = p.getType().isListType();
+            boolean list = p.getType().isListType() || p.getType().isReferenceSetType();
             String valueTypeName = list ? p.getType().getElementTypeName().orElse(null) : p.getType().getName();
             Class<?> valueClass = Object.class;
             if (valueTypeName != null) {
@@ -305,7 +311,7 @@ final class VMFReferences {
                 }
             }
             String fieldName = VMFTypeUtils.getFieldNameForProperty(p);
-            result.put(fieldName, new ReferenceProperty(p.getName(), fieldName, list, valueClass));
+            result.put(fieldName, new ReferenceProperty(p.getName(), fieldName, list, p.getType().isReferenceSetType(), valueClass));
         }
         return Collections.unmodifiableMap(result);
     }
@@ -348,6 +354,7 @@ final class VMFReferences {
      * written by value, {@code null}) are read as before.
      */
     static boolean holdsReferences(JsonNode value, ReferenceProperty property, boolean isXml) {
+        if (property.uniqueReferences) return true;
         if (value == null || value.isNull()) {
             return false;
         }
@@ -415,7 +422,7 @@ final class VMFReferences {
         void addKeyedContents(VObject owner, String name, List<Object> entries) {
             pendingKeyedContents.add(() -> {
                 var property = owner.vmf().reflect().propertyByName(name).orElseThrow();
-                ((List<Object>) property.get()).addAll(entries);
+                property.set(entries);
             });
         }
 
@@ -462,9 +469,19 @@ final class VMFReferences {
                                     + r.describe() + "': no object with " + ID_FIELD + " '" + id
                                     + "' has been read.");
                         }
+                        if (!r.property.valueClass.isInstance(target)) {
+                            throw JsonMappingException.from(p, "Wrong target type for reference '" + r.describe() + "'");
+                        }
                         targets.add(target);
                     } else {
                         targets.add(slot);
+                    }
+                }
+                if (r.property.uniqueReferences) {
+                    var identities = Collections.newSetFromMap(new IdentityHashMap<>());
+                    for (Object target : targets) {
+                        if (target == null || !identities.add(target))
+                            throw JsonMappingException.from(p, "Null or duplicate identity in '" + r.describe() + "'");
                     }
                 }
                 resolved.add(targets);
@@ -510,6 +527,16 @@ final class VMFReferences {
                 }
                 List<Object> list = listOf(r, propertyOf(r, p), p);
                 List<Object> desired = new ArrayList<>(resolved.get(i));
+                if (r.property.uniqueReferences) {
+                    Set<Object> expected = Collections.newSetFromMap(new IdentityHashMap<>());
+                    expected.addAll(desired);
+                    if (list.size() != desired.size() || !expected.containsAll(list))
+                        throw JsonMappingException.from(p, "Contradictory reference memberships in '" + r.describe() + "'");
+                    // Only ordered ends have positions to restore. The checked setter preserves the opposites.
+                    var property = propertyOf(r, p);
+                    if (property.getMultiplicity().isOrdered() && !sameElements(list, desired)) property.set(desired);
+                    continue;
+                }
                 // elements that the opposite side added but this side did not list (inconsistent
                 // input) stay, after the written ones
                 for (Object e : list) {
@@ -535,7 +562,13 @@ final class VMFReferences {
         @SuppressWarnings("unchecked")
         private static List<Object> listOf(PendingReference r, Property property, JsonParser p)
                 throws JsonMappingException {
-            Object value = property.get();
+            Object value;
+            if (r.property.uniqueReferences) {
+                var internal = (eu.mihosoft.vmf.runtime.core.internal.VObjectInternal) r.owner;
+                value = internal._vmf_getPropertyValueById(internal._vmf_getPropertyIdByName(property.getName()));
+            } else {
+                value = property.get();
+            }
             if (!(value instanceof List)) {
                 throw JsonMappingException.from(p, "Cannot assign reference '" + r.describe()
                         + "': the property does not hold a list.");

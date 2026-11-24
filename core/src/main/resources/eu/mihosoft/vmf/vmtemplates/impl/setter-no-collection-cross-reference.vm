@@ -49,7 +49,7 @@
 
   ${prop.typeName} oldValue = this.__vmf_prop_${prop.name};
   Throwable observerFailure = null;
-  var oldRefs = oldValue == null ? null : oldValue.get${prop.referenceInfo.opposite.nameWithUpperCase}();
+  var oldRefs = oldValue == null ? null : ${prop.referenceInfo.opposite.internalGetter("oldValue")};
   try (var removal = ${VMFPKG_INT}.OppositeReferenceRemoval.begin(oldRefs, this)) {
     boolean observed = oldRefs != null || _vmf_hasPropertyChangeListeners();
     if (observed) this.__vmf_reference_pending_${prop.name} = true;
@@ -81,7 +81,7 @@
     }
 
     if (this.__vmf_prop_${prop.name} != null) {
-      var opposite = this.__vmf_prop_${prop.name}.get${prop.referenceInfo.opposite.nameWithUpperCase}();
+      var opposite = ${prop.referenceInfo.opposite.internalGetter("this.__vmf_prop_${prop.name}")};
       try {
         ${VMFPKG_INT}.ObservableModelList.addCrossReference(opposite, this);
       } catch (RuntimeException | Error failure) {

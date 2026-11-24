@@ -78,6 +78,12 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
   // --------------------------------------------------------------------
 
   public ${type.implementation.typeName}() {
+#if($type.hasReferenceDefaults())
+    this(true);
+  }
+
+  private ${type.implementation.typeName}(boolean initializeReferenceDefaults) {
+#end
 #parse("${VMF_TEMPLATE_PATH}impl/constructor-delegates.vm")
 
 // --------------------------------------------------------------------
@@ -87,7 +93,12 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
     // ----------
     // property id=${foreach.index} , name='${prop.name}'
 #if(${prop.getDefaultValueAsString()}!="null")
-#if($prop.managedValues)
+#if($prop.referenceSet)
+    if (initializeReferenceDefaults) {
+      __vmf_declared_default_${prop.name} = ${VMFPKG}.internal.ReferenceCollections.snapshot(${prop.getDefaultValueAsString()}, ${prop.elementTypeName}.class);
+      ${VMFPKG}.internal.ReferenceCollections.copy(__vmf_get_prop_${prop.name}(), __vmf_declared_default_${prop.name}, false);
+    }
+#elseif($prop.managedValues)
     ${VMFPKG}.internal.ManagedValues.copy(__vmf_prop_${prop.name}, ${prop.getDefaultValueAsString()}, false);
 #elseif($prop.mapType)
     ${VMFPKG}.internal.ManagedMaps.copyInto(__vmf_prop_${prop.name}, ${prop.getDefaultValueAsString()},

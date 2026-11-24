@@ -58,6 +58,8 @@
 #elseif($prop.mapType)
     ${VMFPKG}.TypeDescriptor.of("eu.mihosoft.vcollections.VMap",
         ${VMFPKG}.TypeDescriptor.of("${prop.mapKeyTypeName}"), ${VMFPKG}.TypeDescriptor.of("${prop.mapValueTypeName}")),
+#elseif($prop.referenceSet)
+    ${VMFPKG}.TypeDescriptor.of("${prop.referenceCollectionClass}", ${VMFPKG}.TypeDescriptor.of("${prop.elementTypeName}")),
 #elseif($prop.propType == "COLLECTION")
     ${VMFPKG}.TypeDescriptor.of("eu.mihosoft.vcollections.VList", ${VMFPKG}.TypeDescriptor.of("${prop.metadataElementTypeName}")),
 #else
@@ -193,12 +195,29 @@
       case $foreach.index:
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
+#if($prop.referenceSet)
+        return __vmf_get_prop_${prop.name}();
+#else
         return ${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end
 #end## for-each property
     }
 
     return null;
   }
+
+#if($type.hasReferenceSets())
+  @Override public Object _vmf_getPublicPropertyValueById(int propertyId) {
+    switch (propertyId) {
+#foreach($prop in $type.implementation.properties)
+#if($prop.referenceSet)
+      case $foreach.index: return ${prop.getterPrefix}${prop.nameWithUpperCase}();
+#end
+#end
+      default: return _vmf_getPropertyValueById(propertyId);
+    }
+  }
+#end
 
   @Override
   public int _vmf_getPropertyIdByName(String propertyName) {
@@ -217,7 +236,11 @@
   public void _vmf_setPropertyValueById(int propertyId, Object value) {
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
-#if($prop.keyed)
+#if($prop.referenceSet)
+      case $foreach.index:
+        ${VMFPKG}.internal.ReferenceCollections.copy(__vmf_get_prop_${prop.name}(), (Iterable<? extends ${prop.elementTypeName}>) value, false);
+        break;
+#elseif($prop.keyed)
       case $foreach.index:
         ${VMFPKG}.internal.KeyedEntries.copy(get${prop.nameWithUpperCase}(),
             (java.util.Collection<${prop.elementTypeName}>) value, false);
@@ -257,7 +280,19 @@
 #foreach($prop in ${type.implementation.properties})
       case ${foreach.index}:
         Object __vmf_default_value_tmp${prop.nameWithUpperCase} = _VMF_DEFAULT_VALUES[${foreach.index}];
-#if($prop.managedValues)
+#if($prop.referenceSet)
+#if($readOnlyVal && !$type.immutable)
+        return ((java.util.List<${prop.elementTypeName}>) ((${VMFPKG}.internal.VObjectInternal) mutableObject)._vmf_getDefaultValueById(propertyId))
+            .stream().map(e -> e.asReadOnly()).collect(java.util.stream.Collectors.toUnmodifiableList());
+#else
+        if (__vmf_default_value_tmp${prop.nameWithUpperCase} != null) return __vmf_default_value_tmp${prop.nameWithUpperCase};
+#if(${prop.getDefaultValueAsString()}=="null")
+        return java.util.List.of();
+#else
+        return __vmf_declared_default_${prop.name};
+#end
+#end
+#elseif($prop.managedValues)
 #if($readOnlyVal && !$type.immutable)
         return ((${VMFPKG}.internal.VObjectInternal) this.mutableObject)._vmf_getDefaultValueById(propertyId);
 #else
@@ -314,7 +349,11 @@
   public void _vmf_setDefaultValueById(int propertyId, Object defaultValue) {
 
 #foreach($prop in ${type.implementation.properties})
-#if($prop.managedValues)
+#if($prop.referenceSet && !$prop.containmentProperty)
+    if (propertyId == ${foreach.index} && defaultValue != null) {
+      defaultValue = ${VMFPKG}.internal.ReferenceCollections.snapshot((Iterable) defaultValue, ${prop.elementTypeName}.class);
+    }
+#elseif($prop.managedValues)
     if (propertyId == ${foreach.index} && defaultValue != null) {
       defaultValue = ${VMFPKG}.internal.ManagedValues.snapshot((java.util.Collection<?>) defaultValue, ${prop.constrainedElementType}.class, ${prop.upperBound}, ${prop.setType}, ${prop.unique});
     }
@@ -344,6 +383,17 @@
 
   @Override
   public boolean _vmf_isSetById(int propertyId) {
+#if($type.hasReferenceSets())
+    switch (propertyId) {
+#foreach($prop in $type.implementation.properties)
+#if($prop.referenceSet)
+      case $foreach.index: return !${VMFPKG}.internal.ReferenceCollections.sameMembers(
+          (Iterable<?>) _vmf_getDefaultValueById(propertyId), __vmf_get_prop_${prop.name}(), ${prop.ordered});
+#end
+#end
+      default: break;
+    }
+#end
     return !java.util.Objects.equals(_vmf_getDefaultValueById(propertyId), _vmf_getPropertyValueById(propertyId));
   }
 

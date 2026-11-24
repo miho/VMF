@@ -56,3 +56,26 @@ interface Entry extends Identified {
 @Immutable interface Label { String getText(); }
 @InterfaceOnly interface History<T> { T getCurrent(); T[] getPrevious(); }
 interface LabelHistory extends History<Label> {}
+
+interface ReferenceGroup extends Identified {
+    @Contains @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET) Item[] getItems();
+    Set<Item> getSelected();
+    @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET) Item[] getPriority();
+}
+
+interface ReferenceShelf extends Identified {
+    @Contains Set<ReferenceGroup> getGroups();
+}
+
+interface LabelSelection {
+    Set<Label> getSelected();
+}
+
+interface Network extends Identified {
+    @Contains @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET) Vertex[] getVertices();
+}
+
+interface Vertex extends Identified {
+    @eu.mihosoft.vmf.core.Refers(opposite = "previous") @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET) Vertex[] getNext();
+    @eu.mihosoft.vmf.core.Refers(opposite = "next") Set<Vertex> getPrevious();
+}

@@ -181,15 +181,34 @@ final class GenericModelTypes {
     }
 
     static boolean containsParameter(Type type) {
-        if (type instanceof TypeVariable<?>) return true;
+        return containsType(type, candidate -> candidate instanceof TypeVariable<?>);
+    }
+
+    static final String REF_SET = "eu.mihosoft.vmf.runtime.core.RefSet";
+    static final String ORDERED_REF_SET = "eu.mihosoft.vmf.runtime.core.OrderedRefSet";
+
+    static boolean containsReferenceFacade(Type type) {
+        return containsType(type, candidate -> candidate instanceof Class<?>
+                && (REF_SET.equals(candidate.getTypeName()) || ORDERED_REF_SET.equals(candidate.getTypeName())));
+    }
+
+    private static boolean containsType(Type type, java.util.function.Predicate<Type> match) {
+        if (match.test(type)) return true;
+        if (type instanceof Class<?> && ((Class<?>) type).isArray())
+            return containsType(((Class<?>) type).getComponentType(), match);
+        if (type instanceof GenericArrayType)
+            return containsType(((GenericArrayType) type).getGenericComponentType(), match);
+        if (type instanceof ParameterizedType) {
+            ParameterizedType applied = (ParameterizedType) type;
+            return match.test(applied.getRawType())
+                    || (applied.getOwnerType() != null && containsType(applied.getOwnerType(), match))
+                    || Arrays.stream(applied.getActualTypeArguments()).anyMatch(t -> containsType(t, match));
+        }
         if (type instanceof WildcardType) {
             WildcardType wildcard = (WildcardType) type;
             return Stream.concat(Arrays.stream(wildcard.getUpperBounds()), Arrays.stream(wildcard.getLowerBounds()))
-                    .anyMatch(GenericModelTypes::containsParameter);
+                    .anyMatch(t -> containsType(t, match));
         }
-        if (type instanceof GenericArrayType) return containsParameter(((GenericArrayType) type).getGenericComponentType());
-        if (type instanceof ParameterizedType) return Arrays.stream(((ParameterizedType) type).getActualTypeArguments())
-                .anyMatch(GenericModelTypes::containsParameter);
         return false;
     }
 

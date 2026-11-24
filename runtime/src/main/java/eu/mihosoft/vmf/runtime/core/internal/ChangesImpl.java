@@ -175,10 +175,11 @@ public class ChangesImpl implements Changes {
     }
 
     private void fireListChange(VObject object, String name, CollectionChangeEvent<Object, VList<Object>, VListChange<Object>> evt,
-                                Set<String> propertyNames, List<Registration> listeners) {
+                                Set<String> propertyNames, List<Registration> listeners, boolean referenceSet) {
         boolean firstDelivery = firstDelivery(object, evt);
         if (needsChange(propertyNames, name)) {
-            fireChange(new ListChangeImpl(object, name, evt), firstDelivery && recording, listeners);
+            Change change = referenceSet ? new RefSetChangeImpl(object, name, evt) : new ListChangeImpl(object, name, evt);
+            fireChange(change, firstDelivery && recording, listeners);
         }
     }
 
@@ -510,13 +511,15 @@ public class ChangesImpl implements Changes {
             } else {
                 var list = (VList<Object>) owner._vmf_getPropertyValueById(id);
                 int propertyId = id;
+                boolean referenceSet = ReferenceCollections.isReferenceList(list) ||
+                        (owner._vmf_isReadOnly() && owner._vmf_getPublicPropertyValueById(id) instanceof RefSet);
                 Subscription subscription;
                 if (recursive && isContainmentProperty(owner, id)) {
-                    subscription = list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event));
+                    subscription = list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event, referenceSet));
                 } else if (recursive) {
-                    subscription = list.addChangeListener(event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners));
+                    subscription = list.addChangeListener(event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners, referenceSet));
                 } else {
-                    subscription = list.addChangeListener(event -> fireListChange(owner, name, event, localPropertyNames, nonRecursiveChangeListeners));
+                    subscription = list.addChangeListener(event -> fireListChange(owner, name, event, localPropertyNames, nonRecursiveChangeListeners, referenceSet));
                 }
                 subscriptions.put(list, subscription);
             }
@@ -524,9 +527,9 @@ public class ChangesImpl implements Changes {
     }
 
     private void observeContainmentListChange(VObjectInternal owner, int propertyId, VList<Object> list, String name,
-                                              CollectionChangeEvent<Object, VList<Object>, VListChange<Object>> event) {
+                                              CollectionChangeEvent<Object, VList<Object>, VListChange<Object>> event, boolean referenceSet) {
         try {
-            fireListChange(owner, name, event, recursivePropertyNames, changeListeners);
+            fireListChange(owner, name, event, recursivePropertyNames, changeListeners, referenceSet);
         } finally {
             List<Object> added = event.added().elements();
             List<Object> removed = event.removed().elements();

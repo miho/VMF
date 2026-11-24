@@ -85,6 +85,20 @@ public class CollectionContractTest {
         assertEquals(2, overfull.get(0).getProperty().getMultiplicity().getUpper());
     }
 
+    @Test public void legacyNullSlotsNeverSatisfyRelationshipBounds() {
+        Catalog catalog = Catalog.newInstance();
+        catalog.getItems().add(null);
+        assertEquals(0, catalog.vmf().content().validate().get(0).getActualCount());
+        Item item = Item.newInstance();
+        catalog.getItems().add(item);
+        var issues = catalog.vmf().content().validate();
+        assertEquals(1, issues.size());
+        assertSame(item, issues.get(0).getObject());
+        item.setName("Inspection");
+        catalog.getItems().add(null);
+        assertTrue(catalog.asReadOnly().vmf().content().validate().isEmpty());
+    }
+
     @Test public void nativeSetChangesHaveMembershipSemanticsAndReadOnlySources() {
         Catalog catalog = Catalog.newInstance();
         var readOnly = catalog.asReadOnly();

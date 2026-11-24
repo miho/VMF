@@ -217,7 +217,7 @@ public final class VMFTypeUtils {
             }
 
             t.reflect().properties().forEach(p -> {
-                allPropTypes.add(p.getType().isListType()?
+                allPropTypes.add(p.getType().isListType() || p.getType().isReferenceSetType() ?
                         allTypesByName.get(p.getType().getElementTypeName().get())
                         : p.getType());
             });

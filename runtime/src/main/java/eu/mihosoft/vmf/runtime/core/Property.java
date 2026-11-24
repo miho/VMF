@@ -221,7 +221,7 @@ public final class Property {
             throw new RuntimeException("Cannot get property without access to an instance.");
         }
 
-        return parent._vmf_getPropertyValueById(propertyId);
+        return parent._vmf_getPublicPropertyValueById(propertyId);
     }
 
     @Deprecated()

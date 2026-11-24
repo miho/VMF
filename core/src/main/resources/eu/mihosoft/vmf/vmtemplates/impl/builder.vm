@@ -41,6 +41,10 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
         ${VMFPKG}.internal.ManagedMaps.create(${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound});
 #elseif(${prop.type} || ${prop.genericType})
     private $prop.typeName __vmf_prop_$prop.name;
+#if($prop.hasReferenceDefault())
+    private final java.util.List<${prop.elementTypeName}> __vmf_declared_default_${prop.name} =
+        ${VMFPKG}.internal.ReferenceCollections.snapshot(${prop.getDefaultValueAsString()}, ${prop.elementTypeName}.class);
+#end
 #if($prop.propType == "COLLECTION")
     private ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}.Builder> __vmf_prop__builder_$prop.name;
 #else
@@ -63,7 +67,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
      // property ${foreach.index}
  #if(${prop.getDefaultValueAsString()}!="null")
 
- #if($prop.mapType || $prop.managedValues)
+ #if($prop.referenceSet)
+     with${prop.nameWithUpperCase}(__vmf_declared_default_${prop.name});
+ #elseif($prop.mapType || $prop.managedValues)
      with${prop.nameWithUpperCase}(${prop.getDefaultValueAsString()});
  #elseif(${prop.type} || ${prop.genericType})
      __vmf_prop_${prop.name} = ${prop.getDefaultValueAsString()};
@@ -94,6 +100,22 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
       return this;
     }
 #elseif($prop.propType == "COLLECTION")
+#if($prop.referenceSet)
+    private void __vmf_apply_from_${prop.name}(Iterable<? extends ${prop.elementTypeName}> source) {
+      if (!appendCollections || __vmf_prop_${prop.name} == null) {
+        with${prop.nameWithUpperCase}(source);
+        return;
+      }
+      var merged = ${VMFPKG}.internal.ReferenceCollections.checked(
+          ${VCOLL_PKG}.VList.newInstance(new java.util.ArrayList<>(__vmf_prop_${prop.name})), ${prop.elementTypeName}.class, ${prop.ordered});
+      ${VMFPKG}.internal.ReferenceCollections.copy(merged, source, true);
+      with${prop.nameWithUpperCase}(merged);
+    }
+
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.lang.Iterable<? extends ${prop.elementTypeName}> ${prop.name}) {
+      this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
+          ${VMFPKG}.internal.ReferenceCollections.snapshot(${prop.name}, ${prop.elementTypeName}.class));
+#else
     public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name}) {
       // ensure that this collection property is really immutable
       this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
@@ -107,6 +129,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
         )
       );
 
+#end
 #if(${prop.type} || ${prop.genericType})
       // we set already initialized objects
       // -> remove builder alternative
@@ -178,7 +201,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   }
 
   public $type.typeName build() {
-    ${type.implementation.typeName} result = new ${type.implementation.typeName}();
+    ${type.implementation.typeName} result = new ${type.implementation.typeName}(#if(!$type.immutable && $type.hasReferenceDefaults())false#end);
 #foreach( $prop in ${type.implementation.properties} )
 
 
@@ -229,7 +252,18 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 ###end## if property is model-type
 #end## if type is immutable or property is no collection
 #if($prop.propType == "COLLECTION")
-#if($type.immutable)
+#if($prop.referenceSet)
+#if($prop.hasReferenceDefault())
+    result.__vmf_declared_default_${prop.name} = this.__vmf_declared_default_${prop.name};
+#end
+    if (this.__vmf_prop__builder_${prop.name} != null) {
+      var built = this.__vmf_prop__builder_${prop.name}.stream()
+          .map(b -> (${prop.elementTypeName}) b.build()).collect(java.util.stream.Collectors.toList());
+      ${VMFPKG}.internal.ReferenceCollections.copy(result.__vmf_get_prop_${prop.name}(), built, false);
+    } else if (this.__vmf_prop_${prop.name} != null) {
+      ${VMFPKG}.internal.ReferenceCollections.copy(result.__vmf_get_prop_${prop.name}(), this.__vmf_prop_${prop.name}, false);
+    }
+#elseif($type.immutable)
 #if(${prop.type} || ${prop.genericType})
     // collection, immutable model type
 
@@ -295,7 +329,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     // we cast types to the type of the property in the current class (runtime exception if not possible)
 
     ###if($type.immutable || $prop.propType != "COLLECTION")
-    #if($prop.managedValues)
+    #if($prop.referenceSet)
+      __vmf_apply_from_${prop.name}(o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+#elseif($prop.managedValues)
       ${VMFPKG}.internal.ManagedValues.copy(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.appendCollections);
 #elseif($prop.mapType)
       ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(),
@@ -328,7 +364,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public Builder applyFrom(${type.typeName} o) {
 #foreach( $prop in ${type.implementation.properties} )
 ###if($type.immutable || $prop.propType != "COLLECTION")
-#if($prop.managedValues)
+#if($prop.referenceSet)
+      __vmf_apply_from_${prop.name}(o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+#elseif($prop.managedValues)
       ${VMFPKG}.internal.ManagedValues.copy(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.appendCollections);
 #elseif($prop.mapType)
       ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(),
@@ -370,6 +408,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #elseif($prop.mapType)
       ${VMFPKG}.internal.ManagedMaps.copyInto(o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.__vmf_prop_${prop.name},
           ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound}, this.appendCollections);
+#elseif($prop.referenceSet)
+      ${VMFPKG}.internal.ReferenceCollections.copy(((__VMF_TYPE_${type.implementation.typeName}) o).__vmf_get_prop_${prop.name}(),
+          this.__vmf_prop_${prop.name} == null ? java.util.List.of() : this.__vmf_prop_${prop.name}, this.appendCollections);
 #elseif($prop.keyed)
       ${VMFPKG}.internal.KeyedEntries.copy(o.${prop.getterPrefix}${prop.nameWithUpperCase}(),
           this.__vmf_prop_${prop.name} == null ? java.util.List.of() : this.__vmf_prop_${prop.name}, this.appendCollections);

@@ -25,6 +25,15 @@
 
   @Override
   public ${prop.getterDeclaration} {
+#if($prop.referenceSet)
+    if (__vmf_refs_${prop.name} == null) {
+      __vmf_refs_${prop.name} = ${VMFPKG_INT}.ReferenceCollections.${prop.referenceCollectionFactory}(__vmf_get_prop_${prop.name}());
+    }
+    return __vmf_refs_${prop.name};
+  }
+
+  @Override public $prop.typeName __vmf_get_prop_${prop.name}() {
+#end
 
 #parse("${VMF_TEMPLATE_PATH}impl/getter-collection-simple.vm")
 #parse("${VMF_TEMPLATE_PATH}impl/getter-collection-contained.vm")

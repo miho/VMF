@@ -115,7 +115,7 @@ Future language bindings can use native collection types. Preserve scalar key ty
 
 ## Ordering and uniqueness across frameworks
 
-VMF generates an observable set for scalar membership and an ordered unique list when specified. [Java declarations and multiplicity](collection-properties.md)
+VMF compares scalar members by value and model references by identity. Both can be ordered or unordered. [Java declarations and multiplicity](collection-properties.md)
 
 | Model | How it expresses uniqueness and order | What a caller observes |
 | --- | --- | --- |

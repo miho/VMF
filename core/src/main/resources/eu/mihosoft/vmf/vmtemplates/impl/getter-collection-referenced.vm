@@ -28,18 +28,38 @@
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
         this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ObservableModelList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
+#if($prop.referenceSet)
+      this.__vmf_prop_${prop.name} = ${VMFPKG_INT}.ReferenceCollections.checked(this.__vmf_prop_${prop.name}, ${prop.elementTypeName}.class, ${prop.ordered});
+#end
 
         this.__vmf_prop_${prop.name}.addChangeListener(evt -> {
+#if($prop.hasUniqueReferenceOpposite())
+            final long revision = ++this.__vmf_reference_revision_${prop.name};
+#end
             if (${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF.equals(evt.eventInfo())) return;
 
             if (evt.wasSet() && ${VMFPKG_INT}.ObservableModelList.permutesIdentities(
                     evt.removed().elements(), evt.added().elements())) return;
+#if($prop.hasUniqueReferenceOpposite())
+            // A replacement can retain a link. Inverse observers can also edit the source during delivery.
+            var prior = evt.wasSet() ? ${VMFPKG_INT}.ReferenceCollections.membership(evt.removed().elements()) : null;
+            var retained = evt.removed().elements().isEmpty() ? null :
+#if($prop.referenceSet)
+                (evt.wasSet() ? ${VMFPKG_INT}.ReferenceCollections.membership(evt.added().elements()) : null);
+#else
+                ${VMFPKG_INT}.ReferenceCollections.membership(this.__vmf_prop_${prop.name});
+#end
+#end
             Throwable observerFailure = null;
             for (var e : evt.added().elements()) {
+#if($prop.hasUniqueReferenceOpposite())
+                if ((prior != null && prior.test(e)) || (revision != this.__vmf_reference_revision_${prop.name}
+                        && this.__vmf_prop_${prop.name}.stream().noneMatch(present -> present == e))) continue;
+#end
                 if (e == null) continue;
                 var target = (${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl) e;
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION")
-                var opposite = target.get${prop.referenceInfo.opposite.nameWithUpperCase}();
+                var opposite = ${prop.referenceInfo.opposite.internalGetter("target")};
                 try {
                     ${VMFPKG_INT}.ObservableModelList.addCrossReference(opposite, this);
                 } catch (RuntimeException | Error failure) {
@@ -71,7 +91,7 @@
                 // its change. Undo can then restore the previous owner's entry and position.
                 target.__vmf_set_prop_${oppositeRefProp.name}(this);
                 if (previousOwner != null) {
-                    var previousRefs = previousOwner.get${prop.nameWithUpperCase}();
+                    var previousRefs = ${prop.internalGetter("previousOwner")};
                     for (int i = previousRefs.size() - 1; i >= 0; i--) {
                         if (previousRefs.get(i) == e) {
                             try {
@@ -93,21 +113,33 @@
 
             removed:
             for (var e : evt.removed().elements()) {
+#if($prop.hasUniqueReferenceOpposite())
+                boolean stillPresent = revision == this.__vmf_reference_revision_${prop.name}
+                        ? retained != null && retained.test(e)
+                        : this.__vmf_prop_${prop.name}.stream().anyMatch(present -> present == e);
+                if (stillPresent) continue;
+#end
                 if (e == null) continue;
                 var target = (${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl) e;
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION")
-                var opposite = target.get${prop.referenceInfo.opposite.nameWithUpperCase}();
+                var opposite = ${prop.referenceInfo.opposite.internalGetter("target")};
                 try {
+#if($prop.referenceSet && !$prop.referenceInfo.opposite.referenceSet)
+                    ${VMFPKG_INT}.ObservableModelList.removeAllCrossReferences(opposite, this);
+#else
                     ${VMFPKG_INT}.ObservableModelList.removeCrossReference(opposite, this);
+#end
                 } catch (RuntimeException | Error failure) {
                     observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
                 }
 #else
 #set($oppositeRefProp=${prop.referenceInfo.opposite})
                 if (target.__vmf_get_prop_${oppositeRefProp.name}() != this) continue;
+#if(!$prop.hasUniqueReferenceOpposite())
                 for (Object remaining : this.__vmf_prop_${prop.name}) {
                     if (remaining == e) continue removed;
                 }
+#end
                 target.__vmf_set_prop_${oppositeRefProp.name}(null);
                 try {
                     target._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", this, null,

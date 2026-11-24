@@ -498,6 +498,12 @@ public class VMFJacksonModule extends SimpleModule {
                         try {
                             // Determine the parameter type
                             Class<?> paramType = method.getParameterTypes()[0];
+                            if (setter.property != null && setter.property.getType().isReferenceSetType()) {
+                                if (!isXml && !value.isArray()) throw new IOException("Expected an array of model references");
+                                if (session == null && VMFReferences.isReferenceProperty(setter.property)
+                                        && !VMFReferences.elementsOf(value, isXml).isEmpty())
+                                    throw new IOException("Model reference collection " + fieldName + " requires withReferences(true)");
+                            }
 
                             if (setter.property != null && setter.property.getType().isSetType()) {
                                 if (!isXml && !value.isArray()) throw new IOException("Expected an array of set members");
@@ -513,46 +519,28 @@ public class VMFJacksonModule extends SimpleModule {
                                     }
                                 }
                                 method.invoke(builder, members);
-                            } else if (Collection.class.isAssignableFrom(paramType)) {
-                                // Get the collection type
-                                var genericParamType = method.getGenericParameterTypes()[0];
-                                Class<?> elementTypeClass = ctxt.constructType(genericParamType).getContentType().getRawClass();
+                            } else if (Collection.class.isAssignableFrom(paramType)
+                                    || (setter.property != null && setter.property.getType().isReferenceSetType() && paramType == Iterable.class)) {
+                                boolean referenceSet = setter.property != null && setter.property.getType().isReferenceSetType();
+                                Class<?> elementType = referenceSet ? Class.forName(
+                                        setter.property.getType().getElementTypeName().orElseThrow(), false,
+                                        method.getDeclaringClass().getClassLoader())
+                                        : ctxt.constructType(method.getGenericParameterTypes()[0]).getContentType().getRawClass();
 
-                                // Create a new collection (we assume it's a List)
                                 List<Object> collection = new ArrayList<>();
-                                // Iterate over the elements
-                                for (JsonNode element : value) {
-                                    // in case of xml we have further nesting because of the use of <item> tags within
-                                    // the collection which isn't done in case of json or yaml
-                                    if(isXml && element instanceof ArrayNode) {
-                                        var arrayNode = (ArrayNode) element;
-                                        for (JsonNode e : arrayNode) {
-                                            // Deserialize the collection element
-                                            Object elementValue = e.isValueNode()
-                                                    // we reuse the scalar value handling from the deserializeField method
-                                                    // it won't use the other parts of the method since we only use it for
-                                                    // scalar values
-                                                    ? deserializeField(ctxt, e, elementTypeClass)
-                                                    : ctxt.readValue(
-                                                    e.traverse(ctxt.getParser().getCodec()),
-                                                    getVMFTypeClass(ctxt.getParser(), e, elementTypeClass));
-
-                                            // Add the element to the collection
-                                            collection.add(elementValue);
+                                // Plain collection declarations historically read members only from a container node.
+                                if (referenceSet || value.isContainerNode()) {
+                                    Iterable<JsonNode> members = isXml ? VMFReferences.elementsOf(value, true) : value;
+                                    for (JsonNode member : members) {
+                                        if (referenceSet) {
+                                            // XML has a text node for an empty <item/> model object.
+                                            if (isXml && member.isTextual() && member.textValue().isEmpty())
+                                                member = ctxt.getNodeFactory().objectNode();
+                                            if (!member.isObject()) throw new IOException("Expected a model object in " + fieldName);
                                         }
-                                    } else {
-                                        // Deserialize the collection element
-                                        Object elementValue = element.isValueNode()
-                                                // we reuse the scalar value handling from the deserializeField method
-                                                // it won't use the other parts of the method since we only use it for
-                                                // scalar values
-                                                ? deserializeField(ctxt, element, elementTypeClass)
-                                                : ctxt.readValue(
-                                                        element.traverse(ctxt.getParser().getCodec()),
-                                                        getVMFTypeClass(ctxt.getParser(), element, elementTypeClass));
-
-                                        // Add the element to the collection
-                                        collection.add(elementValue);
+                                        collection.add(member.isValueNode() ? deserializeField(ctxt, member, elementType)
+                                                : ctxt.readValue(member.traverse(ctxt.getParser().getCodec()),
+                                                        getVMFTypeClass(ctxt.getParser(), member, elementType)));
                                     }
                                 }
                                 // Invoke the builder method
@@ -634,10 +622,14 @@ public class VMFJacksonModule extends SimpleModule {
          */
         private List<Object> referenceSlots(DeserializationContext ctxt, JsonNode value,
                                             VMFReferences.ReferenceProperty property, boolean isXml) throws IOException {
+            if (property.uniqueReferences && !isXml && !value.isArray())
+                throw new IOException("Expected an array of target IDs for " + property.name);
             List<JsonNode> elements = property.list
                     ? VMFReferences.elementsOf(value, isXml) : Collections.singletonList(value);
             List<Object> slots = new ArrayList<>(elements.size());
             for (JsonNode element : elements) {
+                if (property.uniqueReferences && !VMFReferences.isIdNode(element))
+                    throw new IOException("Expected a target ID in " + property.name);
                 if (element == null || element.isNull()
                         || (element.isTextual() && element.asText().isEmpty())) {
                     slots.add(null);
@@ -970,6 +962,15 @@ public class VMFJacksonModule extends SimpleModule {
                 Object propValue = p.get();
                 if (propValue == null) {
                     continue;
+                }
+                if (p.getType().isReferenceSetType()) {
+                    var members = (eu.mihosoft.vmf.runtime.core.RefSet<?>) propValue;
+                    if (session == null && VMFReferences.isReferenceProperty(p) && !members.isEmpty())
+                        throw JsonMappingException.from(gen, "Model reference collection " + p.getName() + " requires withReferences(true)");
+                    // Jackson's XML list wrapper and JSON arrays share the ordinary model-list representation.
+                    List<Object> items = new ArrayList<>(members.size());
+                    members.forEach(items::add);
+                    propValue = items;
                 }
                 // if property holds contained value or is external or immutable, serialize it
                 if (VMFTypeUtils.isParentOfPropContainer(p)

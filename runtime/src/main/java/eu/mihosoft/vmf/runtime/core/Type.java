@@ -88,13 +88,12 @@ public final class Type {
     }
 
     /**
-     * Returns the element type name if this type denotes a list type.
-     * @return the element type name if this type denotes a list type; returns
-     * an empty optional otherwise
+     * Returns the element type of a list, scalar set, or reference set.
+     * @return the element type name when the collection has one element type
      */
     public Optional<String> getElementTypeName() {
 
-        if ((!listType && !isSetType()) || descriptor.getArguments().size() != 1) return Optional.empty();
+        if ((!listType && !isSetType() && !isReferenceSetType()) || descriptor.getArguments().size() != 1) return Optional.empty();
         return Optional.of(descriptor.getArguments().get(0).toString());
     }
 
@@ -111,9 +110,15 @@ public final class Type {
         return modelClass == eu.mihosoft.vcollections.VSet.class && descriptor.getArguments().size() == 1;
     }
 
+    /** Indicates a collection of unique model references. The property's multiplicity specifies ordering. */
+    public boolean isReferenceSetType() {
+        return (modelClass == RefSet.class || modelClass == OrderedRefSet.class) && descriptor.getArguments().size() == 1;
+    }
+
     static Type propertyType(boolean model, boolean list, boolean interfaceOnly, String name,
                              Class<?> javaClass, TypeDescriptor descriptor) {
-        return new Type(model, list, interfaceOnly, name, javaClass, descriptor);
+        boolean publicList = list && javaClass != RefSet.class && javaClass != OrderedRefSet.class;
+        return new Type(model, publicList, interfaceOnly, name, javaClass, descriptor);
     }
 
     /**
@@ -135,7 +140,7 @@ public final class Type {
      */
     public boolean isModelSubtypeOf(Type supertype) {
         Objects.requireNonNull(supertype, "supertype");
-        if (!modelType || listType || !supertype.modelType || supertype.listType
+        if (!modelType || listType || isReferenceSetType() || !supertype.modelType || supertype.listType || supertype.isReferenceSetType()
                 || modelClass == supertype.modelClass || !supertype.modelClass.isAssignableFrom(modelClass)) {
             return false;
         }
@@ -256,7 +261,7 @@ public final class Type {
 
         if (superTypes == null) {
             List<Type> parents = new ArrayList<>();
-            if (isModelType() && !isListType()) {
+            if (isModelType() && !isListType() && !isReferenceSetType()) {
                 if (interfaceOnly) {
                     // Interface-only types have no prototype. Their generated Java supertypes
                     // retain the declared argument expressions, including forwarded type variables.

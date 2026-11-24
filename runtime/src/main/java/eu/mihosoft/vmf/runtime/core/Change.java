@@ -108,6 +108,9 @@ public interface Change {
         return Optional.empty();
     }
 
+    /** An edit to an identity-unique model reference collection. */
+    default Optional<RefSetChange> referenceSetChange() { return Optional.empty(); }
+
     /**
      * Change Type
      */
@@ -123,7 +126,9 @@ public interface Change {
         /** Change affects entries in a managed map. */
         MAP,
         /** Change affects membership of a managed set. */
-        SET
+        SET,
+        /** Change affects an unordered or ordered identity-unique model reference collection. */
+        REFERENCE_SET
     }
 
     /**

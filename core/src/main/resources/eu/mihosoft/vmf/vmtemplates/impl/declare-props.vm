@@ -45,6 +45,15 @@
 
 #foreach( $prop in ${type.implementation.properties})
   // --- PROP '$prop.typeName'
+#if($prop.propType == "COLLECTION" && $prop.hasUniqueReferenceOpposite())
+  private long __vmf_reference_revision_${prop.name};
+#end
+#if($prop.referenceSet)
+  private ${prop.typeNameForInterface} __vmf_refs_${prop.name};
+#if($prop.hasReferenceDefault())
+  private java.util.List<${prop.elementTypeName}> __vmf_declared_default_${prop.name};
+#end
+#end
 #if($prop.managedValues)
     private final $prop.typeName __vmf_prop_$prop.name =
 #if($prop.setType)
@@ -70,6 +79,10 @@
   @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {
     ${VMFPKG}.internal.ManagedMaps.copyInto(__vmf_prop_${prop.name}, obj, ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound}, false);
   }
+#elseif($prop.referenceSet)
+  @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {
+    ${VMFPKG}.internal.ReferenceCollections.copy(__vmf_get_prop_${prop.name}(), obj, false);
+  }
 #elseif(${prop.isInheritedProp()})## if   inheritedprop
   //  -> prop is inherited from: '${prop.inheritedProp.parent.typeName}.${prop.inheritedProp.name}'
   //  -> we have to stick to the parent method signature and do the necessary casting in the setter impl, see (*1*) 
@@ -78,7 +91,9 @@
   @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_${prop.name} = obj;}
 #end##-------------------------- end  inheritedprop
   //@Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {this.__vmf_prop_${prop.name} = obj;}
+#if(!$prop.referenceSet)
   @Override public $prop.typeName __vmf_get_prop_${prop.name}() {return this.__vmf_prop_${prop.name};}
+#end
 #if(${prop.propType} == "COLLECTION")
   @Override public java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList() {
 

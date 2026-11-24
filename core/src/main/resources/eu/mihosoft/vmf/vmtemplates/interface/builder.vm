@@ -53,7 +53,11 @@
 #elseif($prop.mapType)
     public Builder with${prop.nameWithUpperCase}(java.util.Map<${prop.mapKeyTypeName}, ${prop.mapValueTypeName}> ${prop.name});
 #elseif($prop.propType == "COLLECTION")
+#if($prop.referenceSet)
+    public Builder with${prop.nameWithUpperCase}(java.lang.Iterable<? extends ${prop.elementTypeName}> ${prop.name});
+#else
     public Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name});
+#end
 
 #if(${prop.type} || ${prop.genericType})
     /**
