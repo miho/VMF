@@ -27,12 +27,20 @@ package eu.mihosoft.vmf.maven;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -81,7 +89,7 @@ import eu.mihosoft.vmf.VMF;
  *       <li>GrammarLangModel.java</li>
  *       <li>UnparserModel.java</li>
  *     </ul>
- *   </il>
+ *   </li>
  * </ul>
  * 
  * <p>For every group code (model directory) code generation is executed.
@@ -90,6 +98,19 @@ import eu.mihosoft.vmf.VMF;
  * 
  */
 public abstract class AbstractVMFMojo extends AbstractMojo {
+	private static final URLStreamHandler COMPILER_FILE_PATH = new URLStreamHandler() {
+		@Override
+		protected void parseURL(URL url, String specification, int start, int limit) {
+			// Preserve the literal filesystem path, including any fragment or query characters.
+			setURL(url, "file", "", -1, null, null, specification.substring(start), null, null);
+		}
+
+		@Override
+		protected URLConnection openConnection(URL url) {
+			throw new UnsupportedOperationException("Used only to pass a path to the model compiler");
+		}
+	};
+
 	/** The maven project. */
 	@Parameter(defaultValue = "${project}", required = true, readonly = true)
 	protected MavenProject project;
@@ -131,15 +152,17 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 		// generate VMF sources
 		// iterate over all packages an run generation process
 		File[] packageFiles = sourceModel.keySet().toArray(new File[sourceModel.size()]);
-		try {
+		try (URLClassLoader modelClassLoader = createModelClassLoader()) {
 			for (File packageFile : packageFiles) {
 				// run generation process fpr package
 				List<File> sourceFileList = sourceModel.get(packageFile);
 				File[] sourceFileArray = sourceFileList.toArray(new File[sourceFileList.size()]);
 				// log some infos for user
 				log.info("Generating Java classes from vmf model for package in " + packageFile.getParent());
-				VMF.generate(targetDirectory, sourceFileArray);
+				VMF.generate(targetDirectory, modelClassLoader, sourceFileArray);
 			}
+		} catch (DependencyResolutionRequiredException e) {
+			throw new MojoExecutionException("Cannot resolve the project classpath for VMF model generation", e);
 		} catch (IOException e) {
 			StringBuffer sb = new StringBuffer();
 			sb.append(e.getMessage());
@@ -153,6 +176,44 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 			log.error(e);
 			throw new MojoExecutionException(sb.toString(), e);
 		}
+	}
+
+	private URLClassLoader createModelClassLoader() throws IOException, DependencyResolutionRequiredException {
+		ClassLoader parent = Thread.currentThread().getContextClassLoader();
+		if (parent == null) {
+			parent = getClass().getClassLoader();
+		}
+		List<URL> classpath = new ArrayList<>();
+		if (parent instanceof URLClassLoader) {
+			Collections.addAll(classpath, ((URLClassLoader) parent).getURLs());
+		}
+		for (String element : getModelClasspathElements()) {
+			classpath.add(new File(element).toURI().toURL());
+		}
+		URL[] runtimeUrls = classpath.toArray(new URL[0]);
+		URL[] compilerUrls = runtimeUrls.clone();
+		// JCompiler 0.4 reads the immediate loader's URLs and passes URL.getFile() to File
+		// without decoding it. Keep ordinary URLs for loading and expose filesystem paths to the compiler.
+		for (int i = 0; i < compilerUrls.length; i++) {
+			URL url = compilerUrls[i];
+			if ("file".equals(url.getProtocol()) && url.getFile().contains("%")) {
+				try {
+					compilerUrls[i] = new URL(null, "file:" + Paths.get(url.toURI()), COMPILER_FILE_PATH);
+				} catch (URISyntaxException | IllegalArgumentException e) {
+					throw new IOException("Cannot use VMF model classpath URL " + url, e);
+				}
+			}
+		}
+		return new URLClassLoader(runtimeUrls, parent) {
+			@Override
+			public URL[] getURLs() {
+				return compilerUrls.clone();
+			}
+		};
+	}
+
+	protected List<String> getModelClasspathElements() throws DependencyResolutionRequiredException {
+		return getProject().getCompileClasspathElements();
 	}
 
 	/**
@@ -245,7 +306,7 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 	/**
 	 * Sets the target directory for the generated Java files.
 	 * 
-	 * @return the target directory for the generated Java files.
+	 * @param targetDirectory the target directory for the generated Java files
 	 */
 	protected abstract void setTargetDirectory(File targetDirectory);
 

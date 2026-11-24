@@ -25,19 +25,32 @@
 package eu.mihosoft.vmf.maven;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+
+import javax.tools.ToolProvider;
 
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 /**
  * Instances of this class are used to test the VMF maven plugin.
  */
 public class TestVMFMojo {
+	@Rule
+	public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+
 
 	/**
 	 * Tests the GenerateVMFSourcesMojo.
@@ -75,5 +88,66 @@ public class TestVMFMojo {
 		List<String> compileSourceRoots = mojo.getProject().getTestCompileSourceRoots();
 		assertEquals("Unexpected number of source roots encountered", 1, compileSourceRoots.size());
 		assertEquals("Wrong source directory found", compileSourceRoots.get(0), targetDirectory.getAbsolutePath());
+	}
+
+	@Test
+	public void mainModelUsesProjectCompileClasspath() throws Exception {
+		File classes = compileExternalType("compilefixture", "MainValue");
+		GenerateVMFSourcesMojo mojo = new GenerateVMFSourcesMojo();
+		mojo.setProject(new MavenProject() {
+			@Override
+			public List<String> getCompileClasspathElements() {
+				return Collections.singletonList(classes.getAbsolutePath());
+			}
+		});
+
+		String generated = generateModel(mojo, "import compilefixture.MainValue;\n",
+				"MainValue getMainValue();");
+		assertTrue(generated.contains("compilefixture.MainValue getMainValue()"));
+	}
+
+	@Test
+	public void testModelUsesProjectTestClasspath() throws Exception {
+		File mainClasses = compileExternalType("compilefixture", "MainValue");
+		File testClasses = compileExternalType("testfixture", "TestValue");
+		GenerateVMFTestSourcesMojo mojo = new GenerateVMFTestSourcesMojo();
+		mojo.setProject(new MavenProject() {
+			@Override
+			public List<String> getTestClasspathElements() {
+				return Arrays.asList(mainClasses.getAbsolutePath(), testClasses.getAbsolutePath());
+			}
+		});
+
+		String generated = generateModel(mojo,
+				"import compilefixture.MainValue;\nimport testfixture.TestValue;\n",
+				"MainValue getMainValue();\nTestValue getTestValue();");
+		assertTrue(generated.contains("compilefixture.MainValue getMainValue()"));
+		assertTrue(generated.contains("testfixture.TestValue getTestValue()"));
+	}
+
+	private File compileExternalType(String packageName, String typeName) throws IOException {
+		File source = temporaryFolder.newFile(typeName + ".java");
+		File classes = temporaryFolder.newFolder(typeName + " classes % #");
+		String code = "package " + packageName + ";\npublic final class " + typeName + " {}";
+		Files.write(source.toPath(), code.getBytes(StandardCharsets.UTF_8));
+		int result = ToolProvider.getSystemJavaCompiler().run(null, null, null,
+				"-d", classes.getAbsolutePath(), source.getAbsolutePath());
+		assertEquals("Could not compile the external fixture", 0, result);
+		return classes;
+	}
+
+	private String generateModel(AbstractVMFMojo mojo, String imports, String properties) throws Exception {
+		File sourceRoot = temporaryFolder.newFolder("models");
+		File modelDir = new File(sourceRoot, "model/vmfmodel");
+		Files.createDirectories(modelDir.toPath());
+		File source = new File(modelDir, "Example.java");
+		String code = "package model.vmfmodel;\n" + imports + "public interface Example {\n" + properties + "\n}";
+		Files.write(source.toPath(), code.getBytes(StandardCharsets.UTF_8));
+		File target = temporaryFolder.newFolder("generated");
+		mojo.setSourceDirectory(sourceRoot);
+		mojo.setTargetDirectory(target);
+		mojo.execute();
+		byte[] sourceBytes = Files.readAllBytes(new File(target, "model/Example.java").toPath());
+		return new String(sourceBytes, StandardCharsets.UTF_8);
 	}
 }
