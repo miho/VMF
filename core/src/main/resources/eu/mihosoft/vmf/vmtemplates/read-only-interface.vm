@@ -99,7 +99,7 @@ public interface ${type.readOnlyInterface.typeName}${type.typeParameters} extend
   * <!-- vmf-end-model-doc -->
   *
   * @return the value of the '<em>${prop.name}</em>' property.
-  * #if(${prop.propType}!="COLLECTION" && !$prop.mapType)@see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
+  * #if(${prop.propType}!="COLLECTION" && !$prop.mapType && !$prop.managedValues)@see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
 #end
   */
 #end ## if container / contained
@@ -116,7 +116,12 @@ public interface ${type.readOnlyInterface.typeName}${type.typeParameters} extend
   public #if($prop.type)#if($prop.type.immutable)$prop.type.typeName#else$prop.type.readOnlyInterface.typeName#end#else$prop.typeName#end ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #end ## if collection
 
+
 #end ## for each
+
+#set($readOnlyLookup = true)
+#parse("${VMF_TEMPLATE_PATH}interface/keyed-lookups.vm")
+
 
  /**
   * Returns a deep clone of this object.

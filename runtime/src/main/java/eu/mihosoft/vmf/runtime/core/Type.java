@@ -94,7 +94,7 @@ public final class Type {
      */
     public Optional<String> getElementTypeName() {
 
-        if (!listType || descriptor.getArguments().size() != 1) return Optional.empty();
+        if ((!listType && !isSetType()) || descriptor.getArguments().size() != 1) return Optional.empty();
         return Optional.of(descriptor.getArguments().get(0).toString());
     }
 
@@ -104,6 +104,11 @@ public final class Type {
     /** Indicates whether the property is a managed VMF map. */
     public boolean isMapType() {
         return modelClass == eu.mihosoft.vcollections.VMap.class && descriptor.getArguments().size() == 2;
+    }
+
+    /** Indicates whether the property is a managed, unordered set. */
+    public boolean isSetType() {
+        return modelClass == eu.mihosoft.vcollections.VSet.class && descriptor.getArguments().size() == 1;
     }
 
     static Type propertyType(boolean model, boolean list, boolean interfaceOnly, String name,

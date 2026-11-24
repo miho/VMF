@@ -304,9 +304,27 @@ public class VMFJsonSchemaGenerator {
             }
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isMapType()) {
-            String valueName = property.getType().getDescriptor().getArguments().get(1).getName();
-            propertySchema.put("type", "object");
-            propertySchema.put("additionalProperties", mapEntrySchema(valueName));
+            var args = property.getType().getDescriptor().getArguments();
+            String key = args.get(0).getName();
+            String value = args.get(1).getName();
+            if (String.class.getName().equals(key)) {
+                propertySchema.put("type", "object");
+                propertySchema.put("additionalProperties", scalarItemSchema(value, true));
+            } else {
+                propertySchema.put("type", "array");
+                propertySchema.put("items", Map.of("type", "object", "additionalProperties", false,
+                        "required", List.of("key", "value"),
+                        "properties", Map.of("key", scalarItemSchema(key, false), "value", scalarItemSchema(value, true))));
+            }
+            var bounds = property.getMultiplicity();
+            boolean object = String.class.getName().equals(key);
+            if (bounds.getLower() > 0) propertySchema.put(object ? "minProperties" : "minItems", bounds.getLower());
+            if (bounds.getUpper() >= 0) propertySchema.put(object ? "maxProperties" : "maxItems", bounds.getUpper());
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
+        } else if (property.getType().isSetType()) {
+            String element = property.getType().getDescriptor().getArguments().get(0).getName();
+            propertySchema.put("type", "array");
+            propertySchema.put("items", scalarItemSchema(element, false));
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (isValueType(property.getType())) {
             propertySchema.put("type", mapValueType(property.getType()));
@@ -358,22 +376,43 @@ public class VMFJsonSchemaGenerator {
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         }
 
+        if (property.getType().isSetType() || property.getType().isListType()) {
+            var multiplicity = property.getMultiplicity();
+            if (multiplicity.getLower() > 0) propertySchema.put("minItems", multiplicity.getLower());
+            if (multiplicity.getUpper() >= 0) propertySchema.put("maxItems", multiplicity.getUpper());
+            String element = property.getType().getDescriptor().getArguments().get(0).getName();
+            // JSON Schema equates signed zeroes and structurally equal objects. Java model identity and
+            // Float/Double membership can distinguish them, so the runtime enforces uniqueness in these cases.
+            if (multiplicity.isUnique() && !property.getType().isModelType()
+                    && !Float.class.getName().equals(element) && !Double.class.getName().equals(element)) {
+                propertySchema.put("uniqueItems", true);
+            }
+            property.getKeyPropertyName().ifPresent(keyName -> {
+                // Requiring the key is specific to entries in this list. The entry type may be used independently.
+                Type entryType = VMFTypeUtils.forClass(types.load(element));
+                Property key = entryType.reflect().propertyByName(keyName).orElseThrow();
+                String field = getFieldNameForProperty(key);
+                Map<String, Object> requiredKey = Map.of("required", List.of(field), "properties",
+                        Map.of(field, Map.of("not", Map.of("type", "null"))));
+                propertySchema.put("items", Map.of("allOf", List.of(propertySchema.get("items"), requiredKey)));
+            });
+        }
         return propertySchema;
     }
 
 
-    private static Map<String, Object> mapEntrySchema(String valueName) {
+    private static Map<String, Object> scalarItemSchema(String valueName, boolean nullable) {
         Type type = VMFTypeUtils.forClass(valueName);
         if (isDouble(type) || isFloat(type)) {
             // Jackson encodes non-finite numbers as strings under its default settings.
-            return Map.of("anyOf", List.of(Map.of("type", List.of("number", "null")),
+            return Map.of("anyOf", List.of(Map.of("type", nullable ? List.of("number", "null") : "number"),
                     Map.of("enum", List.of("NaN", "Infinity", "-Infinity"))));
         }
         if (valueName.equals("java.lang.Character")) {
-            return Map.of("type", List.of("string", "null"), "minLength", 1, "maxLength", 1);
+            return Map.of("type", nullable ? List.of("string", "null") : "string", "minLength", 1, "maxLength", 1);
         }
         String scalar = valueName.equals("java.lang.Byte") ? "integer" : mapValueType(type);
-        return Map.of("type", List.of(scalar, "null"));
+        return Map.of("type", nullable ? List.of(scalar, "null") : scalar);
     }
 
     /**
@@ -583,7 +622,17 @@ public class VMFJsonSchemaGenerator {
     private void addDefaultValue(Property property, Map<String, Object> propertySchema) {
         try {
             Object defaultValue = property.getDefault();
-            if (defaultValue != null) {
+            if (defaultValue instanceof Map<?, ?> && property.getType().isMapType()
+                    && !String.class.getName().equals(property.getType().getDescriptor().getArguments().get(0).getName())) {
+                var entries = new ArrayList<Map<String, Object>>();
+                ((Map<?, ?>) defaultValue).forEach((key, value) -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("key", key);
+                    entry.put("value", value);
+                    entries.add(entry);
+                });
+                propertySchema.put("default", entries);
+            } else if (defaultValue != null) {
                 propertySchema.put("default", defaultValue);
             }
         } catch (Exception e) {

@@ -22,7 +22,7 @@
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
 ## we don't support setters for collection types
-#if(!$prop.mapType && ${prop.propType}!="COLLECTION" && ${prop.readOnly} == false && (${prop.getterOnly} == false || (${type.immutable} == false && ${type.interfaceOnly} == false) ) )
+#if(!$prop.mapType && !$prop.managedValues && ${prop.propType}!="COLLECTION" && ${prop.readOnly} == false && (${prop.getterOnly} == false || (${type.immutable} == false && ${type.interfaceOnly} == false) ) )
 ##
 #if(${prop.containmentInfo.containmentType}=="CONTAINER" && ${prop.containmentInfo.withoutOpposite} )##      ## if container / contained
 /**

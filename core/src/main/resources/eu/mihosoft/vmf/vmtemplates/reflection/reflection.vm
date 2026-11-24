@@ -53,9 +53,11 @@
 
   private static final ${VMFPKG}.TypeDescriptor[] _VMF_PROPERTY_TYPE_DESCRIPTORS = {
 #foreach($prop in $type.implementation.properties)
-#if($prop.mapType)
+#if($prop.managedValues)
+    ${VMFPKG}.TypeDescriptor.of("${prop.managedCollectionName}", ${VMFPKG}.TypeDescriptor.of("${prop.constrainedElementType}")),
+#elseif($prop.mapType)
     ${VMFPKG}.TypeDescriptor.of("eu.mihosoft.vcollections.VMap",
-        ${VMFPKG}.TypeDescriptor.of("java.lang.String"), ${VMFPKG}.TypeDescriptor.of("${prop.mapValueTypeName}")),
+        ${VMFPKG}.TypeDescriptor.of("${prop.mapKeyTypeName}"), ${VMFPKG}.TypeDescriptor.of("${prop.mapValueTypeName}")),
 #elseif($prop.propType == "COLLECTION")
     ${VMFPKG}.TypeDescriptor.of("eu.mihosoft.vcollections.VList", ${VMFPKG}.TypeDescriptor.of("${prop.metadataElementTypeName}")),
 #else
@@ -67,6 +69,15 @@
   @Override
   public ${VMFPKG}.TypeDescriptor _vmf_getPropertyTypeDescriptor(int propertyId) {
     return _VMF_PROPERTY_TYPE_DESCRIPTORS[propertyId];
+  }
+
+  private static final ${VMFPKG}.Multiplicity[] _VMF_MULTIPLICITIES = {
+#foreach($prop in $type.implementation.properties)
+    ${VMFPKG}.Multiplicity.of(${prop.lowerBound}, ${prop.upperBound}, ${prop.ordered}, ${prop.unique}),
+#end
+  };
+  @Override public ${VMFPKG}.Multiplicity _vmf_getMultiplicity(int propertyId) {
+    return _VMF_MULTIPLICITIES[propertyId];
   }
 
   static final int[] _VMF_PROPERTY_TYPES = {
@@ -206,11 +217,20 @@
   public void _vmf_setPropertyValueById(int propertyId, Object value) {
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
-#if(!$prop.genericType)
-#if($prop.mapType)
+#if($prop.keyed)
+      case $foreach.index:
+        ${VMFPKG}.internal.KeyedEntries.copy(get${prop.nameWithUpperCase}(),
+            (java.util.Collection<${prop.elementTypeName}>) value, false);
+        break;
+#elseif(!$prop.genericType)
+#if($prop.managedValues)
+      case $foreach.index:
+        ${VMFPKG}.internal.ManagedValues.copy(get${prop.nameWithUpperCase}(), (java.util.Collection<?>) value, false);
+        break;
+#elseif($prop.mapType)
       case $foreach.index:
         ${VMFPKG}.internal.ManagedMaps.copyInto(get${prop.nameWithUpperCase}(), (java.util.Map<?, ?>) value,
-            ${prop.mapValueTypeName}.class, false);
+            ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound}, false);
         break;
 #elseif(${prop.propType}!="COLLECTION" && !${prop.readOnly}) ## && $prop.containmentInfo.containmentType!="CONTAINER"
       case $foreach.index: // normal property (no collection)
@@ -237,7 +257,22 @@
 #foreach($prop in ${type.implementation.properties})
       case ${foreach.index}:
         Object __vmf_default_value_tmp${prop.nameWithUpperCase} = _VMF_DEFAULT_VALUES[${foreach.index}];
-#if($prop.mapType)
+#if($prop.managedValues)
+#if($readOnlyVal && !$type.immutable)
+        return ((${VMFPKG}.internal.VObjectInternal) this.mutableObject)._vmf_getDefaultValueById(propertyId);
+#else
+        if (__vmf_default_value_tmp${prop.nameWithUpperCase} != null) return __vmf_default_value_tmp${prop.nameWithUpperCase};
+#if(${prop.getDefaultValueAsString()}=="null")
+#if($prop.setType)
+        return java.util.Collections.emptySet();
+#else
+        return java.util.Collections.emptyList();
+#end
+#else
+        return ${VMFPKG}.internal.ManagedValues.snapshot(${prop.getDefaultValueAsString()}, ${prop.constrainedElementType}.class, ${prop.upperBound}, ${prop.setType}, ${prop.unique});
+#end
+#end
+#elseif($prop.mapType)
 #if($readOnlyVal && !$type.immutable)
         return ((${VMFPKG}.internal.VObjectInternal) this.mutableObject)._vmf_getDefaultValueById(propertyId);
 #else
@@ -247,7 +282,7 @@
 #if(${prop.getDefaultValueAsString()}=="null")
         return java.util.Collections.emptyMap();
 #else
-        return ${VMFPKG}.internal.ManagedMaps.snapshot(${prop.getDefaultValueAsString()}, ${prop.mapValueTypeName}.class);
+        return ${VMFPKG}.internal.ManagedMaps.snapshot(${prop.getDefaultValueAsString()}, ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound});
 #end
 #end
 #elseif(${prop.propType}=="PRIMITIVE")## if prop is primitive
@@ -279,10 +314,14 @@
   public void _vmf_setDefaultValueById(int propertyId, Object defaultValue) {
 
 #foreach($prop in ${type.implementation.properties})
-#if($prop.mapType)
+#if($prop.managedValues)
+    if (propertyId == ${foreach.index} && defaultValue != null) {
+      defaultValue = ${VMFPKG}.internal.ManagedValues.snapshot((java.util.Collection<?>) defaultValue, ${prop.constrainedElementType}.class, ${prop.upperBound}, ${prop.setType}, ${prop.unique});
+    }
+#elseif($prop.mapType)
     if (propertyId == ${foreach.index}) {
       defaultValue = defaultValue == null ? null :
-          ${VMFPKG}.internal.ManagedMaps.snapshot((java.util.Map<?, ?>) defaultValue, ${prop.mapValueTypeName}.class);
+          ${VMFPKG}.internal.ManagedMaps.snapshot((java.util.Map<?, ?>) defaultValue, ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound});
     }
 #elseif(${prop.containmentProperty})
     // property ${prop.name}

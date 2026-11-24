@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -130,13 +131,18 @@ public final class JournalReplayer {
         creation.properties().forEach((key, values) -> {
             Property property = JournalSupport.property(object, key, binding);
             require(!property.getType().isMapType(), "Map property requires keyed entries for " + key);
+            require(!property.getType().isSetType(), "Set property requires set members for " + key);
             if (property.getType().isModelType() != modelProperties) return;
             List<Object> decoded = decode(property, propertyClass(object, property), values);
             if (property.getType().isListType()) {
                 VList<Object> list = list(property);
                 if (!sameList(list, decoded)) {
-                    list.clear();
-                    list.addAll(decoded);
+                    if (property.getMultiplicity().isUnique()) {
+                        property.set(decoded);
+                    } else {
+                        list.clear();
+                        list.addAll(decoded);
+                    }
                 }
                 require(sameList(list, decoded), "Failed to initialize " + key);
             } else {
@@ -149,13 +155,36 @@ public final class JournalReplayer {
             creation.mapProperties().forEach((key, entries) -> {
                 Property property = JournalSupport.property(object, key, binding);
                 require(property.getType().isMapType(), "Expected a managed map for " + key);
+                require(mapKeyClass(object, property) == String.class, "Expected a String-keyed map for " + key);
                 var decoded = decodeEntries(property, propertyClass(object, property), entries);
+                requireCapacity(property, decoded.size());
                 var map = map(property);
                 if (!JournalSupport.sameMap(decoded, map)) {
                     map.clear();
                     map.putAll(decoded);
                 }
                 require(JournalSupport.sameMap(decoded, map), "Failed to initialize map " + key);
+            });
+            creation.typedMapProperties().forEach((key, entries) -> {
+                Property property = JournalSupport.property(object, key, binding);
+                require(property.getType().isMapType() && mapKeyClass(object, property) != String.class,
+                        "Expected a non-String-keyed managed map for " + key);
+                var decoded = decodeTypedEntries(object, property, entries);
+                requireCapacity(property, decoded.size());
+                var map = map(property);
+                if (!JournalSupport.sameMap(decoded, map)) {
+                    map.clear();
+                    map.putAll(decoded);
+                }
+                require(JournalSupport.sameMap(decoded, map), "Failed to initialize map " + key);
+            });
+            creation.setProperties().forEach((key, values) -> {
+                Property property = JournalSupport.property(object, key, binding);
+                require(property.getType().isSetType(), "Expected a managed set for " + key);
+                var members = new LinkedHashSet<>(decode(property, propertyClass(object, property), values));
+                var set = set(property);
+                set.replaceContents(members);
+                require(set.equals(members), "Failed to initialize set " + key);
             });
         }
     }
@@ -164,16 +193,41 @@ public final class JournalReplayer {
         VObject target = object(operation.target());
         Property property = JournalSupport.property(target, operation.property(), binding);
         if (property.getType().isMapType()) {
-            require(operation.kind() == ChangeJournal.Kind.MAP_EDIT, "Expected a map edit for " + property.getName());
-            applyMap(target, property, operation);
+            if (mapKeyClass(target, property) == String.class) {
+                require(operation.kind() == ChangeJournal.Kind.MAP_EDIT, "Expected a String map edit for " + property.getName());
+                var type = propertyClass(target, property);
+                applyMap(property, decodeEntries(property, type, operation.beforeEntries()),
+                        decodeEntries(property, type, operation.afterEntries()));
+            } else {
+                require(operation.kind() == ChangeJournal.Kind.TYPED_MAP_EDIT, "Expected a typed map edit for " + property.getName());
+                applyMap(property, decodeTypedEntries(target, property, operation.beforeTypedEntries()),
+                        decodeTypedEntries(target, property, operation.afterTypedEntries()));
+            }
             return;
         }
-        require(operation.kind() != ChangeJournal.Kind.MAP_EDIT, "Expected a managed map for " + property.getName());
+        if (property.getType().isSetType()) {
+            require(operation.kind() == ChangeJournal.Kind.SET_EDIT, "Expected a set edit for " + property.getName());
+            var type = propertyClass(target, property);
+            var before = decode(property, type, operation.before());
+            var after = decode(property, type, operation.after());
+            var set = set(property);
+            require(set.containsAll(before) && Collections.disjoint(set, after),
+                    "Set membership precondition differs for " + property.getName());
+            var expected = new LinkedHashSet<>(set);
+            expected.removeAll(before);
+            expected.addAll(after);
+            set.replaceContents(expected);
+            require(set.equals(expected), "Set result differs for " + property.getName());
+            return;
+        }
+        require(operation.kind() != ChangeJournal.Kind.MAP_EDIT && operation.kind() != ChangeJournal.Kind.TYPED_MAP_EDIT
+                && operation.kind() != ChangeJournal.Kind.SET_EDIT, "Collection edit has the wrong property " + property.getName());
         operation.created().forEach(this::allocate);
         Class<?> type = propertyClass(target, property);
         List<Object> before = decode(property, type, operation.before());
         List<Object> after = decode(property, type, operation.after());
         operation.created().forEach(creation -> initialize(creation, false));
+        initializeEntryKeys(property, operation);
         Object expected;
         if (property.getType().isListType()) {
             expected = applyList(property, operation, before, after);
@@ -193,37 +247,79 @@ public final class JournalReplayer {
         }
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> map(Property property) {
-        return (Map<String, Object>) property.get();
+    private void initializeEntryKeys(Property edited, Operation operation) {
+        if (operation.created().isEmpty()) return;
+        Map<String, Creation> created = new LinkedHashMap<>();
+        for (Creation creation : operation.created()) created.put(creation.id(), creation);
+        initializeEntryKeys(edited, operation.after(), created);
+        for (Creation owner : operation.created()) {
+            owner.properties().forEach((key, values) ->
+                    initializeEntryKeys(JournalSupport.property(object(owner.id()), key, binding), values, created));
+        }
     }
 
-    private void applyMap(VObject target, Property property, Operation operation) {
+    private void initializeEntryKeys(Property list, List<Value> values, Map<String, Creation> created) {
+        var keyName = list.getKeyPropertyName();
+        if (keyName.isEmpty()) return;
+        for (Value value : values) {
+            if (value.kind() != ValueKind.REFERENCE) continue;
+            Creation record = created.get(value.text());
+            if (record == null) continue;
+            var entry = object(record.id());
+            var key = entry.vmf().reflect().propertyByName(keyName.get()).orElseThrow();
+            if (!key.getType().isModelType()) continue; // scalar keys are already initialized
+            var initial = record.properties().get(binding.propertyKey(entry, key.getName()));
+            require(initial != null && initial.size() == 1 && initial.get(0).kind() == ValueKind.REFERENCE,
+                    "Missing model entry key " + key.getName());
+            Object decoded = decodeValue(key, propertyClass(entry, key), initial.get(0));
+            if (key.get() != decoded) key.set(decoded);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<Object, Object> map(Property property) {
+        return (Map<Object, Object>) property.get();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static eu.mihosoft.vcollections.VSet<Object> set(Property property) {
+        return (eu.mihosoft.vcollections.VSet<Object>) property.get();
+    }
+
+    private void applyMap(Property property, Map<?, Object> before, Map<?, Object> after) {
         var map = map(property);
-        var type = propertyClass(target, property);
-        var before = decodeEntries(property, type, operation.beforeEntries());
-        var after = decodeEntries(property, type, operation.afterEntries());
         // Verify the entire edit before touching the map, including absence for new keys.
         before.forEach((key, value) -> require(map.containsKey(key) && Objects.equals(map.get(key), value),
                 "Map precondition differs for " + property.getName() + "[" + key + "]"));
         after.keySet().forEach(key -> require(before.containsKey(key) || !map.containsKey(key),
                 "Map key already exists for " + property.getName() + "[" + key + "]"));
 
-        Map<String, Object> expected = new LinkedHashMap<>(map);
-        for (String key : before.keySet()) {
-            if (!after.containsKey(key)) {
-                expected.remove(key);
-                map.remove(key);
-            }
-        }
+        Map<Object, Object> expected = new LinkedHashMap<>(map);
+        for (Object key : before.keySet()) if (!after.containsKey(key)) expected.remove(key);
         expected.putAll(after);
+        requireCapacity(property, expected.size());
+        for (Object key : before.keySet()) if (!after.containsKey(key)) map.remove(key);
         map.putAll(after);
         require(JournalSupport.sameMap(expected, map), "Map result differs for " + property.getName());
+    }
+
+    private static void requireCapacity(Property property, int size) {
+        int upper = property.getMultiplicity().getUpper();
+        require(upper < 0 || size <= upper, "Map upper bound exceeded for " + property.getName());
     }
 
     private Map<String, Object> decodeEntries(Property property, Class<?> type, Map<String, Value> entries) {
         Map<String, Object> decoded = new LinkedHashMap<>();
         entries.forEach((key, value) -> decoded.put(key, decodeValue(property, type, value)));
+        return decoded;
+    }
+
+    private Map<Object, Object> decodeTypedEntries(VObject target, Property property, Map<Value, Value> entries) {
+        var keyClass = mapKeyClass(target, property);
+        var valueClass = propertyClass(target, property);
+        Map<Object, Object> decoded = new LinkedHashMap<>();
+        entries.forEach((key, value) -> decoded.put(decodeValue(property, keyClass, key),
+                decodeValue(property, valueClass, value)));
         return decoded;
     }
 
@@ -238,7 +334,11 @@ public final class JournalReplayer {
                     require(index <= expected.size(), "List add index out of bounds");
                     expected.add(index, after.get(i));
                 }
-                for (int i = 0; i < positions.size(); i++) list.add(positions.get(i), after.get(i));
+                if (property.getMultiplicity().isUnique()) {
+                    list.addAll(positions.stream().mapToInt(Integer::intValue).toArray(), after);
+                } else {
+                    for (int i = 0; i < positions.size(); i++) list.add(positions.get(i), after.get(i));
+                }
                 break;
             case LIST_REMOVE:
                 checkOldListValues(list, positions, before);
@@ -255,6 +355,9 @@ public final class JournalReplayer {
                 int end = positions.get(positions.size() - 1) + 1;
                 if (end - first == positions.size()) {
                     list.setAll(first, after);
+                } else if (property.getMultiplicity().isUnique() || property.getKeyPropertyName().isPresent()) {
+                    // An in-place permutation can transiently duplicate a member/key if applied position by position.
+                    list.setAll(first, expected.subList(first, end));
                 } else {
                     for (int i = 0; i < positions.size(); i++) list.set(positions.get(i), after.get(i));
                 }
@@ -280,7 +383,16 @@ public final class JournalReplayer {
     private static Class<?> propertyClass(VObject target, Property property) {
         var declared = property.getType();
         String typeName = declared.isMapType() ? declared.getDescriptor().getArguments().get(1).getName()
+                : declared.isSetType() ? declared.getDescriptor().getArguments().get(0).getName()
                 : declared.getElementTypeName().orElse(declared.getName());
+        return resolveClass(target, typeName);
+    }
+
+    private static Class<?> mapKeyClass(VObject target, Property property) {
+        return resolveClass(target, property.getType().getDescriptor().getArguments().get(0).getName());
+    }
+
+    private static Class<?> resolveClass(VObject target, String typeName) {
         Class<?> type = PRIMITIVES.get(typeName);
         if (type != null) return type;
         try {

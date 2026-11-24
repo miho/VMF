@@ -43,6 +43,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Objects;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
@@ -58,8 +59,8 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     private VList<T> unmodifiable;
     private boolean syntheticRemovalPending;
 
-    private ContainmentList(VObject parent, List<T> backing, VList<T> observable, VListChangeListener<T> internalListener) {
-        super(parent, observable, null);
+    private ContainmentList(VObject parent, List<T> backing, VList<T> observable, VListChangeListener<T> internalListener, KeyedEntries.Rule<T> keys) {
+        super(parent, observable, null, keys);
         this.backing = backing;
         this.observable = observable;
         this.internalListener = internalListener;
@@ -70,8 +71,15 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     }
 
     public static <T> VList<T> newInstance(VObject parent, List<T> backing, VListChangeListener<T> internalListener) {
+        return newInstance(parent, backing, null, null, internalListener);
+    }
+
+    /** Creates a containment list whose entries are unique by a declared property. */
+    public static <T> VList<T> newInstance(VObject parent, List<T> backing, String keyProperty,
+            Function<? super T, ?> keyOf, VListChangeListener<T> internalListener) {
+        KeyedEntries.Rule<T> keys = keyOf == null ? null : new KeyedEntries.Rule<>(keyProperty, keyOf, backing);
         VList<T> observable = VList.newInstance(backing);
-        var result = new ContainmentList<>(parent, backing, observable, internalListener);
+        var result = new ContainmentList<>(parent, backing, observable, internalListener, keys);
         observable.addChangeListener(result::fire);
         return result;
     }
@@ -201,6 +209,14 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
         for (Attachment attachment = pending; attachment != null; attachment = attachment.previous) {
             if (attachment.outgoingChild == child || attachment.contains(child)) {
                 throw new IllegalArgumentException("A containment edit for this child is already in progress");
+            }
+        }
+    }
+
+    static void requirePendingKeyChange(VObjectInternal previous, VObjectInternal child, String property, Object next) {
+        for (Attachment pending = PENDING.get().active; pending != null; pending = pending.previous) {
+            if (pending.parent != null && pending.parent != previous && pending.contains(child)) {
+                KeyedEntries.requireKeyChange((VObjectInternal) pending.parent, child, property, next);
             }
         }
     }
@@ -368,6 +384,7 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     @Override public boolean addAll(int[] indices, Collection<? extends T> values) {
         requireWritable();
         var copy = new ArrayList<T>(values);
+        if (keys != null) keys.validate(Collections.emptyList(), copy);
         try (var attachment = attachingAll(copy)) {
             return observable.addAll(indices, copy);
         }
@@ -376,6 +393,7 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     @Override public Collection<T> setAll(int index, Collection<T> values) {
         requireWritable();
         var copy = new ArrayList<>(values);
+        if (keys != null) keys.validate(subList(index, index + copy.size()), copy);
         try (var attachment = attachingAll(copy)) {
             return observable.setAll(index, copy);
         }
@@ -392,7 +410,7 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
 
     @Override public VList<T> asUnmodifiable() {
         if (unmodifiable == null) {
-            var view = new ContainmentList<>(null, null, VList.newInstance(Collections.unmodifiableList(observable)), null);
+            var view = new ContainmentList<>(null, null, VList.newInstance(Collections.unmodifiableList(observable)), null, null);
             addChangeListener(view::fireForwarded);
             unmodifiable = view;
         }
@@ -440,12 +458,18 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     private final VObject parent;
     private final List<T> list;
     private final CheckedContainmentView<?> owner;
+    final KeyedEntries.Rule<T> keys;
     private boolean updatingParentLinks;
 
-    CheckedContainmentView(VObject parent, List<T> list, CheckedContainmentView<?> owner) {
+    CheckedContainmentView(VObject parent, List<T> list, CheckedContainmentView<?> owner, KeyedEntries.Rule<T> keys) {
+        this.keys = keys;
         this.parent = parent;
         this.list = list;
         this.owner = owner == null ? this : owner;
+    }
+
+    final void requireKeyChange(Object child, String property, Object next) {
+        if (keys != null) keys.requireKeyChange(child, property, next);
     }
 
     final boolean containsModels() { return parent != null; }
@@ -464,6 +488,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
 
     @Override public boolean add(T value) {
         requireWritable();
+        if (keys != null) keys.validate(Collections.emptyList(), Collections.singletonList(value));
         try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
             return list.add(value);
         }
@@ -471,6 +496,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
 
     @Override public void add(int index, T value) {
         requireWritable();
+        if (keys != null) keys.validate(Collections.emptyList(), Collections.singletonList(value));
         try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
             list.add(index, value);
         }
@@ -479,6 +505,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     @Override public boolean addAll(Collection<? extends T> values) {
         requireWritable();
         var copy = new ArrayList<T>(values);
+        if (keys != null) keys.validate(Collections.emptyList(), copy);
         try (var attachment = attachingAll(copy)) {
             return list.addAll(copy);
         }
@@ -487,6 +514,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     @Override public boolean addAll(int index, Collection<? extends T> values) {
         requireWritable();
         var copy = new ArrayList<T>(values);
+        if (keys != null) keys.validate(Collections.emptyList(), copy);
         try (var attachment = attachingAll(copy)) {
             return list.addAll(index, copy);
         }
@@ -494,6 +522,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
 
     @Override public T set(int index, T value) {
         requireWritable();
+        if (keys != null) keys.validate(Collections.singletonList(get(index)), Collections.singletonList(value));
         try (var attachment = ContainmentList.attachingToList(parent, value, true)) {
             return list.set(index, value);
         }
@@ -508,6 +537,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
         }
         var replacements = new ArrayList<T>(size());
         for (T previous : list) replacements.add(operator.apply(previous));
+        if (keys != null) keys.validate(list, replacements);
         var iterator = replacements.iterator();
         try (var attachment = attachingAll(replacements)) {
             list.replaceAll(ignored -> iterator.next());
@@ -515,7 +545,7 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     }
 
     @Override public List<T> subList(int start, int end) {
-        return new CheckedContainmentView<>(parent, list.subList(start, end), owner);
+        return new CheckedContainmentView<>(parent, list.subList(start, end), owner, keys);
     }
 
     @Override public Iterator<T> iterator() { return containsModels() ? listIterator(0) : list.iterator(); }
@@ -523,10 +553,11 @@ class CheckedContainmentView<T> extends AbstractList<T> {
     @Override public ListIterator<T> listIterator(int index) {
         var iterator = list.listIterator(index);
         return new ListIterator<>() {
+            private T last;
             @Override public boolean hasNext() { return iterator.hasNext(); }
-            @Override public T next() { return iterator.next(); }
+            @Override public T next() { return last = iterator.next(); }
             @Override public boolean hasPrevious() { return iterator.hasPrevious(); }
-            @Override public T previous() { return iterator.previous(); }
+            @Override public T previous() { return last = iterator.previous(); }
             @Override public int nextIndex() { return iterator.nextIndex(); }
             @Override public int previousIndex() { return iterator.previousIndex(); }
             @Override public void remove() {
@@ -535,12 +566,15 @@ class CheckedContainmentView<T> extends AbstractList<T> {
             }
             @Override public void set(T value) {
                 requireWritable();
+                if (keys != null) keys.validate(Collections.singletonList(last), Collections.singletonList(value));
                 try (var attachment = ContainmentList.attachingToList(parent, value, true)) {
                     iterator.set(value);
+                    last = value;
                 }
             }
             @Override public void add(T value) {
                 requireWritable();
+                if (keys != null) keys.validate(Collections.emptyList(), Collections.singletonList(value));
                 try (var attachment = ContainmentList.attachingToList(parent, value, false)) {
                     iterator.add(value);
                 }

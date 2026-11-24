@@ -116,7 +116,7 @@
    * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
    */
 #end##                                ## if collection
-#elseif(${prop.propType}=="COLLECTION" || $prop.mapType)## ## if container / contained
+#elseif(${prop.propType}=="COLLECTION" || $prop.mapType || $prop.managedValues)## ## if container / contained
   /**
    * Returns the value of the '<em>${prop.name}</em>' property.
    *

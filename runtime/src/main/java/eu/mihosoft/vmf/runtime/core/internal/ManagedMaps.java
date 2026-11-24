@@ -33,27 +33,46 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-/** Storage and copy operations used by generated string-keyed scalar map properties. */
+/** Storage and copy operations used by generated scalar map properties. */
 public final class ManagedMaps {
     private ManagedMaps() {
         throw new AssertionError();
     }
 
     /** Creates a distinct, observable map that checks key and value types even for raw callers. */
-    public static <V> VMap<String, V> create(Class<V> valueType) {
-        return VMap.newInstance(new ScalarMap<>(valueType));
+    public static <K, V> VMap<K, V> create(Class<K> keyType, Class<V> valueType, int upper) {
+        return VMap.newInstance(new ScalarMap<>(keyType, valueType, upper));
     }
 
-    private static <V> Map<String, V> checkedCopy(Map<?, ?> source, Class<V> valueType) {
-        Map<String, V> result = new LinkedHashMap<>();
+    private static <K, V> Map<K, V> checkedCopy(Map<?, ?> source, Class<K> keyType, Class<V> valueType) {
+        Map<K, V> result = new LinkedHashMap<>();
         source.forEach((key, value) -> result.put(
-                String.class.cast(Objects.requireNonNull(key, "managed map key")), valueType.cast(value)));
+                keyType.cast(Objects.requireNonNull(key, "managed map key")), valueType.cast(value)));
         return result;
     }
 
     /** Returns an immutable, independently owned default value for reflective access. */
-    public static <V> Map<String, V> snapshot(Map<?, ?> source, Class<V> valueType) {
-        return Collections.unmodifiableMap(checkedCopy(source, valueType));
+    public static <K, V> Map<K, V> snapshot(Map<?, ?> source, Class<K> keyType, Class<V> valueType, int upper) {
+        requireSize(source.size(), upper);
+        return Collections.unmodifiableMap(checkedCopy(source, keyType, valueType));
+    }
+
+    /** Snapshot used by a diff, whose source already admits all its current entries. */
+    public static <K, V> Map<K, V> snapshot(Map<?, ?> source, Class<K> keyType, Class<V> valueType) {
+        return snapshot(source, keyType, valueType, -1);
+    }
+
+    private static void requireSize(long next, int upper) {
+        if (upper != -1 && next > upper) throw new IllegalArgumentException("Map exceeds upper bound " + upper);
+    }
+
+    private static void requireRoom(Map<?, ?> existing, Map<?, ?> incoming, int upper) {
+        if (upper == -1 || (long) existing.size() + incoming.size() <= upper) return;
+        long next = existing.size();
+        for (Object key : incoming.keySet()) {
+            if (!existing.containsKey(key)) next++;
+        }
+        requireSize(next, upper);
     }
 
     /**
@@ -61,15 +80,18 @@ public final class ManagedMaps {
      * validated before the first edit, including when source and target share a backing map.
      * Replacement preserves source iteration order. Appending retains existing key positions.
      */
-    public static <V> void copyInto(VMap<String, V> target, Map<?, ?> source, Class<V> valueType, boolean append) {
+    public static <K, V> void copyInto(VMap<K, V> target, Map<?, ?> source, Class<K> keyType, Class<V> valueType, int upper, boolean append) {
         if (source == target) return;
-        Map<String, V> entries = checkedCopy(source, valueType);
-        if (!append) {
+        Map<K, V> entries = checkedCopy(source, keyType, valueType);
+        if (append) {
+            requireRoom(target, entries, upper);
+        } else {
+            requireSize(entries.size(), upper);
             // Keep the longest prefix of the requested keys already in that order.
             // Subsequent insertions append the remainder, including any keys that moved.
             var desired = entries.keySet().iterator();
-            String next = desired.hasNext() ? desired.next() : null;
-            for (String key : new ArrayList<>(target.keySet())) {
+            K next = desired.hasNext() ? desired.next() : null;
+            for (K key : new ArrayList<>(target.keySet())) {
                 if (key.equals(next)) {
                     next = desired.hasNext() ? desired.next() : null;
                 } else {
@@ -82,17 +104,23 @@ public final class ManagedMaps {
         if (!entries.isEmpty()) target.putAll(entries);
     }
 
-    private static final class ScalarMap<V> extends AbstractMap<String, V> {
+    private static final class ScalarMap<K, V> extends AbstractMap<K, V> {
+        private final Class<K> keyType;
         private final Class<V> valueType;
-        private final Map<String, V> entries;
+        private final Map<K, V> entries;
 
-        ScalarMap(Class<V> valueType) {
+        private final int upper;
+
+        ScalarMap(Class<K> keyType, Class<V> valueType, int upper) {
+            if (upper < -1) throw new IllegalArgumentException("Invalid upper bound " + upper);
+            this.upper = upper;
+            this.keyType = keyType;
             this.valueType = valueType;
             // Checked entries also guard assignment through Map.Entry.setValue().
-            entries = Collections.checkedMap(new LinkedHashMap<>(), String.class, valueType);
+            entries = Collections.checkedMap(new LinkedHashMap<>(), keyType, valueType);
         }
 
-        @Override public Set<Entry<String, V>> entrySet() { return entries.entrySet(); }
+        @Override public Set<Entry<K, V>> entrySet() { return entries.entrySet(); }
         @Override public V get(Object key) { return entries.get(key); }
         @Override public boolean containsKey(Object key) { return entries.containsKey(key); }
         @Override public V remove(Object key) { return entries.remove(key); }
@@ -100,13 +128,19 @@ public final class ManagedMaps {
         @Override public void clear() { entries.clear(); }
 
         @Override
-        public V put(String key, V value) {
-            return entries.put(Objects.requireNonNull(key, "managed map key"), value);
+        public V put(K key, V value) {
+            Objects.requireNonNull(key, "managed map key");
+            if (upper != -1 && entries.size() >= upper && !entries.containsKey(key)) {
+                throw new IllegalArgumentException("Map exceeds upper bound " + upper);
+            }
+            return entries.put(key, value);
         }
 
         @Override
-        public void putAll(Map<? extends String, ? extends V> values) {
-            entries.putAll(checkedCopy(values, valueType));
+        public void putAll(Map<? extends K, ? extends V> values) {
+            var checked = checkedCopy(values, keyType, valueType);
+            requireRoom(entries, checked, upper);
+            entries.putAll(checked);
         }
     }
 }

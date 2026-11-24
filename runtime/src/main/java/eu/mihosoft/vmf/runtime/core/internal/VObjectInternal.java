@@ -62,6 +62,7 @@ public interface VObjectInternal extends VObject, ObservableObject {
 
     /** Managed scalar map in the generated property type table. */
     int VMF_TYPE_MAP = -3;
+    int VMF_TYPE_SET = -4;
 
     /**
      * Returns the names of the properties defined in this type/object.

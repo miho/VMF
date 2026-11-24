@@ -336,13 +336,7 @@ public class VMFJacksonModule extends SimpleModule {
             }
             if (isVMFObj(beanDesc.getBeanClass()) && hasBuilder(beanDesc.getBeanClass())) {
 
-                // Check if we have XML deserializer by examining the deserializer or its config
-                boolean isXml = false;
-                if (deserializer != null) {
-                    isXml = deserializer.getClass().getName().toLowerCase().contains("xml");
-                }
-
-                return new GenericBuilderDeserializer<>(beanDesc.getBeanClass(), deserializer, module, isXml);
+                return new GenericBuilderDeserializer<>(beanDesc.getBeanClass(), module);
             }
 
             return deserializer;
@@ -372,6 +366,17 @@ public class VMFJacksonModule extends SimpleModule {
      */
     private static class GenericBuilderDeserializer<T> extends StdDeserializer<T> {
 
+        private static final com.fasterxml.jackson.databind.deser.std.JsonNodeDeserializer STRICT_MODEL_TREE =
+                new com.fasterxml.jackson.databind.deser.std.JsonNodeDeserializer() {
+                    @Override
+                    protected void _handleDuplicateField(JsonParser parser, DeserializationContext context,
+                            com.fasterxml.jackson.databind.node.JsonNodeFactory factory, String name,
+                            com.fasterxml.jackson.databind.node.ObjectNode object, JsonNode oldValue, JsonNode newValue)
+                            throws IOException {
+                        throw JsonMappingException.from(parser, "Duplicate field '" + name + "' in VMF model");
+                    }
+                };
+
         private static final ClassValue<BuilderPlan> BUILDER_PLANS = new ClassValue<>() {
             @Override
             protected BuilderPlan computeValue(Class<?> modelClass) {
@@ -383,22 +388,15 @@ public class VMFJacksonModule extends SimpleModule {
             }
         };
 
-        private final JsonDeserializer<T> defaultDeserializer;
-
         private final VMFJacksonModule module;
-        private final boolean isXml;
 
         /**
          * Constructor. Creates a new instance of GenericBuilderDeserializer.
          * @param vc the value class
-         * @param defaultDeserializer the default deserializer
          */
-        public GenericBuilderDeserializer(Class<?> vc, JsonDeserializer<T> defaultDeserializer,
-                                          VMFJacksonModule module, boolean isXml) {
+        public GenericBuilderDeserializer(Class<?> vc, VMFJacksonModule module) {
             super(vc);
-            this.defaultDeserializer = defaultDeserializer;
             this.module = module;
-            this.isXml = isXml;
 
         }
 
@@ -407,7 +405,25 @@ public class VMFJacksonModule extends SimpleModule {
         @SuppressWarnings("unchecked")
         public T deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
 
-            JsonNode node = p.readValueAsTree();
+            JsonNode node;
+            String format = p.getCodec() == null ? "" : p.getCodec().getFactory().getFormatName();
+            if ("JSON".equals(format) || "YAML".equals(format)) {
+                // Read this model strictly without changing mapper or caller parser settings. Retain very
+                // small decimal literals until their declared scalar type is available for a range check.
+                var numbers = new com.fasterxml.jackson.core.util.JsonParserDelegate(p) {
+                    @Override public NumberTypeFP getNumberTypeFP() throws IOException {
+                        NumberTypeFP type = super.getNumberTypeFP();
+                        if (type != NumberTypeFP.BIG_DECIMAL && getDoubleValue() == 0d && getDecimalValue().signum() != 0) {
+                            return NumberTypeFP.BIG_DECIMAL;
+                        }
+                        return type;
+                    }
+                };
+                if (numbers.currentToken() == null) numbers.nextToken();
+                node = STRICT_MODEL_TREE.deserialize(numbers, ctxt);
+            } else {
+                node = p.readValueAsTree();
+            }
 
             if (!module.isReferencesEnabled()) {
                 return deserializeNode(p, ctxt, node, null);
@@ -438,10 +454,13 @@ public class VMFJacksonModule extends SimpleModule {
             // do so and allow reiteration over the fields
 
             actualClass = getVMFTypeClass(p, node, actualClass);
+            // Nested objects are often read from a tree parser; its codec retains the source format.
+            boolean isXml = p.getCodec() != null && "XML".equals(p.getCodec().getFactory().getFormatName());
 
             // non-containment references of this object (only if references are enabled): they are
             // not passed to the builder but assigned when the outermost object is complete
             final Map<VMFReferences.ReferenceProperty, List<Object>> references = new LinkedHashMap<>();
+            final Map<String, List<Object>> keyedContents = new LinkedHashMap<>();
 
             final Object result;
             try {
@@ -452,9 +471,6 @@ public class VMFJacksonModule extends SimpleModule {
                 BuilderPlan plan = BUILDER_PLANS.get(actualClass);
                 Object builder = plan.newInstance.invoke(null);
                 Map<String, BuilderSetter> methodMap = plan.fieldMethods();
-                // Nested objects can arrive through a tree parser. Its codec still identifies
-                // the originating mapper, including when its XML input has already been buffered.
-                boolean xmlMapEntries = p.getCodec() != null && "XML".equals(p.getCodec().getFactory().getFormatName());
 
                 // Iterate over JSON fields and invoke corresponding builder methods
                 node.fields().forEachRemaining(entry -> {
@@ -467,7 +483,7 @@ public class VMFJacksonModule extends SimpleModule {
                     if (referenceProperty != null
                             && VMFReferences.holdsReferences(value, referenceProperty, isXml)) {
                         try {
-                            references.put(referenceProperty, referenceSlots(ctxt, value, referenceProperty));
+                            references.put(referenceProperty, referenceSlots(ctxt, value, referenceProperty, isXml));
                         } catch (IOException e) {
                             throw new RuntimeException(
                                     "Failed to deserialize references of field '" + fieldName + "'", e);
@@ -483,13 +499,27 @@ public class VMFJacksonModule extends SimpleModule {
                             // Determine the parameter type
                             Class<?> paramType = method.getParameterTypes()[0];
 
-                            if (Collection.class.isAssignableFrom(paramType)) {
+                            if (setter.property != null && setter.property.getType().isSetType()) {
+                                if (!isXml && !value.isArray()) throw new IOException("Expected an array of set members");
+                                JavaType elementType = ctxt.constructType(method.getGenericParameterTypes()[0]).getContentType();
+                                java.util.Set<Object> members;
+                                if (isXml) {
+                                    members = ManagedSetXml.read(value, elementType, ctxt);
+                                } else {
+                                    members = new java.util.LinkedHashSet<>();
+                                    for (JsonNode member : value) {
+                                        Object decoded = TypedMapEntries.scalar(member, elementType, ctxt);
+                                        if (decoded == null || !members.add(decoded)) throw new IOException("Null or duplicate set member");
+                                    }
+                                }
+                                method.invoke(builder, members);
+                            } else if (Collection.class.isAssignableFrom(paramType)) {
                                 // Get the collection type
                                 var genericParamType = method.getGenericParameterTypes()[0];
-                                Class<?> elementTypeClass = getClassFromType(getElementType(genericParamType));
+                                Class<?> elementTypeClass = ctxt.constructType(genericParamType).getContentType().getRawClass();
 
                                 // Create a new collection (we assume it's a List)
-                                Collection<Object> collection = (Collection<Object>) new ArrayList<>();
+                                List<Object> collection = new ArrayList<>();
                                 // Iterate over the elements
                                 for (JsonNode element : value) {
                                     // in case of xml we have further nesting because of the use of <item> tags within
@@ -526,12 +556,20 @@ public class VMFJacksonModule extends SimpleModule {
                                     }
                                 }
                                 // Invoke the builder method
-                                method.invoke(builder, collection);
+                                if (session != null && setter.property != null
+                                        && needsReferenceKey(setter.property, collection)) {
+                                    keyedContents.put(setter.property.getName(), collection);
+                                } else {
+                                    method.invoke(builder, collection);
+                                }
                             } else if (Map.class.isAssignableFrom(paramType)
                                     && method.getGenericParameterTypes()[0] instanceof ParameterizedType) {
                                 JavaType declaredType = ctxt.getTypeFactory().constructType(method.getGenericParameterTypes()[0]);
-                                if (xmlMapEntries && setter.property != null && setter.property.getType().isMapType()) {
-                                    method.invoke(builder, ManagedMapXml.read(value, declaredType.getContentType(), ctxt));
+                                if (isXml && setter.property != null && setter.property.getType().isMapType()) {
+                                    method.invoke(builder, ManagedMapXml.read(value, declaredType, ctxt));
+                                } else if (setter.property != null && setter.property.getType().isMapType()
+                                        && !declaredType.getKeyType().hasRawClass(String.class)) {
+                                    method.invoke(builder, TypedMapEntries.read(value, declaredType, ctxt));
                                 } else {
                                     method.invoke(builder, (Object) ctxt.readTreeAsValue(value, declaredType));
                                 }
@@ -566,6 +604,7 @@ public class VMFJacksonModule extends SimpleModule {
             }
 
             if (session != null) {
+                keyedContents.forEach((name, entries) -> session.addKeyedContents((VObject) result, name, entries));
                 String id = VMFReferences.idOf(node, isXml);
                 if (id != null) {
                     session.register(id, result, p);
@@ -578,12 +617,23 @@ public class VMFJacksonModule extends SimpleModule {
             return (T) result;
         }
 
+        private static boolean needsReferenceKey(eu.mihosoft.vmf.runtime.core.Property property, List<?> entries) {
+            var key = property.getKeyPropertyName();
+            if (key.isEmpty()) return false;
+            for (Object entry : entries) {
+                if (!(entry instanceof VObject)) continue;
+                var keyProperty = ((VObject) entry).vmf().reflect().propertyByName(key.get()).orElseThrow();
+                if (keyProperty.getType().isModelType() && keyProperty.get() == null) return true;
+            }
+            return false;
+        }
+
         /**
          * Reads the value of a reference property: ids become {@link VMFReferences.IdSlot}s that are
          * resolved later, values written by value (immutable objects) are read right away.
          */
         private List<Object> referenceSlots(DeserializationContext ctxt, JsonNode value,
-                                            VMFReferences.ReferenceProperty property) throws IOException {
+                                            VMFReferences.ReferenceProperty property, boolean isXml) throws IOException {
             List<JsonNode> elements = property.list
                     ? VMFReferences.elementsOf(value, isXml) : Collections.singletonList(value);
             List<Object> slots = new ArrayList<>(elements.size());
@@ -793,49 +843,7 @@ public class VMFJacksonModule extends SimpleModule {
             }
         }
 
-        /**
-         * Get the element type of a parameterized type.
-         * @param type the parameterized type
-         * @return the element type or {@code null} if the element type cannot be determined
-         */
-        private static Type getElementType(Type type) {
-            if (type instanceof ParameterizedType) {
-                ParameterizedType parameterizedType = (ParameterizedType) type;
-                Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-                if (actualTypeArguments.length > 0) {
-                    return actualTypeArguments[0]; // Return the first type argument
-                }
-            }
-            return null;
-        }
 
-        /**
-         * Get the class from a Type object (if possible). This method is used to determine the actual class of a
-         * parameterized type.
-         * @param type the Type object
-         * @return the Class object or {@code null} if the class cannot be determined
-         */
-        private static Class<?> getClassFromType(Type type) {
-
-            if (type instanceof Class<?>) {
-                return (Class<?>) type;
-            } else if (type instanceof ParameterizedType) {
-                ParameterizedType parameterizedType = (ParameterizedType) type;
-                Type rawType = parameterizedType.getRawType();
-                if (rawType instanceof Class<?>) {
-                    return (Class<?>) rawType;
-                }
-            } else if (type instanceof TypeVariable<?>) {
-                TypeVariable<?> typeVariable = (TypeVariable<?>) type;
-                // Handle TypeVariable if needed, this part depends on our specific requirements
-                // For example, we might want to get bounds or other relevant information
-            } else if (type instanceof WildcardType) {
-                WildcardType wildcardType = (WildcardType) type;
-                // Handle WildcardType if needed, this part depends on our specific requirements
-                // For example, we might want to get upper or lower bounds
-            }
-            return null;
-        }
 
     }
 
@@ -966,11 +974,28 @@ public class VMFJacksonModule extends SimpleModule {
                 // if property holds contained value or is external or immutable, serialize it
                 if (VMFTypeUtils.isParentOfPropContainer(p)
                         || !p.getType().isModelType()
-                        || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable) {
+                        || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable
+                        || isImmutableModelList(p, obj)) {
+                    if (session == null && p.getKeyPropertyName().isPresent()) {
+                        for (Object item : (List<?>) propValue) {
+                            var key = ((VObject) item).vmf().reflect()
+                                    .propertyByName(p.getKeyPropertyName().get()).orElseThrow();
+                            if (VMFReferences.isReferenceProperty(key) && VMFReferences.isWrittenAsReference(key.get())) {
+                                throw JsonMappingException.from(gen, "Model reference key on " + p.getName()
+                                        + " requires VMFJacksonModule.withReferences(true)");
+                            }
+                        }
+                    }
                     gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
-                    if (p.getType().isMapType()
+                    if (p.getType().isSetType()
+                            && isInstanceOf(gen, "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator")) {
+                        ManagedSetXml.write((java.util.Set<?>) propValue, gen);
+                    } else if (p.getType().isMapType()
                             && isInstanceOf(gen, "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator")) {
                         ManagedMapXml.write((Map<?, ?>) propValue, gen);
+                    } else if (p.getType().isMapType() && !String.class.getName().equals(
+                            p.getType().getDescriptor().getArguments().get(0).getName())) {
+                        TypedMapEntries.write((Map<?, ?>) propValue, gen);
                     } else {
                         gen.writeObject(propValue);
                     }
@@ -983,6 +1008,18 @@ public class VMFJacksonModule extends SimpleModule {
 
             // End writing the object
             gen.writeEndObject();
+        }
+
+        private static boolean isImmutableModelList(eu.mihosoft.vmf.runtime.core.Property property, VObject owner)
+                throws IOException {
+            if (!property.getType().isListType()) return false;
+            String element = property.getType().getElementTypeName().orElseThrow();
+            try {
+                return eu.mihosoft.vmf.runtime.core.Immutable.class.isAssignableFrom(
+                        Class.forName(element, false, owner.getClass().getClassLoader()));
+            } catch (ClassNotFoundException exception) {
+                throw new IOException("Unknown list element type " + element, exception);
+            }
         }
     }
 }

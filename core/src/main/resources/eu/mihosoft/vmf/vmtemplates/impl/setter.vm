@@ -22,13 +22,16 @@
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  *#
 #foreach( $prop in ${type.implementation.properties} )
-#if(${prop.propType}=="COLLECTION" || $prop.mapType)##  if   (prop is collection type)
+#if(${prop.propType}=="COLLECTION" || $prop.mapType || $prop.managedValues)##  if   (prop is collection type)
 #elseif(${prop.readOnly} == true)  ##  elif (prop is read-only)
 public $prop.setterDeclaration { throw new RuntimeException("Cannot set read-only property'${prop.name}'."); }
 #else                              ##  else (prop is writable property)
 
 @Override
 public $prop.setterDeclaration {
+#if($prop.keyField)
+  ${VMFPKG_INT}.KeyedEntries.requireKeyChange(this, "${prop.name}", ${prop.name});
+#end
 
 #parse("${VMF_TEMPLATE_PATH}impl/setter-no-collection-simple.vm")
 #parse("${VMF_TEMPLATE_PATH}impl/setter-no-collection-container.vm")

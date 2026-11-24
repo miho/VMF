@@ -55,7 +55,12 @@ public interface ${type.typeName}${type.typeParameters} extends ${VMFPKG}.VObjec
 #parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
 #parse("${VMF_TEMPLATE_PATH}interface/setter.vm")
 
+
 #end## for each
+
+
+#set($readOnlyLookup = false)
+#parse("${VMF_TEMPLATE_PATH}interface/keyed-lookups.vm")
 
 #parse("${VMF_TEMPLATE_PATH}interface/delegation-methods.vm")
 

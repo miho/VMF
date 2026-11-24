@@ -30,6 +30,7 @@ It generates/supports:
 - delegation
 - annotations
 - reflection
+- [collection properties, UML multiplicity, and keyed relationships](docs/collection-properties.md)
 - [managed map properties and generic model interfaces](docs/typed-model-properties.md)
 - jackson serialization support (json, xml, yml)
 - json schema generation for validation and automatic visual editor generation

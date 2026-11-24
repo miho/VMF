@@ -33,5 +33,7 @@ public enum PropType {
     PRIMITIVE,
     CLASS,
     COLLECTION,
-    MAP
+    MAP,
+    SET,
+    CONSTRAINED_LIST
 }

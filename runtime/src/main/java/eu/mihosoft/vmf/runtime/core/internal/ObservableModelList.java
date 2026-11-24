@@ -42,14 +42,14 @@ import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 /** Internal generated-model list that completes synchronous delivery before throwing. */
-public final class ObservableModelList<T> extends AbstractList<T> implements VList<T> {
+public class ObservableModelList<T> extends AbstractList<T> implements VList<T> {
     private final VList<T> observable;
     private List<CollectionChangeListener<T, VList<T>, VListChange<T>>> listeners = Collections.emptyList();
     private Subscription relay;
     private VList<T> unmodifiable;
     private boolean crossReferencePending;
 
-    private ObservableModelList(VList<T> observable) {
+    ObservableModelList(VList<T> observable) {
         this.observable = observable;
     }
 
@@ -57,12 +57,29 @@ public final class ObservableModelList<T> extends AbstractList<T> implements VLi
         return new ObservableModelList<>(VList.newInstance(backing));
     }
 
+    /** Returns true when a replacement only reorders the existing edges, counting identities and duplicates. */
+    public static boolean permutesIdentities(java.util.List<?> before, java.util.List<?> after) {
+        if (before.size() != after.size()) return false;
+        if (before.size() == 1) return before.get(0) == after.get(0);
+        java.util.IdentityHashMap<Object, Integer> counts = new java.util.IdentityHashMap<>();
+        for (Object edge : before) counts.merge(edge, 1, Integer::sum);
+        for (Object edge : after) {
+            Integer count = counts.get(edge);
+            if (count == null) return false;
+            if (count == 1) counts.remove(edge);
+            else counts.put(edge, count - 1);
+        }
+        return true;
+    }
+
     public static <T> void addCrossReference(VList<T> list, T value) {
         crossReference(list, () -> list.add(value));
     }
 
     public static <T> void removeCrossReference(VList<T> list, T value) {
-        crossReference(list, () -> list.remove(value));
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i) == value) { removeCrossReference(list, i); return; }
+        }
     }
 
     public static void removeCrossReference(VList<?> list, int index) {
@@ -154,9 +171,20 @@ public final class ObservableModelList<T> extends AbstractList<T> implements VLi
     }
 
     @Override public VList<T> asUnmodifiable() {
+        return unmodifiableView(false);
+    }
+
+    final VList<T> unmodifiableView(boolean projectEventSource) {
         if (unmodifiable == null) {
             var view = new ObservableModelList<>(VList.newInstance(Collections.unmodifiableList(observable)));
-            addChangeListener(view::dispatch);
+            view.unmodifiable = view;
+            // Raw VList views forward the original edit and its source. A generated read-only projection
+            // provides its own event source so an observer cannot reach the mutable model list through it.
+            if (projectEventSource) {
+                addChangeListener(event -> view.dispatch(new ModelListEvent<>(view, (VListChangeEvent<T>) event, false)));
+            } else {
+                addChangeListener(view::dispatch);
+            }
             unmodifiable = view;
         }
         return unmodifiable;

@@ -61,9 +61,10 @@ final class VMFJournalXml {
             Map.entry("transactions", "transaction"), Map.entry("operations", "operation"), Map.entry("indices", "index"),
             Map.entry("before", "value"), Map.entry("after", "value"), Map.entry("created", "creation"),
             Map.entry("values", "value"), Map.entry("beforeEntries", "entry"), Map.entry("afterEntries", "entry"),
-            Map.entry("entries", "entry"), Map.entry("mapProperties", "mapProperty"));
+            Map.entry("entries", "entry"), Map.entry("mapProperties", "mapProperty"),
+            Map.entry("typedMapProperties", "mapProperty"), Map.entry("setProperties", "setProperty"));
     private static final Set<String> OBJECTS = Set.of("model", "base", "transaction", "operation", "creation", "value",
-            "entry", "mapProperty");
+            "entry", "mapProperty", "typedKey", "setProperty");
     private static final Set<String> TEXT = Set.of("id", "root", "checkpoint", "kind", "target", "property",
             "type", "name", "codec", "text", "key");
     private static final Set<String> NUMBERS = Set.of("version", "sequence", "index");

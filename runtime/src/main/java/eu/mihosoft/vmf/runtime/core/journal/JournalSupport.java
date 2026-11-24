@@ -283,12 +283,11 @@ final class JournalSupport {
                     var type = property.getType();
                     if (type.isMapType()) {
                         for (var entry : ((Map<?, ?>) value).entrySet()) {
-                            if (!(entry.getKey() instanceof String)) {
-                                throw new IllegalArgumentException("Managed maps require string keys");
-                            }
-                            workspace.text.unicode((String) entry.getKey());
+                            validateGraphValue(entry.getKey(), binding, this, workspace.text);
                             validateGraphValue(entry.getValue(), binding, this, workspace.text);
                         }
+                    } else if (type.isSetType()) {
+                        for (Object member : (java.util.Set<?>) value) validateGraphValue(member, binding, this, workspace.text);
                     } else if (type.isListType()) {
                         var values = (List<?>) value;
                         if (STRING_LIST_TYPE.equals(type.getName())) {

@@ -99,10 +99,20 @@ public class Prop {
     private String genericPackageName;
     private String genericTypeName;
     private CollectionType collectionType;
+    private boolean keyField;
+    private String keyPropertyName;
+    private Contains keyedContainment;
+    private String mapKeyTypeName;
     private String mapValueTypeName;
     private String nestedBinaryName;
+    private int lowerBound;
+    private int upperBound;
+    private boolean ordered;
+    private boolean unique;
+    private String constrainedElementType;
+
     private static final String VMAP_NAME = "eu.mihosoft.vcollections.VMap";
-    private static final Set<Class<?>> MAP_VALUE_TYPES = Set.of(String.class, Boolean.class, Byte.class,
+    private static final Set<Class<?>> MAP_SCALAR_TYPES = Set.of(String.class, Boolean.class, Byte.class,
             Short.class, Integer.class, Long.class, Float.class, Double.class, Character.class);
     private boolean getterOnly;
     private boolean readOnly;
@@ -158,6 +168,12 @@ public class Prop {
         this.genericPackageName = other.genericPackageName;
         this.genericTypeName = other.genericTypeName;
         this.collectionType = other.collectionType;
+        this.mapKeyTypeName = other.mapKeyTypeName;
+        this.lowerBound = other.lowerBound;
+        this.upperBound = other.upperBound;
+        this.ordered = other.ordered;
+        this.unique = other.unique;
+        this.constrainedElementType = other.constrainedElementType;
         this.mapValueTypeName = other.mapValueTypeName;
         this.nestedBinaryName = other.nestedBinaryName;
         this.getterOnly = other.getterOnly;
@@ -170,7 +186,11 @@ public class Prop {
 
     Prop inheritedBy(ModelType owner) {
         Prop copy = new Prop(this);
-        if (genericParameter != null) copy.setParameterType(owner);
+        copy.initKeyContract(owner);
+        if (copy.isKeyed() && !isKeyed()) copy.initContainment();
+        copy.initMultiplicity(getterMethod, owner);
+        if (copy.isMapType()) copy.setMapTypes(owner);
+        else if (copy.genericParameter != null) copy.setParameterType(owner);
         return copy;
     }
 
@@ -182,8 +202,8 @@ public class Prop {
         String name = types.name(resolved);
         captureNestedBinaryName(resolved);
         type = null;
-        if (isMapType()) {
-            setMapValueType(resolved, owner);
+        if (isManagedValues()) {
+            setConstrainedElement(resolved, owner);
         } else if (isCollectionType()) {
             initListType(name);
         } else {
@@ -210,6 +230,114 @@ public class Prop {
                 && !type.isAnnotationPresent(ExternalType.class)) {
             throw GenericModelTypes.unsupportedProperty(method, "use a named specialization of " + type.getTypeName());
         }
+    }
+
+    public int getLowerBound() { return lowerBound; }
+    public int getUpperBound() { return upperBound; }
+    public boolean isOrdered() { return ordered; }
+    public boolean isUnique() { return unique; }
+    public boolean isSetType() { return propType == PropType.SET; }
+    public boolean isConstrainedList() { return propType == PropType.CONSTRAINED_LIST; }
+    public boolean isManagedValues() { return isSetType() || isConstrainedList(); }
+    public String getManagedCollectionName() { return isSetType() ? "eu.mihosoft.vcollections.VSet" : PRIVATE_LIST_TYPE_WITH_PKG; }
+    public String getConstrainedElementType() { return constrainedElementType; }
+
+    private void setConstrainedElement(Type element, ModelType owner) {
+        if (!(element instanceof TypeVariable<?>) && !MAP_SCALAR_TYPES.contains(element)) {
+            throw GenericModelTypes.unsupportedProperty(getterMethod, "constrained collection elements must be String or boxed primitives; found "
+                    + element.getTypeName() + " in " + owner.getFullTypeName());
+        }
+        constrainedElementType = owner.genericTypes().name(element);
+        String raw = isSetType() ? "VSet" : "VList";
+        packageName = PRIVATE_LIST_TYPE_PKG_NAME;
+        simpleTypeName = raw + "<" + constrainedElementType + ">";
+        typeName = packageName + "." + simpleTypeName;
+    }
+
+    private static Multiplicity.Kind declaredKind(Multiplicity declaration, boolean set, boolean list) {
+        if (declaration.kind() != Multiplicity.Kind.INFERRED) return declaration.kind();
+        return set ? Multiplicity.Kind.SET : list ? Multiplicity.Kind.SEQUENCE : Multiplicity.Kind.INFERRED;
+    }
+
+    private static int declaredUpper(Multiplicity declaration, boolean many) {
+        return !many && declaration.upper() == -1 ? 1 : declaration.upper();
+    }
+
+    private void initMultiplicity(Method getter, ModelType owner) {
+        Class<?> raw = getter.getReturnType();
+        boolean set = raw == Set.class || raw.getName().equals("eu.mihosoft.vcollections.VSet");
+        boolean list = raw.isArray() || List.class.isAssignableFrom(raw);
+        boolean map = raw.getName().equals(VMAP_NAME);
+        Multiplicity m = null;
+        Method origin = null;
+        required = false;
+        boolean many = list || set || map;
+        boolean relation = false;
+        for (Method declaration : owner.genericTypes().propertyDeclarations(getter.getName())) {
+            required |= declaration.isAnnotationPresent(Required.class);
+            relation |= declaration.isAnnotationPresent(Contains.class) || declaration.isAnnotationPresent(Container.class)
+                    || declaration.isAnnotationPresent(Refers.class) || declaration.isAnnotationPresent(SyncWith.class)
+                    || declaration.isAnnotationPresent(Keyed.class);
+            Multiplicity candidate = declaration.getAnnotation(Multiplicity.class);
+            if (candidate == null) continue;
+            if (m != null && (m.lower() != candidate.lower() || declaredUpper(m, many) != declaredUpper(candidate, many)
+                    || declaredKind(m, set, list) != declaredKind(candidate, set, list))) {
+                throw new IllegalArgumentException("Incompatible multiplicity for " + owner.getFullTypeName() + "."
+                        + getter.getName() + " inherited from " + origin.toGenericString() + " and " + declaration.toGenericString());
+            }
+            m = candidate;
+            origin = declaration;
+        }
+        lowerBound = m == null ? (raw.isPrimitive() || required ? 1 : 0) : m.lower();
+        upperBound = m == null ? (set || list || map ? -1 : 1) : m.upper();
+        Multiplicity.Kind kind = m == null ? Multiplicity.Kind.INFERRED : m.kind();
+        if (kind == Multiplicity.Kind.BAG)
+            throw GenericModelTypes.unsupportedProperty(getter, "unordered nonunique collections (bags) are unsupported");
+        if (set && kind != Multiplicity.Kind.INFERRED && kind != Multiplicity.Kind.SET)
+            throw GenericModelTypes.unsupportedProperty(getter, "Set requires SET; declare an ordered List for positions");
+        if (list && kind == Multiplicity.Kind.SET)
+            throw GenericModelTypes.unsupportedProperty(getter, "declare Set for unordered unique values");
+        if (!set && !list && kind != Multiplicity.Kind.INFERRED)
+            throw GenericModelTypes.unsupportedProperty(getter, "collection kinds require List, array, or Set declarations");
+        ordered = list;
+        unique = !list || kind == Multiplicity.Kind.ORDERED_SET;
+        if (required && lowerBound == 0) throw GenericModelTypes.unsupportedProperty(getter,
+                "@Required requires a positive lower bound in " + owner.getFullTypeName());
+        if (lowerBound < 0)
+            throw GenericModelTypes.unsupportedProperty(getter, "negative lower bound");
+        if (!set && !list && !map) {
+            if (upperBound == -1) upperBound = 1;
+            if (upperBound != 0 && upperBound != 1)
+                throw GenericModelTypes.unsupportedProperty(getter, "a scalar has upper bound 0 or 1");
+            if (raw.isPrimitive() && (lowerBound != 1 || upperBound != 1))
+                throw GenericModelTypes.unsupportedProperty(getter, "a primitive always has multiplicity 1..1; use a boxed type for optional values");
+        }
+        if (upperBound < -1 || (upperBound != -1 && lowerBound > upperBound))
+            throw GenericModelTypes.unsupportedProperty(getter, "invalid multiplicity " + lowerBound + ".." + upperBound);
+        if (map) return;
+        if (!set && (!list || (!unique && upperBound == -1))) return;
+
+        if (relation && list && !unique) return;
+        if (relation) throw GenericModelTypes.unsupportedProperty(getter, "constrained collections of model relationships are unsupported");
+        Type declared = getter.getGenericReturnType();
+        Type element;
+        if (raw.isArray()) {
+            element = declared instanceof GenericArrayType ? ((GenericArrayType) declared).getGenericComponentType() : raw.getComponentType();
+            if (element instanceof Class<?> && ((Class<?>) element).isPrimitive()) {
+                try { element = Class.forName("java.lang." + ModelType.primitiveToBoxedType(element.getTypeName())); }
+                catch (ClassNotFoundException impossible) { throw new AssertionError(impossible); }
+            }
+        } else {
+            if (!(declared instanceof ParameterizedType)) throw GenericModelTypes.unsupportedProperty(getter,
+                    "constrained collections require a concrete scalar element or type parameter");
+            element = ((ParameterizedType) declared).getActualTypeArguments()[0];
+        }
+        if (list && !unique && element instanceof Class<?> && ((Class<?>) element).getPackageName().equals(getter.getDeclaringClass().getPackageName())) return;
+        if (getter.getTypeParameters().length > 0) throw GenericModelTypes.unsupportedProperty(getter,
+                "declare type parameters on the model interface");
+        propType = set ? PropType.SET : PropType.CONSTRAINED_LIST;
+        if (element instanceof TypeVariable<?>) genericParameter = (TypeVariable<?>) element;
+        setConstrainedElement(element, parent);
     }
 
     private static TypeVariable<?> propertyParameter(Method getter) {
@@ -247,8 +375,11 @@ public class Prop {
             customOrderIndex = propOrder.index();
         }
 
-        genericParameter = propertyParameter(getterMethod);
-        if (genericParameter != null) {
+        initMultiplicity(getterMethod, parent);
+        if (!isManagedValues()) genericParameter = propertyParameter(getterMethod);
+        if (isManagedValues()) {
+            // initMultiplicity resolves the element and generated collection kind together.
+        } else if (genericParameter != null) {
             boolean many = propClass.isArray() || List.class.isAssignableFrom(propClass);
             propType = many ? PropType.COLLECTION : PropType.CLASS;
             setParameterType(parent);
@@ -263,6 +394,10 @@ public class Prop {
         } else if (propClass.isArray() || Collection.class.isAssignableFrom(propClass)) {
             Type component;
             if (propClass.isArray()) {
+                if (getterMethod.getGenericReturnType() instanceof GenericArrayType) {
+                    throw GenericModelTypes.unsupportedProperty(getterMethod,
+                            "array elements require a named type or a model type parameter");
+                }
                 component = propClass.getComponentType();
             } else {
                 if (!List.class.isAssignableFrom(propClass)) {
@@ -276,6 +411,10 @@ public class Prop {
                 throw GenericModelTypes.unsupportedProperty(getterMethod, "list elements require a named type or type parameter");
             }
             Class<?> element = (Class<?>) component;
+            if (Collection.class.isAssignableFrom(element) || Map.class.isAssignableFrom(element)) {
+                throw GenericModelTypes.unsupportedProperty(getterMethod,
+                        "nested collection elements require an explicit model property with its own element type");
+            }
             rejectGenericModelProperty(getterMethod, element);
             String elementName = element.isPrimitive() ? "java.lang." + ModelType.primitiveToBoxedType(element.getName())
                     : parent.genericTypes().name(element);
@@ -302,7 +441,6 @@ public class Prop {
 
         getterPrefix = computeGetterPrefix(getterMethod);
 
-        required = getterMethod.getAnnotation(Required.class) != null;
         ignoredForEquals = getterMethod.getAnnotation(IgnoreEquals.class) != null;
         ignoredForToString = getterMethod.getAnnotation(IgnoreToString.class) != null;
 
@@ -319,6 +457,11 @@ public class Prop {
         for (Annotation a : annotationObjects) {
             annotations.add(new AnnotationInfo(a.key(), a.value()));
         }
+
+        if (annotations.stream().anyMatch(a -> a.getKey().equals("vmf:collection:key"))) {
+            throw GenericModelTypes.unsupportedProperty(getterMethod, "use @Keyed to declare the entry key");
+        }
+        initKeyContract(parent);
 
         // we require alphabetic order (by key)
         Collections.sort(annotations, Comparator.comparing(AnnotationInfo::getKey));
@@ -349,9 +492,9 @@ public class Prop {
         Type signature = getter.getGenericReturnType();
         Type[] args = signature instanceof ParameterizedType
                 ? ((ParameterizedType) signature).getActualTypeArguments() : new Type[0];
-        if (args.length != 2 || args[0] != String.class) {
+        if (args.length != 2) {
             throw new IllegalArgumentException("Invalid managed map property " + getter.toGenericString()
-                    + ". Expected VMap<String, V> with a String or boxed primitive value type.");
+                    + ". Expected VMap<K, V> with String or boxed primitive key and value types.");
         }
         if (getter.isAnnotationPresent(Contains.class) || getter.isAnnotationPresent(Container.class)
                 || getter.isAnnotationPresent(Refers.class) || getter.isAnnotationPresent(SyncWith.class)) {
@@ -359,20 +502,139 @@ public class Prop {
                     + " cannot declare containment, opposite references, or synchronization.");
         }
         propType = PropType.MAP;
-        if (args[1] instanceof TypeVariable<?>) genericParameter = (TypeVariable<?>) args[1];
-        setMapValueType(args[1], parent);
+        setMapTypes(parent);
     }
 
-    private void setMapValueType(Type value, ModelType owner) {
-        if (!(value instanceof TypeVariable<?>) && !MAP_VALUE_TYPES.contains(value)) {
-            throw new IllegalArgumentException("Invalid managed map property " + getterMethod.toGenericString()
-                    + " in " + owner.getFullTypeName() + ": " + value.getTypeName()
-                    + " is unsupported. Expected VMap<String, V> with a String or boxed primitive value type.");
-        }
-        mapValueTypeName = value.getTypeName();
+    private void setMapTypes(ModelType owner) {
+        Type[] args = ((ParameterizedType) getterMethod.getGenericReturnType()).getActualTypeArguments();
+        mapKeyTypeName = mapArgument(owner, args[0], "key");
+        mapValueTypeName = mapArgument(owner, args[1], "value");
         packageName = PRIVATE_LIST_TYPE_PKG_NAME;
-        simpleTypeName = "VMap<java.lang.String, " + mapValueTypeName + ">";
+        simpleTypeName = "VMap<" + mapKeyTypeName + ", " + mapValueTypeName + ">";
         typeName = packageName + "." + simpleTypeName;
+    }
+
+    private String mapArgument(ModelType owner, Type argument, String role) {
+        Type binding = owner.genericTypes().resolve(argument);
+        if (!(binding instanceof TypeVariable<?>) && !MAP_SCALAR_TYPES.contains(binding)) {
+            throw new IllegalArgumentException("Invalid managed map property " + getterMethod.toGenericString()
+                    + " in " + owner.getFullTypeName() + ": unsupported " + role + " type " + binding.getTypeName()
+                    + ". Use String or a boxed primitive, or model the relationship as keyed entries.");
+        }
+        return binding.getTypeName();
+    }
+
+    public String getMapKeyTypeName() {
+        return mapKeyTypeName;
+    }
+
+    private void initKeyContract(ModelType owner) {
+        List<Method> declarations = owner.genericTypes().propertyDeclarations(getterMethod.getName());
+        for (Method declaration : declarations) {
+            Keyed keyed = declaration.getDeclaredAnnotation(Keyed.class);
+            if (keyed != null) {
+                if (keyPropertyName != null && !keyPropertyName.equals(keyed.by())) {
+                    throw GenericModelTypes.unsupportedProperty(getterMethod, "conflicting entry keys '"
+                            + keyPropertyName + "' and '" + keyed.by() + "' in " + owner.getFullTypeName());
+                }
+                keyPropertyName = keyed.by();
+            }
+        }
+        if (keyPropertyName == null) return;
+        Type entry = null;
+        for (Method declaration : declarations) {
+            Type declared = declaration.getGenericReturnType();
+            Type component = null;
+            if (declared instanceof Class<?> && ((Class<?>) declared).isArray()) {
+                component = ((Class<?>) declared).getComponentType();
+            } else if (declared instanceof GenericArrayType) {
+                component = ((GenericArrayType) declared).getGenericComponentType();
+            } else if (declared instanceof ParameterizedType && List.class.isAssignableFrom(declaration.getReturnType())) {
+                component = ((ParameterizedType) declared).getActualTypeArguments()[0];
+            }
+            if (component != null) {
+                Type resolved = owner.genericTypes().resolve(component);
+                if (entry != null && !entry.equals(resolved)) {
+                    throw GenericModelTypes.unsupportedProperty(getterMethod, "a keyed containment override must preserve"
+                            + " its entry type in " + owner.getFullTypeName() + " (" + entry.getTypeName()
+                            + " and " + resolved.getTypeName() + ")");
+                }
+                entry = resolved;
+            }
+            Contains contains = declaration.getDeclaredAnnotation(Contains.class);
+            if (contains != null) {
+                if (keyedContainment != null && !keyedContainment.equals(contains)) {
+                    throw GenericModelTypes.unsupportedProperty(getterMethod,
+                            "conflicting containment opposites on keyed property in " + owner.getFullTypeName());
+                }
+                keyedContainment = contains;
+            }
+            if (declaration.isAnnotationPresent(Container.class) || declaration.isAnnotationPresent(Refers.class)
+                    || declaration.isAnnotationPresent(SyncWith.class)) {
+                throw GenericModelTypes.unsupportedProperty(getterMethod, "keyed entries require a containment list");
+            }
+        }
+        if (annotations.stream().noneMatch(a -> "vmf:collection:key".equals(a.getKey()))) {
+            annotations.add(new AnnotationInfo("vmf:collection:key", keyPropertyName));
+            annotations.sort(Comparator.comparing(AnnotationInfo::getKey));
+        }
+    }
+
+    public boolean isKeyed() {
+        return keyPropertyName != null;
+    }
+
+    public String getKeyPropertyName() {
+        return keyPropertyName;
+    }
+
+    public Prop getEntryKey() {
+        if (!isCollectionType() || !isContained() || getGenericType() == null) {
+            throw GenericModelTypes.unsupportedProperty(getterMethod, "@Keyed requires a containment list of model entries");
+        }
+        return getGenericType().getImplementation().getProperties().stream()
+                .filter(p -> p.getName().equals(getKeyPropertyName())).findFirst()
+                .orElseThrow(() -> GenericModelTypes.unsupportedProperty(getterMethod,
+                        "unknown key property '" + getKeyPropertyName() + "' on " + getElementTypeName()));
+    }
+
+    void validateEntryKey(ModelType owner) {
+        if (!isKeyed()) return;
+        Prop key = getEntryKey();
+        String method = getLookupName();
+        boolean delegated = owner.getImplementation().getMethodDelegations().stream().anyMatch(d ->
+                d.getMethodName().equals(method) && d.getParamTypes().equals(List.of(key.getTypeName())));
+        boolean duplicate = owner.getImplementation().getProperties().stream().anyMatch(p -> p != this && p.isKeyed()
+                && p.getLookupName().equals(method) && p.getEntryKey().getTypeName().equals(key.getTypeName()));
+        if (delegated || duplicate) {
+            throw GenericModelTypes.unsupportedProperty(getterMethod, "lookup method conflicts with " + method);
+        }
+        // A subclass may inherit or override the key getter. Mark the actual setter
+        // emitted for each concrete entry type, including closed generic specializations.
+        for (ModelType entryType : owner.getModel().getTypes()) {
+            if (entryType.extendsType(getGenericType())) {
+                for (Prop actual : entryType.getImplementation().getProperties()) {
+                    if (!actual.name.equals(key.name)) continue;
+                    boolean scalar = actual.propType == PropType.PRIMITIVE || MAP_SCALAR_TYPES.stream()
+                            .anyMatch(c -> c.getName().equals(actual.getTypeName()));
+                    if ((!scalar && actual.getType() == null) || actual.isContainer() || actual.isContained()
+                            || actual.isCrossRefProperty() || actual.getSyncInfo() != null) {
+                        throw GenericModelTypes.unsupportedProperty(getterMethod, "key '" + actual.name
+                                + "' on " + entryType.getFullTypeName()
+                                + " requires a stable scalar or a single unidirectional model reference");
+                    }
+                    actual.keyField = true;
+                }
+            }
+        }
+    }
+
+    public String getLookupName() {
+        return "find" + getNameWithUpperCase() + "By" + getEntryKey().getNameWithUpperCase();
+    }
+
+    public boolean isKeyField() {
+        return keyField;
     }
 
     public boolean isMapType() {
@@ -460,7 +722,7 @@ public class Prop {
 
         // containment
         Container container = getterMethod.getAnnotation(Container.class);
-        Contains contained = getterMethod.getAnnotation(Contains.class);
+        Contains contained = isKeyed() ? keyedContainment : getterMethod.getAnnotation(Contains.class);
 
         if (container != null) {
 
@@ -903,6 +1165,10 @@ public class Prop {
     public int getTypeId() {
         if (getType() != null) {
             return getType().getTypeId();
+        } else if (isSetType()) {
+            return -4;
+        } else if (isConstrainedList()) {
+            return -2;
         } else if (isMapType()) {
             return -3;
         } else if (isCollectionType()) {

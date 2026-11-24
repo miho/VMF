@@ -60,6 +60,6 @@ public class InvalidMapDeclarationsTest {
 interface InvalidLookup extends GenericLookup<java.math.BigDecimal> {}
 
 interface Raw { VMap getEntries(); }
-interface WrongKey { VMap<Integer, String> getEntries(); }
+interface WrongKey { VMap<java.util.Date, String> getEntries(); }
 interface Nested { VMap<String, List<String>> getEntries(); }
 interface Contained { @Contains VMap<String, String> getEntries(); }

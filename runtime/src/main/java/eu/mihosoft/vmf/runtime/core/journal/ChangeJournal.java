@@ -24,10 +24,12 @@
 package eu.mihosoft.vmf.runtime.core.journal;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** Immutable, model-independent records of forward changes from a checkpoint. */
 public final class ChangeJournal {
@@ -35,6 +37,7 @@ public final class ChangeJournal {
     public static final int VERSION = 1;
     public static final int EXTERNAL_VALUES_VERSION = 2;
     public static final int MAPS_VERSION = 3;
+    public static final int COLLECTIONS_VERSION = 4;
 
     private final String model;
     private final int modelVersion;
@@ -75,14 +78,16 @@ public final class ChangeJournal {
         int version = VERSION;
         for (Frame frame : transactions) {
             for (Operation operation : frame.operations()) {
-                if (operation.kind() == Kind.MAP_EDIT) return MAPS_VERSION;
+                if (operation.kind() == Kind.SET_EDIT || operation.kind() == Kind.TYPED_MAP_EDIT) return COLLECTIONS_VERSION;
+                if (operation.kind() == Kind.MAP_EDIT) version = Math.max(version, MAPS_VERSION);
                 if (hasExternalValues(operation.before()) || hasExternalValues(operation.after())) {
-                    version = EXTERNAL_VALUES_VERSION;
+                    version = Math.max(version, EXTERNAL_VALUES_VERSION);
                 }
                 for (Creation creation : operation.created()) {
-                    if (!creation.mapProperties().isEmpty()) return MAPS_VERSION;
+                    if (!creation.typedMapProperties().isEmpty() || !creation.setProperties().isEmpty()) return COLLECTIONS_VERSION;
+                    if (!creation.mapProperties().isEmpty()) version = Math.max(version, MAPS_VERSION);
                     if (creation.properties().values().stream().anyMatch(ChangeJournal::hasExternalValues)) {
-                        version = EXTERNAL_VALUES_VERSION;
+                        version = Math.max(version, EXTERNAL_VALUES_VERSION);
                     }
                 }
             }
@@ -94,7 +99,7 @@ public final class ChangeJournal {
         return values.stream().anyMatch(value -> value.kind() == ValueKind.EXTERNAL);
     }
 
-    public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET, MAP_EDIT }
+    public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET, MAP_EDIT, SET_EDIT, TYPED_MAP_EDIT }
 
     public enum ValueKind { NULL, REFERENCE, STRING, BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, CHAR, EXTERNAL }
 
@@ -156,12 +161,50 @@ public final class ChangeJournal {
         return Collections.unmodifiableMap(copy);
     }
 
+    private static void requireBuiltin(Value value) {
+        if (value.kind() == ValueKind.REFERENCE || value.kind() == ValueKind.EXTERNAL) {
+            throw new IllegalArgumentException("A managed collection requires built-in scalar values");
+        }
+    }
+
+    private static void validateMembers(List<Value> values) {
+        ValueKind kind = values.isEmpty() ? null : values.get(0).kind();
+        for (Value value : values) {
+            requireBuiltin(value);
+            if (value.kind() == ValueKind.NULL) throw new IllegalArgumentException("Null set member");
+            if (value.kind() != kind) throw new IllegalArgumentException("Set members must have one declared scalar type");
+        }
+        if (new HashSet<>(values).size() != values.size()) {
+            throw new IllegalArgumentException("Duplicate member in set");
+        }
+    }
+
+    private static Map<Value, Value> copyTypedEntries(Map<Value, Value> entries) {
+        if (entries.isEmpty()) return Map.of();
+        Map<Value, Value> copy = new LinkedHashMap<>();
+        ValueKind keyKind = null;
+        for (var entry : entries.entrySet()) {
+            Value key = entry.getKey();
+            requireBuiltin(key);
+            if (key.kind() == ValueKind.NULL || key.kind() == ValueKind.STRING ||
+                    (keyKind != null && key.kind() != keyKind)) {
+                throw new IllegalArgumentException("Typed map keys must have one declared non-String scalar type");
+            }
+            keyKind = key.kind();
+            requireBuiltin(entry.getValue());
+            copy.put(key, entry.getValue());
+        }
+        return Collections.unmodifiableMap(copy);
+    }
+
     /** Initial properties of an object, with a singleton value for each scalar property. */
     public static final class Creation {
         private final String id;
         private final String type;
         private final Map<String, List<Value>> properties;
         private final Map<String, Map<String, Value>> mapProperties;
+        private final Map<String, Map<Value, Value>> typedMapProperties;
+        private final Map<String, List<Value>> setProperties;
 
         public Creation(String id, String type, Map<String, List<Value>> properties) {
             this(id, type, properties, Map.of());
@@ -170,6 +213,13 @@ public final class ChangeJournal {
         /** Captures initial scalar/list properties and the complete contents of each managed map. */
         public Creation(String id, String type, Map<String, List<Value>> properties,
                         Map<String, Map<String, Value>> mapProperties) {
+            this(id, type, properties, mapProperties, Map.of(), Map.of());
+        }
+
+        /** Captures initial membership, typed mappings and the existing scalar, list and String map properties. */
+        public Creation(String id, String type, Map<String, List<Value>> properties,
+                        Map<String, Map<String, Value>> mapProperties,
+                        Map<String, Map<Value, Value>> typedMapProperties, Map<String, List<Value>> setProperties) {
             this.id = JournalSupport.requireName(id, "creation ID");
             this.type = JournalSupport.requireName(type, "creation type");
             Map<String, List<Value>> copy = new LinkedHashMap<>();
@@ -181,6 +231,21 @@ public final class ChangeJournal {
                 maps.put(JournalSupport.requireName(key, "map property key"), copyEntries(entries));
             });
             this.mapProperties = Collections.unmodifiableMap(maps);
+            Set<String> names = new HashSet<>(copy.keySet());
+            names.addAll(maps.keySet());
+            Map<String, Map<Value, Value>> typedMaps = new LinkedHashMap<>();
+            typedMapProperties.forEach((key, entries) -> {
+                if (!names.add(JournalSupport.requireName(key, "typed map property"))) throw new IllegalArgumentException("Duplicate creation property " + key);
+                typedMaps.put(key, copyTypedEntries(entries));
+            });
+            this.typedMapProperties = Collections.unmodifiableMap(typedMaps);
+            Map<String, List<Value>> sets = new LinkedHashMap<>();
+            setProperties.forEach((key, values) -> {
+                if (!names.add(JournalSupport.requireName(key, "set property"))) throw new IllegalArgumentException("Duplicate creation property " + key);
+                validateMembers(values);
+                sets.put(key, List.copyOf(values));
+            });
+            this.setProperties = Collections.unmodifiableMap(sets);
         }
 
         public String id() { return id; }
@@ -188,6 +253,8 @@ public final class ChangeJournal {
         public Map<String, List<Value>> properties() { return properties; }
         /** Initial map contents keyed by portable property name. */
         public Map<String, Map<String, Value>> mapProperties() { return mapProperties; }
+        public Map<String, Map<Value, Value>> typedMapProperties() { return typedMapProperties; }
+        public Map<String, List<Value>> setProperties() { return setProperties; }
     }
 
     /** LIST_ADD indices refer to the resulting list. Other list indices refer to the preceding list. */
@@ -201,10 +268,12 @@ public final class ChangeJournal {
         private final List<Creation> created;
         private final Map<String, Value> beforeEntries;
         private final Map<String, Value> afterEntries;
+        private final Map<Value, Value> beforeTypedEntries;
+        private final Map<Value, Value> afterTypedEntries;
 
         public Operation(Kind kind, String target, String property, List<Integer> indices,
                          List<Value> before, List<Value> after, List<Creation> created) {
-            this(kind, target, property, indices, before, after, created, Map.of(), Map.of());
+            this(kind, target, property, indices, before, after, created, Map.of(), Map.of(), Map.of(), Map.of());
         }
 
         /**
@@ -215,12 +284,24 @@ public final class ChangeJournal {
         public static Operation mapEdit(String target, String property,
                                         Map<String, Value> before, Map<String, Value> after) {
             return new Operation(Kind.MAP_EDIT, target, property, List.of(), List.of(), List.of(), List.of(),
-                    before, after);
+                    before, after, Map.of(), Map.of());
+        }
+
+        /** A keyed edit on a map with a declared non-String scalar key. */
+        public static Operation typedMapEdit(String target, String property, Map<Value, Value> before, Map<Value, Value> after) {
+            return new Operation(Kind.TYPED_MAP_EDIT, target, property, List.of(), List.of(), List.of(), List.of(),
+                    Map.of(), Map.of(), before, after);
+        }
+
+        /** Members removed and added by an unordered set edit. */
+        public static Operation setEdit(String target, String property, List<Value> removed, List<Value> added) {
+            return new Operation(Kind.SET_EDIT, target, property, List.of(), removed, added, List.of());
         }
 
         private Operation(Kind kind, String target, String property, List<Integer> indices,
                           List<Value> before, List<Value> after, List<Creation> created,
-                          Map<String, Value> beforeEntries, Map<String, Value> afterEntries) {
+                          Map<String, Value> beforeEntries, Map<String, Value> afterEntries,
+                          Map<Value, Value> beforeTypedEntries, Map<Value, Value> afterTypedEntries) {
             this.kind = Objects.requireNonNull(kind, "operation kind");
             this.target = JournalSupport.requireName(target, "target ID");
             this.property = JournalSupport.requireName(property, "property key");
@@ -230,10 +311,30 @@ public final class ChangeJournal {
             this.created = List.copyOf(created);
             this.beforeEntries = copyEntries(beforeEntries);
             this.afterEntries = copyEntries(afterEntries);
+            this.beforeTypedEntries = copyTypedEntries(beforeTypedEntries);
+            this.afterTypedEntries = copyTypedEntries(afterTypedEntries);
             validateShape();
         }
 
         private void validateShape() {
+            if (kind == Kind.SET_EDIT) {
+                validateMembers(before);
+                validateMembers(after);
+                if (!indices.isEmpty() || !created.isEmpty() || (before.isEmpty() && after.isEmpty())
+                        || (!before.isEmpty() && !after.isEmpty() && before.get(0).kind() != after.get(0).kind())
+                        || !Collections.disjoint(new HashSet<>(before), after)) {
+                    throw new IllegalArgumentException("Invalid set membership edit");
+                }
+                return;
+            }
+            if (kind == Kind.TYPED_MAP_EDIT) {
+                if (beforeTypedEntries.isEmpty() && afterTypedEntries.isEmpty())
+                    throw new IllegalArgumentException("A typed map edit needs at least one key");
+                if (!beforeTypedEntries.isEmpty() && !afterTypedEntries.isEmpty()
+                        && beforeTypedEntries.keySet().iterator().next().kind() != afterTypedEntries.keySet().iterator().next().kind())
+                    throw new IllegalArgumentException("Typed map edits require one key type");
+                return;
+            }
             if (kind == Kind.MAP_EDIT) {
                 if (beforeEntries.isEmpty() && afterEntries.isEmpty()) {
                     throw new IllegalArgumentException("A map edit needs at least one affected key");
@@ -264,6 +365,8 @@ public final class ChangeJournal {
         public Map<String, Value> beforeEntries() { return beforeEntries; }
         /** Present entries after a map edit. Empty for scalar and list operations. */
         public Map<String, Value> afterEntries() { return afterEntries; }
+        public Map<Value, Value> beforeTypedEntries() { return beforeTypedEntries; }
+        public Map<Value, Value> afterTypedEntries() { return afterTypedEntries; }
     }
 
     /** One recorded VMF transaction, or one ungrouped change. */

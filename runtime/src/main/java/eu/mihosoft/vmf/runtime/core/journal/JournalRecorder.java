@@ -244,8 +244,18 @@ public final class JournalRecorder implements AutoCloseable {
         if (mapChange.isPresent()) {
             var event = mapChange.get();
             if (!event.wasAdded() && !event.wasRemoved()) return null;
+            if (!stringKeys(JournalSupport.property(object, property, binding))) {
+                return Operation.typedMapEdit(target, property, freezeTypedEntries(event.removed().entries()),
+                        freezeTypedEntries(event.added().entries()));
+            }
             return Operation.mapEdit(target, property, freezeEntries(event.removed().entries()),
                     freezeEntries(event.added().entries()));
+        }
+
+        var setChange = change.setChange();
+        if (setChange.isPresent()) {
+            var event = setChange.get();
+            return Operation.setEdit(target, property, freezeMembers(event.removed()), freezeMembers(event.added()));
         }
 
         var event = listChange.orElseThrow();
@@ -294,6 +304,22 @@ public final class JournalRecorder implements AutoCloseable {
         return values;
     }
 
+    private static boolean stringKeys(Property property) {
+        return String.class.getName().equals(property.getType().getDescriptor().getArguments().get(0).getName());
+    }
+
+    private Map<Value, Value> freezeTypedEntries(Map<?, ?> entries) {
+        Map<Value, Value> values = new LinkedHashMap<>();
+        entries.forEach((key, value) -> values.put(JournalSupport.scalar(key, binding), JournalSupport.scalar(value, binding)));
+        return values;
+    }
+
+    private List<Value> freezeMembers(java.util.Set<?> members) {
+        List<Value> values = new ArrayList<>(members.size());
+        for (Object member : members) values.add(JournalSupport.scalar(member, binding));
+        return values;
+    }
+
     private Value freeze(Object value, List<Creation> created) {
         if (value instanceof VObject) {
             return new Value(ValueKind.REFERENCE, reference((VObject) value, created));
@@ -315,13 +341,18 @@ public final class JournalRecorder implements AutoCloseable {
         identities.put(object, id);
         Map<String, List<Value>> properties = new LinkedHashMap<>();
         Map<String, Map<String, Value>> mapProperties = new LinkedHashMap<>();
+        Map<String, Map<Value, Value>> typedMaps = new LinkedHashMap<>();
+        Map<String, List<Value>> sets = new LinkedHashMap<>();
         for (Property property : ReflectImpl.readProperties(object.vmf().reflect())) {
             String name = property.getName();
             if (JournalSupport.isContainer(object, name)) continue;
             String key = propertyKey(object, name);
             Object value = property.get();
             if (property.getType().isMapType()) {
-                mapProperties.put(key, freezeEntries((Map<?, ?>) value));
+                if (stringKeys(property)) mapProperties.put(key, freezeEntries((Map<?, ?>) value));
+                else typedMaps.put(key, freezeTypedEntries((Map<?, ?>) value));
+            } else if (property.getType().isSetType()) {
+                sets.put(key, freezeMembers((java.util.Set<?>) value));
             } else if (property.getType().isListType()) {
                 List<Value> items = new ArrayList<>();
                 for (Object item : (List<?>) value) items.add(freeze(item, created));
@@ -330,7 +361,7 @@ public final class JournalRecorder implements AutoCloseable {
                 properties.put(key, List.of(freeze(value, created)));
             }
         }
-        created.add(new Creation(id, binding.type(object), properties, mapProperties));
+        created.add(new Creation(id, binding.type(object), properties, mapProperties, typedMaps, sets));
         return id;
     }
 

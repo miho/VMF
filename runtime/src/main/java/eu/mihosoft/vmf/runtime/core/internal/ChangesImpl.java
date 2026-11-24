@@ -30,6 +30,7 @@ import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vcollections.VListChange;
 import eu.mihosoft.vcollections.VMappedList;
 import eu.mihosoft.vcollections.VMap;
+import eu.mihosoft.vcollections.VSet;
 import eu.mihosoft.vmf.runtime.core.*;
 import vjavax.observer.Subscription;
 import vjavax.observer.collection.CollectionChangeEvent;
@@ -271,7 +272,7 @@ public class ChangesImpl implements Changes {
             ObserverFailures.rethrow(recordChange(change, generation, null));
             return;
         }
-        boolean scalarEdit = change instanceof MapChangeImpl;
+        boolean scalarEdit = change instanceof MapChangeImpl || change instanceof SetChangeImpl;
         if (change instanceof PropChangeImpl) {
             var property = (PropChangeImpl) change;
             scalarEdit = !(property.oldValue() instanceof VObject) && !(property.newValue() instanceof VObject);
@@ -486,10 +487,10 @@ public class ChangesImpl implements Changes {
         Map<Object, Subscription> subscriptions = recursive ? recursiveCollectionSubscriptions : localCollectionSubscriptions;
         int[] types = owner._vmf_getPropertyTypes();
         for (int id = 0; id < types.length; id++) {
-            if (types[id] != -2 && types[id] != VObjectInternal.VMF_TYPE_MAP) continue;
+            if (!isObservedCollection(types[id])) continue;
             String name = owner._vmf_getPropertyNames()[id];
             if (types[id] == VObjectInternal.VMF_TYPE_MAP) {
-                var map = (VMap<String, Object>) owner._vmf_getPropertyValueById(id);
+                var map = (VMap<Object, Object>) owner._vmf_getPropertyValueById(id);
                 subscriptions.put(map, map.addChangeListener(event -> {
                     boolean first = firstDelivery(owner, event);
                     if (needsChange(recursive ? recursivePropertyNames : localPropertyNames, name)) {
@@ -497,14 +498,26 @@ public class ChangesImpl implements Changes {
                                 recursive ? changeListeners : nonRecursiveChangeListeners);
                     }
                 }));
+            } else if (types[id] == VObjectInternal.VMF_TYPE_SET) {
+                var set = (VSet<Object>) owner._vmf_getPropertyValueById(id);
+                subscriptions.put(set, set.addChangeListener(event -> {
+                    boolean first = firstDelivery(owner, event);
+                    if (needsChange(recursive ? recursivePropertyNames : localPropertyNames, name)) {
+                        fireChange(new SetChangeImpl(owner, name, event), first && recording,
+                                recursive ? changeListeners : nonRecursiveChangeListeners);
+                    }
+                }));
             } else {
                 var list = (VList<Object>) owner._vmf_getPropertyValueById(id);
                 int propertyId = id;
-                Subscription subscription = recursive && isContainmentProperty(owner, id)
-                        ? list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event))
-                        : list.addChangeListener(event -> fireListChange(owner, name, event,
-                                recursive ? recursivePropertyNames : localPropertyNames,
-                                recursive ? changeListeners : nonRecursiveChangeListeners));
+                Subscription subscription;
+                if (recursive && isContainmentProperty(owner, id)) {
+                    subscription = list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event));
+                } else if (recursive) {
+                    subscription = list.addChangeListener(event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners));
+                } else {
+                    subscription = list.addChangeListener(event -> fireListChange(owner, name, event, localPropertyNames, nonRecursiveChangeListeners));
+                }
                 subscriptions.put(list, subscription);
             }
         }
@@ -537,11 +550,15 @@ public class ChangesImpl implements Changes {
     private void unsubscribeCollections(VObjectInternal owner, Map<Object, Subscription> subscriptions) {
         int[] types = owner._vmf_getPropertyTypes();
         for (int id = 0; id < types.length; id++) {
-            if (types[id] == -2 || types[id] == VObjectInternal.VMF_TYPE_MAP) {
+            if (isObservedCollection(types[id])) {
                 Subscription subscription = subscriptions.remove(owner._vmf_getPropertyValueById(id));
                 if (subscription != null) subscription.unsubscribe();
             }
         }
+    }
+
+    private static boolean isObservedCollection(int type) {
+        return type == -2 || type == VObjectInternal.VMF_TYPE_MAP || type == VObjectInternal.VMF_TYPE_SET;
     }
 
     @Override

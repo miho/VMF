@@ -34,7 +34,7 @@ import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** Maps the fixed XML entry vocabulary onto a VMF string-keyed scalar map. */
+/** Maps the fixed XML entry vocabulary onto a VMF scalar map. */
 final class ManagedMapXml {
     private ManagedMapXml() {}
 
@@ -43,7 +43,7 @@ final class ManagedMapXml {
         generator.writeArrayFieldStart("entry");
         for (var entry : entries.entrySet()) {
             generator.writeStartObject();
-            writeText("key", (String) entry.getKey(), generator);
+            writeText("key", entry.getKey().toString(), generator);
             Object value = entry.getValue();
             if (value == null) {
                 generator.writeBooleanField("null", true);
@@ -58,7 +58,7 @@ final class ManagedMapXml {
         generator.writeEndObject();
     }
 
-    private static void writeText(String field, String value, JsonGenerator generator) throws IOException {
+    static void writeText(String field, String value, JsonGenerator generator) throws IOException {
         if (value.codePoints().allMatch(VMFJournalXml::preservesAsXmlText)) {
             generator.writeStringField(field, value);
         } else {
@@ -69,9 +69,9 @@ final class ManagedMapXml {
         }
     }
 
-    static Map<String, Object> read(JsonNode node, JavaType valueType, DeserializationContext context)
+    static Map<Object, Object> read(JsonNode node, JavaType mapType, DeserializationContext context)
             throws IOException {
-        Map<String, Object> result = new LinkedHashMap<>();
+        Map<Object, Object> result = new LinkedHashMap<>();
         // XmlMapper represents an empty element as empty text or null, depending on parser settings.
         if (node.isNull() || (node.isTextual() && node.textValue().isEmpty())) return result;
         if (!node.isObject() || node.size() != 1 || !node.has("entry")) {
@@ -79,18 +79,22 @@ final class ManagedMapXml {
         }
         JsonNode entries = node.get("entry");
         if (entries.isArray()) {
-            for (JsonNode entry : entries) readEntry(entry, valueType, context, result);
+            for (JsonNode entry : entries) readEntry(entry, mapType, context, result);
         } else {
-            readEntry(entries, valueType, context, result);
+            readEntry(entries, mapType, context, result);
         }
         return result;
     }
 
-    private static void readEntry(JsonNode entry, JavaType valueType, DeserializationContext context,
-                                  Map<String, Object> result) throws IOException {
+    private static void readEntry(JsonNode entry, JavaType mapType, DeserializationContext context,
+                                  Map<Object, Object> result) throws IOException {
         if (!entry.isObject() || entry.size() != 2) throw new IOException("Expected a map key and value");
-        String key = text(entry, "key");
+        String keyText = text(entry, "key");
+        Object key = mapType.getKeyType().hasRawClass(String.class) ? keyText :
+                context.readTreeAsValue(com.fasterxml.jackson.databind.node.TextNode.valueOf(keyText), mapType.getKeyType());
+        if (key == null || !keyText.equals(key.toString())) throw new IOException("Invalid managed map key");
         if (result.containsKey(key)) throw new IOException("Duplicate managed map key");
+        JavaType valueType = mapType.getContentType();
         Object value;
         if (entry.has("null")) {
             if (!"true".equals(entry.get("null").asText())) throw new IOException("Expected a true null marker");
@@ -108,13 +112,19 @@ final class ManagedMapXml {
             if (scalar == null || !scalar.isValueNode() || scalar.isNull() || scalar.asText().isEmpty()) {
                 throw new IOException("Expected a scalar map value");
             }
-            value = context.readTreeAsValue(scalar, valueType);
+            if (valueType.hasRawClass(Boolean.class)) {
+                String literal = scalar.asText();
+                if (!"true".equals(literal) && !"false".equals(literal)) throw new IOException("Expected a boolean map value");
+                value = Boolean.valueOf(literal);
+            } else {
+                value = TypedMapEntries.xmlNumber(scalar.asText(), valueType, context);
+            }
             if (value == null) throw new IOException("Expected an explicit null marker");
         }
         result.put(key, value);
     }
 
-    private static String text(JsonNode entry, String field) throws IOException {
+    static String text(JsonNode entry, String field) throws IOException {
         JsonNode plain = entry.get(field);
         if (plain != null) {
             if (plain.isNull()) return "";

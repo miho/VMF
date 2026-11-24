@@ -147,6 +147,8 @@ public class Model {
         // PASS 7
         for (ModelType t : types.values()) {
 
+            for (Prop property : t.getImplementation().getProperties()) property.validateEntryKey(t);
+
             if(t.isHashCodeMethodDelegated()!=t.isEqualsMethodDelegated()) {
                 if(t.isHashCodeMethodDelegated()) {
                     throw new RuntimeException("If 'int hashCode()' is delegated, 'boolean equals(Object o)' must be delegated too.");

@@ -150,6 +150,13 @@ public final class Property {
 
     }
 
+    /** Cardinality and many-valued collection semantics declared by the model. */
+    public Multiplicity getMultiplicity() {
+        if (parent instanceof TypeMetadataProvider)
+            return ((TypeMetadataProvider) parent)._vmf_getMultiplicity(propertyId);
+        return TypeMetadataProvider.legacyMultiplicity(parent, propertyId);
+    }
+
     @Deprecated
     public static Property newInstance(VObjectInternal parent, String name, boolean staticOnly) {
         return new Property(parent, name, staticOnly);
@@ -269,6 +276,11 @@ public final class Property {
      */
     public List<Annotation> annotations() {
         return parent._vmf_getPropertyAnnotationsById(propertyId);
+    }
+
+    /** Returns the entry property used for keyed lookup on a containment list. */
+    public Optional<String> getKeyPropertyName() {
+        return annotationByKey("vmf:collection:key").map(Annotation::getValue);
     }
 
     /**

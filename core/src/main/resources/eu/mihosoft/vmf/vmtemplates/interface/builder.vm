@@ -41,14 +41,17 @@
 #end
      * <!-- vmf-end-model-doc -->
      * @return this builder
-#if($prop.mapType)
+#if($prop.mapType || $prop.managedValues)
      * @see ${type.fullTypeName}#get${prop.nameWithUpperCase}()
 #else
      * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
 #end
      */
-#if($prop.mapType)
-    public Builder with${prop.nameWithUpperCase}(java.util.Map<java.lang.String, ${prop.mapValueTypeName}> ${prop.name});
+#if($prop.managedValues)
+    public Builder with${prop.nameWithUpperCase}(java.util.Collection<? extends ${prop.constrainedElementType}> ${prop.name});
+    public Builder with${prop.nameWithUpperCase}(${prop.constrainedElementType}... ${prop.name});
+#elseif($prop.mapType)
+    public Builder with${prop.nameWithUpperCase}(java.util.Map<${prop.mapKeyTypeName}, ${prop.mapValueTypeName}> ${prop.name});
 #elseif($prop.propType == "COLLECTION")
     public Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name});
 

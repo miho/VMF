@@ -34,6 +34,7 @@ import eu.mihosoft.vmf.runtime.core.PropertyChange;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
 import vjavax.observer.collection.CollectionChangeEvent;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -116,7 +117,7 @@ class ListChangeImpl implements ChangeInternal {
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         VList list = (VList) internal._vmf_getPropertyValueById(propId);
         if(evt.wasSet()) {
-            applySet(list, evt.added());
+            applySet(obj, list, evt.added());
         } else if (evt.wasAdded()) {
             list.addAll(evt.added().indices(), evt.added().elements());
         } else if(evt.wasRemoved()) {
@@ -131,12 +132,16 @@ class ListChangeImpl implements ChangeInternal {
         if (!isUndoable()) return;
 
         if (evt.wasSet()) {
-            applySet(list, evt.removed());
+            applySet(object, list, evt.removed());
         } else if (evt.wasAdded()) {
             list.removeAll(evt.added().indices());
         } else if(evt.wasRemoved()) {
             int[] indices = evt.removed().indices();
             List<Object> elements = evt.removed().elements();
+            if (ManagedValues.isOrderedSet(list)) {
+                list.addAll(indices, elements);
+                return;
+            }
             int start = 0;
             while (start < indices.length) {
                 int end = start + 1;
@@ -149,7 +154,7 @@ class ListChangeImpl implements ChangeInternal {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static void applySet(VList list, VListChange<Object> change) {
+    private void applySet(VObject target, VList list, VListChange<Object> change) {
         int[] indices = change.indices();
         if (indices.length == 0) return;
         // An unobserved containment sees the same generated callback for a
@@ -166,6 +171,16 @@ class ListChangeImpl implements ChangeInternal {
         if (contiguous) {
             list.setAll(indices[0], change.elements());
         } else {
+            var property = target.vmf().reflect().propertyByName(propertyName).orElseThrow();
+            if (property.getMultiplicity().isUnique() || property.getKeyPropertyName().isPresent()) {
+                // Apply the permutation as one edit, preserving untouched members between the changed positions.
+                int first = Arrays.stream(indices).min().getAsInt();
+                int last = Arrays.stream(indices).max().getAsInt();
+                List<Object> range = new ArrayList<>(list.subList(first, last + 1));
+                for (int i = 0; i < indices.length; i++) range.set(indices[i] - first, change.elements().get(i));
+                list.setAll(first, range);
+                return;
+            }
             for (int i = 0; i < indices.length; i++) list.set(indices[i], change.elements().get(i));
         }
     }
@@ -184,6 +199,8 @@ class ListChangeImpl implements ChangeInternal {
 
         int size = list.size();
         if (!evt.wasAdded() && size != removalSize) return false;
+        if (evt.wasRemoved() && !evt.wasSet() && ManagedValues.isOrderedSet(list)
+                && !java.util.Collections.disjoint(list, elements)) return false;
 
         int previous = -1;
         for (int i = 0; i < indices.length; i++) {

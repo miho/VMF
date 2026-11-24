@@ -117,7 +117,7 @@ public final class VMFJournalCodec {
     private static final Set<String> FRAME_FIELDS = Set.of("sequence", "operations");
     private static final Set<String> OPERATION_FIELDS = Set.of("kind", "target", "property", "indices", "before", "after", "created");
     private static final Set<String> MAP_EDIT_FIELDS = Set.of("kind", "target", "property", "beforeEntries", "afterEntries");
-    private static final Set<String> MAP_CREATION_FIELDS = Set.of("id", "type", "properties", "mapProperties");
+    private static final Set<String> SET_EDIT_FIELDS = Set.of("kind", "target", "property", "before", "after");
     private static final Set<String> CREATION_FIELDS = Set.of("id", "type", "properties");
     private static final Set<String> VALUE_FIELDS = Set.of("kind", "text");
     private static final Set<String> EXTERNAL_VALUE_FIELDS = Set.of("kind", "text", "codec");
@@ -221,7 +221,7 @@ public final class VMFJournalCodec {
         String format = text(envelope.get("format"), "$.format");
         if (!ChangeJournal.FORMAT.equals(format)) throw invalid("$.format", "unsupported journal format " + format);
         int version = integer(envelope.get("version"), "$.version");
-        if (version < ChangeJournal.VERSION || version > ChangeJournal.MAPS_VERSION) {
+        if (version < ChangeJournal.VERSION || version > ChangeJournal.COLLECTIONS_VERSION) {
             throw invalid("$.version", "unsupported journal version " + version);
         }
         fields(envelope, "$", ENVELOPE_FIELDS);
@@ -290,6 +290,16 @@ public final class VMFJournalCodec {
             node.set("afterEntries", writeEntries(operation.afterEntries()));
             return node;
         }
+        if (operation.kind() == Kind.TYPED_MAP_EDIT) {
+            node.set("beforeEntries", writeTypedEntries(operation.beforeTypedEntries()));
+            node.set("afterEntries", writeTypedEntries(operation.afterTypedEntries()));
+            return node;
+        }
+        if (operation.kind() == Kind.SET_EDIT) {
+            node.set("before", writeArray(operation.before(), VMFJournalCodec::writeValue));
+            node.set("after", writeArray(operation.after(), VMFJournalCodec::writeValue));
+            return node;
+        }
         node.set("indices", writeArray(operation.indices(), index -> NODES.numberNode(index.intValue())));
         node.set("before", writeArray(operation.before(), VMFJournalCodec::writeValue));
         node.set("after", writeArray(operation.after(), VMFJournalCodec::writeValue));
@@ -308,7 +318,27 @@ public final class VMFJournalCodec {
             new TreeMap<>(creation.mapProperties()).forEach((name, entries) ->
                     maps.addObject().put("name", name).set("entries", writeEntries(entries)));
         }
+        if (!creation.typedMapProperties().isEmpty()) {
+            ArrayNode maps = node.putArray("typedMapProperties");
+            new TreeMap<>(creation.typedMapProperties()).forEach((name, entries) ->
+                    maps.addObject().put("name", name).set("entries", writeTypedEntries(entries)));
+        }
+        if (!creation.setProperties().isEmpty()) {
+            ArrayNode sets = node.putArray("setProperties");
+            new TreeMap<>(creation.setProperties()).forEach((name, values) ->
+                    sets.addObject().put("name", name).set("values", writeArray(values, VMFJournalCodec::writeValue)));
+        }
         return node;
+    }
+
+    private static ArrayNode writeTypedEntries(Map<Value, Value> entries) {
+        ArrayNode array = NODES.arrayNode();
+        entries.forEach((key, value) -> {
+            ObjectNode entry = array.addObject();
+            entry.set("typedKey", writeValue(key));
+            entry.set("value", writeValue(value));
+        });
+        return array;
     }
 
     private static ArrayNode writeEntries(Map<String, Value> entries) {
@@ -338,6 +368,18 @@ public final class VMFJournalCodec {
     private static Operation readOperation(JsonNode json, String path) throws IOException {
         ObjectNode node = object(json, path);
         Kind kind = kind(Kind.class, node.get("kind"), path, ".kind");
+        if (kind == Kind.TYPED_MAP_EDIT) {
+            fields(node, path, MAP_EDIT_FIELDS);
+            return Operation.typedMapEdit(text(node.get("target"), path, ".target"), text(node.get("property"), path, ".property"),
+                    readTypedEntries(node.get("beforeEntries"), path + ".beforeEntries"),
+                    readTypedEntries(node.get("afterEntries"), path + ".afterEntries"));
+        }
+        if (kind == Kind.SET_EDIT) {
+            fields(node, path, SET_EDIT_FIELDS);
+            return Operation.setEdit(text(node.get("target"), path, ".target"), text(node.get("property"), path, ".property"),
+                    readArray(node.get("before"), path + ".before", VMFJournalCodec::readValue),
+                    readArray(node.get("after"), path + ".after", VMFJournalCodec::readValue));
+        }
         if (kind == Kind.MAP_EDIT) {
             fields(node, path, MAP_EDIT_FIELDS);
             return Operation.mapEdit(text(node.get("target"), path, ".target"),
@@ -356,7 +398,11 @@ public final class VMFJournalCodec {
 
     private static Creation readCreation(JsonNode json, String path) throws IOException {
         ObjectNode node = object(json, path);
-        fields(node, path, node.has("mapProperties") ? MAP_CREATION_FIELDS : CREATION_FIELDS);
+        Set<String> expected = new java.util.HashSet<>(CREATION_FIELDS);
+        for (String name : List.of("mapProperties", "typedMapProperties", "setProperties")) {
+            if (node.has(name)) expected.add(name);
+        }
+        fields(node, path, expected);
         ObjectNode properties = object(node.get("properties"), path + ".properties");
         Map<String, List<Value>> values = new LinkedHashMap<>();
         var entries = properties.fields();
@@ -371,7 +417,33 @@ public final class VMFJournalCodec {
                     "name", "entries", VMFJournalCodec::readEntries);
             if (maps.isEmpty()) throw invalid(path + ".mapProperties", "expected at least one map property");
         }
-        return new Creation(text(node.get("id"), path, ".id"), text(node.get("type"), path, ".type"), values, maps);
+        Map<String, Map<Value, Value>> typedMaps = Map.of();
+        if (node.has("typedMapProperties")) {
+            typedMaps = readNamedEntries(node.get("typedMapProperties"), path + ".typedMapProperties", "name", "entries",
+                    VMFJournalCodec::readTypedEntries);
+            if (typedMaps.isEmpty()) throw invalid(path + ".typedMapProperties", "expected at least one map property");
+        }
+        Map<String, List<Value>> sets = Map.of();
+        if (node.has("setProperties")) {
+            sets = readNamedEntries(node.get("setProperties"), path + ".setProperties", "name", "values",
+                    (members, location) -> readArray(members, location, VMFJournalCodec::readValue));
+            if (sets.isEmpty()) throw invalid(path + ".setProperties", "expected at least one set property");
+        }
+        return new Creation(text(node.get("id"), path, ".id"), text(node.get("type"), path, ".type"), values, maps, typedMaps, sets);
+    }
+
+    private static Map<Value, Value> readTypedEntries(JsonNode node, String path) throws IOException {
+        if (node == null || !node.isArray()) throw invalid(path, "expected an array");
+        Map<Value, Value> entries = new LinkedHashMap<>();
+        for (int i = 0; i < node.size(); i++) {
+            String location = path + "[" + i + "]";
+            ObjectNode entry = object(node.get(i), location, Set.of("typedKey", "value"));
+            Value key = readValue(entry.get("typedKey"), location + ".typedKey");
+            if (entries.putIfAbsent(key, readValue(entry.get("value"), location + ".value")) != null) {
+                throw invalid(location, "duplicate typed map key");
+            }
+        }
+        return entries;
     }
 
     private static Map<String, Value> readEntries(JsonNode node, String path) throws IOException {

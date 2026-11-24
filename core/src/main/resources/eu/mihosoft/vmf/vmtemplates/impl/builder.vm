@@ -29,9 +29,16 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 
 #foreach( $prop in ${type.implementation.properties})
 ###if($type.immutable || $prop.propType != "COLLECTION")
-#if($prop.mapType)
+#if($prop.managedValues)
     private final $prop.typeName __vmf_prop_$prop.name =
-        ${VMFPKG}.internal.ManagedMaps.create(${prop.mapValueTypeName}.class);
+#if($prop.setType)
+      ${VCOLL_PKG}.VSet.checked(${prop.constrainedElementType}.class, ${prop.upperBound});
+#else
+      ${VMFPKG}.internal.ManagedValues.list(${prop.constrainedElementType}.class, ${prop.upperBound}, ${prop.unique});
+#end
+#elseif($prop.mapType)
+    private final $prop.typeName __vmf_prop_$prop.name =
+        ${VMFPKG}.internal.ManagedMaps.create(${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound});
 #elseif(${prop.type} || ${prop.genericType})
     private $prop.typeName __vmf_prop_$prop.name;
 #if($prop.propType == "COLLECTION")
@@ -56,7 +63,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
      // property ${foreach.index}
  #if(${prop.getDefaultValueAsString()}!="null")
 
- #if($prop.mapType)
+ #if($prop.mapType || $prop.managedValues)
      with${prop.nameWithUpperCase}(${prop.getDefaultValueAsString()});
  #elseif(${prop.type} || ${prop.genericType})
      __vmf_prop_${prop.name} = ${prop.getDefaultValueAsString()};
@@ -72,10 +79,18 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 
 #foreach( $prop in ${type.implementation.properties} )
 #if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}!="CONTAINER")
-#if($prop.mapType)
-    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.util.Map<java.lang.String, ${prop.mapValueTypeName}> ${prop.name}) {
+#if($prop.managedValues)
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.util.Collection<? extends ${prop.constrainedElementType}> ${prop.name}) {
+      ${VMFPKG}.internal.ManagedValues.copy(this.__vmf_prop_${prop.name}, ${prop.name}, false);
+      return this;
+    }
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(${prop.constrainedElementType}... ${prop.name}) {
+      return with${prop.nameWithUpperCase}(java.util.Arrays.asList(${prop.name}));
+    }
+#elseif($prop.mapType)
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.util.Map<${prop.mapKeyTypeName}, ${prop.mapValueTypeName}> ${prop.name}) {
       ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, ${prop.name},
-          ${prop.mapValueTypeName}.class, false);
+          ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound}, false);
       return this;
     }
 #elseif($prop.propType == "COLLECTION")
@@ -171,9 +186,11 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     // PROP '${prop.name}' of type '${prop.typeName}'
     // --------------------------------------------------------------------------------
 
-#if($prop.mapType)
+#if($prop.managedValues)
+    ${VMFPKG}.internal.ManagedValues.copy(result.__vmf_prop_${prop.name}, this.__vmf_prop_${prop.name}, false);
+#elseif($prop.mapType)
     ${VMFPKG}.internal.ManagedMaps.copyInto(result.__vmf_prop_${prop.name}, this.__vmf_prop_${prop.name},
-        ${prop.mapValueTypeName}.class, false);
+        ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound}, false);
 #elseif($prop.propType != "COLLECTION")
 #if($type.immutable)
     #if(${prop.type} || ${prop.genericType})
@@ -278,9 +295,11 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     // we cast types to the type of the property in the current class (runtime exception if not possible)
 
     ###if($type.immutable || $prop.propType != "COLLECTION")
-    #if($prop.mapType)
+    #if($prop.managedValues)
+      ${VMFPKG}.internal.ManagedValues.copy(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.appendCollections);
+#elseif($prop.mapType)
       ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(),
-          ${p.mapValueTypeName}.class, this.appendCollections);
+          ${p.mapKeyTypeName}.class, ${p.mapValueTypeName}.class, ${p.upperBound}, this.appendCollections);
 #elseif($prop.propType == "COLLECTION")
         #set($genericCollArg = "${p.elementTypeName}")
     if(!this.appendCollections||this.__vmf_prop_${prop.name}==null) {
@@ -309,9 +328,11 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public Builder applyFrom(${type.typeName} o) {
 #foreach( $prop in ${type.implementation.properties} )
 ###if($type.immutable || $prop.propType != "COLLECTION")
-#if($prop.mapType)
+#if($prop.managedValues)
+      ${VMFPKG}.internal.ManagedValues.copy(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.appendCollections);
+#elseif($prop.mapType)
       ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(),
-          ${prop.mapValueTypeName}.class, this.appendCollections);
+          ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound}, this.appendCollections);
 #elseif($prop.propType == "COLLECTION")
 #if(${prop.genericType})
 #set($genericCollArg = "${prop.genericType.typeName}")
@@ -344,9 +365,14 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public Builder applyTo(${type.typeName} o) {
 
 #foreach( $prop in ${type.implementation.properties} )
-#if($prop.mapType)
+#if($prop.managedValues)
+      ${VMFPKG}.internal.ManagedValues.copy(o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.__vmf_prop_${prop.name}, this.appendCollections);
+#elseif($prop.mapType)
       ${VMFPKG}.internal.ManagedMaps.copyInto(o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.__vmf_prop_${prop.name},
-          ${prop.mapValueTypeName}.class, this.appendCollections);
+          ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound}, this.appendCollections);
+#elseif($prop.keyed)
+      ${VMFPKG}.internal.KeyedEntries.copy(o.${prop.getterPrefix}${prop.nameWithUpperCase}(),
+          this.__vmf_prop_${prop.name} == null ? java.util.List.of() : this.__vmf_prop_${prop.name}, this.appendCollections);
 #elseif($prop.propType == "COLLECTION")
       if(!this.appendCollections) {
         o.${prop.getterPrefix}${prop.nameWithUpperCase}().clear();

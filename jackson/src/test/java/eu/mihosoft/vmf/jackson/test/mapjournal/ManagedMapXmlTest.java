@@ -100,5 +100,9 @@ class ManagedMapXmlTest {
             assertThrows(JsonMappingException.class,
                     () -> mapper.readValue("<Labels><names>" + invalid + "</names></Labels>", Labels.class));
         }
+        for (String number : List.of("1e999", "1e-999")) {
+            assertThrows(JsonMappingException.class, () -> mapper.readValue(
+                    "<Labels><numbers><entry><key>x</key><value>" + number + "</value></entry></numbers></Labels>", Labels.class));
+        }
     }
 }

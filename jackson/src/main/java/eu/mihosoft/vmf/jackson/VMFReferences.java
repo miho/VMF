@@ -409,6 +409,15 @@ final class VMFReferences {
     static final class ReadSession {
         private final Map<String, Object> objectsById = new HashMap<>();
         private final List<PendingReference> pending = new ArrayList<>();
+        private final List<Runnable> pendingKeyedContents = new ArrayList<>();
+
+        @SuppressWarnings("unchecked")
+        void addKeyedContents(VObject owner, String name, List<Object> entries) {
+            pendingKeyedContents.add(() -> {
+                var property = owner.vmf().reflect().propertyByName(name).orElseThrow();
+                ((List<Object>) property.get()).addAll(entries);
+            });
+        }
 
         /**
          * Registers an object that has been read with an id.
@@ -484,6 +493,13 @@ final class VMFReferences {
                     throw JsonMappingException.from(p, "Cannot assign reference '" + r.describe() + "': "
                             + e.getMessage(), e);
                 }
+            }
+
+            // Entry admission needs the resolved reference key, including forward references.
+            try {
+                pendingKeyedContents.forEach(Runnable::run);
+            } catch (RuntimeException failure) {
+                throw JsonMappingException.from(p, "Cannot restore keyed containment entries: " + failure.getMessage(), failure);
             }
 
             // 2. lists get exactly the elements and the order that were written

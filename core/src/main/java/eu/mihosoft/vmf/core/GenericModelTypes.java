@@ -29,8 +29,11 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -45,6 +48,7 @@ final class GenericModelTypes {
     private final Class<?> owner;
     private final Model model;
     private final Map<TypeVariable<?>, Type> bindings = new HashMap<>();
+    private Map<String, List<Method>> propertyDeclarations;
 
     GenericModelTypes(Model model, Class<?> owner) {
         this.model = model;
@@ -88,11 +92,32 @@ final class GenericModelTypes {
         if (argument instanceof Class<?>) {
             Class<?> c = (Class<?>) argument;
             boolean modelObject = c.getPackageName().equals(owner.getPackageName()) && !c.isAnnotationPresent(ExternalType.class);
-            if (!modelObject && !c.isArray() && c.getTypeParameters().length == 0
+            if ((!modelObject || c.isAnnotationPresent(Immutable.class)) && !c.isArray() && c.getTypeParameters().length == 0
                     && !Collection.class.isAssignableFrom(c) && !Map.class.isAssignableFrom(c)) return;
         }
         throw invalid("unsupported model type argument or bound " + argument.getTypeName()
-                + "; use a named external scalar type or a type parameter");
+                + "; use a named external value type, immutable model type or type parameter");
+    }
+
+    /** All declarations of an accessor, including overridden and diamond-inherited getters. */
+    List<Method> propertyDeclarations(String name) {
+        if (propertyDeclarations == null) {
+            propertyDeclarations = new HashMap<>();
+            var pending = new ArrayDeque<Class<?>>();
+            var visited = new HashSet<Class<?>>();
+            pending.add(owner);
+            while (!pending.isEmpty()) {
+                Class<?> current = pending.remove();
+                if (!visited.add(current)) continue;
+                for (Method method : current.getDeclaredMethods()) {
+                    if (!method.isBridge() && method.getParameterCount() == 0) {
+                        propertyDeclarations.computeIfAbsent(method.getName(), ignored -> new ArrayList<>()).add(method);
+                    }
+                }
+                Arrays.stream(current.getInterfaces()).sorted(Comparator.comparing(Class::getName)).forEach(pending::add);
+            }
+        }
+        return propertyDeclarations.getOrDefault(name, List.of());
     }
 
     Type resolve(Type type) {

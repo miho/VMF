@@ -76,7 +76,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     // since read-only types and normal types are incompatible by design, we specify the lambda
     // operation that converts an element into a read-only version of that element
     if(this.${prop.name} == null) {
-      this.${prop.name} = ${VCOLL_PKG}.VMappedList.newUnmodifiableInstance(mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}(), (e)->e.asReadOnly());
+      this.${prop.name} = ${VCOLL_PKG}.VMappedList.newUnmodifiableInstance(mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}(), e -> e == null ? null : e.asReadOnly());
     }
 
     return this.${prop.name};
@@ -95,7 +95,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return this.${prop.name};
 #end ## if generic type
 
-#elseif($prop.mapType)
+#elseif($prop.mapType || $prop.managedValues)
   public $prop.getterDeclaration {
     return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}().asUnmodifiable();
 #elseif(${prop.type})

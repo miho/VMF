@@ -32,6 +32,8 @@
         this.__vmf_prop_${prop.name}.addChangeListener(evt -> {
             if (${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF.equals(evt.eventInfo())) return;
 
+            if (evt.wasSet() && ${VMFPKG_INT}.ObservableModelList.permutesIdentities(
+                    evt.removed().elements(), evt.added().elements())) return;
             Throwable observerFailure = null;
             for (var e : evt.added().elements()) {
                 if (e == null) continue;

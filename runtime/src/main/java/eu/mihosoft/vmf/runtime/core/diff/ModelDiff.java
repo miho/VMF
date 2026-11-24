@@ -150,8 +150,16 @@ public final class ModelDiff {
                 if (!Objects.equals(va, vb)) {
                     // Generated setters update this map in place. The diff must own both snapshots.
                     out.add(new PropChange(source, a, pa.getName(),
-                            ManagedMaps.snapshot((Map<?, ?>) va, Object.class),
-                            ManagedMaps.snapshot((Map<?, ?>) vb, Object.class), System.nanoTime()));
+                            ManagedMaps.snapshot((Map<?, ?>) va, Object.class, Object.class),
+                            ManagedMaps.snapshot((Map<?, ?>) vb, Object.class, Object.class), System.nanoTime()));
+                }
+            } else if (pa.getType().isSetType()) {
+                if (!pa.getType().getDescriptor().equals(pb.getType().getDescriptor())) {
+                    throw new IllegalArgumentException("Incompatible managed set property " + pa.getName());
+                }
+                if (!Objects.equals(va, vb)) {
+                    out.add(new PropChange(source, a, pa.getName(), Set.copyOf((Set<?>) va),
+                            Set.copyOf((Set<?>) vb), System.nanoTime()));
                 }
             } else if(!pa.getType().isListType()) {
                 if(pa.getType().isModelType()) {

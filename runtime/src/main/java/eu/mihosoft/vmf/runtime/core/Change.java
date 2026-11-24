@@ -31,6 +31,7 @@ package eu.mihosoft.vmf.runtime.core;
 
 import eu.mihosoft.vcollections.VListChangeEvent;
 import eu.mihosoft.vcollections.VMapChangeEvent;
+import eu.mihosoft.vcollections.VSetChangeEvent;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -98,7 +99,12 @@ public interface Change {
     }
 
     /** Returns the affected entries before and after an edit to a managed map. */
-    default Optional<VMapChangeEvent<String, Object>> mapChange() {
+    default Optional<VMapChangeEvent<Object, Object>> mapChange() {
+        return Optional.empty();
+    }
+
+    /** Returns the members added to or removed from a managed set. */
+    default Optional<VSetChangeEvent<Object>> setChange() {
         return Optional.empty();
     }
 
@@ -115,7 +121,9 @@ public interface Change {
          */
         LIST,
         /** Change affects entries in a managed map. */
-        MAP
+        MAP,
+        /** Change affects membership of a managed set. */
+        SET
     }
 
     /**

@@ -33,6 +33,19 @@ public interface TypeMetadataProvider extends VObjectInternal {
         return _vmf_getSuperTypeNames();
     }
 
+    /** Supplies the compatibility defaults of models generated before multiplicity metadata. */
+    static eu.mihosoft.vmf.runtime.core.Multiplicity legacyMultiplicity(VObjectInternal owner, int id) {
+        int kind = owner._vmf_getPropertyTypes()[id];
+        boolean list = kind == -2;
+        boolean many = list || kind == VMF_TYPE_MAP || kind == VMF_TYPE_SET;
+        String type = owner._vmf_getPropertyTypeNames()[id];
+        boolean primitive = java.util.Set.of("byte", "short", "int", "long", "float", "double", "boolean", "char").contains(type);
+        return eu.mihosoft.vmf.runtime.core.Multiplicity.of(primitive ? 1 : 0, many ? -1 : 1, list, !list);
+    }
+    default eu.mihosoft.vmf.runtime.core.Multiplicity _vmf_getMultiplicity(int propertyId) {
+        return legacyMultiplicity(this, propertyId);
+    }
+
     /** Returns the structured type of one property. */
     default TypeDescriptor _vmf_getPropertyTypeDescriptor(int propertyId) {
         return TypeDescriptor.fromTypeName(_vmf_getPropertyTypeNames()[propertyId]);

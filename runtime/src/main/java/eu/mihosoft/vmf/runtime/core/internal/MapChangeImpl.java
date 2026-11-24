@@ -36,10 +36,10 @@ import java.util.Optional;
 final class MapChangeImpl implements Change {
     private final VObject object;
     private final String property;
-    private final VMapChangeEvent<String, Object> event;
+    private final VMapChangeEvent<Object, Object> event;
     private final long timestamp = System.nanoTime();
 
-    MapChangeImpl(VObject object, String property, VMapChangeEvent<String, Object> event) {
+    MapChangeImpl(VObject object, String property, VMapChangeEvent<Object, Object> event) {
         this.object = object;
         this.property = property;
         this.event = event;
@@ -49,21 +49,23 @@ final class MapChangeImpl implements Change {
     @Override public String propertyName() { return property; }
     @Override public long getTimestamp() { return timestamp; }
     @Override public ChangeType getType() { return ChangeType.MAP; }
-    @Override public Optional<VMapChangeEvent<String, Object>> mapChange() { return Optional.of(event); }
+    @Override public Optional<VMapChangeEvent<Object, Object>> mapChange() { return Optional.of(event); }
 
     @Override
     public boolean isUndoable() {
         if (!(object instanceof VObjectInternalModifiable)) return false;
-        Map<String, Object> current = event.source();
-        Map<String, Object> after = event.added().entries();
-        for (Map.Entry<String, Object> entry : after.entrySet()) {
+        Map<Object, Object> current = event.source();
+        Map<Object, Object> after = event.added().entries();
+        for (Map.Entry<Object, Object> entry : after.entrySet()) {
             if (!current.containsKey(entry.getKey())
                     || !Objects.equals(current.get(entry.getKey()), entry.getValue())) return false;
         }
-        for (String key : event.removed().keys()) {
+        for (Object key : event.removed().keys()) {
             if (!after.containsKey(key) && current.containsKey(key)) return false;
         }
-        return true;
+        int upper = object.vmf().reflect().propertyByName(property).orElseThrow().getMultiplicity().getUpper();
+        long restoredSize = (long) current.size() - after.size() + event.removed().entries().size();
+        return upper < 0 || restoredSize <= upper;
     }
 
     @Override
@@ -81,11 +83,25 @@ final class MapChangeImpl implements Change {
                     object.vmf().reflect().propertyByName(property).orElseThrow().getType().getDescriptor())) {
             throw new IllegalArgumentException("Incompatible map property: " + property);
         }
-        edit((VMap<String, Object>) propertyInfo.get(), event.removed().entries(), event.added().entries());
+        VMap<Object, Object> destination = (VMap<Object, Object>) propertyInfo.get();
+        Map<Object, Object> before = event.removed().entries();
+        Map<Object, Object> after = event.added().entries();
+        int upper = propertyInfo.getMultiplicity().getUpper();
+        if (upper >= 0) {
+            long count = destination.size();
+            for (Object key : before.keySet()) {
+                if (!after.containsKey(key) && destination.containsKey(key)) count--;
+            }
+            for (Object key : after.keySet()) {
+                if (!destination.containsKey(key)) count++;
+            }
+            if (count > upper) throw new IllegalArgumentException("Map exceeds upper bound " + upper + ": " + property);
+        }
+        edit(destination, before, after);
     }
 
-    private static void edit(VMap<String, Object> target, Map<String, Object> before, Map<String, Object> after) {
-        for (String key : before.keySet()) {
+    private static void edit(VMap<Object, Object> target, Map<Object, Object> before, Map<Object, Object> after) {
+        for (Object key : before.keySet()) {
             if (!after.containsKey(key)) target.remove(key);
         }
         target.putAll(after);

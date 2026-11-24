@@ -87,9 +87,11 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
     // ----------
     // property id=${foreach.index} , name='${prop.name}'
 #if(${prop.getDefaultValueAsString()}!="null")
-#if($prop.mapType)
+#if($prop.managedValues)
+    ${VMFPKG}.internal.ManagedValues.copy(__vmf_prop_${prop.name}, ${prop.getDefaultValueAsString()}, false);
+#elseif($prop.mapType)
     ${VMFPKG}.internal.ManagedMaps.copyInto(__vmf_prop_${prop.name}, ${prop.getDefaultValueAsString()},
-        ${prop.mapValueTypeName}.class, false);
+        ${prop.mapKeyTypeName}.class, ${prop.mapValueTypeName}.class, ${prop.upperBound}, false);
 #else
     __vmf_prop_$prop.name = ${prop.getDefaultValueAsString()};
 #end

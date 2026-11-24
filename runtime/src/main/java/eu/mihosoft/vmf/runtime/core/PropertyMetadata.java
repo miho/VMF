@@ -37,6 +37,8 @@ public final class PropertyMetadata {
     private final String name;
     private final TypeDescriptor descriptor;
     private final boolean mapType;
+    private final boolean setType;
+    private final Multiplicity multiplicity;
     private final String typeName;
     private final Optional<String> elementTypeName;
     private final boolean modelType;
@@ -49,6 +51,8 @@ public final class PropertyMetadata {
         this.name = property.getName();
         this.descriptor = type.getDescriptor();
         this.mapType = type.isMapType();
+        this.setType = type.isSetType();
+        this.multiplicity = property.getMultiplicity();
         this.typeName = type.getName();
         this.elementTypeName = type.getElementTypeName();
         this.modelType = type.isModelType();
@@ -65,8 +69,17 @@ public final class PropertyMetadata {
     /** Returns the structured property type, including its concrete arguments. */
     public TypeDescriptor getDescriptor() { return descriptor; }
 
+    public boolean isSetType() { return setType; }
+
+    public Multiplicity getMultiplicity() { return multiplicity; }
+
     /** Indicates whether the property is a managed map. */
     public boolean isMapType() { return mapType; }
+
+    /** Returns the entry property used for keyed lookup on a containment list. */
+    public Optional<String> getKeyPropertyName() {
+        return annotations.stream().filter(a -> a.getKey().equals("vmf:collection:key")).map(Annotation::getValue).findFirst();
+    }
 
     /** Returns the property name. */
     public String getName() {

@@ -39,6 +39,8 @@ public class GenericModelValidationTest {
         rejects(InvalidContainment.class, "getValue()");
         rejects(Wildcard.class, "getValues()");
         rejects(GenericGetter.class, "getValue()");
+        rejects(ArrayWithErasedElement.class, "getValues()");
+        rejects(NestedRawElement.class, "getValues()");
     }
 
     private void rejects(Class<?> model, String reason) {
@@ -55,3 +57,5 @@ interface Nested extends Base<List<String>> {}
 @InterfaceOnly interface InvalidContainment<T> { @Contains T getValue(); }
 interface Wildcard { List<?> getValues(); }
 interface GenericGetter { <T> T getValue(); }
+interface ArrayWithErasedElement { List<String>[] getValues(); }
+@SuppressWarnings("rawtypes") interface NestedRawElement { List<List> getValues(); }

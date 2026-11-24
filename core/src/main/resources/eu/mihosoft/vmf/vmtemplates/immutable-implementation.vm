@@ -77,7 +77,7 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
 #foreach( $prop in ${type.implementation.properties} )
   @Override
   public $prop.getterDeclaration {
-  #if($prop.mapType)
+  #if($prop.mapType || $prop.managedValues)
     return this.__vmf_prop_${prop.name}.asUnmodifiable();
   #elseif($prop.propType == "COLLECTION")
     if(this.__vmf_prop_$prop.name==null) {
