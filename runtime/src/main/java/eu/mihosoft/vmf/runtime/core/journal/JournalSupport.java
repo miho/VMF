@@ -23,6 +23,7 @@
  */
 package eu.mihosoft.vmf.runtime.core.journal;
 
+import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.Mutable;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
@@ -155,7 +156,7 @@ final class JournalSupport {
             return;
         }
         if (text == null) throw new IllegalArgumentException("Missing text for " + kind);
-        if (kind == ValueKind.REFERENCE) {
+        if (kind.isReference()) {
             requireName(text, "reference ID");
         } else if (kind == ValueKind.STRING) {
             requireUnicode(text);
@@ -186,6 +187,7 @@ final class JournalSupport {
     }
 
     static boolean isContainer(VObject object, String name) {
+        if (object instanceof Immutable) return false;
         if ("__vmf_prop_unnamed_container".equals(name)) return true;
         VObjectInternalModifiable internal = mutable(object);
         int id = internal._vmf_getPropertyIdByName(name);
@@ -256,18 +258,7 @@ final class JournalSupport {
             pending.add(mutable(Objects.requireNonNull(root)));
             while (!pending.isEmpty()) {
                 VObjectInternalModifiable object = pending.removeFirst();
-                String id = binding.id(object);
-                workspace.text.name(id, "object ID");
-                workspace.text.name(binding.type(object), "object type");
-                var slot = slots.get(id);
-                if (slot == null) {
-                    slot = new IndexedObject(id);
-                    slots.put(id, slot);
-                } else if (slot.object != null) {
-                    throw new IllegalArgumentException("Duplicate object ID or containment entry " + id);
-                }
-                slot.object = object;
-                reachable.add(slot);
+                register(object, binding.id(object), binding);
                 for (int child : object._vmf_getChildrenIndices()) {
                     Object value = object._vmf_getPropertyValueById(child);
                     if (value instanceof List<?>) {
@@ -277,7 +268,9 @@ final class JournalSupport {
                     }
                 }
             }
-            for (var slot : reachable) {
+            // Immutable targets may add further immutable objects to this work list.
+            for (int i = 0; i < reachable.size(); i++) {
+                var slot = reachable.get(i);
                 for (Property property : ReflectImpl.readProperties(slot.object.vmf().reflect())) {
                     Object value = property.get();
                     var type = property.getType();
@@ -302,6 +295,20 @@ final class JournalSupport {
                     }
                 }
             }
+        }
+
+        private void register(VObject object, String id, JournalBinding binding) {
+            workspace.text.name(id, "object ID");
+            workspace.text.name(binding.type(object), "object type");
+            var slot = slots.get(id);
+            if (slot == null) {
+                slot = new IndexedObject(id);
+                slots.put(id, slot);
+            } else if (slot.object != null) {
+                throw new IllegalArgumentException("Duplicate object ID or containment entry " + id);
+            }
+            slot.object = object;
+            reachable.add(slot);
         }
 
         private void enqueueChild(VObject parent, Object child) {
@@ -349,8 +356,11 @@ final class JournalSupport {
                                            ValidatedText text) {
         if (value instanceof VObject) {
             VObject reference = (VObject) value;
-            if (objects.get(binding.id(reference)) != reference) {
-                throw new IllegalArgumentException("Model reference outside the checkpoint containment tree");
+            String id = binding.id(reference);
+            VObject indexed = objects.get(id);
+            if (indexed != reference) {
+                if (reference instanceof Immutable) objects.register(reference, id, binding);
+                else throw new IllegalArgumentException("Model reference outside the checkpoint containment tree");
             }
         } else if (value instanceof String) {
             text.unicode((String) value);

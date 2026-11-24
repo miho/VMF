@@ -53,6 +53,7 @@ interface Entry extends Identified {
     VMap<Integer, Boolean> getBits();
 }
 
+@eu.mihosoft.vmf.core.VMFEquals(eu.mihosoft.vmf.core.VMFEquals.EqualsType.ALL)
 @Immutable interface Label { String getText(); }
 @InterfaceOnly interface History<T> { T getCurrent(); T[] getPrevious(); }
 interface LabelHistory extends History<Label> {}
@@ -69,6 +70,20 @@ interface ReferenceShelf extends Identified {
 
 interface LabelSelection {
     Set<Label> getSelected();
+    Label getCurrent();
+    Label[] getHistory();
+    @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET) Label[] getOrdered();
+}
+
+@Immutable interface LabelNode {
+    Label getLabel();
+    LabelNode getNext();
+}
+
+@Immutable interface LabelGraph {
+    LabelNode getFirst();
+    LabelNode[] getNodes();
+    Set<LabelNode> getSelected();
 }
 
 interface Network extends Identified {

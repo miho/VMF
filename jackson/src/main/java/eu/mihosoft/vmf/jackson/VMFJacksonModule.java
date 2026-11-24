@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import eu.mihosoft.vmf.runtime.core.Change;
+import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.ModelRegistry;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Reflect;
@@ -106,7 +107,8 @@ public class VMFJacksonModule extends SimpleModule {
      * reference gets an id in the field {@code @vmf-id} ({@code vmf-id} in XML), and a reference is
      * written as that id (a list of ids for list properties). Ids are assigned in containment order
      * starting at {@code "1"}; when reading, any string or integer is accepted as an id. Immutable
-     * values are written by value as before.</p>
+     * objects with shared identity or membership in a unique reference end are defined inline with an id
+     * on first use. Later uses write the id. Ordinary single-use immutable values are written by value.</p>
      *
      * <p>Example: the document contains the item ({@code items}) and selects it with the
      * {@code @Refers} property {@code selectedItem}, whose opposite {@code selectedBy} refers back to
@@ -125,10 +127,9 @@ public class VMFJacksonModule extends SimpleModule {
      * }</pre>
      *
      * <p>References are resolved within the outermost VMF object that is written or read: every
-     * referenced object must be part of its containment tree. Writing fails with a
-     * {@link JsonMappingException} for a reference to an object outside of that tree (for instance
-     * an object that is not contained anywhere), reading fails for an id that does not occur in the
-     * input. With references disabled, the module reads and writes exactly as before.</p>
+     * referenced mutable object must be part of its containment tree. Reading fails for an unknown id,
+     * a duplicate definition, an incompatible target type or a cycle of immutable definitions.
+     * With references disabled, immutable values and collections use ordinary nested object bodies.</p>
      * <p>Generate a matching JSON schema with
      * {@link VMFJsonSchemaGenerator#withReferences(boolean)} enabled as well.</p>
      *
@@ -425,6 +426,12 @@ public class VMFJacksonModule extends SimpleModule {
                 node = p.readValueAsTree();
             }
 
+            if (isVMFObj(_valueClass) && !node.isObject()) {
+                if ("XML".equals(format) && node.isTextual() && node.asText().isEmpty())
+                    node = ctxt.getNodeFactory().objectNode();
+                else
+                    throw JsonMappingException.from(p, "Expected a model object for " + _valueClass.getName());
+            }
             if (!module.isReferencesEnabled()) {
                 return deserializeNode(p, ctxt, node, null);
             }
@@ -436,7 +443,8 @@ public class VMFJacksonModule extends SimpleModule {
                 return deserializeNode(p, ctxt, node, session);
             }
 
-            session = VMFReferences.startReadSession();
+            ImmutableDefinitions definitions = new ImmutableDefinitions(p, ctxt, node, _valueClass);
+            session = VMFReferences.startReadSession(definitions::load);
             try {
                 T result = deserializeNode(p, ctxt, node, session);
                 session.resolve(p);
@@ -448,12 +456,77 @@ public class VMFJacksonModule extends SimpleModule {
 
         private T deserializeNode(JsonParser p, DeserializationContext ctxt, JsonNode node,
                                   VMFReferences.ReadSession session) throws IOException {
-            Class<?> actualClass = _valueClass;
+            Class<?> actualClass = getVMFTypeClass(p, node, _valueClass);
+            boolean xml = p.getCodec() != null && "XML".equals(p.getCodec().getFactory().getFormatName());
+            if (session != null && Immutable.class.isAssignableFrom(actualClass)) {
+                String id = VMFReferences.idOf(node, xml, p);
+                if (id != null) return (T) session.immutable(id, actualClass, p);
+            }
+            return buildNode(p, ctxt, node, actualClass, session);
+        }
 
-            // iterate over node fields and look for "@vmf-type" field to determine the actual type
-            // do so and allow reiteration over the fields
+        /** Index only declared model properties, so external data and map keys never define VMF ids. */
+        private final class ImmutableDefinitions {
+            private final JsonParser parser;
+            private final DeserializationContext context;
+            private final JsonNode root;
+            private final Class<?> rootType;
+            private final boolean xml;
+            private final Map<String, JsonNode> nodes = new HashMap<>();
+            private final Map<String, Class<?>> types = new HashMap<>();
+            private boolean indexed;
 
-            actualClass = getVMFTypeClass(p, node, actualClass);
+            ImmutableDefinitions(JsonParser parser, DeserializationContext context, JsonNode root, Class<?> rootType) {
+                this.parser = parser;
+                this.context = context;
+                this.root = root;
+                this.rootType = rootType;
+                xml = parser.getCodec() != null && "XML".equals(parser.getCodec().getFactory().getFormatName());
+            }
+
+            Object load(String id) throws IOException {
+                if (!indexed) {
+                    index(root, rootType);
+                    indexed = true;
+                }
+                JsonNode definition = nodes.get(id);
+                if (definition == null) throw JsonMappingException.from(parser, "Unresolved immutable reference '" + id + "'");
+                return buildNode(parser, context, definition, types.get(id), VMFReferences.currentReadSession());
+            }
+
+            private void index(JsonNode node, Class<?> declaredType) throws IOException {
+                if (!node.isObject()) return;
+                Class<?> actual = getVMFTypeClass(parser, node, declaredType);
+                if (Immutable.class.isAssignableFrom(actual)) {
+                    String id = VMFReferences.idOf(node, xml, parser);
+                    if (id != null) {
+                        if (nodes.putIfAbsent(id, node) != null)
+                            throw JsonMappingException.from(parser, "Duplicate " + VMFReferences.ID_FIELD + " '" + id + "'");
+                        types.put(id, actual);
+                    }
+                }
+                try {
+                    for (var entry : BUILDER_PLANS.get(actual).fieldMethods().entrySet()) {
+                        Property property = entry.getValue().property;
+                        JsonNode value = node.get(entry.getKey());
+                        if (value == null || property == null || !property.getType().isModelType()) continue;
+                        boolean many = property.getType().isReferenceSetType() || property.getType().isListType();
+                        String name = many ? property.getType().getElementTypeName().orElseThrow() : property.getType().getName();
+                        Class<?> target = Class.forName(name, false, actual.getClassLoader());
+                        if (many) {
+                            for (JsonNode member : VMFReferences.elementsOf(value, xml)) index(member, target);
+                        } else {
+                            index(value, target);
+                        }
+                    }
+                } catch (ReflectiveOperationException ex) {
+                    throw JsonMappingException.from(parser, "Cannot inspect model references on " + actual.getName(), ex);
+                }
+            }
+        }
+
+        private T buildNode(JsonParser p, DeserializationContext ctxt, JsonNode node, Class<?> actualClass,
+                            VMFReferences.ReadSession session) throws IOException {
             // Nested objects are often read from a tree parser; its codec retains the source format.
             boolean isXml = p.getCodec() != null && "XML".equals(p.getCodec().getFactory().getFormatName());
 
@@ -483,8 +556,19 @@ public class VMFJacksonModule extends SimpleModule {
                     if (referenceProperty != null
                             && VMFReferences.holdsReferences(value, referenceProperty, isXml)) {
                         try {
-                            references.put(referenceProperty, referenceSlots(ctxt, value, referenceProperty, isXml));
-                        } catch (IOException e) {
+                            List<Object> slots = referenceSlots(ctxt, value, referenceProperty, isXml);
+                            if (Immutable.class.isAssignableFrom(actualClass)) {
+                                // Immutable owners must receive their complete targets during construction.
+                                List<Object> targets = new ArrayList<>(slots.size());
+                                for (Object slot : slots) {
+                                    targets.add(slot instanceof VMFReferences.IdSlot
+                                            ? session.immutable(((VMFReferences.IdSlot) slot).id, referenceProperty.valueClass, p) : slot);
+                                }
+                                methodMap.get(fieldName).method.invoke(builder, referenceProperty.list ? targets : targets.get(0));
+                            } else {
+                                references.put(referenceProperty, slots);
+                            }
+                        } catch (IOException | ReflectiveOperationException e) {
                             throw new RuntimeException(
                                     "Failed to deserialize references of field '" + fieldName + "'", e);
                         }
@@ -500,9 +584,6 @@ public class VMFJacksonModule extends SimpleModule {
                             Class<?> paramType = method.getParameterTypes()[0];
                             if (setter.property != null && setter.property.getType().isReferenceSetType()) {
                                 if (!isXml && !value.isArray()) throw new IOException("Expected an array of model references");
-                                if (session == null && VMFReferences.isReferenceProperty(setter.property)
-                                        && !VMFReferences.elementsOf(value, isXml).isEmpty())
-                                    throw new IOException("Model reference collection " + fieldName + " requires withReferences(true)");
                             }
 
                             if (setter.property != null && setter.property.getType().isSetType()) {
@@ -538,9 +619,13 @@ public class VMFJacksonModule extends SimpleModule {
                                                 member = ctxt.getNodeFactory().objectNode();
                                             if (!member.isObject()) throw new IOException("Expected a model object in " + fieldName);
                                         }
+                                        Class<?> memberType = getVMFTypeClass(ctxt.getParser(), member, elementType);
+                                        if (referenceSet && session == null && VMFReferences.isReferenceProperty(setter.property)
+                                                && !Immutable.class.isAssignableFrom(memberType)) {
+                                            throw new IOException("Mutable reference collection " + fieldName + " requires withReferences(true)");
+                                        }
                                         collection.add(member.isValueNode() ? deserializeField(ctxt, member, elementType)
-                                                : ctxt.readValue(member.traverse(ctxt.getParser().getCodec()),
-                                                        getVMFTypeClass(ctxt.getParser(), member, elementType)));
+                                                : ctxt.readValue(member.traverse(ctxt.getParser().getCodec()), memberType));
                                     }
                                 }
                                 // Invoke the builder method
@@ -593,7 +678,7 @@ public class VMFJacksonModule extends SimpleModule {
 
             if (session != null) {
                 keyedContents.forEach((name, entries) -> session.addKeyedContents((VObject) result, name, entries));
-                String id = VMFReferences.idOf(node, isXml);
+                String id = VMFReferences.idOf(node, isXml, p);
                 if (id != null) {
                     session.register(id, result, p);
                 }
@@ -628,8 +713,19 @@ public class VMFJacksonModule extends SimpleModule {
                     ? VMFReferences.elementsOf(value, isXml) : Collections.singletonList(value);
             List<Object> slots = new ArrayList<>(elements.size());
             for (JsonNode element : elements) {
-                if (property.uniqueReferences && !VMFReferences.isIdNode(element))
-                    throw new IOException("Expected a target ID in " + property.name);
+                // A bare empty XML model element is an empty concrete immutable instance.
+                // XML's xsi:nil is a NullNode and follows the null branch below.
+                if (isXml && element != null && element.isTextual() && element.asText().isEmpty()
+                        && Immutable.class.isAssignableFrom(property.valueClass))
+                    element = ctxt.getNodeFactory().objectNode();
+                if (property.uniqueReferences && !VMFReferences.isIdNode(element)) {
+                    if (isXml && element != null && element.isTextual() && element.asText().isEmpty())
+                        element = ctxt.getNodeFactory().objectNode();
+                    if (element == null || !element.isObject() || !Immutable.class.isAssignableFrom(
+                            getVMFTypeClass(ctxt.getParser(), element, property.valueClass))) {
+                        throw new IOException("Expected a target ID or an immutable definition in " + property.name);
+                    }
+                }
                 if (element == null || element.isNull()
                         || (element.isTextual() && element.asText().isEmpty())) {
                     slots.add(null);
@@ -794,7 +890,7 @@ public class VMFJacksonModule extends SimpleModule {
 
             var clsName = "com.fasterxml.jackson.dataformat.xml.deser.FromXmlParser";
 
-            if(isInstanceOf(p, clsName)) {
+            if(isInstanceOf(p, clsName) || (p.getCodec() != null && "XML".equals(p.getCodec().getFactory().getFormatName()))) {
                 vmfTypeFieldName = "vmf-type";
             }
 
@@ -828,8 +924,11 @@ public class VMFJacksonModule extends SimpleModule {
             }
 
             try {
-                return actualClass != null && isVMFObj(actualClass)
-                        ? Class.forName(type, false, actualClass.getClassLoader()) : Class.forName(type);
+                if (actualClass == null || !isVMFObj(actualClass)) return Class.forName(type);
+                Class<?> resolved = Class.forName(type, false, actualClass.getClassLoader());
+                if (!actualClass.isAssignableFrom(resolved))
+                    throw JsonMappingException.from(p, "VMF type '" + type + "' is not assignable to " + actualClass.getName());
+                return resolved;
             } catch (ClassNotFoundException e) {
                 throw JsonMappingException.from(p, "Cannot resolve VMF type '" + type + "'", e);
             }
@@ -896,6 +995,10 @@ public class VMFJacksonModule extends SimpleModule {
         private void serializeObject(eu.mihosoft.vmf.runtime.core.VObject obj, JsonGenerator gen,
                                      VMFReferences.WriteSession session) throws IOException {
 
+            if (session != null && session.alreadyWroteImmutable(obj)) {
+                gen.writeString(session.idOf(obj));
+                return;
+            }
             if(gen.getOutputContext().inRoot()) {
                 // set start name
                 String startName = obj.vmf().reflect().type().getName();
@@ -965,18 +1068,26 @@ public class VMFJacksonModule extends SimpleModule {
                 }
                 if (p.getType().isReferenceSetType()) {
                     var members = (eu.mihosoft.vmf.runtime.core.RefSet<?>) propValue;
-                    if (session == null && VMFReferences.isReferenceProperty(p) && !members.isEmpty())
-                        throw JsonMappingException.from(gen, "Model reference collection " + p.getName() + " requires withReferences(true)");
+                    if (session == null && VMFReferences.isReferenceProperty(p)
+                            && members.stream().anyMatch(value -> !(value instanceof Immutable)))
+                        throw JsonMappingException.from(gen, "Mutable reference collection " + p.getName() + " requires withReferences(true)");
                     // Jackson's XML list wrapper and JSON arrays share the ordinary model-list representation.
                     List<Object> items = new ArrayList<>(members.size());
                     members.forEach(items::add);
                     propValue = items;
                 }
-                // if property holds contained value or is external or immutable, serialize it
+                if (session != null && VMFReferences.isReferenceProperty(p)) {
+                    gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
+                    writeModelValue(gen, p, VMFReferences.referenceValue(session, obj, p, propValue, gen));
+                    continue;
+                }
+                // Contained targets and by-value immutable data use the ordinary object shape.
                 if (VMFTypeUtils.isParentOfPropContainer(p)
                         || !p.getType().isModelType()
-                        || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable
-                        || isImmutableModelList(p, obj)) {
+                        || propValue instanceof Immutable
+                        || isImmutableModelList(p, obj)
+                        || (VMFReferences.isReferenceProperty(p) && propValue instanceof List
+                            && hasOnlyImmutableTargets((List<?>) propValue))) {
                     if (session == null && p.getKeyPropertyName().isPresent()) {
                         for (Object item : (List<?>) propValue) {
                             var key = ((VObject) item).vmf().reflect()
@@ -998,12 +1109,8 @@ public class VMFJacksonModule extends SimpleModule {
                             p.getType().getDescriptor().getArguments().get(0).getName())) {
                         TypedMapEntries.write((Map<?, ?>) propValue, gen);
                     } else {
-                        gen.writeObject(propValue);
+                        writeModelValue(gen, p, propValue);
                     }
-                } else if (session != null && VMFReferences.isReferenceProperty(p)) {
-                    // non-containment reference (references enabled): ids instead of objects
-                    gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
-                    gen.writeObject(VMFReferences.referenceValue(session, obj, p, propValue, gen));
                 }
             }
 
@@ -1011,12 +1118,57 @@ public class VMFJacksonModule extends SimpleModule {
             gen.writeEndObject();
         }
 
+        private static boolean hasOnlyImmutableTargets(List<?> values) {
+            boolean hasTarget = false;
+            for (Object value : values) {
+                if (value == null) continue;
+                if (!(value instanceof Immutable)) return false;
+                hasTarget = true;
+            }
+            return hasTarget;
+        }
+
+        private static void writeModelValue(JsonGenerator gen, Property property, Object value) throws IOException {
+            if (property.getType().isModelType() && property.getType().isListType()
+                    && isInstanceOf(gen, "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator")
+                    && ((List<?>) value).contains(null)) {
+                XmlModelList.write((List<?>) value, gen);
+            } else {
+                gen.writeObject(value);
+            }
+        }
+
+        // Loaded only when writing a nullable model list with the optional Jackson XML module.
+        private static final class XmlModelList {
+            static void write(List<?> values, JsonGenerator gen) throws IOException {
+                var xml = (com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator) gen;
+                var nil = com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator.Feature.WRITE_NULLS_AS_XSI_NIL;
+                boolean enabled = xml.isEnabled(nil);
+                xml.writeStartObject();
+                xml.writeArrayFieldStart("item");
+                for (Object value : values) {
+                    if (value != null) {
+                        xml.writeObject(value);
+                    } else {
+                        try {
+                            xml.enable(nil);
+                            xml.writeNull();
+                        } finally {
+                            xml.configure(nil, enabled);
+                        }
+                    }
+                }
+                xml.writeEndArray();
+                xml.writeEndObject();
+            }
+        }
+
         private static boolean isImmutableModelList(eu.mihosoft.vmf.runtime.core.Property property, VObject owner)
                 throws IOException {
-            if (!property.getType().isListType()) return false;
+            if (!property.getType().isListType() && !property.getType().isReferenceSetType()) return false;
             String element = property.getType().getElementTypeName().orElseThrow();
             try {
-                return eu.mihosoft.vmf.runtime.core.Immutable.class.isAssignableFrom(
+                return Immutable.class.isAssignableFrom(
                         Class.forName(element, false, owner.getClass().getClassLoader()));
             } catch (ClassNotFoundException exception) {
                 throw new IOException("Unknown list element type " + element, exception);

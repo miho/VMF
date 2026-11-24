@@ -47,7 +47,7 @@ EMF also requires a many-valued containment or bidirectional reference to be uni
 
 Listen to the owning model's changes and use `change.referenceSetChange()` for membership edits. Its `added()` and `removed()` snapshots preserve distinct objects with equal content. An ordered edit also reports its indices. [Persistence and replay](change-journal.md)
 
-Jackson writes owned targets inline. Independent reference ends use IDs of targets in the saved containment tree. VMF immutable objects live outside containment, so an independent reference to an immutable object currently works in memory and fails explicitly on save. [Jackson reference format](../jackson/README.md) · [Portable immutable target identity](https://github.com/miho/VMF/issues/124)
+Jackson writes owned targets inline. The default mapper also reads and writes inline immutable values, including an array of objects for a unique immutable relationship. Each inline occurrence creates a separate instance. Use `withReferences(true)` when two ends must point to the same target after loading. A mutable target belongs in the saved containment tree. A shared immutable target can be defined inline and referenced elsewhere by its document ID. [Jackson reference format](../jackson/README.md)
 
 ## Choose a map representation
 
@@ -59,4 +59,4 @@ When both sides are model objects, give the relationship its own entry type. Put
 
 A generic `@InterfaceOnly` declaration can use a parameter as a scalar set or list element, or as either argument of a scalar map. The named subclass binds the parameter. VMF checks the resulting property during generation, and the generated builder and reflection expose its concrete type. [Generic model interfaces](generic-model-interfaces.md)
 
-Immutable model type arguments are supported for ordinary scalar and list properties. Mutable model type arguments require a read-only projection that carries through the full inheritance chain. [Generic model projection roadmap](https://github.com/miho/VMF/issues/123)
+To parameterize a model relationship, give its parameter a named model bound, such as `T extends Product`. A subtype that binds `T` to `Instrument` then exposes `Instrument` on its writable collection and `ReadOnlyInstrument` on its read-only collection. The same ordering and identity rules apply to direct and inherited declarations. [Generic model relationships](generic-model-interfaces.md#inherit-a-model-relationship)

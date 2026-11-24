@@ -14,13 +14,17 @@ var schema = VMFJsonSchemaGenerator.newInstance(mode)
         .withReferences(true).generateSchema(MyModel.class);
 ```
 
-Use the same type aliases on both objects when aliases are configured. The
-draft-07 schema describes `@vmf-id` and scalar/list reference IDs, while immutable
-model values remain objects written by value, including immutable implementations
-of an interface-only reference type. The native reader checks ID uniqueness and
-resolution and restores opposite relationships. It does not validate the
-consistency of every supplied opposite; those graph relationships are not
-expressed by JSON Schema. Containment-only schemas remain the default.
+The default mapper reads and writes contained models and immutable values as ordinary nested objects and arrays. For a property declared as `Set<Label>` with immutable `Label` elements, an existing JSON array such as `[{"text":"A"},{"text":"A"}]` produces two distinct labels. Field renames and type aliases apply in either mode.
+
+Enable references when several fields must point to the same restored instance. In this document, `current` and the first entry of `history` share a label. The second entry is another label with the same text.
+
+```json
+{"current":{"@vmf-id":"1","text":"A"},"history":["1",{"text":"A"}]}
+```
+
+VMF assigns document-local IDs to shared immutable objects and immutable members of unique reference ends. It writes the first occurrence inline and subsequent occurrences as IDs. A single-use immutable scalar or sequence element retains its ordinary object shape. The reader accepts forward references and older by-value documents. Nested immutable values are constructed with their resolved targets. A cyclic immutable definition fails during reading.
+
+JSON and YAML use `@vmf-id`. XML uses `vmf-id`. In an XML model list, `<item/>` represents an empty concrete immutable object and `<item xsi:nil="true"/>` represents a null slot. An empty list has an empty outer property element. Older XML that used the same bare element for a null immutable slot and an empty immutable object reads that element as an empty object. The draft-07 schema describes the object and ID alternatives. Use the same reference setting and type aliases on the mapper and schema generator. The native reader checks ID uniqueness, resolution, type and reference-set membership, and restores opposite relationships.
 
 ## Managed maps, sets, and keyed entries
 
@@ -41,4 +45,4 @@ An unordered scalar set uses a JSON/YAML array or XML `member` elements. Duplica
 
 A keyed containment list stores its entry objects in order. Enable `VMFJacksonModule.withReferences(true)` when an entry uses a mutable model reference as its key, so reload can resolve the original object within the graph. The schema requires the key field on entries in that list. VMF enforces uniqueness across those entry keys and across the keys of typed maps during loading. JSON Schema cannot express uniqueness by one field of an object array.
 
-An ordered or unordered unique containment end writes its children inline. An independent unique reference end writes an array of target IDs with `withReferences(true)`. The target must be reachable through containment from the serialized root. Each ID resolves to that same model object, including when distinct targets have equal fields. Null, duplicate, unresolved, or wrong-type IDs fail on read. Saving a nonempty unique reference end with references disabled fails explicitly. An immutable object held only by value has no containment identity for a portable reference.
+An ordered or unordered unique containment end writes its children inline. A unique reference end with mutable targets requires `withReferences(true)`. Each mutable target must be reachable through containment from the serialized root. An immutable target can be defined inline at any of its references. Null members, duplicate identities, unresolved IDs and wrong-type IDs fail on read.

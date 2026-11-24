@@ -78,14 +78,14 @@ class PolymorphicValueSchemaTest {
         var errors = validator().validate(payload);
         assertTrue(errors.isEmpty(), errors.toString());
         assertEquals("fixed", payload.at("/selected/@vmf-type").asText());
-        assertEquals("fixed", payload.at("/values/0/@vmf-type").asText());
+        assertEquals(payload.at("/selected/@vmf-id").asText(), payload.at("/values/0").textValue());
         assertTrue(payload.at("/values/1").isTextual());
         assertTrue(payload.path("mutableOnly").isTextual());
 
         Document copy = mapper.treeToValue(payload, Document.class);
         assertInstanceOf(FixedValue.class, copy.getSelected());
         assertEquals("immutable value", copy.getSelected().getName());
-        assertInstanceOf(FixedValue.class, copy.getValues().get(0));
+        assertSame(copy.getSelected(), copy.getValues().get(0));
         assertSame(copy.getOwnedValues().get(0), copy.getValues().get(1));
         assertSame(copy.getOwnedValues().get(0), copy.getMutableOnly());
         assertNotSame(original.getOwnedValues().get(0), copy.getOwnedValues().get(0));
@@ -96,7 +96,7 @@ class PolymorphicValueSchemaTest {
         Document document = Document.newInstance();
         FixedValue fixed = FixedValue.newBuilder().withName("immutable only").build();
         document.setSelected(fixed);
-        document.getValues().add(fixed);
+        document.getValues().add(FixedValue.newBuilder().withName("separate value").build());
         ObjectMapper mapper = mapper();
         JsonNode payload = mapper.readTree(mapper.writeValueAsString(document));
         var errors = validator().validate(payload);

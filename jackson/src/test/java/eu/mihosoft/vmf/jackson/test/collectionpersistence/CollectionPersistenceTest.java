@@ -319,8 +319,8 @@ class CollectionPersistenceTest {
         assertTrue(schema.at("/properties/priority/uniqueItems").booleanValue());
         assertTrue(schema.at("/properties/selected/uniqueItems").booleanValue());
         assertTrue(schema.at("/properties/items/uniqueItems").isMissingNode());
-        var selection = LabelSelection.newBuilder().withSelected(Label.newBuilder().withText("A").build()).build();
-        assertThrows(IOException.class, () -> mapper.writeValueAsString(selection));
+        assertThrows(IOException.class, () -> mapper.writeValueAsString(
+                ReferenceGroup.newBuilder().withSelected(Item.newInstance()).build()));
     }
 
     @Test void exactReferenceInputChecksBothEndsOfAnAssociation() throws IOException {

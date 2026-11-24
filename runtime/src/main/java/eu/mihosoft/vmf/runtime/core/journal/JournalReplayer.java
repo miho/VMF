@@ -24,7 +24,10 @@
 package eu.mihosoft.vmf.runtime.core.journal;
 
 import eu.mihosoft.vcollections.VList;
+import eu.mihosoft.vmf.runtime.core.Builder;
+import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.Property;
+import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Creation;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Frame;
@@ -33,7 +36,9 @@ import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Value;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.ValueKind;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.LinkedHashMap;
@@ -66,7 +71,9 @@ public final class JournalReplayer {
         require(original.keySet().equals(objects.keySet()), "Checkpoint copy changed its IDs");
         usedInstances.addAll(original.values());
         for (Map.Entry<String, VObject> entry : objects.entrySet()) {
-            require(usedInstances.add(entry.getValue()), "Checkpoint copy reused a live object");
+            boolean reused = !usedInstances.add(entry.getValue());
+            require(!reused || (entry.getValue() instanceof Immutable && entry.getValue() == original.get(entry.getKey())),
+                    "Checkpoint copy reused a live object");
             require(binding.type(entry.getValue()).equals(binding.type(original.get(entry.getKey()))),
                     "Checkpoint copy changed an object type");
         }
@@ -110,10 +117,149 @@ public final class JournalReplayer {
         }
     }
 
-    private void allocate(Creation creation) {
-        require(!objects.containsKey(creation.id()), "Reused creation ID " + creation.id());
-        VObject object = binding.create(creation.type(), creation.id());
-        JournalSupport.mutable(object);
+    private void allocate(Operation operation) {
+        Set<String> immutableIds = new HashSet<>();
+        collectImmutableIds(operation.before(), immutableIds);
+        collectImmutableIds(operation.after(), immutableIds);
+        for (Creation creation : operation.created()) {
+            creation.properties().values().forEach(values -> collectImmutableIds(values, immutableIds));
+        }
+        Map<String, Creation> pending = new LinkedHashMap<>();
+        for (Creation creation : operation.created()) {
+            require(!objects.containsKey(creation.id()), "Reused creation ID " + creation.id());
+            if (immutableIds.contains(creation.id())) {
+                require(pending.putIfAbsent(creation.id(), creation) == null, "Duplicate creation ID " + creation.id());
+            } else {
+                VObject object = binding.create(creation.type(), creation.id());
+                JournalSupport.mutable(object);
+                register(creation, object);
+            }
+        }
+        if (!pending.isEmpty()) buildImmutableTargets(pending);
+    }
+
+    private static void collectImmutableIds(List<Value> values, Set<String> ids) {
+        for (Value value : values) if (value.kind() == ValueKind.IMMUTABLE_REFERENCE) ids.add(value.text());
+    }
+
+    // An immutable builder needs its referenced instances up front. Resolve the dependency
+    // graph without relying on wire order, and reject a cycle before publishing the frame.
+    private void buildImmutableTargets(Map<String, Creation> pending) {
+        Map<String, Integer> remaining = new LinkedHashMap<>();
+        Map<String, List<String>> dependents = new LinkedHashMap<>();
+        var ready = new java.util.ArrayDeque<Creation>();
+        for (Creation creation : pending.values()) {
+            Set<String> dependencies = new HashSet<>();
+            creation.properties().values().forEach(values -> collectImmutableIds(values, dependencies));
+            dependencies.retainAll(pending.keySet());
+            if (dependencies.isEmpty()) ready.add(creation);
+            else remaining.put(creation.id(), dependencies.size());
+            for (String dependency : dependencies) {
+                dependents.computeIfAbsent(dependency, ignored -> new ArrayList<>()).add(creation.id());
+            }
+        }
+        int built = 0;
+        while (!ready.isEmpty()) {
+            Creation creation = ready.removeFirst();
+            // The binding selects an allowed model type and can assign an external ID
+            // after construction. It must return the instance initialized from the wire.
+            VObject[] initialized = new VObject[1];
+            VObject result = binding.createImmutable(creation.type(), creation.id(), builder -> {
+                require(initialized[0] == null, "Immutable initializer called twice");
+                return initialized[0] = buildImmutable(creation, builder);
+            });
+            require(result != null && result == initialized[0], "Immutable factory did not return the initialized object");
+            register(creation, result);
+            built++;
+            for (String id : dependents.getOrDefault(creation.id(), List.of())) {
+                if (remaining.compute(id, (key, count) -> count - 1) == 0) ready.add(pending.get(id));
+            }
+        }
+        require(built == pending.size(), "Cyclic immutable creation records");
+    }
+
+    private VObject buildImmutable(Creation creation, Builder builder) {
+        VObject prototype = builder.build();
+        require(prototype instanceof Immutable, "Expected an immutable builder for " + creation.type());
+        List<Property> properties = ReflectImpl.readProperties(prototype.vmf().reflect());
+        require(properties.size() == creation.properties().size() + creation.mapProperties().size()
+                        + creation.typedMapProperties().size() + creation.setProperties().size(),
+                "Incomplete immutable definition for " + creation.type());
+        Map<String, Object> expected = new LinkedHashMap<>();
+        for (Property property : properties) {
+            String key = binding.propertyKey(prototype, property.getName());
+            require(property.getName().equals(binding.propertyName(prototype, key)), "Invalid immutable property " + key);
+            Class<?> element = propertyClass(prototype, property);
+            Class<?> parameter = element;
+            Object value;
+            var type = property.getType();
+            if (type.isMapType()) {
+                if (mapKeyClass(prototype, property) == String.class) {
+                    require(creation.mapProperties().containsKey(key), "Missing map property " + key);
+                    value = decodeEntries(property, element, creation.mapProperties().get(key));
+                } else {
+                    require(creation.typedMapProperties().containsKey(key), "Missing typed map property " + key);
+                    value = decodeTypedEntries(prototype, property, creation.typedMapProperties().get(key));
+                }
+                parameter = Map.class;
+            } else if (type.isSetType()) {
+                require(creation.setProperties().containsKey(key), "Missing set property " + key);
+                value = decode(property, element, creation.setProperties().get(key));
+                parameter = Collection.class;
+            } else {
+                var encoded = creation.properties().get(key);
+                require(encoded != null, "Missing immutable property " + key);
+                var decoded = decode(property, element, encoded);
+                if (type.isListType() || type.isReferenceSetType()) {
+                    value = decoded;
+                    parameter = type.isReferenceSetType() ? Iterable.class : List.class;
+                } else {
+                    require(decoded.size() == 1, "Expected one value for immutable property " + key);
+                    value = decoded.get(0);
+                }
+            }
+            String name = property.getName();
+            expected.put(name, value);
+            String setter = "with" + Character.toUpperCase(name.charAt(0)) + name.substring(1);
+            try {
+                java.lang.reflect.Method method;
+                try {
+                    method = builder.getClass().getMethod(setter, parameter);
+                } catch (NoSuchMethodException missing) {
+                    // Checked scalar lists accept a Collection in their generated builder.
+                    if (parameter != List.class) throw missing;
+                    method = builder.getClass().getMethod(setter, Collection.class);
+                }
+                method.invoke(builder, value);
+            } catch (ReflectiveOperationException ex) {
+                throw new IllegalArgumentException("Cannot initialize " + creation.type() + "." + name, ex);
+            }
+        }
+        VObject result = builder.build();
+        require(result != null && result.getClass() == prototype.getClass(), "Immutable builder changed its result type");
+        for (Property property : ReflectImpl.readProperties(result.vmf().reflect())) {
+            Object value = expected.get(property.getName());
+            Object actual = property.get();
+            boolean same;
+            if (property.getType().isReferenceSetType()) {
+                var members = new ArrayList<>();
+                ((Iterable<?>) actual).forEach(members::add);
+                same = matchesCollection(property, members, (List<?>) value);
+            } else if (property.getType().isListType()) {
+                same = sameList((List<?>) actual, (List<?>) value);
+            } else if (property.getType().isSetType()) {
+                same = actual.equals(new LinkedHashSet<>((List<?>) value));
+            } else if (property.getType().isMapType()) {
+                same = JournalSupport.sameMap((Map<?, ?>) actual, (Map<?, ?>) value);
+            } else {
+                same = sameValue(actual, value);
+            }
+            require(same, "Immutable builder produced a different value for " + property.getName());
+        }
+        return result;
+    }
+
+    private void register(Creation creation, VObject object) {
         require(usedInstances.add(object), "Object factory reused an instance for " + creation.id());
         require(creation.id().equals(binding.id(object)) && creation.type().equals(binding.type(object)),
                 "Object factory returned the wrong ID or type for " + creation.id());
@@ -128,6 +274,7 @@ public final class JournalReplayer {
 
     private void initialize(Creation creation, boolean modelProperties) {
         VObject object = object(creation.id());
+        if (object instanceof Immutable) return; // its builder initialized the complete definition
         creation.properties().forEach((key, values) -> {
             Property property = JournalSupport.property(object, key, binding);
             require(!property.getType().isMapType(), "Map property requires keyed entries for " + key);
@@ -191,6 +338,7 @@ public final class JournalReplayer {
 
     private void apply(Operation operation) {
         VObject target = object(operation.target());
+        require(!(target instanceof Immutable), "A journal operation cannot edit an immutable target");
         Property property = JournalSupport.property(target, operation.property(), binding);
         if (property.getType().isMapType()) {
             if (mapKeyClass(target, property) == String.class) {
@@ -222,7 +370,7 @@ public final class JournalReplayer {
         }
         require(operation.kind() != ChangeJournal.Kind.MAP_EDIT && operation.kind() != ChangeJournal.Kind.TYPED_MAP_EDIT
                 && operation.kind() != ChangeJournal.Kind.SET_EDIT, "Collection edit has the wrong property " + property.getName());
-        operation.created().forEach(this::allocate);
+        if (!operation.created().isEmpty()) allocate(operation);
         Class<?> type = propertyClass(target, property);
         List<Object> before = decode(property, type, operation.before());
         List<Object> after = decode(property, type, operation.after());
@@ -274,7 +422,7 @@ public final class JournalReplayer {
             var key = entry.vmf().reflect().propertyByName(keyName.get()).orElseThrow();
             if (!key.getType().isModelType()) continue; // scalar keys are already initialized
             var initial = record.properties().get(binding.propertyKey(entry, key.getName()));
-            require(initial != null && initial.size() == 1 && initial.get(0).kind() == ValueKind.REFERENCE,
+            require(initial != null && initial.size() == 1 && initial.get(0).kind().isReference(),
                     "Missing model entry key " + key.getName());
             Object decoded = decodeValue(key, propertyClass(entry, key), initial.get(0));
             if (key.get() != decoded) key.set(decoded);
@@ -446,7 +594,12 @@ public final class JournalReplayer {
     private Object decodeValue(Property property, Class<?> type, Value value) {
         Object decoded;
         switch (value.kind()) {
-            case REFERENCE: decoded = object(value.text()); break;
+            case REFERENCE:
+            case IMMUTABLE_REFERENCE:
+                decoded = object(value.text());
+                require((decoded instanceof Immutable) == (value.kind() == ValueKind.IMMUTABLE_REFERENCE),
+                        "Reference has the wrong mutability for " + property.getName());
+                break;
             case EXTERNAL: decoded = binding.valueCodecs().decode(value); break;
             default: decoded = JournalSupport.decodeScalar(value.kind(), value.text());
         }

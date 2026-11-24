@@ -49,6 +49,7 @@ package eu.mihosoft.vmf.runtime.core.journal;
 import eu.mihosoft.vcollections.VListChange;
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.Changes;
+import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Transaction;
 import eu.mihosoft.vmf.runtime.core.VObject;
@@ -333,7 +334,8 @@ public final class JournalRecorder implements AutoCloseable {
 
     private Value freeze(Object value, List<Creation> created) {
         if (value instanceof VObject) {
-            return new Value(ValueKind.REFERENCE, reference((VObject) value, created));
+            ValueKind kind = value instanceof Immutable ? ValueKind.IMMUTABLE_REFERENCE : ValueKind.REFERENCE;
+            return new Value(kind, reference((VObject) value, created));
         }
         return JournalSupport.scalar(value, binding);
     }
@@ -345,7 +347,7 @@ public final class JournalRecorder implements AutoCloseable {
             if (!previous.equals(id)) throw new IllegalArgumentException("Object ID changed during recording: " + previous);
             return id;
         }
-        JournalSupport.mutable(object);
+        if (!(object instanceof Immutable)) JournalSupport.mutable(object);
         if (known.putIfAbsent(id, object) != null) throw new IllegalArgumentException("Duplicate object ID: " + id);
         verifier.excludeLiveInstance(object);
         // Register the identity before capturing properties to allow forward and cyclic references.

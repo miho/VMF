@@ -221,7 +221,7 @@ public final class VMFJournalCodec {
         String format = text(envelope.get("format"), "$.format");
         if (!ChangeJournal.FORMAT.equals(format)) throw invalid("$.format", "unsupported journal format " + format);
         int version = integer(envelope.get("version"), "$.version");
-        if (version < ChangeJournal.VERSION || version > ChangeJournal.REFERENCE_SETS_VERSION) {
+        if (version < ChangeJournal.VERSION || version > ChangeJournal.IMMUTABLE_REFERENCES_VERSION) {
             throw invalid("$.version", "unsupported journal version " + version);
         }
         fields(envelope, "$", ENVELOPE_FIELDS);

@@ -186,8 +186,26 @@ Wire version 4 adds two operations. A `SET_EDIT` names the target and property a
 
 A `TYPED_MAP_EDIT` uses `beforeEntries` and `afterEntries`. Each entry contains a `typedKey` and a `value`, both in the journal's existing `kind` and `text` scalar format. For example, an integer key of 7 is encoded as `{"kind":"INT","text":"7"}`. Null map values remain distinct from missing keys. Typed floating-point keys retain the distinction between positive and negative zero. New object snapshots may carry `typedMapProperties` with named entry arrays and `setProperties` with named member arrays. A journal uses the oldest version sufficient for all its operations and creations. Existing String-keyed maps continue to use version 3 records.
 
-A keyed containment list persists its entry objects in list order. The lookup uses the recorded entry properties, so a key edit and an entry move remain ordinary property and list changes. Give each mutable entry its own stable journal ID and keep business keys separate from journal IDs when allowing key edits. Referenced model objects must belong to the checkpoint containment tree at publication boundaries. By-value persistence of immutable VMF model objects through Jackson is a separate capability from journal replay, which addresses mutable model objects by stable ID.
+A keyed containment list persists its entry objects in list order. The lookup uses the recorded entry properties, so a key edit and an entry move remain ordinary property and list changes. Give each mutable entry its own stable journal ID and keep business keys separate from journal IDs when allowing key edits. Mutable reference targets must belong to the checkpoint containment tree at publication boundaries.
 
 ### Unique model references
 
 Ordered reference edits use the existing list operations with target IDs and positions. Unordered edits use `REF_SET_EDIT` in wire version 5. Its `before` and `after` arrays contain the distinct IDs removed and added. Its `indices` array is empty. A newly attached target can carry creation records. Replay accepts an equivalent unordered checkpoint that enumerates members in a different order and rejects missing or already-present targets. A journal uses the earliest wire version required by its edits.
+
+### Version 6 immutable references
+
+Use reference-mode checkpoints when a model shares immutable objects. The snapshot preserves aliases within the document. For journal replay, `JournalBinding.id(object)` must return the same ID after loading that checkpoint. Two different notes can have equal contents and still need distinct IDs. A persisted ID field or an application identity table can supply them.
+
+Version 6 writes an immutable target as `{"kind":"IMMUTABLE_REFERENCE","text":"note-3"}`. A new target carries a creation record with its complete properties. Replay builds nested values first, then shares the resulting instance wherever that ID occurs. All three journal formats use the same records. Older records keep their existing wire versions.
+
+If the existing `create(type, id)` factory returns an immutable prototype for the wire type, VMF obtains its generated builder automatically. A binding that keeps IDs outside the model can register the completed instance during construction.
+
+```java
+@Override
+public VObject createImmutable(String type, String id, Function<Builder, VObject> initialize) {
+    if (!type.equals("note")) throw new IllegalArgumentException("Unknown immutable type " + type);
+    VObject note = initialize.apply(Note.newBuilder());
+    idsByInstance.put(note, id); // an IdentityHashMap
+    return note;
+}
+```

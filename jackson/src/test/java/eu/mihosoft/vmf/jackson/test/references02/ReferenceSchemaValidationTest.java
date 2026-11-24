@@ -49,7 +49,7 @@ public class ReferenceSchemaValidationTest {
         assertEquals("integer",schema.at("/properties/history/items/type/1").asText());
         assertEquals("string",schema.at("/definitions/"+task+"/properties/dependsOn/type/0").asText());
         assertFalse(schema.at("/definitions/"+task+"/properties/section").isObject());
-        assertEquals("#/definitions/"+Version.class.getName(),schema.at("/properties/version/$ref").asText());
+        assertEquals("#/definitions/"+Version.class.getName(),schema.at("/properties/version/oneOf/1/$ref").asText());
         assertEquals("integer",schema.at("/properties/@vmf-id/type/1").asText());
     }
     @Test void wrongReferenceRepresentationsAreRejected() throws Exception {

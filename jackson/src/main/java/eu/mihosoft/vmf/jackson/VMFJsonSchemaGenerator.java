@@ -293,9 +293,9 @@ public class VMFJsonSchemaGenerator {
 
         if (isToBeExcludedFromSerialization(property, types)) {
             return propertySchema;
-        } else if (referencesEnabled && isIdReference(property, types)) {
+        } else if (VMFReferences.isReferenceProperty(property)) {
             Type elementType = VMFTypeUtils.forClass(types.load(property.getType().getElementTypeName().orElse(property.getType().getName())));
-            Map<String, Object> referenceSchema = property.getType().isReferenceSetType() ? idSchema(false) : referenceValueSchema(elementType, types);
+            Map<String, Object> referenceSchema = referenceValueSchema(elementType, types, !property.getType().isReferenceSetType());
             if (property.getType().isListType() || property.getType().isReferenceSetType()) {
                 propertySchema.put("type", "array");
                 propertySchema.put("items", referenceSchema);
@@ -383,7 +383,8 @@ public class VMFJsonSchemaGenerator {
             String element = property.getType().getDescriptor().getArguments().get(0).getName();
             // JSON Schema equates signed zeroes and structurally equal objects. Java model identity and
             // Float/Double membership can distinguish them, so the runtime enforces uniqueness in these cases.
-            if (property.getType().isReferenceSetType() && referencesEnabled && isIdReference(property, types)) {
+            if (property.getType().isReferenceSetType() && referencesEnabled && VMFReferences.isReferenceProperty(property)
+                    && !hasImmutableTarget(VMFTypeUtils.forClass(types.load(element)), types)) {
                 propertySchema.put("uniqueItems", true);
             } else if (multiplicity.isUnique() && !property.getType().isModelType()
                     && !Float.class.getName().equals(element) && !Double.class.getName().equals(element)) {
@@ -470,36 +471,30 @@ public class VMFJsonSchemaGenerator {
      */
     private boolean isToBeExcludedFromSerialization(Property property, SchemaTypes types) {
         if (!property.getType().isModelType()) return false;
-        if (property.getType().isReferenceSetType() && VMFReferences.isReferenceProperty(property)) return !referencesEnabled;
-        String valueType = property.getType().getElementTypeName().orElse(property.getType().getName());
-        boolean immutableType = Immutable.class.isAssignableFrom(types.load(valueType));
-        return property.getType().isModelType() && !immutableType && !VMFTypeUtils.isParentOfPropContainer(property)
-                && !(referencesEnabled && VMFReferences.isReferenceProperty(property));
+        if (VMFReferences.isReferenceProperty(property)) {
+            String valueType = property.getType().getElementTypeName().orElse(property.getType().getName());
+            return !referencesEnabled && !hasImmutableTarget(VMFTypeUtils.forClass(types.load(valueType)), types);
+        }
+        return !VMFTypeUtils.isParentOfPropContainer(property);
     }
 
-    private static boolean isIdReference(Property property, SchemaTypes types) {
-        if (!VMFReferences.isReferenceProperty(property)) return false;
-        if (property.getType().isReferenceSetType()) return true;
-        String name = property.getType().isListType()
-                ? property.getType().getElementTypeName().get() : property.getType().getName();
-        return !Immutable.class.isAssignableFrom(types.load(name));
+    private static boolean hasImmutableTarget(Type declaredType, SchemaTypes types) {
+        return Immutable.class.isAssignableFrom(types.load(declaredType.getName()))
+                || types.concreteSubtypes(declaredType).stream().anyMatch(t -> Immutable.class.isAssignableFrom(types.load(t.getName())));
     }
 
-    /** Runtime immutable implementations of an interface-only reference type
-     * are written by value, while mutable implementations are written as ids. */
-    private Map<String, Object> referenceValueSchema(Type declaredType, SchemaTypes types) {
-        List<Map<String, Object>> immutableOptions = types.concreteSubtypes(declaredType).stream()
-                .filter(t -> Immutable.class.isAssignableFrom(types.load(t.getName())))
-                .map(t -> polymorphicOption(getTypeAlias(t)))
-                .collect(Collectors.toList());
-        if (immutableOptions.isEmpty()) return idSchema(true);
-
+    private Map<String, Object> referenceValueSchema(Type declaredType, SchemaTypes types, boolean nullable) {
         List<Map<String, Object>> options = new ArrayList<>();
-        options.add(idSchema(true));
-        options.addAll(immutableOptions);
-        Map<String, Object> schema = new LinkedHashMap<>();
-        schema.put("oneOf", options);
-        return schema;
+        if (referencesEnabled) options.add(idSchema(nullable));
+        List<Type> subtypes = types.concreteSubtypes(declaredType);
+        if (Immutable.class.isAssignableFrom(types.load(declaredType.getName())) && !declaredType.isInterfaceOnly()) {
+            String name = getTypeAlias(declaredType);
+            options.add(subtypes.isEmpty() ? Map.of("$ref", "#/definitions/" + name) : polymorphicOption(name));
+        }
+        for (Type subtype : subtypes) {
+            if (Immutable.class.isAssignableFrom(types.load(subtype.getName()))) options.add(polymorphicOption(getTypeAlias(subtype)));
+        }
+        return options.size() == 1 ? new LinkedHashMap<>(options.get(0)) : Map.of("oneOf", options);
     }
 
     private static Map<String, Object> idSchema(boolean nullable) {

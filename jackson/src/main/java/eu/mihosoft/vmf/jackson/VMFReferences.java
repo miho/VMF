@@ -34,7 +34,8 @@ import java.util.Set;
  * {@code vmf-id} in XML), and references are written as these ids. Reading collects the ids and
  * the references while the containment tree is built and assigns the references when the
  * outermost VMF object is complete, so forward references and references to ancestors resolve.
- * Values of immutable types are still written by value.</p>
+ * An immutable target shared by multiple properties or held by a unique reference end is
+ * defined inline once with an id. A single-use ordinary immutable value stays inline.</p>
  *
  * <p>Sessions are thread-local because the module writes and reads nested values through Jackson,
  * which may use a new serializer provider or deserialization context per nested value.</p>
@@ -81,8 +82,7 @@ final class VMFReferences {
     }
 
     /**
-     * Indicates whether the specified value of a reference property is written as an id
-     * (mutable model objects) rather than by value (immutable model objects).
+     * Mutable reference targets are written as ids of objects in the containment tree.
      */
     static boolean isWrittenAsReference(Object value) {
         return value instanceof VObject && !(value instanceof Immutable);
@@ -112,10 +112,15 @@ final class VMFReferences {
     // -------------------------------------------------------------------------------------------
 
     /**
-     * Ids of the referenced objects in the containment tree of the outermost object being written.
+     * Document-scoped ids for mutable and immutable reference targets.
      */
     static final class WriteSession {
         private final Map<Object, String> ids = new IdentityHashMap<>();
+        private final Set<Object> writtenImmutables = Collections.newSetFromMap(new IdentityHashMap<>());
+
+        boolean alreadyWroteImmutable(VObject value) {
+            return value instanceof Immutable && ids.containsKey(value) && !writtenImmutables.add(value);
+        }
 
         /**
          * Returns the id of the specified object or {@code null} if it is not referenced.
@@ -134,8 +139,8 @@ final class VMFReferences {
 
     /**
      * Starts a write session for the outermost object being written. Walks its containment tree,
-     * checks that every reference points into that tree and assigns ids to the referenced objects
-     * (in containment pre-order, starting at 1).
+     * checks that mutable references point into that tree and assigns ids to their targets.
+     * Shared immutable values and immutable reference-set members receive ids after those targets.
      * @param root the outermost VMF object being written
      * @param gen the generator (for error reporting)
      * @return the new session
@@ -172,15 +177,29 @@ final class VMFReferences {
 
         // referenced objects (must be part of the tree)
         Set<Object> targets = Collections.newSetFromMap(new IdentityHashMap<>());
-        for (VObject o : preOrder) {
+        Set<Object> seenImmutable = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<VObject> immutableOrder = new ArrayList<>();
+        if (root instanceof Immutable) seenImmutable.add(root);
+        // Inspect an immutable's outgoing edges just once even when several properties share it.
+        List<VObject> owners = new ArrayList<>(preOrder);
+        for (int i = 0; i < owners.size(); i++) {
+            VObject o = owners.get(i);
             for (Property p : o.vmf().reflect().properties()) {
                 if (!isReferenceProperty(p)) {
                     continue;
                 }
                 for (Object target : valuesOf(p.get())) {
-                    if (!isWrittenAsReference(target) && !p.getType().isReferenceSetType()) {
+                    if (target instanceof Immutable) {
+                        if (seenImmutable.add(target)) {
+                            immutableOrder.add((VObject) target);
+                            owners.add((VObject) target);
+                        } else {
+                            targets.add(target);
+                        }
+                        if (p.getType().isReferenceSetType()) targets.add(target);
                         continue;
                     }
+                    if (!isWrittenAsReference(target)) continue;
                     if (!tree.contains(target)) {
                         throw JsonMappingException.from(gen, "Cannot write reference '" + typeName(o) + "."
                                 + p.getName() + "': the referenced " + typeName((VObject) target)
@@ -201,6 +220,10 @@ final class VMFReferences {
             }
         }
 
+        // Allocate immutable ids after the containment ids used by existing documents.
+        for (VObject value : immutableOrder) {
+            if (targets.contains(value)) session.ids.put(value, Integer.toString(nextId++));
+        }
         WRITE_SESSION.set(session);
         return session;
     }
@@ -213,8 +236,8 @@ final class VMFReferences {
     }
 
     /**
-     * Converts the value of a reference property into what is written: ids for referenced objects,
-     * immutable values by value.
+     * Converts mutable targets to their ids. The model serializer writes an immutable's
+     * first definition or its id at the point where Jackson visits the value.
      * @param session the active write session
      * @param owner the object that holds the property
      * @param p the reference property
@@ -229,7 +252,7 @@ final class VMFReferences {
         if (value instanceof List || p.getType().isReferenceSetType()) {
             List<Object> result = new ArrayList<>();
             for (Object e : (Iterable<?>) value) {
-                result.add(p.getType().isReferenceSetType() || isWrittenAsReference(e) ? idOrFail(session, owner, p, e, gen) : e);
+                result.add(isWrittenAsReference(e) ? idOrFail(session, owner, p, e, gen) : e);
             }
             return result;
         } else if (isWrittenAsReference(value)) {
@@ -372,14 +395,13 @@ final class VMFReferences {
     /**
      * Returns the id of the object node, or {@code null} if it has none.
      */
-    static String idOf(JsonNode node, boolean isXml) {
+    static String idOf(JsonNode node, boolean isXml, JsonParser p) throws JsonMappingException {
         JsonNode id = node.get(ID_FIELD);
         if ((id == null || id.isNull()) && isXml) {
             id = node.get(ID_FIELD_XML);
         }
-        if (id == null || id.isNull() || id.isContainerNode()) {
-            return null;
-        }
+        if (id == null) return null;
+        if (!isIdNode(id)) throw JsonMappingException.from(p, "Expected a non-empty string or integer for " + ID_FIELD);
         return id.asText();
     }
 
@@ -413,8 +435,31 @@ final class VMFReferences {
     /**
      * Objects by id and the references to assign, for the outermost object being read.
      */
+    interface ImmutableLoader {
+        Object load(String id) throws java.io.IOException;
+    }
+
     static final class ReadSession {
         private final Map<String, Object> objectsById = new HashMap<>();
+        private final Set<String> buildingImmutable = new java.util.HashSet<>();
+        private final ImmutableLoader immutableLoader;
+
+        ReadSession(ImmutableLoader immutableLoader) { this.immutableLoader = immutableLoader; }
+
+        Object immutable(String id, Class<?> expected, JsonParser parser) throws java.io.IOException {
+            Object result = objectsById.get(id);
+            if (result == null) {
+                if (!buildingImmutable.add(id)) throw JsonMappingException.from(parser, "Cyclic immutable definition '" + id + "'");
+                try {
+                    result = immutableLoader.load(id);
+                } finally {
+                    buildingImmutable.remove(id);
+                }
+            }
+            if (!(result instanceof Immutable) || !expected.isInstance(result))
+                throw JsonMappingException.from(parser, "Wrong immutable target type for reference '" + id + "'");
+            return result;
+        }
         private final List<PendingReference> pending = new ArrayList<>();
         private final List<Runnable> pendingKeyedContents = new ArrayList<>();
 
@@ -587,8 +632,8 @@ final class VMFReferences {
     /**
      * Starts a read session for the outermost object being read.
      */
-    static ReadSession startReadSession() {
-        ReadSession session = new ReadSession();
+    static ReadSession startReadSession(ImmutableLoader loader) {
+        ReadSession session = new ReadSession(loader);
         READ_SESSION.set(session);
         return session;
     }

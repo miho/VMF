@@ -31,8 +31,9 @@ It generates/supports:
 - annotations
 - reflection
 - [collection properties, UML multiplicity, and keyed relationships](docs/collection-properties.md)
-- [managed map properties and generic model interfaces](docs/typed-model-properties.md)
-- jackson serialization support (json, xml, yml)
+- [managed map properties](docs/typed-model-properties.md)
+- [generic model interfaces and inherited relationships](docs/generic-model-interfaces.md)
+- [Jackson serialization for existing JSON and reference-aware JSON, YAML, and XML](jackson/README.md)
 - json schema generation for validation and automatic visual editor generation
 - ...
 

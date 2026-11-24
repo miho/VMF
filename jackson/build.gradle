@@ -74,7 +74,8 @@ dependencies {
     testImplementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-toml:2.17.2'
     // yaml
     // xml
-    testImplementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-xml:2.17.2'
+    compileOnly "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:${commonProps.get('deps.jackson.version')}"
+    testImplementation "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:${commonProps.get('deps.jackson.version')}"
 
     // jackson
     implementation "com.fasterxml.jackson.core:jackson-core:${commonProps.get('deps.jackson.version')}"

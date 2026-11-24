@@ -23,7 +23,11 @@
  */
 package eu.mihosoft.vmf.runtime.core.journal;
 
+import eu.mihosoft.vmf.runtime.core.Builder;
+import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.VObject;
+
+import java.util.function.Function;
 
 /** Binds a journal's stable identifiers to one version of a VMF model. */
 public interface JournalBinding {
@@ -37,8 +41,28 @@ public interface JournalBinding {
     /** Returns the stable wire name of the object's concrete model type. */
     String type(VObject object);
 
-    /** Creates a fresh mutable object of the bound type with the specified persistent ID. */
+    /** Creates a fresh mutable object, or an immutable prototype for the default immutable factory. */
     VObject create(String type, String id);
+
+    /**
+     * Constructs an immutable target from the recorded properties. Pass the generated builder
+     * for the bound wire type to {@code initialize} and return the resulting object. A binding
+     * with an external ID table can register that result under {@code id} before returning.
+     * The default obtains the generated builder from a prototype supplied by {@link #create}.
+     */
+    default VObject createImmutable(String type, String id, Function<Builder, VObject> initialize) {
+        VObject prototype = create(type, id);
+        if (!(prototype instanceof Immutable) || !type.equals(type(prototype))) {
+            throw new IllegalArgumentException("Expected an immutable prototype for " + type);
+        }
+        String modelName = prototype.vmf().reflect().type().getName();
+        try {
+            Class<?> model = Class.forName(modelName, false, prototype.getClass().getClassLoader());
+            return initialize.apply((Builder) model.getMethod("newBuilder").invoke(null));
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalArgumentException("Cannot obtain the immutable builder for " + type, ex);
+        }
+    }
 
     /** Returns the external value codecs for this model version and its checkpoints. */
     default JournalValueCodecs valueCodecs() {

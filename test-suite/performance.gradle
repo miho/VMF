@@ -18,6 +18,9 @@ configurations {
     performanceRuntime {
         canBeConsumed = false
     }
+    performanceCompileOnly {
+        canBeConsumed = false
+    }
 }
 
 repositories {
@@ -29,6 +32,7 @@ dependencies {
     performanceRuntime project(':vmf-runtime')
     performanceRuntime "com.fasterxml.jackson.core:jackson-databind:${performanceVersions.getProperty('deps.jackson.version')}"
     performanceRuntime "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${performanceVersions.getProperty('deps.jackson.version')}"
+    performanceCompileOnly "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:${performanceVersions.getProperty('deps.jackson.version')}"
 }
 
 def compilePerformanceGenerator = tasks.register('compilePerformanceGenerator', JavaCompile) {
@@ -60,7 +64,7 @@ def compilePerformanceBenchmarks = tasks.register('compilePerformanceBenchmarks'
     source fileTree("${performanceDir}/java") { include '**/*.java' }
     source generatedModels
     source fileTree('jackson/src/main/java') { include '**/*.java' }
-    classpath = configurations.performanceRuntime
+    classpath = configurations.performanceRuntime + configurations.performanceCompileOnly
     destinationDirectory = benchmarkClasses
     options.encoding = 'UTF-8'
     options.release = 11
