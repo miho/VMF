@@ -39,7 +39,12 @@
 
 #foreach ($prop in $type.implementation.properties)
 #if(!$prop.container)
-#if($prop.propType=="COLLECTION")
+#if($prop.mapType)
+    // Managed-map default overrides are immutable snapshots.
+    this._VMF_DEFAULT_VALUES[$foreach.index] = other._VMF_DEFAULT_VALUES[$foreach.index];
+    ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, other.__vmf_prop_${prop.name},
+        ${prop.mapValueTypeName}.class, false);
+#elseif($prop.propType=="COLLECTION")
     if(deepCopy) {
       if(other.__vmf_prop_${prop.name}!=null) {
 #if($prop.genericType)

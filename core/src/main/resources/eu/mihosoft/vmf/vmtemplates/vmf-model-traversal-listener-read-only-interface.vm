@@ -47,7 +47,7 @@ public interface ReadOnlyListenerFor${modelSwitchName}Model extends ${VMFPKG}.Tr
 #end
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
-        onEnter${type.readOnlyInterface.typeName}((${type.readOnlyInterface.typeName}) o);
+        onEnter${type.readOnlyInterface.typeName}((${type.readOnlyInterface.typeName}${type.wildcardArguments}) o);
         break;
 #end## for-each type
     }
@@ -68,7 +68,7 @@ public interface ReadOnlyListenerFor${modelSwitchName}Model extends ${VMFPKG}.Tr
 #end
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
-        onExit${type.readOnlyInterface.typeName}((${type.readOnlyInterface.typeName}) o);
+        onExit${type.readOnlyInterface.typeName}((${type.readOnlyInterface.typeName}${type.wildcardArguments}) o);
         break;
 #end## for-each type
     }
@@ -76,8 +76,8 @@ public interface ReadOnlyListenerFor${modelSwitchName}Model extends ${VMFPKG}.Tr
 
 #foreach($type in $model.types)
 
-  default void onEnter${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {}
-  default void onExit${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName} object) {}
+  default void onEnter${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName}${type.wildcardArguments} object) {}
+  default void onExit${type.readOnlyInterface.typeName}(${type.readOnlyInterface.typeName}${type.wildcardArguments} object) {}
 #end## for-each type
 
 }

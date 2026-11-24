@@ -95,6 +95,9 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     return this.${prop.name};
 #end ## if generic type
 
+#elseif($prop.mapType)
+  public $prop.getterDeclaration {
+    return this.mutableObject.${prop.getterPrefix}${prop.nameWithUpperCase}().asUnmodifiable();
 #elseif(${prop.type})
 #if($prop.type.immutable)
   // property type is a model-type

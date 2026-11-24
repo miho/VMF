@@ -116,7 +116,7 @@ YAML uses the same envelope keys, value types, and ordered sequences as JSON. Qu
 
 XML uses a `vmf-journal` root in place of the `format` field. Lists use explicit wrappers such as `<transactions><transaction>…</transaction></transactions>`. Creation properties are ordered `property` elements with `name` and `values` children. Null text uses `<text null="true"/>`. Strings that XML cannot preserve verbatim, such as control characters or carriage returns, use an `encoding="base64"` attribute and UTF-8 bytes. The XML reader rejects document type declarations.
 
-All three formats use the same v1 and v2 journal records and validation rules. Version 2 adds registered external values.
+All three formats use the same wire versions and validation rules. The writer selects the oldest version capable of representing the recorded operations and object creations.
 
 ## Version 1 JSON
 
@@ -156,3 +156,26 @@ Version 1 supports forward replay of mutable generated VMF graphs with stable ID
 ## Version 2 JSON
 
 Version 2 adds one value kind. For example, a UUID journal value is `{"kind":"EXTERNAL","text":"980e13c6-84a0-49d6-821d-737269635aef","codec":"java.uuid/v1"}`. The replayer resolves the codec through the supplied binding. Codecs are identified by wire IDs supplied by the application. Replay rejects unknown codec IDs, noncanonical payloads, and values that cannot be assigned to the model property. The writer uses version 1 for journals made up entirely of version 1 records. Readers that support version 2 also read version 1.
+
+## Version 3 managed maps
+
+A managed map edit stores the affected entries before and after one native map mutation. The wire key is a string and the value uses the scalar tags from version 1. Keys and string values follow the journal’s Unicode validation, which rejects unpaired UTF-16 surrogates. Each key appears at most once in each entry array. A key present in both arrays is replaced. An addition only has an after entry and a removal only has a before entry. A present null has an explicit `NULL` value. The following operation replaces a present null and adds a second key in the same edit.
+
+```json
+{
+  "kind": "MAP_EDIT",
+  "target": "device-1",
+  "property": "readings",
+  "beforeEntries": [
+    { "key": "temperature", "value": { "kind": "NULL", "text": null } }
+  ],
+  "afterEntries": [
+    { "key": "temperature", "value": { "kind": "INT", "text": "21" } },
+    { "key": "humidity", "value": { "kind": "INT", "text": "42" } }
+  ]
+}
+```
+
+Replay checks the old values and the absence of newly inserted keys before applying the edit. Every after value must match the declared map value type. Entry arrays preserve the order supplied by the recorded map event. When allocating a newly introduced object, the creation record carries a `mapProperties` array of records with `name` and `entries` fields. Each record contains the complete initial map, including an empty array for an empty managed map. Scalar and list properties continue to use the `properties` field. A journal that edits only scalar and list properties on existing objects can still use version 1 or 2.
+
+Map edits identify entries by key. Native undo restores the previous mappings. For the Java insertion-ordered implementation, undoing a removal can append the restored key after entries that survived the removal. Forward journal replay from the recorded checkpoint preserves the insertion order of the edited map, and the recorder verifies this order against its replay shadow at transaction boundaries.

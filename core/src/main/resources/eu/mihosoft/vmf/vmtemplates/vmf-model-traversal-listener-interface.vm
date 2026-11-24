@@ -43,7 +43,7 @@ public interface ListenerFor${modelSwitchName}Model extends ${VMFPKG}.TraversalL
       case $type.typeId:
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
-        onEnter${type.typeName}(($type.typeName) o);
+        onEnter${type.typeName}((${type.typeName}${type.wildcardArguments}) o);
         break;
 #end## for-each type
     }
@@ -60,7 +60,7 @@ public interface ListenerFor${modelSwitchName}Model extends ${VMFPKG}.TraversalL
       case $type.typeId:
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
-        onExit${type.typeName}(($type.typeName) o);
+        onExit${type.typeName}((${type.typeName}${type.wildcardArguments}) o);
         break;
 #end## for-each type
     }
@@ -68,8 +68,8 @@ public interface ListenerFor${modelSwitchName}Model extends ${VMFPKG}.TraversalL
 
 #foreach($type in $model.types)
 
-  default void onEnter${type.typeName}($type.typeName object) {}
-  default void onExit${type.typeName}($type.typeName object) {}
+  default void onEnter${type.typeName}(${type.typeName}${type.wildcardArguments} object) {}
+  default void onExit${type.typeName}(${type.typeName}${type.wildcardArguments} object) {}
 #end## for-each type
 
 }

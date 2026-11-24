@@ -44,7 +44,7 @@ public interface SwitchFor${modelSwitchName}Model<T> {
       case $type.typeId:
         // TODO check whether we can prevent lazy initialized properties from
         //      being initialized just for iterating the object graph
-        result = case${type.typeName}(($type.typeName) o);
+        result = case${type.typeName}((${type.typeName}${type.wildcardArguments}) o);
         return result == null?defaultValue(o):result;
 #end## for-each type
       default:
@@ -62,7 +62,7 @@ public interface SwitchFor${modelSwitchName}Model<T> {
 
 #foreach($type in $model.types)
 
-  default T case${type.typeName}($type.typeName object) {return null;}
+  default T case${type.typeName}(${type.typeName}${type.wildcardArguments} object) {return null;}
 #end## for-each type
 
 }

@@ -61,7 +61,7 @@ public final class Interface {
         properties.addAll(type.getProperties());
 
         List<Prop> implProperties = new ArrayList<>();
-        implProperties.addAll(computeImplementedProperties(type));
+        implProperties.addAll(computeImplementedProperties(type, type));
 
         // only add properties that are not already present in properties
         this.properties.addAll(
@@ -103,18 +103,17 @@ public final class Interface {
         return propertiesWithoutCollectionsBasedContainment;
     }
 
-    private static List<Prop> computeImplementedProperties(ModelType type) {
+    private static List<Prop> computeImplementedProperties(ModelType type, ModelType owner) {
         List<Prop> result = new ArrayList<>();
         for(ModelType t: type.getImplementz()) {
 
-            List<Prop> computerProps = computeImplementedProperties(t);
-            result.addAll(computerProps);
+            result.addAll(computeImplementedProperties(t, owner));
             // only add properties if they are getter-only and
             //  we are not an interface-only or immutable type
             result.addAll(t.getProperties().stream().
                 filter(
                     p->p.isGetterOnly()
-                ).collect(Collectors.toList())
+                ).map(p -> p.inheritedBy(owner)).collect(Collectors.toList())
             );
         }
 

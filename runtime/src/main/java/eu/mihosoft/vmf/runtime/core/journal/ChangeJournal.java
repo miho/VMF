@@ -34,6 +34,7 @@ public final class ChangeJournal {
     public static final String FORMAT = "vmf-journal";
     public static final int VERSION = 1;
     public static final int EXTERNAL_VALUES_VERSION = 2;
+    public static final int MAPS_VERSION = 3;
 
     private final String model;
     private final int modelVersion;
@@ -71,18 +72,29 @@ public final class ChangeJournal {
 
     /** Returns the oldest wire version that can represent these records. */
     public int wireVersion() {
-        boolean external = transactions.stream().flatMap(frame -> frame.operations().stream())
-                .anyMatch(operation -> hasExternalValues(operation.before()) || hasExternalValues(operation.after())
-                        || operation.created().stream().flatMap(creation -> creation.properties().values().stream())
-                        .anyMatch(ChangeJournal::hasExternalValues));
-        return external ? EXTERNAL_VALUES_VERSION : VERSION;
+        int version = VERSION;
+        for (Frame frame : transactions) {
+            for (Operation operation : frame.operations()) {
+                if (operation.kind() == Kind.MAP_EDIT) return MAPS_VERSION;
+                if (hasExternalValues(operation.before()) || hasExternalValues(operation.after())) {
+                    version = EXTERNAL_VALUES_VERSION;
+                }
+                for (Creation creation : operation.created()) {
+                    if (!creation.mapProperties().isEmpty()) return MAPS_VERSION;
+                    if (creation.properties().values().stream().anyMatch(ChangeJournal::hasExternalValues)) {
+                        version = EXTERNAL_VALUES_VERSION;
+                    }
+                }
+            }
+        }
+        return version;
     }
 
     private static boolean hasExternalValues(List<Value> values) {
         return values.stream().anyMatch(value -> value.kind() == ValueKind.EXTERNAL);
     }
 
-    public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET }
+    public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET, MAP_EDIT }
 
     public enum ValueKind { NULL, REFERENCE, STRING, BOOLEAN, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, CHAR, EXTERNAL }
 
@@ -130,23 +142,52 @@ public final class ChangeJournal {
         }
     }
 
+    private static Map<String, Value> copyEntries(Map<String, Value> entries) {
+        if (entries.isEmpty()) return Map.of();
+        Map<String, Value> copy = new LinkedHashMap<>();
+        entries.forEach((key, value) -> {
+            JournalSupport.validateValue(ValueKind.STRING, key);
+            Objects.requireNonNull(value, "map entry value");
+            if (value.kind() == ValueKind.REFERENCE || value.kind() == ValueKind.EXTERNAL) {
+                throw new IllegalArgumentException("Managed maps require built-in scalar values");
+            }
+            copy.put(key, value);
+        });
+        return Collections.unmodifiableMap(copy);
+    }
+
     /** Initial properties of an object, with a singleton value for each scalar property. */
     public static final class Creation {
         private final String id;
         private final String type;
         private final Map<String, List<Value>> properties;
+        private final Map<String, Map<String, Value>> mapProperties;
 
         public Creation(String id, String type, Map<String, List<Value>> properties) {
+            this(id, type, properties, Map.of());
+        }
+
+        /** Captures initial scalar/list properties and the complete contents of each managed map. */
+        public Creation(String id, String type, Map<String, List<Value>> properties,
+                        Map<String, Map<String, Value>> mapProperties) {
             this.id = JournalSupport.requireName(id, "creation ID");
             this.type = JournalSupport.requireName(type, "creation type");
             Map<String, List<Value>> copy = new LinkedHashMap<>();
             properties.forEach((key, values) -> copy.put(JournalSupport.requireName(key, "property key"), List.copyOf(values)));
             this.properties = Collections.unmodifiableMap(copy);
+            Map<String, Map<String, Value>> maps = new LinkedHashMap<>();
+            mapProperties.forEach((key, entries) -> {
+                if (copy.containsKey(key)) throw new IllegalArgumentException("Duplicate creation property " + key);
+                maps.put(JournalSupport.requireName(key, "map property key"), copyEntries(entries));
+            });
+            this.mapProperties = Collections.unmodifiableMap(maps);
         }
 
         public String id() { return id; }
         public String type() { return type; }
         public Map<String, List<Value>> properties() { return properties; }
+        /** Initial map contents keyed by portable property name. */
+        public Map<String, Map<String, Value>> mapProperties() { return mapProperties; }
     }
 
     /** LIST_ADD indices refer to the resulting list. Other list indices refer to the preceding list. */
@@ -158,9 +199,28 @@ public final class ChangeJournal {
         private final List<Value> before;
         private final List<Value> after;
         private final List<Creation> created;
+        private final Map<String, Value> beforeEntries;
+        private final Map<String, Value> afterEntries;
 
         public Operation(Kind kind, String target, String property, List<Integer> indices,
                          List<Value> before, List<Value> after, List<Creation> created) {
+            this(kind, target, property, indices, before, after, created, Map.of(), Map.of());
+        }
+
+        /**
+         * Captures a keyed edit. A key only in {@code after} is inserted, a key only in
+         * {@code before} is removed, and a key in both is replaced. A present null is
+         * represented by a {@link ValueKind#NULL} value.
+         */
+        public static Operation mapEdit(String target, String property,
+                                        Map<String, Value> before, Map<String, Value> after) {
+            return new Operation(Kind.MAP_EDIT, target, property, List.of(), List.of(), List.of(), List.of(),
+                    before, after);
+        }
+
+        private Operation(Kind kind, String target, String property, List<Integer> indices,
+                          List<Value> before, List<Value> after, List<Creation> created,
+                          Map<String, Value> beforeEntries, Map<String, Value> afterEntries) {
             this.kind = Objects.requireNonNull(kind, "operation kind");
             this.target = JournalSupport.requireName(target, "target ID");
             this.property = JournalSupport.requireName(property, "property key");
@@ -168,10 +228,18 @@ public final class ChangeJournal {
             this.before = List.copyOf(before);
             this.after = List.copyOf(after);
             this.created = List.copyOf(created);
+            this.beforeEntries = copyEntries(beforeEntries);
+            this.afterEntries = copyEntries(afterEntries);
             validateShape();
         }
 
         private void validateShape() {
+            if (kind == Kind.MAP_EDIT) {
+                if (beforeEntries.isEmpty() && afterEntries.isEmpty()) {
+                    throw new IllegalArgumentException("A map edit needs at least one affected key");
+                }
+                return;
+            }
             int previous = -1;
             for (int index : indices) {
                 if (index <= previous) throw new IllegalArgumentException("List indices must be nonnegative and strictly increasing");
@@ -192,6 +260,10 @@ public final class ChangeJournal {
         public List<Value> before() { return before; }
         public List<Value> after() { return after; }
         public List<Creation> created() { return created; }
+        /** Present entries before a map edit. Empty for scalar and list operations. */
+        public Map<String, Value> beforeEntries() { return beforeEntries; }
+        /** Present entries after a map edit. Empty for scalar and list operations. */
+        public Map<String, Value> afterEntries() { return afterEntries; }
     }
 
     /** One recorded VMF transaction, or one ungrouped change. */

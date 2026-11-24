@@ -240,6 +240,14 @@ public final class JournalRecorder implements AutoCloseable {
                     List.of(freeze(propertyChange.get().newValue(), created)), created);
         }
 
+        var mapChange = change.mapChange();
+        if (mapChange.isPresent()) {
+            var event = mapChange.get();
+            if (!event.wasAdded() && !event.wasRemoved()) return null;
+            return Operation.mapEdit(target, property, freezeEntries(event.removed().entries()),
+                    freezeEntries(event.added().entries()));
+        }
+
         var event = listChange.orElseThrow();
         Map<Integer, Value> before = indexed(event.removed(), created);
         Map<Integer, Value> after = indexed(event.added(), created);
@@ -277,6 +285,15 @@ public final class JournalRecorder implements AutoCloseable {
         return indexed;
     }
 
+    private Map<String, Value> freezeEntries(Map<?, ?> entries) {
+        Map<String, Value> values = new LinkedHashMap<>();
+        entries.forEach((key, value) -> {
+            if (!(key instanceof String)) throw new IllegalArgumentException("Managed maps require string keys");
+            values.put((String) key, JournalSupport.scalar(value, binding));
+        });
+        return values;
+    }
+
     private Value freeze(Object value, List<Creation> created) {
         if (value instanceof VObject) {
             return new Value(ValueKind.REFERENCE, reference((VObject) value, created));
@@ -297,12 +314,15 @@ public final class JournalRecorder implements AutoCloseable {
         // Register the identity before capturing properties to allow forward and cyclic references.
         identities.put(object, id);
         Map<String, List<Value>> properties = new LinkedHashMap<>();
+        Map<String, Map<String, Value>> mapProperties = new LinkedHashMap<>();
         for (Property property : ReflectImpl.readProperties(object.vmf().reflect())) {
             String name = property.getName();
             if (JournalSupport.isContainer(object, name)) continue;
             String key = propertyKey(object, name);
             Object value = property.get();
-            if (property.getType().isListType()) {
+            if (property.getType().isMapType()) {
+                mapProperties.put(key, freezeEntries((Map<?, ?>) value));
+            } else if (property.getType().isListType()) {
                 List<Value> items = new ArrayList<>();
                 for (Object item : (List<?>) value) items.add(freeze(item, created));
                 properties.put(key, items);
@@ -310,7 +330,7 @@ public final class JournalRecorder implements AutoCloseable {
                 properties.put(key, List.of(freeze(value, created)));
             }
         }
-        created.add(new Creation(id, binding.type(object), properties));
+        created.add(new Creation(id, binding.type(object), properties, mapProperties));
         return id;
     }
 

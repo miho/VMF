@@ -189,25 +189,8 @@ public final class VMFTypeUtils {
      */
     public static boolean isTypeExtendedByModelType(VObject model, eu.mihosoft.vmf.runtime.core.Type type) {
 
-        var allTypes = model.vmf().reflect().allTypes();
-
-        // now, check if type is a super type of any of the types
-        for (var t : allTypes) {
-
-            if(t == type) {
-                continue;
-            }
-
-            if (t.isInterfaceOnly()) {
-                continue;
-            }
-
-            if (t.superTypes().contains(type)) {
-                return true;
-            }
-        }
-
-        return false;
+        return model.vmf().reflect().allTypes().stream()
+                .anyMatch(t -> !t.isInterfaceOnly() && t.isModelSubtypeOf(type));
     }
 
     /**
@@ -263,7 +246,7 @@ public final class VMFTypeUtils {
                 continue;
             }
 
-            if (type.superTypes().contains(t)) {
+            if (type.isModelSubtypeOf(t)) {
                 return true;
             }
             // A concrete declared base type is also a polymorphic choice in
@@ -287,7 +270,7 @@ public final class VMFTypeUtils {
              List<Type> allTypes = type.reflect().allTypes();
 
              // get all sub types of the type
-             return allTypes.stream().filter(t -> t.superTypes().contains(type)).collect(Collectors.toList());
+             return allTypes.stream().filter(t -> t.isModelSubtypeOf(type)).collect(Collectors.toList());
          } catch (Exception e) {
              return List.of(); // empty list if not found
          }

@@ -61,10 +61,29 @@ public class VMFJsonSchemaGenerator {
      */
     public boolean isReferencesEnabled() { return referencesEnabled; }
 
-    /** All types of the model currently being generated. Captured from the reflectable root so
-     *  subtypes can be resolved even for {@code @InterfaceOnly} element types, which cannot
-     *  reflect on themselves. */
-    private List<Type> allModelTypes = Collections.emptyList();
+    /** One generation run uses the model's own declarations and class loader. */
+    private static final class SchemaTypes {
+        private final ClassLoader loader;
+        private final List<Type> declarations;
+
+        SchemaTypes(ClassLoader loader, List<Type> declarations) {
+            this.loader = loader;
+            this.declarations = declarations;
+        }
+
+        Class<?> load(String name) {
+            try {
+                return Class.forName(name, false, loader);
+            } catch (ClassNotFoundException ex) {
+                throw new IllegalArgumentException("Cannot resolve model property type " + name, ex);
+            }
+        }
+
+        List<Type> concreteSubtypes(Type parent) {
+            return declarations.stream().filter(t -> !t.isInterfaceOnly() && t.isModelSubtypeOf(parent))
+                    .collect(Collectors.toList());
+        }
+    }
 
     /**
      * Adds a type alias to this generator. A type alias maps a short type name to a fully qualified
@@ -224,14 +243,14 @@ public class VMFJsonSchemaGenerator {
 
         // capture the full type list up-front so polymorphic properties can resolve their
         // concrete subtypes even when the declared element type is @InterfaceOnly.
-        this.allModelTypes = type.reflect().allTypes();
+        SchemaTypes types = new SchemaTypes(modelClass.getClassLoader(), type.reflect().allTypes());
 
         VObject prop = createPrototypeIfPossible(modelClass);
 
         int order = 0;
         for (Property property : prop!=null?prop.vmf().reflect().properties():type.reflect().properties()) {
-            if (!isToBeExcludedFromSerialization(property)) {
-                Map<String, Object> propertySchema = getPropertySchema(property);
+            if (!isToBeExcludedFromSerialization(property, types)) {
+                Map<String, Object> propertySchema = getPropertySchema(property, types);
                 // preserve VMF property/traversal order in the generated schema so editors
                 // (and stable test output) render fields in the order they are declared.
                 propertySchema.putIfAbsent("propertyOrder", order);
@@ -240,24 +259,9 @@ public class VMFJsonSchemaGenerator {
             }
         }
 
-        schema.put("definitions", generateDefinitionsForModelRoot(type));
+        schema.put("definitions", generateDefinitionsForModelRoot(types));
 
         return schema;
-    }
-
-    /**
-     * Create an intermediate instance of the model class to get the default values.
-     * @param type the type to create the prototype for
-     * @return the prototype instance
-     */
-    private static VObject createPrototypeIfPossible(Type type) {
-        Class modelClass = null;
-        try {
-            modelClass = Class.forName(type.getName());
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        return createPrototypeIfPossible(modelClass);
     }
 
     /**
@@ -284,15 +288,14 @@ public class VMFJsonSchemaGenerator {
      * @param property the property to generate the schema for
      * @return the generated schema
      */
-    private Map<String, Object> getPropertySchema(Property property) {
+    private Map<String, Object> getPropertySchema(Property property, SchemaTypes types) {
         Map<String, Object> propertySchema = new LinkedHashMap<>();
 
-        if (isToBeExcludedFromSerialization(property)) {
+        if (isToBeExcludedFromSerialization(property, types)) {
             return propertySchema;
-        } else if (referencesEnabled && isIdReference(property)) {
-            Type elementType = VMFTypeUtils.forClass(property.getType().isListType()
-                    ? property.getType().getElementTypeName().get() : property.getType().getName());
-            Map<String, Object> referenceSchema = referenceValueSchema(elementType);
+        } else if (referencesEnabled && isIdReference(property, types)) {
+            Type elementType = VMFTypeUtils.forClass(types.load(property.getType().getElementTypeName().orElse(property.getType().getName())));
+            Map<String, Object> referenceSchema = referenceValueSchema(elementType, types);
             if (property.getType().isListType()) {
                 propertySchema.put("type", "array");
                 propertySchema.put("items", referenceSchema);
@@ -300,16 +303,20 @@ public class VMFJsonSchemaGenerator {
                 propertySchema.putAll(referenceSchema);
             }
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
+        } else if (property.getType().isMapType()) {
+            String valueName = property.getType().getDescriptor().getArguments().get(1).getName();
+            propertySchema.put("type", "object");
+            propertySchema.put("additionalProperties", mapEntrySchema(valueName));
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (isValueType(property.getType())) {
             propertySchema.put("type", mapValueType(property.getType()));
             addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isModelType() && !property.getType().isListType()) {
             // Handle polymorphic types
-            Type elementType = VMFTypeUtils.forClass(property.getType().getName());
+            Type elementType = property.getType();
 
-            if (!subTypesOf(elementType).isEmpty()) {
-
-                var typesToChooseFrom = subTypesOf(elementType);
+            var typesToChooseFrom = types.concreteSubtypes(elementType);
+            if (!typesToChooseFrom.isEmpty()) {
                 typesToChooseFrom.add(elementType);
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
@@ -325,14 +332,12 @@ public class VMFJsonSchemaGenerator {
             Map<String, Object> itemsSchema = new LinkedHashMap<>();
 
             // Handle polymorphic types with oneOf and add @vmf-type as a required property
-            Type elementType = VMFTypeUtils.forClass(property.getType().getElementTypeName().get());
+            Type elementType = VMFTypeUtils.forClass(types.load(property.getType().getElementTypeName().get()));
 
+            var typesToChooseFrom = types.concreteSubtypes(elementType);
             if (isValueType(elementType)) {
                 itemsSchema.put("type", mapValueType(elementType));
-            } else
-            if (!subTypesOf(elementType).isEmpty()) {
-
-                var typesToChooseFrom = subTypesOf(elementType);
+            } else if (!typesToChooseFrom.isEmpty()) {
                 typesToChooseFrom.add(elementType);
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
@@ -357,27 +362,41 @@ public class VMFJsonSchemaGenerator {
     }
 
 
+    private static Map<String, Object> mapEntrySchema(String valueName) {
+        Type type = VMFTypeUtils.forClass(valueName);
+        if (isDouble(type) || isFloat(type)) {
+            // Jackson encodes non-finite numbers as strings under its default settings.
+            return Map.of("anyOf", List.of(Map.of("type", List.of("number", "null")),
+                    Map.of("enum", List.of("NaN", "Infinity", "-Infinity"))));
+        }
+        if (valueName.equals("java.lang.Character")) {
+            return Map.of("type", List.of("string", "null"), "minLength", 1, "maxLength", 1);
+        }
+        String scalar = valueName.equals("java.lang.Byte") ? "integer" : mapValueType(type);
+        return Map.of("type", List.of(scalar, "null"));
+    }
+
     /**
      * Generate definitions for the given type.
-     * @param type the type to generate the definitions for
+     * @param types types declared by this model
      * @return the generated definitions
      */
-    private Map<String, Object> generateDefinitionsForModelRoot(Type type) {
+    private Map<String, Object> generateDefinitionsForModelRoot(SchemaTypes types) {
         Map<String, Object> definitions = new LinkedHashMap<>();
-        for (Type subType : type.reflect().allTypes()) {
+        for (Type subType : types.declarations) {
             if (subType.isInterfaceOnly()) continue;
 
             Map<String, Object> definition = new LinkedHashMap<>();
             definition.put("type", "object");
 
-            VObject propParent = createPrototypeIfPossible(subType);
+            VObject propParent = createPrototypeIfPossible(types.load(subType.getName()).asSubclass(VObject.class));
 
             Map<String, Object> properties = new LinkedHashMap<>();
             if (referencesEnabled) properties.put(VMFReferences.ID_FIELD, idSchema(false));
             int order = 0;
             for (Property property : propParent!=null?propParent.vmf().reflect().properties() : subType.reflect().properties()) {
-                if (!isToBeExcludedFromSerialization(property)) {
-                    Map<String, Object> propertySchema = getPropertySchema(property);
+                if (!isToBeExcludedFromSerialization(property, types)) {
+                    Map<String, Object> propertySchema = getPropertySchema(property, types);
                     propertySchema.putIfAbsent("propertyOrder", order);
                     properties.put(getFieldNameForProperty(property), propertySchema);
                     order++;
@@ -408,39 +427,26 @@ public class VMFJsonSchemaGenerator {
      * @param property the property to check
      * @return {@code true} if the given property should be excluded from serialization, {@code false} otherwise
      */
-    private boolean isToBeExcludedFromSerialization(Property property) {
-        boolean immutableType = false;
-        try {
-            immutableType = isValueType(property.getType()) ||
-                    (
-                            Immutable.class.isAssignableFrom(Class.forName(property.getType().isListType()
-                                    ? property.getType().getElementTypeName().get()
-                                    : property.getType().getName()))
-                    );
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException(e);
-        }
-
+    private boolean isToBeExcludedFromSerialization(Property property, SchemaTypes types) {
+        if (!property.getType().isModelType()) return false;
+        String valueType = property.getType().getElementTypeName().orElse(property.getType().getName());
+        boolean immutableType = Immutable.class.isAssignableFrom(types.load(valueType));
         return property.getType().isModelType() && !immutableType && !VMFTypeUtils.isParentOfPropContainer(property)
                 && !(referencesEnabled && VMFReferences.isReferenceProperty(property));
     }
 
-    private static boolean isIdReference(Property property) {
+    private static boolean isIdReference(Property property, SchemaTypes types) {
         if (!VMFReferences.isReferenceProperty(property)) return false;
         String name = property.getType().isListType()
                 ? property.getType().getElementTypeName().get() : property.getType().getName();
-        try { return !Immutable.class.isAssignableFrom(Class.forName(name)); }
-        catch (ClassNotFoundException ex) { throw new IllegalArgumentException(name, ex); }
+        return !Immutable.class.isAssignableFrom(types.load(name));
     }
 
     /** Runtime immutable implementations of an interface-only reference type
      * are written by value, while mutable implementations are written as ids. */
-    private Map<String, Object> referenceValueSchema(Type declaredType) {
-        List<Map<String, Object>> immutableOptions = subTypesOf(declaredType).stream()
-                .filter(t -> {
-                    try { return Immutable.class.isAssignableFrom(Class.forName(t.getName())); }
-                    catch (ClassNotFoundException ex) { throw new IllegalArgumentException(t.getName(), ex); }
-                })
+    private Map<String, Object> referenceValueSchema(Type declaredType, SchemaTypes types) {
+        List<Map<String, Object>> immutableOptions = types.concreteSubtypes(declaredType).stream()
+                .filter(t -> Immutable.class.isAssignableFrom(types.load(t.getName())))
                 .map(t -> polymorphicOption(getTypeAlias(t)))
                 .collect(Collectors.toList());
         if (immutableOptions.isEmpty()) return idSchema(true);
@@ -529,29 +535,6 @@ public class VMFJsonSchemaGenerator {
     private static String getFieldNameForProperty(Property p) {
         var a = p.annotationByKey("vmf:jackson:rename");
         return a.isPresent() ? a.get().getValue() : p.getName();
-    }
-
-    /**
-     * Resolves the concrete subtypes of {@code elementType} by scanning all types of the model
-     * being generated. Unlike {@link VMFTypeUtils#getSubTypes(Type)} this also works when
-     * {@code elementType} is an {@code @InterfaceOnly} type, which cannot reflect on itself to
-     * discover its subtypes -- the case for polymorphic properties whose declared type is an
-     * interface (e.g. {@code Update[]} implemented by {@code StateUpdate}).
-     *
-     * @param elementType the (possibly interface-only) declared element type
-     * @return the concrete and abstract subtypes of {@code elementType} (mutable list)
-     */
-    private List<Type> subTypesOf(Type elementType) {
-        String name = elementType.getName();
-        List<Type> result = allModelTypes.stream()
-                // interface-only types have no prototype, so superTypes() would throw on them;
-                // they are never instantiable polymorphic choices anyway. A concrete subtype
-                // still reports its interface-only parents by name, so matching stays correct.
-                .filter(t -> !t.isInterfaceOnly())
-                .filter(t -> t.superTypes().stream().anyMatch(s -> s.getName().equals(name)))
-                .collect(Collectors.toList());
-        // fall back to the reflective lookup if the model type list is unavailable
-        return result.isEmpty() ? VMFTypeUtils.getSubTypes(elementType) : result;
     }
 
     /**

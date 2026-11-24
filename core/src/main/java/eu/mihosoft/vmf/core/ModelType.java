@@ -77,6 +77,20 @@ public class ModelType {
     private String customDocumentation="";
 
     private final int typeId;
+    private final GenericModelTypes genericTypes;
+    private final List<String> parameterizedSuperTypes;
+
+    public String appliedNameOf(ModelType supertype) {
+        return supertype.getTypeName() + genericTypes.argumentsOf(supertype.genericTypes);
+    }
+
+    public String getWildcardArguments() { return genericTypes.wildcards(); }
+
+    public String getTypeParameters() { return genericTypes.parameters(true); }
+    public String getTypeArguments() { return genericTypes.parameters(false); }
+    public List<String> getParameterizedSuperTypes() { return parameterizedSuperTypes; }
+    public boolean hasParameterizedSuperTypes() { return !parameterizedSuperTypes.equals(implementsList); }
+    GenericModelTypes genericTypes() { return genericTypes; }
 
     private final List<DelegationInfo> delegations = new ArrayList<>();
     private final List<DelegationInfo> methodDelegations = new ArrayList<>();
@@ -122,6 +136,10 @@ public class ModelType {
 
     private ModelType(Model model, Class<?> clazz, int typeId) {
         this.model = model;
+        this.genericTypes = new GenericModelTypes(model, clazz);
+        this.parameterizedSuperTypes = Arrays.stream(clazz.getInterfaces())
+                .map(c -> model.convertModelTypeToDestination(c) + genericTypes.metadataArguments(c))
+                .collect(Collectors.toUnmodifiableList());
 
         this.packageName = model.getPackageName();
 
@@ -305,6 +323,10 @@ public class ModelType {
         }
 
         for(Method m : list) {
+            if (GenericModelTypes.containsParameter(m.getGenericReturnType())
+                    || Arrays.stream(m.getGenericParameterTypes()).anyMatch(GenericModelTypes::containsParameter)) {
+                throw new IllegalArgumentException("Type parameters in delegated method signatures are unsupported: " + m);
+            }
             DelegationInfo d = DelegationInfo.newInstance(model, m, cD);
 
             if((d.isExclusivelyForInterfaceOnlyTypes() && isInterfaceOnly())||!d.getFullTypeName().isEmpty()) {
@@ -486,14 +508,14 @@ public class ModelType {
         return implementz;
     }
 
-    private static String generateImplementsString(Model model, Class<?> clazz) {
+    private String generateImplementsString(Model model, Class<?> clazz) {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
 
             String ifsName = model.convertModelTypeToDestination(ifs);
 
             if (ifsName.startsWith(model.getPackageName())) {
-                ext3nds.add(ifsName);
+                ext3nds.add(ifsName + genericTypes.arguments(ifs));
             }
         }
 
@@ -515,7 +537,7 @@ public class ModelType {
     }
 
 
-    private static String generateVmfTypeIfaceImplementsString(Model model, Class<?> clazz) {
+    private String generateVmfTypeIfaceImplementsString(Model model, Class<?> clazz) {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
 
@@ -525,11 +547,11 @@ public class ModelType {
             boolean ifsIsInterfaceOnly = ifs.getAnnotation(InterfaceOnly.class) != null;
 
             if (!ifsIsImmutable && ifsName.startsWith(model.getPackageName())) {
-                ext3nds.add("__VMF_TYPE_"+ifs.getSimpleName()+"Impl");
+                ext3nds.add("__VMF_TYPE_" + ifs.getSimpleName() + "Impl" + genericTypes.arguments(ifs));
             }
 
 //            if (!ifsIsImmutable && !ifsIsInterfaceOnly && ifsName.startsWith(model.getPackageName())) {
-//                ext3nds.add("__VMF_TYPE_"+ifs.getSimpleName()+"Impl");
+//                ext3nds.add("__VMF_TYPE_" + ifs.getSimpleName() + "Impl" + genericTypes.arguments(ifs));
 //            }
         }
 
@@ -550,14 +572,14 @@ public class ModelType {
         return String.join(",", ext3nds);
     }
 
-    private static String generateReadOnlyImplementsString(Model model, Class<?> clazz) {
+    private String generateReadOnlyImplementsString(Model model, Class<?> clazz) {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
 
             String ifsName = model.convertModelTypeToDestination(ifs);
 
             if (ifsName.startsWith(model.getPackageName())) {
-                ext3nds.add("ReadOnly" + ifs.getSimpleName());
+                ext3nds.add("ReadOnly" + ifs.getSimpleName() + genericTypes.arguments(ifs));
             }
         }
 
@@ -565,7 +587,7 @@ public class ModelType {
     }
 
 
-    private static String generateImmutableImplementsString(Model model, Class<?> clazz) {
+    private String generateImmutableImplementsString(Model model, Class<?> clazz) {
         List<String> ext3nds = new ArrayList<String>();
         for (Class<?> ifs : clazz.getInterfaces()) {
 
@@ -573,9 +595,9 @@ public class ModelType {
 
             if (ifsName.startsWith(model.getPackageName())) {
                 if (ifs.getAnnotation(Immutable.class) != null) {
-                    ext3nds.add("" + ifs.getSimpleName());
+                    ext3nds.add(ifs.getSimpleName() + genericTypes.arguments(ifs));
                 } else {
-                    ext3nds.add("ReadOnly" + ifs.getSimpleName());
+                    ext3nds.add("ReadOnly" + ifs.getSimpleName() + genericTypes.arguments(ifs));
                 }
             }
         }
@@ -785,27 +807,16 @@ public class ModelType {
         return iFaceOnlyWithGettersOnly;        
     }
 
-    private static final Map<String, String> primitiveToBoxedTypeNames = new HashMap<>();
+    private static final Map<String, String> primitiveToBoxedTypeNames = Map.of(
+            "int", "Integer", "long", "Long", "float", "Float", "double", "Double",
+            "boolean", "Boolean", "char", "Character", "byte", "Byte", "short", "Short", "void", "Void");
 
     public static boolean isPrimitiveType(String typeName) {
         return primitiveToBoxedTypeNames.containsKey(typeName);
     }
 
     public static String primitiveToBoxedType(String typeName) {
-
-        if (primitiveToBoxedTypeNames.isEmpty()) {
-            primitiveToBoxedTypeNames.put("int", Integer.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("long", Integer.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("float", Float.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("double", Double.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("boolean", Boolean.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("char", Character.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("byte", Byte.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("void", Void.class.getSimpleName());
-            primitiveToBoxedTypeNames.put("short", Short.class.getSimpleName());
-        }
-
-        return primitiveToBoxedTypeNames.containsKey(typeName) ? primitiveToBoxedTypeNames.get(typeName) : typeName;
+        return primitiveToBoxedTypeNames.getOrDefault(typeName, typeName);
     }
 
     public Interface getInterface() {

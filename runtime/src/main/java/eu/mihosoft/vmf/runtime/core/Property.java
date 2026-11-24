@@ -24,6 +24,7 @@
 package eu.mihosoft.vmf.runtime.core;
 
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
+import eu.mihosoft.vmf.runtime.core.internal.TypeMetadataProvider;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 import vjavax.observer.Subscription;
 
@@ -112,8 +113,9 @@ public final class Property {
         this.staticOnly = staticOnly;
         this.propertyId = parent._vmf_getPropertyIdByName(name);
 
-        boolean isModelType = parent._vmf_getPropertyTypes()[propertyId] != -1;
-        boolean isListType = parent._vmf_getPropertyTypes()[propertyId] == -2;
+        int typeId = parent._vmf_getPropertyTypes()[propertyId];
+        boolean isModelType = typeId >= 0;
+        boolean isListType = typeId == -2;
 
         // if we are a list type we check whether this property id is listed as
         // being part of 'properties with model element types' array
@@ -130,21 +132,14 @@ public final class Property {
 
         String typeName = parent._vmf_getPropertyTypeNames()[propertyId];
         try {
-            if (isListType) {
-                this.type = Type.newInstance(isModelType, isListType, false, typeName,
-                        loadPropertyClass("eu.mihosoft.vcollections.VList"));
-            } else if (isPrimitiveType(typeName)) {
-                this.type = Type.newInstance(isModelType, isListType, false, typeName, getClassObjectByName(typeName));
-            } else {
-                var tClass = loadPropertyClass(typeName);
-
-                // check if tClass implements Mutable or Immutable interfaces:
-                var isMutable = Mutable.class.isAssignableFrom(tClass);
-                var isImmutable = Immutable.class.isAssignableFrom(tClass);
-
-                boolean isInterfaceOnlyType = isModelType && !isMutable && !isImmutable;
-                this.type = Type.newInstance(isModelType, isListType, isInterfaceOnlyType, typeName, tClass);
-            }
+            TypeDescriptor descriptor = parent instanceof TypeMetadataProvider
+                    ? ((TypeMetadataProvider) parent)._vmf_getPropertyTypeDescriptor(propertyId)
+                    : TypeDescriptor.fromTypeName(typeName);
+            Class<?> javaClass = isPrimitiveType(typeName) ? getClassObjectByName(typeName)
+                    : loadPropertyClass(descriptor.getName());
+            boolean interfaceOnly = isModelType && !isListType && !Mutable.class.isAssignableFrom(javaClass)
+                    && !Immutable.class.isAssignableFrom(javaClass);
+            this.type = Type.propertyType(isModelType, isListType, interfaceOnly, typeName, javaClass, descriptor);
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(
                     "Cannot load property type class of type '"

@@ -65,7 +65,7 @@ import java.util.function.Function;
  * {@code checkpoint} and {@code sequence}, and a {@code transactions} array.
  * Each transaction contains its {@code sequence} and an ordered {@code operations} array.
  *
- * <p>Each operation contains {@code kind}, {@code target}, {@code property},
+ * <p>Each scalar or list operation contains {@code kind}, {@code target}, {@code property},
  * {@code indices}, {@code before}, {@code after}, and {@code created}. A creation
  * contains its {@code id}, {@code type}, and {@code properties}, an object keyed
  * by property name with an ordered array of values for each property. Each value
@@ -76,6 +76,11 @@ import java.util.function.Function;
  * identifying the binding's value codec. This class preserves the codec ID
  * and text for replay. YAML uses the same maps and sequences as JSON. XML projects
  * the same records onto elements with explicit list wrappers.
+ *
+ * <p>Version 3 represents a managed map edit with {@code kind=MAP_EDIT}, {@code target},
+ * {@code property}, {@code beforeEntries}, and {@code afterEntries}. Entry arrays hold a
+ * string {@code key} and tagged scalar {@code value}. Creation records additionally
+ * store each managed map as a named entry array in {@code mapProperties}.
  *
  * <p>The writer uses fixed field order and sorts the keys of creation properties.
  * The JSON writer also escapes non-ASCII text. The reader accepts fields in any
@@ -111,6 +116,8 @@ public final class VMFJournalCodec {
     private static final Set<String> BASE_FIELDS = Set.of("checkpoint", "sequence");
     private static final Set<String> FRAME_FIELDS = Set.of("sequence", "operations");
     private static final Set<String> OPERATION_FIELDS = Set.of("kind", "target", "property", "indices", "before", "after", "created");
+    private static final Set<String> MAP_EDIT_FIELDS = Set.of("kind", "target", "property", "beforeEntries", "afterEntries");
+    private static final Set<String> MAP_CREATION_FIELDS = Set.of("id", "type", "properties", "mapProperties");
     private static final Set<String> CREATION_FIELDS = Set.of("id", "type", "properties");
     private static final Set<String> VALUE_FIELDS = Set.of("kind", "text");
     private static final Set<String> EXTERNAL_VALUE_FIELDS = Set.of("kind", "text", "codec");
@@ -214,7 +221,7 @@ public final class VMFJournalCodec {
         String format = text(envelope.get("format"), "$.format");
         if (!ChangeJournal.FORMAT.equals(format)) throw invalid("$.format", "unsupported journal format " + format);
         int version = integer(envelope.get("version"), "$.version");
-        if (version != ChangeJournal.VERSION && version != ChangeJournal.EXTERNAL_VALUES_VERSION) {
+        if (version < ChangeJournal.VERSION || version > ChangeJournal.MAPS_VERSION) {
             throw invalid("$.version", "unsupported journal version " + version);
         }
         fields(envelope, "$", ENVELOPE_FIELDS);
@@ -227,7 +234,7 @@ public final class VMFJournalCodec {
                     longInteger(base.get("sequence"), "$.base.sequence"),
                     readArray(envelope.get("transactions"), "$.transactions", VMFJournalCodec::readFrame));
             if (journal.wireVersion() > version) {
-                throw invalid("$.version", "external values require journal version " + journal.wireVersion());
+                throw invalid("$.version", "records require journal version " + journal.wireVersion());
             }
             return journal;
         } catch (IllegalArgumentException | ArithmeticException exception) {
@@ -278,6 +285,11 @@ public final class VMFJournalCodec {
     private static ObjectNode writeOperation(Operation operation) {
         ObjectNode node = NODES.objectNode().put("kind", operation.kind().name())
                 .put("target", operation.target()).put("property", operation.property());
+        if (operation.kind() == Kind.MAP_EDIT) {
+            node.set("beforeEntries", writeEntries(operation.beforeEntries()));
+            node.set("afterEntries", writeEntries(operation.afterEntries()));
+            return node;
+        }
         node.set("indices", writeArray(operation.indices(), index -> NODES.numberNode(index.intValue())));
         node.set("before", writeArray(operation.before(), VMFJournalCodec::writeValue));
         node.set("after", writeArray(operation.after(), VMFJournalCodec::writeValue));
@@ -291,7 +303,18 @@ public final class VMFJournalCodec {
         new TreeMap<>(creation.properties()).forEach((name, values) ->
                 properties.set(name, writeArray(values, VMFJournalCodec::writeValue)));
         node.set("properties", properties);
+        if (!creation.mapProperties().isEmpty()) {
+            ArrayNode maps = node.putArray("mapProperties");
+            new TreeMap<>(creation.mapProperties()).forEach((name, entries) ->
+                    maps.addObject().put("name", name).set("entries", writeEntries(entries)));
+        }
         return node;
+    }
+
+    private static ArrayNode writeEntries(Map<String, Value> entries) {
+        ArrayNode array = NODES.arrayNode();
+        entries.forEach((key, value) -> array.addObject().put("key", key).set("value", writeValue(value)));
+        return array;
     }
 
     private static ObjectNode writeValue(Value value) {
@@ -313,8 +336,17 @@ public final class VMFJournalCodec {
     }
 
     private static Operation readOperation(JsonNode json, String path) throws IOException {
-        ObjectNode node = object(json, path, OPERATION_FIELDS);
-        return new Operation(kind(Kind.class, node.get("kind"), path, ".kind"),
+        ObjectNode node = object(json, path);
+        Kind kind = kind(Kind.class, node.get("kind"), path, ".kind");
+        if (kind == Kind.MAP_EDIT) {
+            fields(node, path, MAP_EDIT_FIELDS);
+            return Operation.mapEdit(text(node.get("target"), path, ".target"),
+                    text(node.get("property"), path, ".property"),
+                    readEntries(node.get("beforeEntries"), path + ".beforeEntries"),
+                    readEntries(node.get("afterEntries"), path + ".afterEntries"));
+        }
+        fields(node, path, OPERATION_FIELDS);
+        return new Operation(kind,
                 text(node.get("target"), path, ".target"), text(node.get("property"), path, ".property"),
                 readArray(node.get("indices"), path + ".indices", VMFJournalCodec::integer),
                 readArray(node.get("before"), path + ".before", VMFJournalCodec::readValue),
@@ -323,7 +355,8 @@ public final class VMFJournalCodec {
     }
 
     private static Creation readCreation(JsonNode json, String path) throws IOException {
-        ObjectNode node = object(json, path, CREATION_FIELDS);
+        ObjectNode node = object(json, path);
+        fields(node, path, node.has("mapProperties") ? MAP_CREATION_FIELDS : CREATION_FIELDS);
         ObjectNode properties = object(node.get("properties"), path + ".properties");
         Map<String, List<Value>> values = new LinkedHashMap<>();
         var entries = properties.fields();
@@ -332,7 +365,32 @@ public final class VMFJournalCodec {
             values.put(entry.getKey(), readArray(entry.getValue(), path + ".properties." + entry.getKey(),
                     VMFJournalCodec::readValue));
         }
-        return new Creation(text(node.get("id"), path, ".id"), text(node.get("type"), path, ".type"), values);
+        Map<String, Map<String, Value>> maps = Map.of();
+        if (node.has("mapProperties")) {
+            maps = readNamedEntries(node.get("mapProperties"), path + ".mapProperties",
+                    "name", "entries", VMFJournalCodec::readEntries);
+            if (maps.isEmpty()) throw invalid(path + ".mapProperties", "expected at least one map property");
+        }
+        return new Creation(text(node.get("id"), path, ".id"), text(node.get("type"), path, ".type"), values, maps);
+    }
+
+    private static Map<String, Value> readEntries(JsonNode node, String path) throws IOException {
+        return readNamedEntries(node, path, "key", "value", VMFJournalCodec::readValue);
+    }
+
+    private static <T> Map<String, T> readNamedEntries(JsonNode node, String path, String keyField,
+                                                       String valueField, Reader<T> reader) throws IOException {
+        if (node == null || !node.isArray()) throw invalid(path, "expected an array");
+        Map<String, T> result = new LinkedHashMap<>();
+        Set<String> expected = Set.of(keyField, valueField);
+        for (int index = 0; index < node.size(); index++) {
+            String itemPath = path + "[" + index + "]";
+            ObjectNode entry = object(node.get(index), itemPath, expected);
+            String key = text(entry.get(keyField), itemPath + "." + keyField);
+            if (result.containsKey(key)) throw invalid(itemPath, "duplicate " + keyField);
+            result.put(key, reader.read(entry.get(valueField), itemPath + "." + valueField));
+        }
+        return result;
     }
 
     private static Value readValue(JsonNode json, String path) throws IOException {

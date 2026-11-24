@@ -451,7 +451,10 @@ public class VMFJacksonModule extends SimpleModule {
 
                 BuilderPlan plan = BUILDER_PLANS.get(actualClass);
                 Object builder = plan.newInstance.invoke(null);
-                Map<String, Method> methodMap = plan.fieldMethods();
+                Map<String, BuilderSetter> methodMap = plan.fieldMethods();
+                // Nested objects can arrive through a tree parser. Its codec still identifies
+                // the originating mapper, including when its XML input has already been buffered.
+                boolean xmlMapEntries = p.getCodec() != null && "XML".equals(p.getCodec().getFactory().getFormatName());
 
                 // Iterate over JSON fields and invoke corresponding builder methods
                 node.fields().forEachRemaining(entry -> {
@@ -474,7 +477,8 @@ public class VMFJacksonModule extends SimpleModule {
 
                     // check if we have a method for the field
                     if (methodMap.containsKey(fieldName)) {
-                        Method method = methodMap.get(fieldName);
+                        BuilderSetter setter = methodMap.get(fieldName);
+                        Method method = setter.method;
                         try {
                             // Determine the parameter type
                             Class<?> paramType = method.getParameterTypes()[0];
@@ -523,6 +527,14 @@ public class VMFJacksonModule extends SimpleModule {
                                 }
                                 // Invoke the builder method
                                 method.invoke(builder, collection);
+                            } else if (Map.class.isAssignableFrom(paramType)
+                                    && method.getGenericParameterTypes()[0] instanceof ParameterizedType) {
+                                JavaType declaredType = ctxt.getTypeFactory().constructType(method.getGenericParameterTypes()[0]);
+                                if (xmlMapEntries && setter.property != null && setter.property.getType().isMapType()) {
+                                    method.invoke(builder, ManagedMapXml.read(value, declaredType.getContentType(), ctxt));
+                                } else {
+                                    method.invoke(builder, (Object) ctxt.readTreeAsValue(value, declaredType));
+                                }
                             } else {
                                 // Scalar model properties need the same polymorphic type
                                 // resolution as collection elements, including immutable
@@ -672,8 +684,8 @@ public class VMFJacksonModule extends SimpleModule {
                 return name.substring(4, 5).toLowerCase(locale) + name.substring(5);
             }
 
-            private Map<String, Method> fieldMethods() throws ReflectiveOperationException {
-                Map<String, Method> result = new HashMap<>();
+            private Map<String, BuilderSetter> fieldMethods() throws ReflectiveOperationException {
+                Map<String, BuilderSetter> result = new HashMap<>();
                 Locale locale = Locale.getDefault();
                 boolean useDescribedFields = describedLocale.equals(locale);
                 for (BuilderSetter setter : setters) {
@@ -686,7 +698,7 @@ public class VMFJacksonModule extends SimpleModule {
                     }
                     // Read the current annotations because generated reflection exposes them.
                     if (property != null) name = VMFTypeUtils.getFieldNameForProperty(property);
-                    result.put(name, setter.method);
+                    result.put(name, setter.property == property ? setter : new BuilderSetter(setter.method, name, property));
                 }
                 return result;
             }
@@ -774,10 +786,10 @@ public class VMFJacksonModule extends SimpleModule {
             }
 
             try {
-                return Class.forName(type);
+                return actualClass != null && isVMFObj(actualClass)
+                        ? Class.forName(type, false, actualClass.getClassLoader()) : Class.forName(type);
             } catch (ClassNotFoundException e) {
-                e.printStackTrace();
-                throw new RuntimeException(e);
+                throw JsonMappingException.from(p, "Cannot resolve VMF type '" + type + "'", e);
             }
         }
 
@@ -956,7 +968,12 @@ public class VMFJacksonModule extends SimpleModule {
                         || !p.getType().isModelType()
                         || propValue instanceof eu.mihosoft.vmf.runtime.core.Immutable) {
                     gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
-                    gen.writeObject(propValue);
+                    if (p.getType().isMapType()
+                            && isInstanceOf(gen, "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator")) {
+                        ManagedMapXml.write((Map<?, ?>) propValue, gen);
+                    } else {
+                        gen.writeObject(propValue);
+                    }
                 } else if (session != null && VMFReferences.isReferenceProperty(p)) {
                     // non-containment reference (references enabled): ids instead of objects
                     gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));

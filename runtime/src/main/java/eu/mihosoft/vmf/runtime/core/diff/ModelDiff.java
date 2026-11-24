@@ -3,6 +3,7 @@ package eu.mihosoft.vmf.runtime.core.diff;
 import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vcollections.VListChangeEvent;
 import eu.mihosoft.vmf.runtime.core.*;
+import eu.mihosoft.vmf.runtime.core.internal.ManagedMaps;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 
 import java.util.*;
@@ -142,7 +143,17 @@ public final class ModelDiff {
             Object va = pa.get();
             Object vb = pb.get();
 
-            if(!pa.getType().isListType()) {
+            if (pa.getType().isMapType()) {
+                if (!pa.getType().getDescriptor().equals(pb.getType().getDescriptor())) {
+                    throw new IllegalArgumentException("Incompatible managed map property " + pa.getName());
+                }
+                if (!Objects.equals(va, vb)) {
+                    // Generated setters update this map in place. The diff must own both snapshots.
+                    out.add(new PropChange(source, a, pa.getName(),
+                            ManagedMaps.snapshot((Map<?, ?>) va, Object.class),
+                            ManagedMaps.snapshot((Map<?, ?>) vb, Object.class), System.nanoTime()));
+                }
+            } else if(!pa.getType().isListType()) {
                 if(pa.getType().isModelType()) {
                     if(va == null && vb == null) {
                         continue;

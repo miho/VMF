@@ -37,7 +37,7 @@ package ${packageName};
 public final class ${modelName}Model__VMF_API {
 
     /** Internal marker for generated objects that use this model's type IDs. */
-    public interface ObjectInternal extends ${VMFPKG_INT}.VObjectInternal {}
+    public interface ObjectInternal extends ${VMFPKG_INT}.TypeMetadataProvider {}
 
     private ${modelName}Model__VMF_API() {
         throw new AssertionError("Don't instantiate me!");

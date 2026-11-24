@@ -57,12 +57,15 @@ import java.util.regex.Pattern;
 /** Projects the journal envelope onto XML before the common wire validation runs. */
 final class VMFJournalXml {
     private static final JsonNodeFactory NODES = JsonNodeFactory.instance;
-    private static final Map<String, String> ARRAY_ENTRIES = Map.of(
-            "transactions", "transaction", "operations", "operation", "indices", "index",
-            "before", "value", "after", "value", "created", "creation", "values", "value");
-    private static final Set<String> OBJECTS = Set.of("model", "base", "transaction", "operation", "creation", "value");
+    private static final Map<String, String> ARRAY_ENTRIES = Map.ofEntries(
+            Map.entry("transactions", "transaction"), Map.entry("operations", "operation"), Map.entry("indices", "index"),
+            Map.entry("before", "value"), Map.entry("after", "value"), Map.entry("created", "creation"),
+            Map.entry("values", "value"), Map.entry("beforeEntries", "entry"), Map.entry("afterEntries", "entry"),
+            Map.entry("entries", "entry"), Map.entry("mapProperties", "mapProperty"));
+    private static final Set<String> OBJECTS = Set.of("model", "base", "transaction", "operation", "creation", "value",
+            "entry", "mapProperty");
     private static final Set<String> TEXT = Set.of("id", "root", "checkpoint", "kind", "target", "property",
-            "type", "name", "codec", "text");
+            "type", "name", "codec", "text", "key");
     private static final Set<String> NUMBERS = Set.of("version", "sequence", "index");
     private static final Pattern INTEGER = Pattern.compile("-?(0|[1-9][0-9]{0,18})");
 
@@ -125,7 +128,7 @@ final class VMFJournalXml {
         output.writeEndElement();
     }
 
-    private static boolean preservesAsXmlText(int codePoint) {
+    static boolean preservesAsXmlText(int codePoint) {
         // XML normalizes literal carriage returns and disallows some otherwise valid journal characters.
         return codePoint == '\t' || codePoint == '\n'
                 || (codePoint >= 0x20 && codePoint <= 0xd7ff)

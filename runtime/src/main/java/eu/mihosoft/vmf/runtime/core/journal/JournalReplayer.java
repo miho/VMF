@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -128,6 +129,7 @@ public final class JournalReplayer {
         VObject object = object(creation.id());
         creation.properties().forEach((key, values) -> {
             Property property = JournalSupport.property(object, key, binding);
+            require(!property.getType().isMapType(), "Map property requires keyed entries for " + key);
             if (property.getType().isModelType() != modelProperties) return;
             List<Object> decoded = decode(property, propertyClass(object, property), values);
             if (property.getType().isListType()) {
@@ -143,11 +145,30 @@ public final class JournalReplayer {
                 require(sameValue(property.get(), decoded.get(0)), "Failed to initialize " + key);
             }
         });
+        if (!modelProperties) {
+            creation.mapProperties().forEach((key, entries) -> {
+                Property property = JournalSupport.property(object, key, binding);
+                require(property.getType().isMapType(), "Expected a managed map for " + key);
+                var decoded = decodeEntries(property, propertyClass(object, property), entries);
+                var map = map(property);
+                if (!JournalSupport.sameMap(decoded, map)) {
+                    map.clear();
+                    map.putAll(decoded);
+                }
+                require(JournalSupport.sameMap(decoded, map), "Failed to initialize map " + key);
+            });
+        }
     }
 
     private void apply(Operation operation) {
         VObject target = object(operation.target());
         Property property = JournalSupport.property(target, operation.property(), binding);
+        if (property.getType().isMapType()) {
+            require(operation.kind() == ChangeJournal.Kind.MAP_EDIT, "Expected a map edit for " + property.getName());
+            applyMap(target, property, operation);
+            return;
+        }
+        require(operation.kind() != ChangeJournal.Kind.MAP_EDIT, "Expected a managed map for " + property.getName());
         operation.created().forEach(this::allocate);
         Class<?> type = propertyClass(target, property);
         List<Object> before = decode(property, type, operation.before());
@@ -170,6 +191,40 @@ public final class JournalReplayer {
         } else {
             require(sameValue(property.get(), expected), "Value result differs for " + operation.property());
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> map(Property property) {
+        return (Map<String, Object>) property.get();
+    }
+
+    private void applyMap(VObject target, Property property, Operation operation) {
+        var map = map(property);
+        var type = propertyClass(target, property);
+        var before = decodeEntries(property, type, operation.beforeEntries());
+        var after = decodeEntries(property, type, operation.afterEntries());
+        // Verify the entire edit before touching the map, including absence for new keys.
+        before.forEach((key, value) -> require(map.containsKey(key) && Objects.equals(map.get(key), value),
+                "Map precondition differs for " + property.getName() + "[" + key + "]"));
+        after.keySet().forEach(key -> require(before.containsKey(key) || !map.containsKey(key),
+                "Map key already exists for " + property.getName() + "[" + key + "]"));
+
+        Map<String, Object> expected = new LinkedHashMap<>(map);
+        for (String key : before.keySet()) {
+            if (!after.containsKey(key)) {
+                expected.remove(key);
+                map.remove(key);
+            }
+        }
+        expected.putAll(after);
+        map.putAll(after);
+        require(JournalSupport.sameMap(expected, map), "Map result differs for " + property.getName());
+    }
+
+    private Map<String, Object> decodeEntries(Property property, Class<?> type, Map<String, Value> entries) {
+        Map<String, Object> decoded = new LinkedHashMap<>();
+        entries.forEach((key, value) -> decoded.put(key, decodeValue(property, type, value)));
+        return decoded;
     }
 
     private List<Object> applyList(Property property, Operation operation, List<Object> before, List<Object> after) {
@@ -223,7 +278,9 @@ public final class JournalReplayer {
     }
 
     private static Class<?> propertyClass(VObject target, Property property) {
-        String typeName = property.getType().getElementTypeName().orElse(property.getType().getName());
+        var declared = property.getType();
+        String typeName = declared.isMapType() ? declared.getDescriptor().getArguments().get(1).getName()
+                : declared.getElementTypeName().orElse(declared.getName());
         Class<?> type = PRIMITIVES.get(typeName);
         if (type != null) return type;
         try {
@@ -235,21 +292,22 @@ public final class JournalReplayer {
 
     private List<Object> decode(Property property, Class<?> type, List<Value> values) {
         if (values.isEmpty()) return List.of();
-        Class<?> boxed = BOXES.getOrDefault(type, type);
         List<Object> result = new ArrayList<>(values.size());
-        for (Value value : values) {
-            Object decoded;
-            switch (value.kind()) {
-                case REFERENCE: decoded = object(value.text()); break;
-                case EXTERNAL: decoded = binding.valueCodecs().decode(value); break;
-                default: decoded = JournalSupport.decodeScalar(value.kind(), value.text());
-            }
-            if (decoded == null ? type.isPrimitive() : !boxed.isInstance(decoded)) {
-                throw new IllegalArgumentException("Journal value has the wrong type for " + property.getName());
-            }
-            result.add(decoded);
-        }
+        for (Value value : values) result.add(decodeValue(property, type, value));
         return result;
+    }
+
+    private Object decodeValue(Property property, Class<?> type, Value value) {
+        Object decoded;
+        switch (value.kind()) {
+            case REFERENCE: decoded = object(value.text()); break;
+            case EXTERNAL: decoded = binding.valueCodecs().decode(value); break;
+            default: decoded = JournalSupport.decodeScalar(value.kind(), value.text());
+        }
+        if (decoded == null ? type.isPrimitive() : !BOXES.getOrDefault(type, type).isInstance(decoded)) {
+            throw new IllegalArgumentException("Journal value has the wrong type for " + property.getName());
+        }
+        return decoded;
     }
 
     private static boolean sameList(List<?> left, List<?> right) {

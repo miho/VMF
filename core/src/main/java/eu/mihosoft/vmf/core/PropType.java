@@ -32,5 +32,6 @@ package eu.mihosoft.vmf.core;
 public enum PropType {
     PRIMITIVE,
     CLASS,
-    COLLECTION
+    COLLECTION,
+    MAP
 }

@@ -2,16 +2,43 @@ package eu.mihosoft.vmftest.diff;
 
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.diff.ModelDiff;
+import eu.mihosoft.vmftest.managedmap.ManagedSettings;
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Tests for the simple diff/merge utility.
  */
 public class ModelDiffTest {
+
+    @Test
+    public void managedMapDiffOwnsItsSnapshotsForApplyAndUndo() {
+        ManagedSettings source = ManagedSettings.newInstance();
+        var scores = source.getScores();
+        scores.put("missing", null);
+        ManagedSettings desired = source.clone();
+        desired.getScores().clear();
+        desired.getScores().put("rating", 3.0);
+        List<Change> diff = ModelDiff.diff(source, desired);
+        Assert.assertEquals(1, diff.size());
+
+        desired.getScores().put("rating", 4.0);
+        scores.put("later edit", 2.0);
+        ModelDiff.apply(source, diff);
+        Assert.assertSame(scores, source.getScores());
+        Assert.assertEquals(Map.of("rating", 3.0), scores);
+        Assert.assertTrue(diff.get(0).isUndoable());
+
+        diff.get(0).undo();
+        Assert.assertEquals(1, scores.size());
+        Assert.assertTrue(scores.containsKey("missing"));
+        Assert.assertNull(scores.get("missing"));
+        Assert.assertEquals(Map.of("rating", 4.0), desired.getScores());
+    }
 
     @Test
     public void testSimplePropertyDiff() {

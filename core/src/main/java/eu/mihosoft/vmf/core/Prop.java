@@ -24,6 +24,9 @@
 package eu.mihosoft.vmf.core;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.ParameterizedType;
@@ -96,6 +99,11 @@ public class Prop {
     private String genericPackageName;
     private String genericTypeName;
     private CollectionType collectionType;
+    private String mapValueTypeName;
+    private String nestedBinaryName;
+    private static final String VMAP_NAME = "eu.mihosoft.vcollections.VMap";
+    private static final Set<Class<?>> MAP_VALUE_TYPES = Set.of(String.class, Boolean.class, Byte.class,
+            Short.class, Integer.class, Long.class, Float.class, Double.class, Character.class);
     private boolean getterOnly;
     private boolean readOnly;
 
@@ -145,16 +153,87 @@ public class Prop {
         this.ignoredForToString = other.ignoredForToString;
         this.getterPrefix = other.getterPrefix;
         this.propType = other.propType;
+        this.genericParameter = other.genericParameter;
         this.type = other.type;
         this.genericPackageName = other.genericPackageName;
         this.genericTypeName = other.genericTypeName;
         this.collectionType = other.collectionType;
+        this.mapValueTypeName = other.mapValueTypeName;
+        this.nestedBinaryName = other.nestedBinaryName;
         this.getterOnly = other.getterOnly;
         this.readOnly = other.readOnly;
         this.defaultValueAsString = other.defaultValueAsString;
         this.annotations.addAll(other.getAnnotations());
         this.propId = other.propId;
         this.customDocumentation=other.getCustomDocumentation();
+    }
+
+    Prop inheritedBy(ModelType owner) {
+        Prop copy = new Prop(this);
+        if (genericParameter != null) copy.setParameterType(owner);
+        return copy;
+    }
+
+    private TypeVariable<?> genericParameter;
+
+    private void setParameterType(ModelType owner) {
+        GenericModelTypes types = owner.genericTypes();
+        Type resolved = types.resolve(genericParameter);
+        String name = types.name(resolved);
+        captureNestedBinaryName(resolved);
+        type = null;
+        if (isMapType()) {
+            setMapValueType(resolved, owner);
+        } else if (isCollectionType()) {
+            initListType(name);
+        } else {
+            int separator = name.lastIndexOf('.');
+            packageName = separator < 0 ? "" : name.substring(0, separator);
+            simpleTypeName = name.substring(separator + 1);
+            typeName = name;
+        }
+    }
+
+    private void initListType(String elementName) {
+        int separator = elementName.lastIndexOf('.');
+        genericPackageName = separator < 0 ? "" : elementName.substring(0, separator);
+        genericTypeName = elementName.substring(separator + 1);
+        propType = PropType.COLLECTION;
+        collectionType = CollectionType.LIST;
+        packageName = PRIVATE_LIST_TYPE_PKG_NAME;
+        simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG + "<" + elementName + ">";
+        typeName = PRIVATE_LIST_TYPE_WITH_PKG + "<" + elementName + ">";
+    }
+
+    private void rejectGenericModelProperty(Method method, Class<?> type) {
+        if (type.getTypeParameters().length != 0 && type.getPackageName().equals(method.getDeclaringClass().getPackageName())
+                && !type.isAnnotationPresent(ExternalType.class)) {
+            throw GenericModelTypes.unsupportedProperty(method, "use a named specialization of " + type.getTypeName());
+        }
+    }
+
+    private static TypeVariable<?> propertyParameter(Method getter) {
+        Type type = getter.getGenericReturnType();
+        if (getter.getTypeParameters().length > 0) {
+            throw GenericModelTypes.unsupportedProperty(getter, "declare type parameters on the model interface");
+        }
+        // Managed maps validate both their key and value arguments together.
+        if (VMAP_NAME.equals(getter.getReturnType().getName())) return null;
+        if (type instanceof GenericArrayType) type = ((GenericArrayType) type).getGenericComponentType();
+        if (type instanceof ParameterizedType && List.class.isAssignableFrom(getter.getReturnType())) {
+            type = ((ParameterizedType) type).getActualTypeArguments()[0];
+        }
+        if (type instanceof TypeVariable<?>) {
+            if (getter.isAnnotationPresent(Contains.class) || getter.isAnnotationPresent(Container.class)
+                    || getter.isAnnotationPresent(Refers.class) || getter.isAnnotationPresent(SyncWith.class)) {
+                throw GenericModelTypes.unsupportedProperty(getter, "generic value properties cannot declare model relationships");
+            }
+            return (TypeVariable<?>) type;
+        }
+        if (GenericModelTypes.containsParameter(type)) {
+            throw GenericModelTypes.unsupportedProperty(getter, "use a scalar type parameter, a list of that parameter, or its array");
+        }
+        return null;
     }
 
     void initType(Model m, Method getterMethod) {
@@ -168,89 +247,43 @@ public class Prop {
             customOrderIndex = propOrder.index();
         }
 
-        if (propClass.isPrimitive()) {
+        genericParameter = propertyParameter(getterMethod);
+        if (genericParameter != null) {
+            boolean many = propClass.isArray() || List.class.isAssignableFrom(propClass);
+            propType = many ? PropType.COLLECTION : PropType.CLASS;
+            setParameterType(parent);
+        } else if (propClass.isPrimitive()) {
             propType = PropType.PRIMITIVE;
             typeName = propClass.getSimpleName();
             simpleTypeName = propClass.getSimpleName();
             packageName = "";
 
-        } else if (Collection.class.isAssignableFrom(propClass)) {
-            propType = PropType.COLLECTION;
-
-            ParameterizedType retType = null;
-
-            if (getterMethod.getGenericReturnType() != null) {
-                if (getterMethod.getGenericReturnType() instanceof ParameterizedType) {
-                    retType = (ParameterizedType) getterMethod.getGenericReturnType();
+        } else if (VMAP_NAME.equals(propClass.getName())) {
+            initManagedMap(getterMethod);
+        } else if (propClass.isArray() || Collection.class.isAssignableFrom(propClass)) {
+            Type component;
+            if (propClass.isArray()) {
+                component = propClass.getComponentType();
+            } else {
+                if (!List.class.isAssignableFrom(propClass)) {
+                    throw GenericModelTypes.unsupportedProperty(getterMethod, "only List is supported as a collection");
                 }
+                Type declared = getterMethod.getGenericReturnType();
+                component = declared instanceof ParameterizedType
+                        ? ((ParameterizedType) declared).getActualTypeArguments()[0] : Object.class;
             }
-
-            Class<?> containedClazz;
-
-            if (retType != null) {
-                containedClazz = (Class<?>) (retType.getActualTypeArguments()[0]);
-            } else {
-                containedClazz = Object.class;
+            if (!(component instanceof Class<?>) || ((Class<?>) component).isArray()) {
+                throw GenericModelTypes.unsupportedProperty(getterMethod, "list elements require a named type or type parameter");
             }
-
-            if (!List.class.isAssignableFrom(propClass)) {
-                throw new IllegalArgumentException(
-                        "Currently only 'java.util.List<?>' is supported as Collection type.");
-            } else {
-                collectionType = CollectionType.LIST;
-                if (TypeUtil.getPackageName(containedClazz, true).isEmpty()) {
-                    genericPackageName = "";
-                } else {
-                    genericPackageName = m.convertModelPackageToDestination(
-                            containedClazz.getSimpleName(),
-                            TypeUtil.getPackageName(containedClazz, false));
-                }
-
-                genericTypeName =
-                    containedClazz.getSimpleName();
-//                        (TypeUtil.getPackageName(containedClazz, true).isBlank()?""
-//                                : TypeUtil.getPackageName(containedClazz, true)+".")
-//                                + containedClazz.getSimpleName();
-            }
-
-            typeName = PRIVATE_LIST_TYPE_WITH_PKG + "<"
-                    +m.convertModelTypeToDestination(containedClazz) + ">";
-            simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG + "<"
-                    +m.convertModelTypeToDestination(containedClazz) + ">";
-            packageName = PRIVATE_LIST_TYPE_PKG_NAME;
-
-        } else if (propClass.isArray()) {
-            propType = PropType.COLLECTION;
-            Class<?> containedClazz = propClass.getComponentType();
-
-
-            packageName = PRIVATE_LIST_TYPE_PKG_NAME;
-
-            collectionType = CollectionType.LIST;
-            if (TypeUtil.getPackageName(containedClazz, true).isEmpty()) {
-                genericPackageName = "";
-            } else {
-                genericPackageName = m.convertModelPackageToDestination(
-                        containedClazz.getSimpleName(),
-                        TypeUtil.getPackageName(containedClazz));
-            }
-
-            simpleTypeName = PRIVATE_LIST_TYPE_WITHOUT_PKG+"<"
-                    +ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz))
-                    + ">";
-            typeName = PRIVATE_LIST_TYPE_WITH_PKG+"<"
-                    +ModelType.primitiveToBoxedType(m.convertModelTypeToDestination(containedClazz)) + ">";
-
-
-            // System.out.println("TYPENAME: " + typeName);
-            // System.out.println("CONTAINED_TYPE: " + containedClazz.getSimpleName());
-
-            genericTypeName =
-                    containedClazz.getSimpleName();
-//                    (TypeUtil.getPackageName(containedClazz, true).isBlank()?""
-//                            : TypeUtil.getPackageName(containedClazz, true)+".")
-//                            + containedClazz.getSimpleName();
+            Class<?> element = (Class<?>) component;
+            rejectGenericModelProperty(getterMethod, element);
+            String elementName = element.isPrimitive() ? "java.lang." + ModelType.primitiveToBoxedType(element.getName())
+                    : parent.genericTypes().name(element);
+            captureNestedBinaryName(element);
+            initListType(elementName);
         } else {
+            rejectGenericModelProperty(getterMethod, propClass);
+            captureNestedBinaryName(propClass);
             propType = PropType.CLASS;
 
             // if (getParent().getModel().isModelType(propClass.getName())) {
@@ -290,6 +323,64 @@ public class Prop {
         // we require alphabetic order (by key)
         Collections.sort(annotations, Comparator.comparing(AnnotationInfo::getKey));
 
+    }
+
+    private void captureNestedBinaryName(Type type) {
+        nestedBinaryName = null;
+        if (type instanceof Class<?>) {
+            Class<?> raw = (Class<?>) type;
+            if (raw.getEnclosingClass() != null && !raw.isAnnotationPresent(ExternalType.class)) {
+                nestedBinaryName = raw.getName();
+            }
+        }
+    }
+
+    /** JVM class lookup requires the binary name of an external nested class. */
+    public String getMetadataTypeName() {
+        if (nestedBinaryName == null) return typeName;
+        return isCollectionType() ? PRIVATE_LIST_TYPE_WITH_PKG + "<" + nestedBinaryName + ">" : nestedBinaryName;
+    }
+
+    public String getMetadataElementTypeName() {
+        return nestedBinaryName != null ? nestedBinaryName : getElementTypeName();
+    }
+
+    private void initManagedMap(Method getter) {
+        Type signature = getter.getGenericReturnType();
+        Type[] args = signature instanceof ParameterizedType
+                ? ((ParameterizedType) signature).getActualTypeArguments() : new Type[0];
+        if (args.length != 2 || args[0] != String.class) {
+            throw new IllegalArgumentException("Invalid managed map property " + getter.toGenericString()
+                    + ". Expected VMap<String, V> with a String or boxed primitive value type.");
+        }
+        if (getter.isAnnotationPresent(Contains.class) || getter.isAnnotationPresent(Container.class)
+                || getter.isAnnotationPresent(Refers.class) || getter.isAnnotationPresent(SyncWith.class)) {
+            throw new IllegalArgumentException("Managed map property " + getter.toGenericString()
+                    + " cannot declare containment, opposite references, or synchronization.");
+        }
+        propType = PropType.MAP;
+        if (args[1] instanceof TypeVariable<?>) genericParameter = (TypeVariable<?>) args[1];
+        setMapValueType(args[1], parent);
+    }
+
+    private void setMapValueType(Type value, ModelType owner) {
+        if (!(value instanceof TypeVariable<?>) && !MAP_VALUE_TYPES.contains(value)) {
+            throw new IllegalArgumentException("Invalid managed map property " + getterMethod.toGenericString()
+                    + " in " + owner.getFullTypeName() + ": " + value.getTypeName()
+                    + " is unsupported. Expected VMap<String, V> with a String or boxed primitive value type.");
+        }
+        mapValueTypeName = value.getTypeName();
+        packageName = PRIVATE_LIST_TYPE_PKG_NAME;
+        simpleTypeName = "VMap<java.lang.String, " + mapValueTypeName + ">";
+        typeName = packageName + "." + simpleTypeName;
+    }
+
+    public boolean isMapType() {
+        return propType == PropType.MAP;
+    }
+
+    public String getMapValueTypeName() {
+        return mapValueTypeName;
     }
 
     private void intitCustomDocumentation(Method m) {
@@ -772,6 +863,11 @@ public class Prop {
         return getPropType() == PropType.COLLECTION;
     }
 
+    public String getElementTypeName() {
+        if (!isCollectionType()) return null;
+        return genericPackageName.isEmpty() ? genericTypeName : genericPackageName + "." + genericTypeName;
+    }
+
     public String getGenericTypeName() {
         if (isCollectionType()) {
             return genericTypeName;
@@ -807,6 +903,8 @@ public class Prop {
     public int getTypeId() {
         if (getType() != null) {
             return getType().getTypeId();
+        } else if (isMapType()) {
+            return -3;
         } else if (isCollectionType()) {
             return -2;
         } else {

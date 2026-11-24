@@ -30,15 +30,44 @@
     return _VMF_SUPER_TYPE_NAMES;
   }
 
+#if($type.hasParameterizedSuperTypes())
+  private static final String[] _VMF_GENERIC_SUPER_TYPE_NAMES = {
+#foreach($name in $type.parameterizedSuperTypes)    "$name"#if($foreach.hasNext),#end$newline#end
+  };
+
+  @Override
+  public String[] _vmf_getGenericSuperTypeNames() {
+    return _VMF_GENERIC_SUPER_TYPE_NAMES.clone();
+  }
+
+#end
   static final String[] _VMF_PROPERTY_NAMES = {
 #foreach($prop in $type.implementation.properties)    "$prop.name"#if($foreach.hasNext),#end$newline#end
   };
 
   static final String[] _VMF_PROPERTY_TYPE_NAMES = {
 #foreach($prop in $type.implementation.properties)
-    "$prop.typeName"#if($foreach.hasNext),#else #end // type id $prop.typeId
+    "$prop.metadataTypeName"#if($foreach.hasNext),#else #end // type id $prop.typeId
 #end
   };
+
+  private static final ${VMFPKG}.TypeDescriptor[] _VMF_PROPERTY_TYPE_DESCRIPTORS = {
+#foreach($prop in $type.implementation.properties)
+#if($prop.mapType)
+    ${VMFPKG}.TypeDescriptor.of("eu.mihosoft.vcollections.VMap",
+        ${VMFPKG}.TypeDescriptor.of("java.lang.String"), ${VMFPKG}.TypeDescriptor.of("${prop.mapValueTypeName}")),
+#elseif($prop.propType == "COLLECTION")
+    ${VMFPKG}.TypeDescriptor.of("eu.mihosoft.vcollections.VList", ${VMFPKG}.TypeDescriptor.of("${prop.metadataElementTypeName}")),
+#else
+    ${VMFPKG}.TypeDescriptor.of("${prop.metadataTypeName}"),
+#end
+#end
+  };
+
+  @Override
+  public ${VMFPKG}.TypeDescriptor _vmf_getPropertyTypeDescriptor(int propertyId) {
+    return _VMF_PROPERTY_TYPE_DESCRIPTORS[propertyId];
+  }
 
   static final int[] _VMF_PROPERTY_TYPES = {
 #foreach($prop in $type.implementation.properties)
@@ -178,7 +207,12 @@
     switch(propertyId) {
 #foreach($prop in $type.implementation.properties)
 #if(!$prop.genericType)
-#if(${prop.propType}!="COLLECTION" && !${prop.readOnly}) ## && $prop.containmentInfo.containmentType!="CONTAINER"
+#if($prop.mapType)
+      case $foreach.index:
+        ${VMFPKG}.internal.ManagedMaps.copyInto(get${prop.nameWithUpperCase}(), (java.util.Map<?, ?>) value,
+            ${prop.mapValueTypeName}.class, false);
+        break;
+#elseif(${prop.propType}!="COLLECTION" && !${prop.readOnly}) ## && $prop.containmentInfo.containmentType!="CONTAINER"
       case $foreach.index: // normal property (no collection)
         set${prop.nameWithUpperCase}((${prop.typeName})value);
         break;
@@ -203,7 +237,20 @@
 #foreach($prop in ${type.implementation.properties})
       case ${foreach.index}:
         Object __vmf_default_value_tmp${prop.nameWithUpperCase} = _VMF_DEFAULT_VALUES[${foreach.index}];
-#if(${prop.propType}=="PRIMITIVE")## if prop is primitive
+#if($prop.mapType)
+#if($readOnlyVal && !$type.immutable)
+        return ((${VMFPKG}.internal.VObjectInternal) this.mutableObject)._vmf_getDefaultValueById(propertyId);
+#else
+        if (__vmf_default_value_tmp${prop.nameWithUpperCase} != null) {
+          return __vmf_default_value_tmp${prop.nameWithUpperCase};
+        }
+#if(${prop.getDefaultValueAsString()}=="null")
+        return java.util.Collections.emptyMap();
+#else
+        return ${VMFPKG}.internal.ManagedMaps.snapshot(${prop.getDefaultValueAsString()}, ${prop.mapValueTypeName}.class);
+#end
+#end
+#elseif(${prop.propType}=="PRIMITIVE")## if prop is primitive
         if(__vmf_default_value_tmp${prop.nameWithUpperCase}==null) {
             return
 #if(${prop.getDefaultValueAsString()}=="null")## if default is null
@@ -232,7 +279,12 @@
   public void _vmf_setDefaultValueById(int propertyId, Object defaultValue) {
 
 #foreach($prop in ${type.implementation.properties})
-#if(${prop.containmentProperty})
+#if($prop.mapType)
+    if (propertyId == ${foreach.index}) {
+      defaultValue = defaultValue == null ? null :
+          ${VMFPKG}.internal.ManagedMaps.snapshot((java.util.Map<?, ?>) defaultValue, ${prop.mapValueTypeName}.class);
+    }
+#elseif(${prop.containmentProperty})
     // property ${prop.name}
     if(propertyId == ${foreach.index}) {
       throw new RuntimeException("Cannot set default value for property '${prop.name}' with id="+propertyId +": property is a containment property and not writable.");

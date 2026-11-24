@@ -49,7 +49,7 @@ package ${type.packageName};
  * <!-- vmf-end-model-doc -->
  *
  */
-public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString, Cloneable#if(!$type.interfaceOnly), ${VMFPKG}.Mutable#end {
+public interface ${type.typeName}${type.typeParameters} extends ${VMFPKG}.VObject$type.implementsString, Cloneable#if(!$type.interfaceOnly), ${VMFPKG}.Mutable#end {
 #foreach( $prop in ${type.interface.properties} )
 
 #parse("${VMF_TEMPLATE_PATH}interface/getter.vm")
@@ -98,14 +98,14 @@ public interface $type.typeName extends ${VMFPKG}.VObject$type.implementsString,
    * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
-  ${type.readOnlyInterface.typeName} asReadOnly();
+  ${type.readOnlyInterface.typeName}${type.typeArguments} asReadOnly();
 
   /**
    * Returns a deep clone of this object.
    * @return a deep clone of this object
    */
   @Override
-  ${type.typeName} clone() /*throws CloneNotSupportedException*/;
+  ${type.typeName}${type.typeArguments} clone() /*throws CloneNotSupportedException*/;
 
   /**
    * Behavior interface.

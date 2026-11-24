@@ -108,7 +108,7 @@ public final class Implementation {
 
     private void collectAndSetProperties() {
         List<Prop> implProperties = new ArrayList<>();
-        implProperties.addAll(computeImplementedProperties(type));
+        implProperties.addAll(computeImplementedProperties(type, type));
 
         // distinct properties ( done via Object.equals() )
         implProperties = implProperties.stream().distinct().collect(Collectors.toList());
@@ -150,14 +150,13 @@ public final class Implementation {
 //        this.properties.addAll(distinctProperties);
     }
 
-    private static List<Prop> computeImplementedProperties(ModelType type) {
+    private static List<Prop> computeImplementedProperties(ModelType type, ModelType owner) {
         List<Prop> result = new ArrayList<>();
         for(ModelType t: type.getImplementz()) {
 
-            List<Prop> computerProps = computeImplementedProperties(t);
-            result.addAll(computerProps);
+            result.addAll(computeImplementedProperties(t, owner));
             // add a copy of all props of type t
-            result.addAll(t.getProperties().stream().map(p->new Prop(p)).collect(Collectors.toList()));
+            result.addAll(t.getProperties().stream().map(p -> p.inheritedBy(owner)).collect(Collectors.toList()));
         }
 
         return result;

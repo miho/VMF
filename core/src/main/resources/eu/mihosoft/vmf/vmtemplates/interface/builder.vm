@@ -41,9 +41,15 @@
 #end
      * <!-- vmf-end-model-doc -->
      * @return this builder
+#if($prop.mapType)
+     * @see ${type.fullTypeName}#get${prop.nameWithUpperCase}()
+#else
      * @see ${type.fullTypeName}#set${prop.nameWithUpperCase}($prop.typeName)
+#end
      */
-#if($prop.propType == "COLLECTION")
+#if($prop.mapType)
+    public Builder with${prop.nameWithUpperCase}(java.util.Map<java.lang.String, ${prop.mapValueTypeName}> ${prop.name});
+#elseif($prop.propType == "COLLECTION")
     public Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name});
 
 #if(${prop.type} || ${prop.genericType})
@@ -163,7 +169,7 @@
      * @return this builder
      * @see #[[#]]#applyTo($type.typeName)
      */
-    public Builder applyFrom($t.typeName o);
+    public Builder applyFrom(${type.appliedNameOf($t)} o);
 #end##end foreach inherited type
 
 #if(!$type.immutable)

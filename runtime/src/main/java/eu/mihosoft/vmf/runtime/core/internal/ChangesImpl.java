@@ -29,6 +29,7 @@ package eu.mihosoft.vmf.runtime.core.internal;
 import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vcollections.VListChange;
 import eu.mihosoft.vcollections.VMappedList;
+import eu.mihosoft.vcollections.VMap;
 import eu.mihosoft.vmf.runtime.core.*;
 import vjavax.observer.Subscription;
 import vjavax.observer.collection.CollectionChangeEvent;
@@ -68,8 +69,8 @@ public class ChangesImpl implements Changes {
     private VObject model;
 
     private final Set<VObjectInternal> observedObjects = Collections.newSetFromMap(new IdentityHashMap<>());
-    private final Map<Object, Subscription> listSubscriptions = new IdentityHashMap<>();
-    private final Map<Object, Subscription> nonRecursiveListSubscriptions = new IdentityHashMap<>();
+    private final Map<Object, Subscription> recursiveCollectionSubscriptions = new IdentityHashMap<>();
+    private final Map<Object, Subscription> localCollectionSubscriptions = new IdentityHashMap<>();
 
     private final PropertyChangeListener objListener;
     private final PropertyChangeListener nonRecursiveObjListener;
@@ -270,24 +271,25 @@ public class ChangesImpl implements Changes {
             ObserverFailures.rethrow(recordChange(change, generation, null));
             return;
         }
+        boolean scalarEdit = change instanceof MapChangeImpl;
         if (change instanceof PropChangeImpl) {
             var property = (PropChangeImpl) change;
-            if (!(property.oldValue() instanceof VObject) && !(property.newValue() instanceof VObject)) {
-                // Scalar setters have already applied this value. Keep it before
-                // mutations caused by its observers while delivering callbacks first.
-                if (deferringHistory) {
-                    deferChange(change);
-                    ObserverFailures.rethrow(notifyListeners(listeners, change));
-                    return;
-                }
-                deferringHistory = true;
-                try {
-                    ObserverFailures.rethrow(appendHistory(change, generation, notifyListeners(listeners, change)));
-                } finally {
-                    deferringHistory = false;
-                }
+            scalarEdit = !(property.oldValue() instanceof VObject) && !(property.newValue() instanceof VObject);
+        }
+        if (scalarEdit) {
+            // Scalars and map entries already changed. Record them before edits made by their observers.
+            if (deferringHistory) {
+                deferChange(change);
+                ObserverFailures.rethrow(notifyListeners(listeners, change));
                 return;
             }
+            deferringHistory = true;
+            try {
+                ObserverFailures.rethrow(appendHistory(change, generation, notifyListeners(listeners, change)));
+            } finally {
+                deferringHistory = false;
+            }
+            return;
         }
         // A removed subtree stays observable through its detach notification.
         // Preserve the native ordering of edits made there before the removal.
@@ -381,8 +383,8 @@ public class ChangesImpl implements Changes {
         } else {
             observedObjects.forEach(object -> object.removePropertyChangeListener(objListener));
             observedObjects.clear();
-            listSubscriptions.values().forEach(Subscription::unsubscribe);
-            listSubscriptions.clear();
+            recursiveCollectionSubscriptions.values().forEach(Subscription::unsubscribe);
+            recursiveCollectionSubscriptions.clear();
         }
     }
 
@@ -433,11 +435,11 @@ public class ChangesImpl implements Changes {
             VObjectInternal object = pending.pop();
             if (attach) {
                 if (!observedObjects.add(object)) continue;
-                addListListenersToPropertiesOf(object);
+                subscribeCollections(object, true);
                 object.addPropertyChangeListener(objListener);
             } else {
                 if (!observedObjects.remove(object)) continue;
-                removeListListenersFromPropertiesOf(object);
+                unsubscribeCollections(object, recursiveCollectionSubscriptions);
                 object.removePropertyChangeListener(objListener);
             }
 
@@ -465,7 +467,7 @@ public class ChangesImpl implements Changes {
 
     @SuppressWarnings("unchecked")
     private void registerChangeListenerNonRecursive(VObject vObj, PropertyChangeListener objListener) {
-        addNonRecursiveListListeners(vObj, objListener);
+        subscribeCollections((VObjectInternal) vObj, false);
 
         VObjectInternal obj = (VObjectInternal) vObj;
         obj.addPropertyChangeListener(objListener);
@@ -473,42 +475,38 @@ public class ChangesImpl implements Changes {
 
     @SuppressWarnings("unchecked")
     private void unregisterChangeListenerNonRecursive(VObject vObj, PropertyChangeListener objListener) {
-        removeNonRecursiveListListeners(vObj, objListener);
+        unsubscribeCollections((VObjectInternal) vObj, localCollectionSubscriptions);
 
         VObjectInternal obj = (VObjectInternal) vObj;
         obj.removePropertyChangeListener(objListener);
     }
 
     @SuppressWarnings({"deprecation", "unchecked"})
-    private void addNonRecursiveListListeners(VObject object, PropertyChangeListener objListener) {
-        VObjectInternal internalModel = (VObjectInternal) object;
-        int[] types = internalModel._vmf_getPropertyTypes();
-        for (int i = 0; i < types.length; i++) {
-            if (types[i] == -2) {
-                String propName = internalModel._vmf_getPropertyNames()[i];
-
-                VList<Object> list = (VList<Object>) internalModel._vmf_getPropertyValueById(i);
-
-                Subscription subscription = list.addChangeListener(evt ->
-                        fireListChange(object, propName, evt, localPropertyNames, nonRecursiveChangeListeners));
-
-                nonRecursiveListSubscriptions.put(list, subscription);
-            }
-        }
-    }
-
-    @SuppressWarnings({"deprecation", "unchecked"})
-    private void addListListenersToPropertiesOf(VObjectInternal owner) {
+    private void subscribeCollections(VObjectInternal owner, boolean recursive) {
+        Map<Object, Subscription> subscriptions = recursive ? recursiveCollectionSubscriptions : localCollectionSubscriptions;
         int[] types = owner._vmf_getPropertyTypes();
         for (int id = 0; id < types.length; id++) {
-            if (types[id] != -2) continue;
+            if (types[id] != -2 && types[id] != VObjectInternal.VMF_TYPE_MAP) continue;
             String name = owner._vmf_getPropertyNames()[id];
-            var list = (VList<Object>) owner._vmf_getPropertyValueById(id);
-            int propertyId = id;
-            Subscription subscription = isContainmentProperty(owner, id)
-                    ? list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event))
-                    : list.addChangeListener(event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners));
-            listSubscriptions.put(list, subscription);
+            if (types[id] == VObjectInternal.VMF_TYPE_MAP) {
+                var map = (VMap<String, Object>) owner._vmf_getPropertyValueById(id);
+                subscriptions.put(map, map.addChangeListener(event -> {
+                    boolean first = firstDelivery(owner, event);
+                    if (needsChange(recursive ? recursivePropertyNames : localPropertyNames, name)) {
+                        fireChange(new MapChangeImpl(owner, name, event), first && recording,
+                                recursive ? changeListeners : nonRecursiveChangeListeners);
+                    }
+                }));
+            } else {
+                var list = (VList<Object>) owner._vmf_getPropertyValueById(id);
+                int propertyId = id;
+                Subscription subscription = recursive && isContainmentProperty(owner, id)
+                        ? list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event))
+                        : list.addChangeListener(event -> fireListChange(owner, name, event,
+                                recursive ? recursivePropertyNames : localPropertyNames,
+                                recursive ? changeListeners : nonRecursiveChangeListeners));
+                subscriptions.put(list, subscription);
+            }
         }
     }
 
@@ -536,27 +534,12 @@ public class ChangesImpl implements Changes {
     }
 
     @SuppressWarnings({"deprecation", "unchecked"})
-    private void removeListListenersFromPropertiesOf(VObject object) {
-        VObjectInternal internalModel = (VObjectInternal) object;
-        int[] types = internalModel._vmf_getPropertyTypes();
-        for (int i = 0; i < types.length; i++) {
-            if (types[i] == -2) {
-                Object list = internalModel._vmf_getPropertyValueById(i);
-                Subscription listSubscription = listSubscriptions.remove(list);
-                if (listSubscription != null) listSubscription.unsubscribe();
-            }
-        }
-    }
-
-    @SuppressWarnings({"deprecation", "unchecked"})
-    private void removeNonRecursiveListListeners(VObject object, PropertyChangeListener objListener) {
-        VObjectInternal internalModel = (VObjectInternal) object;
-        int[] types = internalModel._vmf_getPropertyTypes();
-        for (int i = 0; i < types.length; i++) {
-            if (types[i] == -2) {
-                Object list = internalModel._vmf_getPropertyValueById(i);
-                Subscription listSubscription = nonRecursiveListSubscriptions.remove(list);
-                if (listSubscription != null) listSubscription.unsubscribe();
+    private void unsubscribeCollections(VObjectInternal owner, Map<Object, Subscription> subscriptions) {
+        int[] types = owner._vmf_getPropertyTypes();
+        for (int id = 0; id < types.length; id++) {
+            if (types[id] == -2 || types[id] == VObjectInternal.VMF_TYPE_MAP) {
+                Subscription subscription = subscriptions.remove(owner._vmf_getPropertyValueById(id));
+                if (subscription != null) subscription.unsubscribe();
             }
         }
     }

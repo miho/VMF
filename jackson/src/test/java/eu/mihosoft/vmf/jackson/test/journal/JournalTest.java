@@ -352,7 +352,7 @@ class JournalTest {
         assertEquals(fixture, mapper.writeValueAsString(mapper.readTree(VMFJournalCodec.write(journal))));
         assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(journal, VMFDocumentFormat.JSON));
         assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(VMFJournalCodec.read(fixture, VMFDocumentFormat.JSON)));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":3")));
+        assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":4")));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":1,\"version\":1")));
 
         var unknown = assertThrows(IOException.class,

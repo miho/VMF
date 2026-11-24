@@ -281,7 +281,15 @@ final class JournalSupport {
                 for (Property property : ReflectImpl.readProperties(slot.object.vmf().reflect())) {
                     Object value = property.get();
                     var type = property.getType();
-                    if (type.isListType()) {
+                    if (type.isMapType()) {
+                        for (var entry : ((Map<?, ?>) value).entrySet()) {
+                            if (!(entry.getKey() instanceof String)) {
+                                throw new IllegalArgumentException("Managed maps require string keys");
+                            }
+                            workspace.text.unicode((String) entry.getKey());
+                            validateGraphValue(entry.getValue(), binding, this, workspace.text);
+                        }
+                    } else if (type.isListType()) {
                         var values = (List<?>) value;
                         if (STRING_LIST_TYPE.equals(type.getName())) {
                             workspace.text.validateStringList(values, binding, this);
@@ -374,7 +382,9 @@ final class JournalSupport {
                 Object value = property.get();
                 Object otherValue = otherProperty.get();
                 boolean same;
-                if (property.getType().isListType()) {
+                if (property.getType().isMapType()) {
+                    same = sameMap((Map<?, ?>) value, (Map<?, ?>) otherValue);
+                } else if (property.getType().isListType()) {
                     List<?> left = (List<?>) value;
                     List<?> right = (List<?>) otherValue;
                     same = left.size() == right.size();
@@ -387,6 +397,17 @@ final class JournalSupport {
                 if (!same) throw new IllegalArgumentException("Replay differs at " + id + "." + property.getName());
             }
         }
+    }
+
+    // The Java managed map exposes insertion order. Verify the order as well as the scalar
+    // entries so a reordered native event stream cannot publish a divergent replay shadow.
+    static boolean sameMap(Map<?, ?> expected, Map<?, ?> actual) {
+        if (expected.size() != actual.size()) return false;
+        var actualEntries = actual.entrySet().iterator();
+        for (var entry : expected.entrySet()) {
+            if (!entry.equals(actualEntries.next())) return false;
+        }
+        return true;
     }
 
     private static boolean sameStateValue(Object expected, Object actual, JournalBinding binding) {

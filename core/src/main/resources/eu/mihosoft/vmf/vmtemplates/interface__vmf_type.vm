@@ -41,7 +41,7 @@ package ${type.implementation.packageName};
 // - this interface supports multiple inheritance of impl features and
 //   gives access to proerties without reflection which results in a huge
 //   performance improvement (up to 10x)
-interface __VMF_TYPE_${type.implementation.typeName} extends ${type.packageName}.${type.typeName}${type.vmfTypeIfaceImplementzString} {
+interface __VMF_TYPE_${type.implementation.typeName}${type.typeParameters} extends ${type.packageName}.${type.typeName}${type.typeArguments}${type.vmfTypeIfaceImplementzString} {
 
 #foreach( $prop in ${type.implementation.properties})
   // --- PROP '$prop.typeName'
@@ -49,7 +49,7 @@ interface __VMF_TYPE_${type.implementation.typeName} extends ${type.packageName}
   $prop.typeName __vmf_get_prop_${prop.name}();
 #parse("${VMF_TEMPLATE_PATH}impl/reference-write-interface.vm")
 #if(${prop.propType} == "COLLECTION")
-  java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
+  java.util.List<${prop.elementTypeName}> __vmf_get_prop_${prop.name}__vmf_RawList();
 #end## collection
 #end
 

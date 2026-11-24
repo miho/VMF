@@ -1,0 +1,25 @@
+{
+  "format": "vmf-journal",
+  "version": 3,
+  "model": { "id": "ledger", "version": 1 },
+  "root": "root",
+  "base": { "checkpoint": "base", "sequence": 0 },
+  "transactions": [{
+    "sequence": 1,
+    "operations": [{
+      "kind": "MAP_EDIT", "target": "root", "property": "counts",
+      "beforeEntries": [{ "key": "replace", "value": { "kind": "NULL", "text": null } }],
+      "afterEntries": [{ "key": "replace", "value": { "kind": "INT", "text": "42" } }]
+    }, {
+      "kind": "LIST_ADD", "target": "root", "property": "children", "indices": [0],
+      "before": [], "after": [{ "kind": "REFERENCE", "text": "child" }],
+      "created": [{
+        "id": "child", "type": "ledger",
+        "properties": { "id": [{ "kind": "STRING", "text": "child" }], "children": [] },
+        "mapProperties": [{
+          "name": "counts", "entries": [{ "key": "initial", "value": { "kind": "INT", "text": "8" } }]
+        }]
+      }]
+    }]
+  }]
+}

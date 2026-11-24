@@ -77,7 +77,9 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
 #foreach( $prop in ${type.implementation.properties} )
   @Override
   public $prop.getterDeclaration {
-  #if($prop.propType == "COLLECTION")
+  #if($prop.mapType)
+    return this.__vmf_prop_${prop.name}.asUnmodifiable();
+  #elseif($prop.propType == "COLLECTION")
     if(this.__vmf_prop_$prop.name==null) {
       this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
         // immutable empty list

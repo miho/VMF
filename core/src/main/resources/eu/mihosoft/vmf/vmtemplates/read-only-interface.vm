@@ -48,7 +48,7 @@ package ${type.packageName};
 #end
  * <!-- vmf-end-model-doc -->
  */
-public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type.readOnlyImplementsString, ${VMFPKG}.ReadOnly #if($type.interfaceOnlyWithGettersOnly && $type.allPropertyTypesAreInterfaceOnlyWithGettersOnlyOrImmutable()), $type.typeName #end{
+public interface ${type.readOnlyInterface.typeName}${type.typeParameters} extends ${VMFPKG}.VObject$type.readOnlyImplementsString, ${VMFPKG}.ReadOnly #if($type.interfaceOnlyWithGettersOnly && $type.allPropertyTypesAreInterfaceOnlyWithGettersOnlyOrImmutable()), ${type.typeName}${type.typeArguments} #end{
 #foreach( $prop in $type.properties )
 
 #if(${prop.containmentInfo.containmentType}=="CONTAINER")
@@ -99,7 +99,7 @@ public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type
   * <!-- vmf-end-model-doc -->
   *
   * @return the value of the '<em>${prop.name}</em>' property.
-  * #if(${prop.propType}!="COLLECTION")@see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
+  * #if(${prop.propType}!="COLLECTION" && !$prop.mapType)@see ${type.fullTypeName}#\set${prop.nameWithUpperCase}($prop.typeName)
 #end
   */
 #end ## if container / contained
@@ -109,8 +109,8 @@ public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type
   public ${VCOLL_PKG}.VList<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 //  public java.util.List<${prop.genericType.readOnlyInterface.fullTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #else
-  public ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
-//  public java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+  public ${VCOLL_PKG}.VList<${prop.elementTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
+//  public java.util.List<${prop.elementTypeName}> ${prop.getterPrefix}${prop.nameWithUpperCase}();
 #end ## if genericType
 #else
   public #if($prop.type)#if($prop.type.immutable)$prop.type.typeName#else$prop.type.readOnlyInterface.typeName#end#else$prop.typeName#end ${prop.getterPrefix}${prop.nameWithUpperCase}();
@@ -123,10 +123,10 @@ public interface $type.readOnlyInterface.typeName extends ${VMFPKG}.VObject$type
   * @return a deep clone of this object
   */
   @Override
-  public ${type.readOnlyInterface.typeName} clone();
+  public ${type.readOnlyInterface.typeName}${type.typeArguments} clone();
 
   @Override
-  default ${type.readOnlyInterface.typeName} asReadOnly() {
+  default ${type.readOnlyInterface.typeName}${type.typeArguments} asReadOnly() {
     return this;
   }
 

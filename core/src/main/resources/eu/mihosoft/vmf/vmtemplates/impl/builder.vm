@@ -29,7 +29,10 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 
 #foreach( $prop in ${type.implementation.properties})
 ###if($type.immutable || $prop.propType != "COLLECTION")
-#if(${prop.type} || ${prop.genericType})
+#if($prop.mapType)
+    private final $prop.typeName __vmf_prop_$prop.name =
+        ${VMFPKG}.internal.ManagedMaps.create(${prop.mapValueTypeName}.class);
+#elseif(${prop.type} || ${prop.genericType})
     private $prop.typeName __vmf_prop_$prop.name;
 #if($prop.propType == "COLLECTION")
     private ${VCOLL_PKG}.VList<${prop.genericPackageName}.${prop.genericTypeName}.Builder> __vmf_prop__builder_$prop.name;
@@ -53,7 +56,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
      // property ${foreach.index}
  #if(${prop.getDefaultValueAsString()}!="null")
 
- #if(${prop.type} || ${prop.genericType})
+ #if($prop.mapType)
+     with${prop.nameWithUpperCase}(${prop.getDefaultValueAsString()});
+ #elseif(${prop.type} || ${prop.genericType})
      __vmf_prop_${prop.name} = ${prop.getDefaultValueAsString()};
      __vmf_prop__builder_${prop.name} = null;
  #else##generic type
@@ -67,7 +72,13 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 
 #foreach( $prop in ${type.implementation.properties} )
 #if(!$prop.containmentProperty || ${prop.containmentInfo.containmentType}!="CONTAINER")
-#if($prop.propType == "COLLECTION")
+#if($prop.mapType)
+    public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.util.Map<java.lang.String, ${prop.mapValueTypeName}> ${prop.name}) {
+      ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, ${prop.name},
+          ${prop.mapValueTypeName}.class, false);
+      return this;
+    }
+#elseif($prop.propType == "COLLECTION")
     public ${type.typeName}.Builder with${prop.nameWithUpperCase}(java.util.List<${prop.genericPackageName}.${prop.genericTypeName}> ${prop.name}) {
       // ensure that this collection property is really immutable
       this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
@@ -160,7 +171,10 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     // PROP '${prop.name}' of type '${prop.typeName}'
     // --------------------------------------------------------------------------------
 
-#if($prop.propType != "COLLECTION")
+#if($prop.mapType)
+    ${VMFPKG}.internal.ManagedMaps.copyInto(result.__vmf_prop_${prop.name}, this.__vmf_prop_${prop.name},
+        ${prop.mapValueTypeName}.class, false);
+#elseif($prop.propType != "COLLECTION")
 #if($type.immutable)
     #if(${prop.type} || ${prop.genericType})
         // no collection, immutable model type
@@ -250,7 +264,7 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   }
 
 #foreach( $t in $type.allInheritedTypes )
-    public Builder applyFrom(${t.typeName} o) {
+    public Builder applyFrom(${type.appliedNameOf($t)} o) {
 #foreach( $prop in ${t.implementation.properties} )
 
     ### now, set "p.name" to "prop.name" of "type.name", because in "t.name" they are potentially more generic
@@ -264,12 +278,11 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     // we cast types to the type of the property in the current class (runtime exception if not possible)
 
     ###if($type.immutable || $prop.propType != "COLLECTION")
-    #if($prop.propType == "COLLECTION")
-        #if(${prop.genericType})
-            #set($genericCollArg = "${prop.genericType.typeName}")
-        #else## if genericType is modelType
-            #set($genericCollArg = "${prop.genericPackageName}.${prop.genericTypeName}")
-        #end## if genericType is modelType
+    #if($prop.mapType)
+      ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(),
+          ${p.mapValueTypeName}.class, this.appendCollections);
+#elseif($prop.propType == "COLLECTION")
+        #set($genericCollArg = "${p.elementTypeName}")
     if(!this.appendCollections||this.__vmf_prop_${prop.name}==null) {
       // ensure that this collection property is really immutable
       this.__vmf_prop_${prop.name} = ${VCOLL_PKG}.VList.newInstance(
@@ -279,7 +292,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
       )
       );
     } else {
-      this.__vmf_prop_${prop.name}.addAll( (${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+      java.util.List<$genericCollArg> merged = new java.util.ArrayList<>(this.__vmf_prop_${prop.name});
+      merged.addAll((${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+      with${prop.nameWithUpperCase}(merged);
     }
     #else## if property is collection
     this.__vmf_prop_${prop.name} = (${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}();
@@ -294,7 +309,10 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public Builder applyFrom(${type.typeName} o) {
 #foreach( $prop in ${type.implementation.properties} )
 ###if($type.immutable || $prop.propType != "COLLECTION")
-#if($prop.propType == "COLLECTION")
+#if($prop.mapType)
+      ${VMFPKG}.internal.ManagedMaps.copyInto(this.__vmf_prop_${prop.name}, o.${prop.getterPrefix}${prop.nameWithUpperCase}(),
+          ${prop.mapValueTypeName}.class, this.appendCollections);
+#elseif($prop.propType == "COLLECTION")
 #if(${prop.genericType})
 #set($genericCollArg = "${prop.genericType.typeName}")
 #else## if genericType is modelType
@@ -309,7 +327,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
           )
         );
       } else {
-        this.__vmf_prop_${prop.name}.addAll(o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+        java.util.List<$genericCollArg> merged = new java.util.ArrayList<>(this.__vmf_prop_${prop.name});
+        merged.addAll(o.${prop.getterPrefix}${prop.nameWithUpperCase}());
+        with${prop.nameWithUpperCase}(merged);
       }
 #else## if property is collection
       this.__vmf_prop_${prop.name} = o.${prop.getterPrefix}${prop.nameWithUpperCase}();
@@ -324,11 +344,16 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
   public Builder applyTo(${type.typeName} o) {
 
 #foreach( $prop in ${type.implementation.properties} )
-#if($prop.propType == "COLLECTION")
+#if($prop.mapType)
+      ${VMFPKG}.internal.ManagedMaps.copyInto(o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.__vmf_prop_${prop.name},
+          ${prop.mapValueTypeName}.class, this.appendCollections);
+#elseif($prop.propType == "COLLECTION")
       if(!this.appendCollections) {
         o.${prop.getterPrefix}${prop.nameWithUpperCase}().clear();
       }
-      o.${prop.getterPrefix}${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
+      if (this.__vmf_prop_${prop.name} != null) {
+        o.${prop.getterPrefix}${prop.nameWithUpperCase}().addAll(this.__vmf_prop_${prop.name});
+      }
 #else## if property is collection
 #if(!$prop.containmentProperty)
       o.set${prop.nameWithUpperCase}(this.__vmf_prop_${prop.name});

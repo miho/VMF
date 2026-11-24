@@ -30,6 +30,7 @@ package eu.mihosoft.vmf.runtime.core;
 
 
 import eu.mihosoft.vcollections.VListChangeEvent;
+import eu.mihosoft.vcollections.VMapChangeEvent;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -96,6 +97,11 @@ public interface Change {
         return Optional.empty();
     }
 
+    /** Returns the affected entries before and after an edit to a managed map. */
+    default Optional<VMapChangeEvent<String, Object>> mapChange() {
+        return Optional.empty();
+    }
+
     /**
      * Change Type
      */
@@ -107,7 +113,9 @@ public interface Change {
         /**
          * Change affects a list.
          */
-        LIST
+        LIST,
+        /** Change affects entries in a managed map. */
+        MAP
     }
 
     /**

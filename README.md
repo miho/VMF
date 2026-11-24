@@ -30,6 +30,7 @@ It generates/supports:
 - delegation
 - annotations
 - reflection
+- [managed map properties and generic model interfaces](docs/typed-model-properties.md)
 - jackson serialization support (json, xml, yml)
 - json schema generation for validation and automatic visual editor generation
 - ...
@@ -75,6 +76,8 @@ interface Child {
 ```
 
 Just call the `vmfGenModelSources` task to generate the implementation.
+
+See [Generic model interfaces](docs/generic-model-interfaces.md) for reusable property declarations with named concrete bindings.
 
 To improve IDE support, enable the IntelliJ support via
 

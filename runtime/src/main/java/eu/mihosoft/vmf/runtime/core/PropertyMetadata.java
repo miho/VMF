@@ -35,6 +35,8 @@ import java.util.Optional;
 public final class PropertyMetadata {
 
     private final String name;
+    private final TypeDescriptor descriptor;
+    private final boolean mapType;
     private final String typeName;
     private final Optional<String> elementTypeName;
     private final boolean modelType;
@@ -45,6 +47,8 @@ public final class PropertyMetadata {
     PropertyMetadata(Property property) {
         Type type = property.getType();
         this.name = property.getName();
+        this.descriptor = type.getDescriptor();
+        this.mapType = type.isMapType();
         this.typeName = type.getName();
         this.elementTypeName = type.getElementTypeName();
         this.modelType = type.isModelType();
@@ -57,6 +61,12 @@ public final class PropertyMetadata {
         }
         this.annotations = List.copyOf(copiedAnnotations);
     }
+
+    /** Returns the structured property type, including its concrete arguments. */
+    public TypeDescriptor getDescriptor() { return descriptor; }
+
+    /** Indicates whether the property is a managed map. */
+    public boolean isMapType() { return mapType; }
 
     /** Returns the property name. */
     public String getName() {
