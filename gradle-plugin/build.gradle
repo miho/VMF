@@ -27,7 +27,6 @@ apply plugin: 'groovy'
 apply from: 'gradle/publishing.gradle'
 
 repositories {
-    maven { url = 'https://jitpack.io' }
     mavenCentral()
     mavenLocal()
 }

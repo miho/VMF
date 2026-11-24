@@ -2,56 +2,70 @@ name: VMF CI
 
 on: [push, pull_request]
 
-jobs:
-  
-  build-linux:
-    strategy:
-      matrix:
-        jdkVersion: [17, 21, 24]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up JDK ${{ matrix.jdkVersion }}
-      uses: actions/setup-java@v3
-      with:
-        java-version: ${{ matrix.jdkVersion }}
-        architecture: x64 # (x64 or x86)
-        distribution: temurin
-    
-    - name: Build and test with Gradle/JUnit
-      run:  sh ./build-and-test-all.sh
+permissions:
+  contents: read
 
-      
-  build-macos-latest:
+concurrency:
+  group: vmf-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / JDK ${{ matrix.jdk }}
     strategy:
+      fail-fast: false
+      max-parallel: 2
       matrix:
-        jdkVersion: [17]
-    runs-on: [macos-latest]
+        jdk: [17, 21, 24]
+        os: [ubuntu-latest, windows-latest]
+        include:
+          - os: macos-latest
+            jdk: 17
+    runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v3
-    - name: Set up JDK ${{ matrix.jdkVersion }}
-      uses: actions/setup-java@v3
-      with:
-        java-version: ${{ matrix.jdkVersion }}
-        distribution: temurin
-        architecture: x64 # (x64 or x86)
-        
-    - name: Build and test with Gradle/JUnit
-      run:  sh ./build-and-test-all.sh 
-   
-  build-windows-latest:
-    strategy:
-      matrix:
-        jdkVersion: [17, 21, 24]
-    runs-on: [windows-latest]
-    steps:
-    - uses: actions/checkout@v3
-    - name: Set up JDK ${{ matrix.jdkVersion }}
-      uses: actions/setup-java@v3
-      with:
-        java-version: ${{ matrix.jdkVersion }}
-        distribution: temurin
-        architecture: x64 # (x64 or x86)
-   
-    - name: Build and test with Gradle/JUnit
-      run:  ./build-and-test-all.bat
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # Core and the model tests compile with 11, the Gradle plugin with 17.
+      # setup-java makes the last installed version the launcher.
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: |
+            11
+            17
+            ${{ matrix.jdk != 17 && matrix.jdk || '' }}
+
+      - uses: gradle/actions/setup-gradle@v6
+        with:
+          cache-provider: basic
+
+      # VMF and VCollections live under eu/. Rebuild VMF from this checkout
+      # and resolve its snapshot dependency from the configured repository.
+      - name: Cache Maven dependencies
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.m2/repository/*
+            !~/.m2/repository/eu
+          key: maven-releases-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('maven-plugin/pom.xml') }}
+          restore-keys: maven-releases-v1-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Configure build toolchains and Central release mirror
+        shell: bash
+        run: |
+          gradle_home="${GRADLE_USER_HOME:-$HOME/.gradle}"
+          mkdir -p "$gradle_home/init.d" "$HOME/.m2"
+          cp .github/ci/central-mirror.init.gradle "$gradle_home/init.d/"
+          cp .github/ci/maven-settings.xml "$HOME/.m2/settings.xml"
+          echo 'org.gradle.java.installations.fromEnv=JAVA_HOME_11_X64,JAVA_HOME_17_X64,JAVA_HOME_11_AARCH64,JAVA_HOME_17_AARCH64' >> "$gradle_home/gradle.properties"
+
+      - name: Build and test
+        if: runner.os != 'Windows'
+        run: sh ./build-and-test-all.sh
+
+      - name: Build and test on Windows
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: call build-and-test-all.bat

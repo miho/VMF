@@ -1,33 +1,30 @@
 @echo off
-echo ------------------------------------------
-echo BUILDING (CORE, RUNTIME, GRADLE-PLUGIN)...
-echo ------------------------------------------
+setlocal
+pushd "%~dp0"
+if errorlevel 1 exit /b %errorlevel%
 
-cmd /c "gradlew.bat" clean publishtoMavenLocal --no-daemon || exit /b %ERRORLEVEL%;
-cmd /c "gradlew.bat" test --no-daemon || exit /b %ERRORLEVEL%;
+echo Building and testing the generator, runtime and Gradle plugin
+call gradlew.bat clean test publishToMavenLocal --no-daemon %*
+if errorlevel 1 goto finish
 
-echo ------------------------------------------
-echo BUILDING PLUGIN (MAVEN)...
-echo ------------------------------------------
+echo Building and testing the Maven plugin
 cd maven-plugin
-cmd /c "maven.bat" clean install || exit /b %ERRORLEVEL%;
+if errorlevel 1 goto finish
+call maven.bat clean install %*
+if errorlevel 1 goto finish
 
-echo ------------------------------------------
-echo TESTING (1/1, GRADLE)...
-echo ------------------------------------------
+echo Testing generated models
 cd ..\test-suite
-@REM cmd /c "gradlew.bat" clean test --stacktrace --no-daemon --warning-mode all || exit /b %ERRORLEVEL%;
-cmd /c "gradlew.bat" clean test --stacktrace --no-daemon || exit /b %ERRORLEVEL%;
+if errorlevel 1 goto finish
+call gradlew.bat clean test --no-daemon %*
+if errorlevel 1 goto finish
 
-@REM echo ------------------------------------------
-@REM echo TESTING (2/2, MAVEN)...
-@REM echo ------------------------------------------
-@REM cmd /c "maven.bat" test   || exit /b %ERRORLEVEL%;
-
-echo ------------------------------------------
-echo BUILDING AND TESTING JACKSON MODULE
-echo ------------------------------------------
+echo Building and testing Jackson integration
 cd ..\jackson
-@REM cmd /c "gradlew.bat" clean test --stacktrace --no-daemon --warning-mode all || exit /b %ERRORLEVEL%;
-cmd /c "gradlew.bat" clean publishtoMavenLocal --no-daemon || exit /b %ERRORLEVEL%;
-cmd /c "gradlew.bat" clean test --stacktrace --no-daemon || exit /b %ERRORLEVEL%;
+if errorlevel 1 goto finish
+call gradlew.bat clean test publishToMavenLocal --no-daemon %*
+
+:finish
+set "buildStatus=%errorlevel%"
+popd
+exit /b %buildStatus%

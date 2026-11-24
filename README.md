@@ -149,8 +149,9 @@ Snapshots change without notice and are deleted after 90 days; Gradle caches the
 
 ### Requirements
 
-- Java >= 11
-- Internet connection (dependencies are downloaded automatically)
+- Install JDK 11 and JDK 17. Set `JAVA_HOME` to the JDK that runs Gradle. CI uses JDK 17, 21 and 24.
+- Install Maven (`mvn` on your path) to run the full build.
+- The first build downloads dependencies.
 - IDE: [Gradle](http://www.gradle.org/) Plugin (not necessary for command line usage)
 
 ### IDE
@@ -173,19 +174,16 @@ Navigate to the `VMF`[Gradle](http://www.gradle.org/) project (i.e., `path/to/VM
 > **NOTE:** to execute the tests within the VMF project (basic tests) execute the `test` task after executing `publishToMavenLocal`.    
     
     
-## Testing VMF (Core, Runtime & Plugin)
+## Testing VMF
 
-To execute the full test suite, navigate to the test project (i.e., `path/to/VMF/test-suite`) and enter the following command
+From the repository root, run `sh ./build-and-test-all.sh` on Linux or macOS, or
+`build-and-test-all.bat` on Windows. These are the same commands that CI uses.
+They build VMF into your local Maven repository and test the generator, both
+build plugins, generated models and Jackson integration.
 
-#### Bash (Linux/macOS/Cygwin/other Unix shell)
-
-    bash gradlew test
-    
-#### Windows (CMD)
-
-    gradlew test
-
-This will use the latest snapshot vmf and gradle-plugin to execute the tests defined in the test-suite project.
+Once dependencies are cached, append `--offline` to either command. This lets
+you run the full suite during a repository outage without requesting dependencies
+or publishing artifacts to Maven Central.
 
 ### Viewing the Report
 

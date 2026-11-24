@@ -1,0 +1,27 @@
+import org.gradle.api.artifacts.ArtifactRepositoryContainer
+import org.gradle.api.artifacts.repositories.MavenArtifactRepository
+
+def central = URI.create(ArtifactRepositoryContainer.MAVEN_CENTRAL_URL)
+def mirror = URI.create('https://maven-central.storage-download.googleapis.com/maven2/')
+
+gradle.beforeSettings { settings ->
+    // Plugin markers can live on the Portal while their dependencies live on Central.
+    settings.pluginManagement.repositories {
+        maven {
+            url = mirror
+            mavenContent { releasesOnly() }
+        }
+        gradlePluginPortal()
+    }
+}
+
+gradle.beforeProject { project ->
+    [project.buildscript.repositories, project.repositories].each { repositories ->
+        repositories.withType(MavenArtifactRepository).all { repository ->
+            if (repository.url == central) {
+                repository.url = mirror
+                repository.mavenContent { releasesOnly() }
+            }
+        }
+    }
+}

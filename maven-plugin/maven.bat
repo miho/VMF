@@ -4,7 +4,6 @@ setlocal
 
 FOR /F "tokens=*" %%i in ('findstr "^publication.version" ..\config\common.properties') do SET %%i
 
-mvn -Drevision=%publication.version% %*
-
-endlocal
+call mvn -Drevision=%publication.version% %*
+exit /b %errorlevel%
 
