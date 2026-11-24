@@ -2,7 +2,7 @@
 private void __vmf_set_reference_with_observers_${prop.name}(
         ${prop.typeName} ${prop.name}, __VMF_TYPE_${prop.type.implementation.typeName} target,
         __VMF_TYPE_${prop.type.implementation.typeName} oldTarget,
-        __VMF_TYPE_${prop.referenceInfo.opposite.type.implementation.typeName} previousOwner) {
+        __VMF_TYPE_${prop.referenceInfo.opposite.relationshipTarget.implementation.typeName} previousOwner) {
   ${prop.typeName} oldValue = oldTarget;
   this.__vmf_reference_pending_${prop.name} = true;
   if (target != null) target.__vmf_set_reference_pending_${prop.referenceInfo.opposite.name}(true);

@@ -50,6 +50,8 @@ public final class Type {
     private final boolean interfaceOnly;
     private final String name;
     private final TypeDescriptor descriptor;
+    // Java declarations preserve loader identity; portable descriptors intentionally contain names.
+    private final List<java.lang.reflect.Type> boundArguments;
 
     private final Class<?> modelClass;
 
@@ -57,7 +59,13 @@ public final class Type {
     private VObject prototype;
 
     private Type(boolean modelType, boolean listType, boolean interfaceOnly, String name, Class<?> modelClass, TypeDescriptor descriptor) {
+        this(modelType, listType, interfaceOnly, name, modelClass, descriptor, List.of());
+    }
+
+    private Type(boolean modelType, boolean listType, boolean interfaceOnly, String name, Class<?> modelClass,
+                 TypeDescriptor descriptor, List<java.lang.reflect.Type> boundArguments) {
         this.descriptor = descriptor;
+        this.boundArguments = boundArguments;
         this.modelType = modelType;
         this.listType = listType;
         this.interfaceOnly = interfaceOnly;
@@ -146,7 +154,8 @@ public final class Type {
         }
         if (supertype.descriptor.getArguments().isEmpty()) return true;
         for (Type parent : superTypes()) {
-            if (parent.modelClass == supertype.modelClass && parent.descriptor.equals(supertype.descriptor)) return true;
+            if (parent.modelClass == supertype.modelClass && parent.descriptor.equals(supertype.descriptor)
+                    && parent.boundArguments.equals(supertype.boundArguments)) return true;
             if (parent.isModelSubtypeOf(supertype)) return true;
         }
         return false;
@@ -174,12 +183,13 @@ public final class Type {
         if (o == null || getClass() != o.getClass()) return false;
         Type type = (Type) o;
         return modelType == type.modelType && listType == type.listType &&
-                Objects.equals(name, type.name) && descriptor.equals(type.descriptor);
+                modelClass == type.modelClass && Objects.equals(name, type.name) && descriptor.equals(type.descriptor)
+                && boundArguments.equals(type.boundArguments);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(modelType, listType, name, descriptor);
+        return Objects.hash(modelType, listType, name, descriptor, modelClass, boundArguments);
     }
 
     @Override
@@ -269,7 +279,7 @@ public final class Type {
                         Class<?> raw = parent instanceof ParameterizedType
                                 ? (Class<?>) ((ParameterizedType) parent).getRawType() : (Class<?>) parent;
                         if (raw == VObject.class || !VObject.class.isAssignableFrom(raw)) continue;
-                        parents.add(parentType(raw, resolveArgument(parent)));
+                        parents.add(parentType(raw, resolveArgument(parent), parent));
                     }
                 } else {
                     var prototype = (eu.mihosoft.vmf.runtime.core.internal.VObjectInternal) getPrototype();
@@ -279,7 +289,8 @@ public final class Type {
                     for (String declared : declarations) {
                         TypeDescriptor parent = TypeDescriptor.fromTypeName(declared);
                         try {
-                            parents.add(parentType(Class.forName(parent.getName(), false, modelClass.getClassLoader()), parent));
+                            Class<?> raw = Class.forName(parent.getName(), false, modelClass.getClassLoader());
+                            parents.add(parentType(raw, parent, parent.getArguments().isEmpty() ? raw : declaredApplication(raw)));
                         } catch (ClassNotFoundException ex) {
                             throw new IllegalStateException("Cannot resolve model supertype " + declared, ex);
                         }
@@ -309,8 +320,27 @@ public final class Type {
         throw new IllegalStateException("Unsupported model supertype argument " + argument);
     }
 
-    private static Type parentType(Class<?> raw, TypeDescriptor descriptor) {
+    private java.lang.reflect.Type declaredApplication(Class<?> raw) {
+        for (java.lang.reflect.Type parent : modelClass.getGenericInterfaces()) {
+            if (parent instanceof ParameterizedType && ((ParameterizedType) parent).getRawType() == raw) return parent;
+        }
+        return raw;
+    }
+
+    private java.lang.reflect.Type boundArgument(java.lang.reflect.Type argument) {
+        if (argument instanceof TypeVariable<?>) {
+            int index = java.util.Arrays.asList(modelClass.getTypeParameters()).indexOf(argument);
+            if (index >= 0 && index < boundArguments.size()) return boundArguments.get(index);
+        }
+        return argument;
+    }
+
+    private Type parentType(Class<?> raw, TypeDescriptor descriptor, java.lang.reflect.Type application) {
+        List<java.lang.reflect.Type> arguments = application instanceof ParameterizedType
+                ? java.util.Arrays.stream(((ParameterizedType) application).getActualTypeArguments())
+                        .map(this::boundArgument).collect(java.util.stream.Collectors.toUnmodifiableList())
+                : List.of();
         boolean interfaceOnly = !Mutable.class.isAssignableFrom(raw) && !Immutable.class.isAssignableFrom(raw);
-        return new Type(true, false, interfaceOnly, descriptor.getName(), raw, descriptor);
+        return new Type(true, false, interfaceOnly, descriptor.getName(), raw, descriptor, arguments);
     }
 }

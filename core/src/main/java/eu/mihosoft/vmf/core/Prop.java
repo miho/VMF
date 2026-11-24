@@ -19,7 +19,7 @@
  * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
  * a framework for declarative GUI programming on the Java platform.
  * Computing and Visualization in Science, 2013, 16(4),
- * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ * 181ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“192. http://doi.org/10.1007/s00791-014-0230-y
  */
 package eu.mihosoft.vmf.core;
 
@@ -166,7 +166,9 @@ public class Prop {
         this.ignoredForToString = other.ignoredForToString;
         this.getterPrefix = other.getterPrefix;
         this.propType = other.propType;
+        this.genericRelationship = other.genericRelationship;
         this.genericParameter = other.genericParameter;
+        this.valueClass = other.valueClass;
         this.type = other.type;
         this.genericPackageName = other.genericPackageName;
         this.genericTypeName = other.genericTypeName;
@@ -193,14 +195,22 @@ public class Prop {
     Prop inheritedBy(ModelType owner) {
         Prop copy = new Prop(this);
         copy.initKeyContract(owner);
-        if (copy.isKeyed() && !isKeyed()) copy.initContainment();
+        copy.initGenericRelationship(owner);
+        copy.valueClass = copy.resolveValueClass(owner);
         copy.initMultiplicity(getterMethod, owner);
         if (copy.isMapType()) copy.setMapTypes(owner);
         else if (copy.genericParameter != null) copy.setParameterType(owner);
+        if ((copy.isKeyed() && !isKeyed()) || !Objects.equals(copy.genericRelationship, genericRelationship)) {
+            copy.initContainment();
+            copy.initCrossRefInfo();
+        }
         return copy;
     }
 
+    private java.lang.annotation.Annotation genericRelationship;
     private TypeVariable<?> genericParameter;
+    // Erased model upper bound on an open property, exact target on a named specialization.
+    private Class<?> valueClass;
 
     private void setParameterType(ModelType owner) {
         GenericModelTypes types = owner.genericTypes();
@@ -323,8 +333,13 @@ public class Prop {
         if (map) return;
         if (!set && (!list || (!unique && upperBound == -1))) return;
 
-        Class<?> target = getValueClass();
+        Class<?> target = valueClass;
+        if (target != null && owner.getModel().declares(target) && !unique) return;
         if (target != null && owner.getModel().declares(target) && unique) {
+            if (genericParameter != null && owner.genericTypes().modelBound(genericParameter) == null) {
+                throw GenericModelTypes.unsupportedProperty(getter, "give parameter " + genericParameter.getName()
+                        + " a named model upper bound to declare an identity-based reference collection");
+            }
             referenceSet = true;
             for (Method declaration : owner.genericTypes().propertyDeclarations(getter.getName())) {
                 Contains contains = declaration.getAnnotation(Contains.class);
@@ -371,21 +386,63 @@ public class Prop {
         setConstrainedElement(element, parent);
     }
 
-    private static TypeVariable<?> propertyParameter(Method getter) {
+    private static Type declaredValueType(Method getter) {
         Type type = getter.getGenericReturnType();
+        if (type instanceof GenericArrayType) return ((GenericArrayType) type).getGenericComponentType();
+        if (type instanceof Class<?> && ((Class<?>) type).isArray()) return ((Class<?>) type).getComponentType();
+        if (type instanceof ParameterizedType && Collection.class.isAssignableFrom(getter.getReturnType())) {
+            return ((ParameterizedType) type).getActualTypeArguments()[0];
+        }
+        return type;
+    }
+
+    private void initGenericRelationship(ModelType owner) {
+        GenericModelTypes types = owner.genericTypes();
+        List<Method> declarations = types.propertyDeclarations(getterMethod.getName());
+        Type value = types.resolve(declaredValueType(getterMethod));
+        boolean modelParameter = false;
+        for (Method method : declarations) {
+            Type inherited = declaredValueType(method);
+            if (!(inherited instanceof TypeVariable<?>) || types.modelBound(inherited) == null) continue;
+            modelParameter = true;
+            Type expected = types.resolve(inherited);
+            if (!expected.equals(value)) {
+                throw GenericModelTypes.unsupportedProperty(getterMethod, "the inherited model parameter resolves to "
+                        + expected.getTypeName() + " in " + owner.getFullTypeName() + "; preserve that target type");
+            }
+        }
+        if (!modelParameter) return;
+        for (Method declaration : declarations) {
+            for (java.lang.annotation.Annotation annotation : declaration.getDeclaredAnnotations()) {
+                if (!(annotation instanceof Contains || annotation instanceof Container || annotation instanceof Refers)) continue;
+                if (genericRelationship != null && !genericRelationship.equals(annotation)) {
+                    throw GenericModelTypes.unsupportedProperty(getterMethod, "conflicting inherited model relationships in "
+                            + owner.getFullTypeName());
+                }
+                genericRelationship = annotation;
+            }
+        }
+    }
+
+    private <A extends java.lang.annotation.Annotation> A relationshipAnnotation(Class<A> kind) {
+        return kind.isInstance(genericRelationship) ? kind.cast(genericRelationship) : getterMethod.getAnnotation(kind);
+    }
+
+    private TypeVariable<?> propertyParameter(Method getter) {
+        Type type = declaredValueType(getter);
         if (getter.getTypeParameters().length > 0) {
             throw GenericModelTypes.unsupportedProperty(getter, "declare type parameters on the model interface");
         }
         // Managed maps validate both their key and value arguments together.
         if (VMAP_NAME.equals(getter.getReturnType().getName())) return null;
-        if (type instanceof GenericArrayType) type = ((GenericArrayType) type).getGenericComponentType();
-        if (type instanceof ParameterizedType && List.class.isAssignableFrom(getter.getReturnType())) {
-            type = ((ParameterizedType) type).getActualTypeArguments()[0];
-        }
         if (type instanceof TypeVariable<?>) {
-            if (getter.isAnnotationPresent(Contains.class) || getter.isAnnotationPresent(Container.class)
-                    || getter.isAnnotationPresent(Refers.class) || getter.isAnnotationPresent(SyncWith.class)) {
-                throw GenericModelTypes.unsupportedProperty(getter, "generic value properties cannot declare model relationships");
+            if (getter.isAnnotationPresent(SyncWith.class)) {
+                throw GenericModelTypes.unsupportedProperty(getter, "@SyncWith does not support parameterized targets");
+            }
+            if (parent.genericTypes().modelBound(type) == null
+                    && (getter.isAnnotationPresent(Contains.class) || getter.isAnnotationPresent(Container.class)
+                    || getter.isAnnotationPresent(Refers.class))) {
+                throw GenericModelTypes.unsupportedProperty(getter, "give the parameter a named VMF model upper bound to declare a relationship");
             }
             return (TypeVariable<?>) type;
         }
@@ -411,12 +468,14 @@ public class Prop {
             customOrderIndex = propOrder.index();
         }
 
+        genericParameter = propertyParameter(getterMethod);
+        valueClass = resolveValueClass(parent);
+        initGenericRelationship(parent);
         initMultiplicity(getterMethod, parent);
-        if (!isManagedValues()) genericParameter = propertyParameter(getterMethod);
         if (isManagedValues()) {
             // initMultiplicity resolves the element and generated collection kind together.
         } else if (genericParameter != null) {
-            boolean many = propClass.isArray() || List.class.isAssignableFrom(propClass);
+            boolean many = propClass.isArray() || Collection.class.isAssignableFrom(propClass);
             propType = many ? PropType.COLLECTION : PropType.CLASS;
             setParameterType(parent);
         } else if (propClass.isPrimitive()) {
@@ -553,7 +612,7 @@ public class Prop {
 
     private String mapArgument(ModelType owner, Type argument, String role) {
         Type binding = owner.genericTypes().resolve(argument);
-        if (!(binding instanceof TypeVariable<?>) && !MAP_SCALAR_TYPES.contains(binding)) {
+        if (owner.genericTypes().modelBound(binding) != null || (!(binding instanceof TypeVariable<?>) && !MAP_SCALAR_TYPES.contains(binding))) {
             throw new IllegalArgumentException("Invalid managed map property " + getterMethod.toGenericString()
                     + " in " + owner.getFullTypeName() + ": unsupported " + role + " type " + binding.getTypeName()
                     + ". Use String or a boxed primitive, or model the relationship as keyed entries.");
@@ -625,11 +684,18 @@ public class Prop {
         return keyPropertyName;
     }
 
+    /** The named type declaring the contract of an open relationship, or its concrete target. */
+    public ModelType getRelationshipTarget() {
+        if (valueClass == null || !parent.getModel().declares(valueClass)) return null;
+        return parent.getModel().resolveType(parent.getModel().convertModelTypeToDestination(valueClass)).orElse(null);
+    }
+
     public Prop getEntryKey() {
-        if (!isCollectionType() || !isContained() || getGenericType() == null) {
+        ModelType entryType = getRelationshipTarget();
+        if (!isCollectionType() || !isContained() || entryType == null) {
             throw GenericModelTypes.unsupportedProperty(getterMethod, "@Keyed requires a containment list of model entries");
         }
-        return getGenericType().getImplementation().getProperties().stream()
+        return entryType.getImplementation().getProperties().stream()
                 .filter(p -> p.getName().equals(getKeyPropertyName())).findFirst()
                 .orElseThrow(() -> GenericModelTypes.unsupportedProperty(getterMethod,
                         "unknown key property '" + getKeyPropertyName() + "' on " + getElementTypeName()));
@@ -649,7 +715,7 @@ public class Prop {
         // A subclass may inherit or override the key getter. Mark the actual setter
         // emitted for each concrete entry type, including closed generic specializations.
         for (ModelType entryType : owner.getModel().getTypes()) {
-            if (entryType.extendsType(getGenericType())) {
+            if (entryType.extendsType(getRelationshipTarget())) {
                 for (Prop actual : entryType.getImplementation().getProperties()) {
                     if (!actual.name.equals(key.name)) continue;
                     boolean scalar = actual.propType == PropType.PRIMITIVE || MAP_SCALAR_TYPES.stream()
@@ -758,8 +824,8 @@ public class Prop {
         // System.out.println("init containment for " + getName());
 
         // containment
-        Container container = getterMethod.getAnnotation(Container.class);
-        Contains contained = isKeyed() ? keyedContainment : referenceSet ? uniqueContainment : getterMethod.getAnnotation(Contains.class);
+        Container container = relationshipAnnotation(Container.class);
+        Contains contained = isKeyed() ? keyedContainment : referenceSet ? uniqueContainment : relationshipAnnotation(Contains.class);
 
         if (container != null) {
 
@@ -774,11 +840,7 @@ public class Prop {
 
                 // if opposite can't be found, try with full name
                 if (!opposite.isPresent()) {
-                    if (isCollectionType()) {
-                        oppositeOfGetContainerProperty = getGenericTypeName() + "." + oppositeOfGetContainerProperty;
-                    } else {
-                        oppositeOfGetContainerProperty = getTypeName() + "." + oppositeOfGetContainerProperty;
-                    }
+                    oppositeOfGetContainerProperty = oppositeTargetName() + "." + oppositeOfGetContainerProperty;
 
                     opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainerProperty);
                 }
@@ -813,11 +875,7 @@ public class Prop {
 
                 // if opposite can't be found, try with full name
                 if (!opposite.isPresent()) {
-                    if (isCollectionType()) {
-                        oppositeOfGetContainedProperty = getGenericTypeName() + "." + oppositeOfGetContainedProperty;
-                    } else {
-                        oppositeOfGetContainedProperty = getTypeName() + "." + oppositeOfGetContainedProperty;
-                    }
+                    oppositeOfGetContainedProperty = oppositeTargetName() + "." + oppositeOfGetContainedProperty;
                     opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfGetContainedProperty);
                 }
 
@@ -850,8 +908,6 @@ public class Prop {
      * @return the opposite property if it is declared in a super type of the value type
      */
     private Optional<Prop> resolveInheritedOpposite(String oppositeName) {
-        Class<?> valueClass = getValueClass();
-
         if (valueClass == null) {
             return Optional.empty();
         }
@@ -884,31 +940,15 @@ public class Prop {
         return Optional.empty();
     }
 
-    /**
-     * Returns the class of the values of this property (the property type or, for collections and
-     * arrays, the element type).
-     *
-     * @return value class or {@code null} if it cannot be determined
-     */
-    private Class<?> getValueClass() {
-        Class<?> returnType = getterMethod.getReturnType();
+    private String oppositeTargetName() {
+        if (genericParameter != null && valueClass != null) return valueClass.getSimpleName();
+        return isCollectionType() ? getGenericTypeName() : getTypeName();
+    }
 
-        if (returnType.isArray()) {
-            return returnType.getComponentType();
-        }
-
-        if (Collection.class.isAssignableFrom(returnType)) {
-            java.lang.reflect.Type genericType = getterMethod.getGenericReturnType();
-            if (genericType instanceof ParameterizedType) {
-                java.lang.reflect.Type[] typeArgs = ((ParameterizedType) genericType).getActualTypeArguments();
-                if (typeArgs.length == 1 && typeArgs[0] instanceof Class) {
-                    return (Class<?>) typeArgs[0];
-                }
-            }
-            return null;
-        }
-
-        return returnType;
+    private Class<?> resolveValueClass(ModelType owner) {
+        GenericModelTypes types = owner.genericTypes();
+        Type value = types.resolve(declaredValueType(getterMethod));
+        return value instanceof Class<?> ? (Class<?>) value : types.modelBound(value);
     }
 
     void initSyncInfo() {
@@ -927,11 +967,7 @@ public class Prop {
 
             // if opposite can't be found, try with full name
             if (!opposite.isPresent()) {
-                if (isCollectionType()) {
-                    oppositeOfSyncProperty = getGenericTypeName() + "." + oppositeOfSyncProperty;
-                } else {
-                    oppositeOfSyncProperty = getTypeName() + "." + oppositeOfSyncProperty;
-                }
+                oppositeOfSyncProperty = oppositeTargetName() + "." + oppositeOfSyncProperty;
 
                 opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfSyncProperty);
             }
@@ -948,7 +984,7 @@ public class Prop {
     void initCrossRefInfo() {
 
         // containment
-        Refers referenceInfo = referenceSet ? uniqueReference : getterMethod.getAnnotation(Refers.class);
+        Refers referenceInfo = referenceSet ? uniqueReference : relationshipAnnotation(Refers.class);
 
         if (referenceInfo != null) {
 
@@ -961,15 +997,12 @@ public class Prop {
 
             // if opposite can't be found, try with full name
             if (!opposite.isPresent()) {
-                if (isCollectionType()) {
-                    oppositeOfSyncProperty = getGenericTypeName() + "." + oppositeOfSyncProperty;
-                } else {
-                    oppositeOfSyncProperty = getTypeName() + "." + oppositeOfSyncProperty;
-                }
+                oppositeOfSyncProperty = oppositeTargetName() + "." + oppositeOfSyncProperty;
 
                 opposite = parent.getModel().resolveOppositeOf(getParent(), oppositeOfSyncProperty);
             }
 
+            if (opposite.isEmpty()) opposite = resolveInheritedOpposite(referenceInfo.opposite());
             if (opposite.isPresent()) {
                 this.referenceInfo = ReferenceInfo.newInstance(
                         parent, 
@@ -1061,13 +1094,37 @@ public class Prop {
         return ordered ? GenericModelTypes.ORDERED_REF_SET : GenericModelTypes.REF_SET;
     }
 
+    /** Check both sides after substitution so an edit from the inverse end cannot insert a wrong target. */
+    void validateGenericRelationship(ModelType owner) {
+        ModelType target = getRelationshipTarget();
+        if (target == null) return;
+        Prop inverse = isCrossRefProperty() ? getReferenceInfo().getOpposite() : getContainmentInfo().getOpposite();
+        if (genericParameter == null && (inverse == null || inverse.genericParameter == null)) return;
+        if (target.isImmutable() && (isContainmentProperty() || inverse != null)) {
+            throw GenericModelTypes.unsupportedProperty(getterMethod, "immutable target " + target.getFullTypeName()
+                    + " cannot have a container or opposite in " + owner.getFullTypeName());
+        }
+        if (owner.isInterfaceOnly() || inverse == null) return;
+        for (ModelType candidate : owner.getModel().getTypes()) {
+            if (candidate.isInterfaceOnly() || !candidate.extendsType(target)) continue;
+            Prop actual = candidate.getImplementation().getProperties().stream().filter(p -> p.name.equals(inverse.name))
+                    .findFirst().orElse(null);
+            if (actual != null && actual.getRelationshipTarget() != null && !owner.extendsType(actual.getRelationshipTarget())) {
+                throw GenericModelTypes.unsupportedProperty(getterMethod, owner.getFullTypeName() + " is outside the"
+                        + " specialized opposite " + candidate.getFullTypeName() + "." + actual.name + " targeting "
+                        + actual.getRelationshipTarget().getFullTypeName());
+            }
+        }
+    }
+
     void validateReferenceSetOverride(ModelType owner) {
         if (!referenceSet) return;
         for (ModelType base : owner.getAllInheritedTypes()) {
             for (Prop inherited : base.getImplementation().getProperties()) {
                 if (!name.equals(inherited.name)) continue;
                 if (!inherited.referenceSet || ordered != inherited.ordered
-                        || !Objects.equals(getElementTypeName(), inherited.getElementTypeName()))
+                        || !Objects.equals(getElementTypeName(), inherited.genericParameter == null ? inherited.getElementTypeName()
+                                : owner.genericTypes().name(owner.genericTypes().resolve(inherited.genericParameter))))
                     throw GenericModelTypes.unsupportedProperty(getterMethod,
                             "a unique reference getter must preserve its inherited collection kind and model element type");
             }
@@ -1075,7 +1132,12 @@ public class Prop {
     }
 
     public String getReadOnlyReferenceCollectionType() {
-        return getReferenceCollectionClass() + "<" + getGenericType().getReadOnlyInterface().getFullTypeName() + ">";
+        return getReferenceCollectionClass() + "<" + getReadOnlyElementTypeName() + ">";
+    }
+
+    public String getReadOnlyElementTypeName() {
+        ModelType target = getGenericType();
+        return target == null ? getElementTypeName() : target.getReadOnlyInterface().getFullTypeName();
     }
 
     public String getTypeNameForInterface() {

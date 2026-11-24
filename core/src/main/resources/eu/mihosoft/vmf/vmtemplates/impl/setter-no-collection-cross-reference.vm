@@ -96,7 +96,7 @@
     throw new IllegalArgumentException("The opposite reference '${prop.referenceInfo.opposite.name}' is already updating");
   }
   var oldTarget = (__VMF_TYPE_${prop.type.implementation.typeName})this.__vmf_prop_${prop.name};
-  var previousOwner = target == null ? null : (__VMF_TYPE_${prop.referenceInfo.opposite.type.implementation.typeName})
+  var previousOwner = target == null ? null : (__VMF_TYPE_${prop.referenceInfo.opposite.relationshipTarget.implementation.typeName})
           target.__vmf_get_prop_${prop.referenceInfo.opposite.name}();
   if (propertyChanges != null
       || (oldTarget != null && oldTarget._vmf_hasPropertyChangeListeners())

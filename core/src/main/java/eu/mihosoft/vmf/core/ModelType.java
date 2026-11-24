@@ -86,8 +86,11 @@ public class ModelType {
 
     public String getWildcardArguments() { return genericTypes.wildcards(); }
 
-    public String getTypeParameters() { return genericTypes.parameters(true); }
-    public String getTypeArguments() { return genericTypes.parameters(false); }
+    public String getTypeParameters() { return genericTypes.parameters(false); }
+    public String getTypeArguments() { return genericTypes.typeArguments(); }
+    public String getReadOnlyTypeParameters() { return genericTypes.parameters(true); }
+    public String getProjectedTypeArguments() { return genericTypes.projectedArguments(); }
+    public boolean hasModelParameters() { return genericTypes.hasModelParameters(); }
     public List<String> getParameterizedSuperTypes() { return parameterizedSuperTypes; }
     public boolean hasParameterizedSuperTypes() { return !parameterizedSuperTypes.equals(implementsList); }
     GenericModelTypes genericTypes() { return genericTypes; }
@@ -579,7 +582,7 @@ public class ModelType {
             String ifsName = model.convertModelTypeToDestination(ifs);
 
             if (ifsName.startsWith(model.getPackageName())) {
-                ext3nds.add("ReadOnly" + ifs.getSimpleName() + genericTypes.arguments(ifs));
+                ext3nds.add("ReadOnly" + ifs.getSimpleName() + genericTypes.readOnlyArguments(ifs));
             }
         }
 
@@ -597,7 +600,7 @@ public class ModelType {
                 if (ifs.getAnnotation(Immutable.class) != null) {
                     ext3nds.add(ifs.getSimpleName() + genericTypes.arguments(ifs));
                 } else {
-                    ext3nds.add("ReadOnly" + ifs.getSimpleName() + genericTypes.arguments(ifs));
+                    ext3nds.add("ReadOnly" + ifs.getSimpleName() + genericTypes.readOnlyArguments(ifs));
                 }
             }
         }

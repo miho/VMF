@@ -103,7 +103,7 @@ public interface ${type.typeName}${type.typeParameters} extends ${VMFPKG}.VObjec
    * Returns a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    * @return a read-only wrapper of '{@link ${type.typeName} <em><b>${type.typeName}</b></em>}'
    */
-  ${type.readOnlyInterface.typeName}${type.typeArguments} asReadOnly();
+  ${type.readOnlyInterface.typeName}${type.projectedTypeArguments} asReadOnly();
 
   /**
    * Returns a deep clone of this object.

@@ -66,7 +66,7 @@ public boolean _vmf_unregisterFromContainers(${VCOLL_PKG}.VList<?> destination, 
       // ------------------------------------------------------------
 
 #foreach( $contained in ${container.implementation.properties} )
-#if(${contained.containmentInfo.containmentType}=="CONTAINED" && ((${contained.type} && ${type.extendsType(${contained.type})}) || (${contained.genericType} && ${type.extendsType(${contained.genericType})})))
+#if(${contained.containmentInfo.containmentType}=="CONTAINED" && ${contained.relationshipTarget} && ${type.extendsType(${contained.relationshipTarget})})
       // -- > prop: ${contained.name}, type: ${contained.typeName}
       //      (the property type is ${type.typeName} or one of its super types)
       if(!found && container instanceof __VMF_TYPE_${container.typeName}Impl) {
@@ -75,7 +75,7 @@ public boolean _vmf_unregisterFromContainers(${VCOLL_PKG}.VList<?> destination, 
         ${VCOLL_PKG}.VList<?> containedList = ${contained.internalGetter("container_internal")};
         if (containedList != destination) found = _vmf_removeFromContainmentList(containedList, true);
 #else##                                    contained prop is collection
-        ${contained.typeName} oldValue = container_internal.__vmf_get_prop_${contained.name}();
+        Object oldValue = container_internal.__vmf_get_prop_${contained.name}();
         // if old value is this contained instance then unregister from the container
         if(oldValue == this) {
           container_internal.__vmf_set_prop_${contained.name}(null);

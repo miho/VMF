@@ -20,12 +20,20 @@
  * M. Hoffer, C. Poliwoda, & G. Wittum. (2013). Visual reflection library:
  * a framework for declarative GUI programming on the Java platform.
  * Computing and Visualization in Science, 2013, 16(4),
- * 181–192. http://doi.org/10.1007/s00791-014-0230-y
+ * 181â€“192. http://doi.org/10.1007/s00791-014-0230-y
  */
 package eu.mihosoft.vmftest.genericseries.vmfmodel;
 
+import eu.mihosoft.vmf.core.Container;
+import eu.mihosoft.vmf.core.Contains;
+import eu.mihosoft.vmf.core.GetterOnly;
+import eu.mihosoft.vmf.core.Immutable;
 import eu.mihosoft.vmf.core.InterfaceOnly;
+import eu.mihosoft.vmf.core.Keyed;
+import eu.mihosoft.vmf.core.Multiplicity;
+import eu.mihosoft.vmf.core.Refers;
 import java.util.List;
+import java.util.Set;
 
 @InterfaceOnly
 interface SampleSeries<T> {
@@ -63,3 +71,72 @@ interface Pair<L, R> {
 interface Reversed<L, R> extends Pair<R, L> {}
 
 interface NamedPair extends Reversed<Integer, String> {}
+
+@InterfaceOnly
+interface NamedTarget { String getName(); }
+
+@InterfaceOnly interface Active { boolean isEnabled(); }
+@InterfaceOnly interface ActiveTarget extends NamedTarget, Active {}
+interface Station extends ActiveTarget {}
+
+@InterfaceOnly
+interface Selection<T extends NamedTarget> {
+    @Contains
+    @Keyed(by = "name")
+    List<T> getOwned();
+    T getCurrent();
+    @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET)
+    T[] getQueue();
+    Set<T> getFavorites();
+}
+
+@InterfaceOnly interface BranchA<X extends NamedTarget> extends Selection<X> {}
+@InterfaceOnly interface BranchB<Y extends NamedTarget> extends Selection<Y> {}
+interface StationSelection extends BranchA<Station>, BranchB<Station> {}
+
+@InterfaceOnly
+interface MemberLike {
+    @Refers(opposite = "members")
+    Team getTeam();
+}
+interface Member extends MemberLike {}
+
+@InterfaceOnly
+interface TeamOf<M extends MemberLike> {
+    @Refers(opposite = "team")
+    Set<M> getMembers();
+}
+interface Team extends TeamOf<Member> {}
+
+@InterfaceOnly interface Related<B extends NamedTarget, S extends B> {
+    B getBase();
+    S getSpecific();
+}
+interface StationPair extends Related<NamedTarget, Station> {}
+
+@InterfaceOnly interface Filtered<T extends ActiveTarget> { T getTarget(); }
+interface FilteredStations extends Filtered<Station> {}
+
+@InterfaceOnly interface Label { @GetterOnly String getText(); }
+@Immutable interface ConstantLabel extends Label {}
+@InterfaceOnly interface LabelsOf<E extends Label> { Set<E> getLabels(); }
+interface Constants extends LabelsOf<ConstantLabel> {}
+
+@InterfaceOnly interface LocalSelection extends BranchA<Station> {}
+
+@InterfaceOnly interface ConstantsOf<T extends ConstantLabel> { Set<T> getLabels(); }
+interface SpecificConstants extends ConstantsOf<ConstantLabel> {}
+
+@InterfaceOnly interface OwnerOf<T extends OwnedTarget> {
+    @Contains(opposite = "owner") T getPrimary();
+    @Refers(opposite = "selector") T getHighlighted();
+}
+interface Owner extends OwnerOf<Owned> {
+    @Override Owned getPrimary();
+    @Override Owned getHighlighted();
+}
+@InterfaceOnly interface OwnedTarget {
+    @Container(opposite = "primary") Owner getOwner();
+    @Refers(opposite = "highlighted") Owner getSelector();
+}
+interface Owned extends OwnedTarget {}

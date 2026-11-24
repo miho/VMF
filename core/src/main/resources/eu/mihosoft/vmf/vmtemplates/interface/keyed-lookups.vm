@@ -27,7 +27,7 @@
 #set($entryType = $prop.elementTypeName)
 #set($keyType = $key.typeName)
 #if($readOnlyLookup)
-#set($entryType = $prop.genericType.readOnlyInterface.fullTypeName)
+#set($entryType = $prop.readOnlyElementTypeName)
 #if($key.type && !$key.type.immutable)
 #set($keyType = $key.type.readOnlyInterface.fullTypeName)
 #end

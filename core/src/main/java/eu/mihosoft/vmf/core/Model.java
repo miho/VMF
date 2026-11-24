@@ -150,6 +150,7 @@ public class Model {
             for (Prop property : t.getImplementation().getProperties()) {
                 property.validateEntryKey(t);
                 property.validateReferenceSetOverride(t);
+                property.validateGenericRelationship(t);
             }
 
             if(t.isHashCodeMethodDelegated()!=t.isEqualsMethodDelegated()) {
@@ -276,14 +277,7 @@ public class Model {
 
                 // if p is a single valued parameter then obtain the type directly
                 // if it is a collection param then get the generic type
-                ModelType pType;
-                if(p.getType()!=null) {
-                    pType = p.getType();
-                } else if (p.isCollectionType() && p.getGenericType()!=null) {
-                    pType = p.getGenericType();
-                } else {
-                    pType = null;
-                }
+                ModelType pType = p.getRelationshipTarget();
 
                 if(pType==null) continue;
 

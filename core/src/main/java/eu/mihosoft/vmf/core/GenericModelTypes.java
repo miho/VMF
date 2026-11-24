@@ -40,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -58,6 +59,10 @@ final class GenericModelTypes {
             throw invalid("generic declarations require @InterfaceOnly without @Immutable; declare a named concrete subtype");
         }
         for (TypeVariable<?> variable : owner.getTypeParameters()) {
+            if (variable.getBounds().length > 1 && modelBound(variable) != null) {
+                throw invalid("model parameter " + variable.getName() + " has an intersection bound; define one named"
+                        + " model interface extending the required interfaces and use it as the upper bound");
+            }
             bindings.put(variable, variable);
             for (Type bound : variable.getBounds()) checkArgument(bound);
         }
@@ -81,7 +86,13 @@ final class GenericModelTypes {
             Type[] arguments = applied.getActualTypeArguments();
             for (int i = 0; i < parameters.length; i++) {
                 checkArgument(arguments[i]);
-                bindings.put(parameters[i], resolve(arguments[i]));
+                Type bound = resolve(arguments[i]);
+                if (mutableModelBound(bound) != null && mutableModelBound(parameters[i]) == null) {
+                    throw invalid("cannot bind value parameter " + parameters[i].getName() + " of " + raw.getTypeName()
+                            + " to " + bound.getTypeName() + "; give the parameter a named VMF model upper bound"
+                            + " to generate its read-only projection");
+                }
+                bindings.put(parameters[i], bound);
             }
             collect(raw, visited);
         }
@@ -91,12 +102,11 @@ final class GenericModelTypes {
         if (argument instanceof TypeVariable<?>) return;
         if (argument instanceof Class<?>) {
             Class<?> c = (Class<?>) argument;
-            boolean modelObject = c.getPackageName().equals(owner.getPackageName()) && !c.isAnnotationPresent(ExternalType.class);
-            if ((!modelObject || c.isAnnotationPresent(Immutable.class)) && !c.isArray() && c.getTypeParameters().length == 0
+            if (!c.isArray() && c.getTypeParameters().length == 0
                     && !Collection.class.isAssignableFrom(c) && !Map.class.isAssignableFrom(c)) return;
         }
         throw invalid("unsupported model type argument or bound " + argument.getTypeName()
-                + "; use a named external value type, immutable model type or type parameter");
+                + "; use a named value type, model type or type parameter");
     }
 
     /** All declarations of an accessor, including overridden and diamond-inherited getters. */
@@ -139,25 +149,66 @@ final class GenericModelTypes {
         return type.getTypeName();
     }
 
-    String parameters(boolean bounds) {
+    Class<?> modelBound(Type type) {
+        if (type instanceof TypeVariable<?>) {
+            for (Type bound : ((TypeVariable<?>) type).getBounds()) {
+                Class<?> modelBound = modelBound(bound);
+                if (modelBound != null) return modelBound;
+            }
+            return null;
+        }
+        if (!(type instanceof Class<?>)) return null;
+        Class<?> candidate = (Class<?>) type;
+        return model.declares(candidate) ? candidate : null;
+    }
+
+    /** Mutable targets have distinct Java types in writable and read-only APIs. */
+    private Class<?> mutableModelBound(Type type) {
+        Class<?> bound = modelBound(type);
+        return bound != null && !bound.isAnnotationPresent(Immutable.class) ? bound : null;
+    }
+
+    private String readOnlyName(Type type) {
+        if (!(type instanceof Class<?>) || mutableModelBound(type) == null) return name(type);
+        return model.getPackageName() + ".ReadOnly" + ((Class<?>) type).getSimpleName();
+    }
+
+    boolean hasModelParameters() {
+        return bindings.values().stream().anyMatch(t -> mutableModelBound(t) != null);
+    }
+
+    String projectedArguments() {
+        return angle(Arrays.stream(owner.getTypeParameters()).map(p -> {
+            Class<?> bound = mutableModelBound(p);
+            return bound == null ? p.getName() : "? extends " + readOnlyName(bound);
+        }).collect(Collectors.toList()));
+    }
+
+    String typeArguments() {
+        return angle(Arrays.stream(owner.getTypeParameters()).map(TypeVariable::getName).collect(Collectors.toList()));
+    }
+
+    String parameters(boolean readOnly) {
         return angle(Arrays.stream(owner.getTypeParameters()).map(p -> {
             String suffix = Arrays.stream(p.getBounds()).filter(b -> b != Object.class)
-                    .map(this::name).collect(Collectors.joining(" & "));
-            return bounds && !suffix.isEmpty() ? p.getName() + " extends " + suffix : p.getName();
+                    .map(b -> readOnly ? readOnlyName(b) : name(b)).collect(Collectors.joining(" & "));
+            return suffix.isEmpty() ? p.getName() : p.getName() + " extends " + suffix;
         }).collect(Collectors.toList()));
     }
 
     String arguments(Class<?> supertype) {
-        return arguments(supertype, false);
+        return arguments(supertype, this::name);
     }
+
+    String readOnlyArguments(Class<?> supertype) { return arguments(supertype, this::readOnlyName); }
 
     String metadataArguments(Class<?> supertype) {
-        return arguments(supertype, true);
+        return arguments(supertype, this::binaryName);
     }
 
-    private String arguments(Class<?> supertype, boolean metadata) {
+    private String arguments(Class<?> supertype, Function<Type, String> name) {
         return angle(Arrays.stream(supertype.getTypeParameters()).map(this::resolve)
-                .map(t -> metadata ? binaryName(t) : name(t)).collect(Collectors.toList()));
+                .map(name).collect(Collectors.toList()));
     }
 
     String binaryName(Type type) {
