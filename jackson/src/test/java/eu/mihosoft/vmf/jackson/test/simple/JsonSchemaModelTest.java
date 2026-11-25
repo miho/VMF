@@ -62,10 +62,12 @@ public class JsonSchemaModelTest {
         JsonNode schema = generateSchema();
         JsonNode oneOf = schema.at("/properties/persons/items/oneOf");
         assertTrue(oneOf.isArray(), "polymorphic items must use oneOf");
-        assertEquals(2, oneOf.size(), "oneOf must offer Person and Employee");
+        assertEquals(3, oneOf.size(), "oneOf must offer Person, Employee, and a null slot");
+        assertEquals("null", oneOf.get(2).path("type").asText());
 
         Set<String> discriminators = new HashSet<>();
         for (JsonNode option : oneOf) {
+            if (option.path("type").asText().equals("null")) continue;
             JsonNode allOf = option.get("allOf");
             assertTrue(allOf != null && allOf.isArray() && allOf.size() == 2,
                     "each option must combine a $ref and a discriminator via allOf");

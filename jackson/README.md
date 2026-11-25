@@ -2,6 +2,10 @@
 
 [ ![Download](https://api.bintray.com/packages/miho/VMF/VMF-Runtime/images/download.svg) ](https://bintray.com/miho/VMF/VMF-Runtime/_latestVersion)
 
+## Model constraints
+
+Jackson projects VMF multiplicity, numeric range, string length, and portable string patterns into Draft-07 JSON Schema. Configure `VMFJacksonModule.withModelValidator(validator)` to also validate the finished model after a read. See [model validation](../docs/model-validation.md) for the runtime API, schema extension hook, and reference behavior.
+
 ## Reference-aware JSON and schema
 
 Reference support is opt-in on both the mapper module and schema generator:

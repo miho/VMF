@@ -24,6 +24,9 @@
 package eu.mihosoft.vmf.runtime.core.internal;
 
 import eu.mihosoft.vmf.runtime.core.TypeDescriptor;
+import eu.mihosoft.vmf.runtime.core.ValueConstraint;
+
+import java.util.List;
 
 /** Supplemental type information supplied by generated model implementations. */
 @SuppressWarnings("deprecation")
@@ -44,6 +47,11 @@ public interface TypeMetadataProvider extends VObjectInternal {
     }
     default eu.mihosoft.vmf.runtime.core.Multiplicity _vmf_getMultiplicity(int propertyId) {
         return legacyMultiplicity(this, propertyId);
+    }
+
+    /** Returns the generated value constraints. Older generated models have none. */
+    default List<ValueConstraint> _vmf_getValueConstraints(int propertyId) {
+        return List.of();
     }
 
     /** Returns the structured type of one property. */

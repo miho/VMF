@@ -160,7 +160,8 @@ public class MultiplicityTest {
         var unused = model.vmf().reflect().propertyByName("unused").orElseThrow();
         assertEquals(Multiplicity.of(0,0,false,true), unused.getMultiplicity());
         model.setUnused("present");
-        assertTrue(model.vmf().content().validate().stream().anyMatch(v -> v.getProperty().getName().equals("unused")));
+        assertTrue(model.vmf().content().validate().getMultiplicityViolations().stream()
+                .anyMatch(v -> v.getProperty().getName().equals("unused")));
         var fixed = FixedGroups.newBuilder().withTags("a").withStages("b").build();
         assertThrows(UnsupportedOperationException.class, () -> fixed.getTags().add("x"));
         assertThrows(UnsupportedOperationException.class, () -> fixed.getStages().add("x"));

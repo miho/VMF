@@ -23,6 +23,9 @@
  */
 package eu.mihosoft.vmf.runtime.core;
 
+import java.util.Collection;
+import java.util.Map;
+
 /** A property whose current number of values falls outside its declared bounds. */
 public final class MultiplicityViolation {
     private final VObject object;
@@ -33,6 +36,33 @@ public final class MultiplicityViolation {
         this.object = object;
         this.property = property;
         this.actualCount = actualCount;
+    }
+
+    static MultiplicityViolation check(VObject object, Property property) {
+        var bounds = property.getMultiplicity();
+        if (bounds.getLower() == 0 && bounds.getUpper() < 0) return null;
+        Type type = property.getType();
+        boolean many = type.isListType() || type.isSetType() || type.isMapType() || type.isReferenceSetType();
+        if (!many && bounds.getLower() == 0 && bounds.getUpper() == 1) return null;
+
+        int count = countValues(type, many, property.get());
+        if (count < bounds.getLower() || (bounds.getUpper() >= 0 && count > bounds.getUpper())) {
+            return new MultiplicityViolation(object, property, count);
+        }
+        return null;
+    }
+
+    private static int countValues(Type type, boolean many, Object value) {
+        if (type.isReferenceSetType() && value instanceof RefSet) return ((RefSet<?>) value).size();
+        if (type.isListType() && type.isModelType() && value instanceof Collection) {
+            // Legacy relationship lists accept null slots. Only actual targets satisfy the bound.
+            int count = 0;
+            for (Object member : (Collection<?>) value) if (member != null) count++;
+            return count;
+        }
+        if (many && value instanceof Map) return ((Map<?, ?>) value).size();
+        if (many && value instanceof Collection) return ((Collection<?>) value).size();
+        return value == null ? 0 : 1;
     }
 
     /** Model object that declares the affected property. */

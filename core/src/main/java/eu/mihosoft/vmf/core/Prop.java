@@ -113,6 +113,11 @@ public class Prop {
     private Contains uniqueContainment;
     private Refers uniqueReference;
     private String constrainedElementType;
+    private List<String> constraintExpressions = List.of();
+
+    public List<String> getConstraintExpressions() {
+        return constraintExpressions;
+    }
 
     private static final String VMAP_NAME = "eu.mihosoft.vcollections.VMap";
     private static final Set<Class<?>> MAP_SCALAR_TYPES = Set.of(String.class, Boolean.class, Byte.class,
@@ -198,6 +203,7 @@ public class Prop {
         copy.initGenericRelationship(owner);
         copy.valueClass = copy.resolveValueClass(owner);
         copy.initMultiplicity(getterMethod, owner);
+        copy.constraintExpressions = ConstraintDeclarations.expressions(owner, getterMethod, copy.valueClass);
         if (copy.isMapType()) copy.setMapTypes(owner);
         else if (copy.genericParameter != null) copy.setParameterType(owner);
         if ((copy.isKeyed() && !isKeyed()) || !Objects.equals(copy.genericRelationship, genericRelationship)) {
@@ -472,6 +478,7 @@ public class Prop {
         valueClass = resolveValueClass(parent);
         initGenericRelationship(parent);
         initMultiplicity(getterMethod, parent);
+        constraintExpressions = ConstraintDeclarations.expressions(parent, getterMethod, valueClass);
         if (isManagedValues()) {
             // initMultiplicity resolves the element and generated collection kind together.
         } else if (genericParameter != null) {

@@ -40,6 +40,7 @@ public final class PropertyMetadata {
     private final boolean setType;
     private final boolean referenceSetType;
     private final Multiplicity multiplicity;
+    private final List<ValueConstraint> constraints;
     private final String typeName;
     private final Optional<String> elementTypeName;
     private final boolean modelType;
@@ -55,6 +56,7 @@ public final class PropertyMetadata {
         this.setType = type.isSetType();
         this.referenceSetType = type.isReferenceSetType();
         this.multiplicity = property.getMultiplicity();
+        this.constraints = property.getConstraints();
         this.typeName = type.getName();
         this.elementTypeName = type.getElementTypeName();
         this.modelType = type.isModelType();
@@ -77,6 +79,9 @@ public final class PropertyMetadata {
     public boolean isReferenceSetType() { return referenceSetType; }
 
     public Multiplicity getMultiplicity() { return multiplicity; }
+
+    /** Returns the property's immutable declared value constraints. */
+    public List<ValueConstraint> getConstraints() { return constraints; }
 
     /** Indicates whether the property is a managed map. */
     public boolean isMapType() { return mapType; }

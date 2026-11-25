@@ -1,6 +1,7 @@
 package eu.mihosoft.vmftest.collectioncontract;
 
 import eu.mihosoft.vmf.runtime.core.Change;
+import eu.mihosoft.vmf.runtime.core.VIterator;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +60,7 @@ public class CollectionContractTest {
 
     @Test public void boundsDescribeTheFinishedContainmentTree() {
         Catalog catalog = Catalog.newInstance();
-        var missing = catalog.vmf().content().validate();
+        var missing = catalog.vmf().content().validate().getMultiplicityViolations();
         assertEquals(1, missing.size());
         assertSame(catalog, missing.get(0).getObject());
         assertEquals("items", missing.get(0).getProperty().getName());
@@ -67,19 +68,19 @@ public class CollectionContractTest {
 
         Item item = Item.newInstance();
         catalog.getItems().add(item);
-        var childIssue = catalog.vmf().content().validate();
+        var childIssue = catalog.vmf().content().validate().getMultiplicityViolations();
         assertEquals(1, childIssue.size());
         assertSame(item, childIssue.get(0).getObject());
         assertTrue(childIssue.get(0).toString().contains("Item.name"));
         item.setName("one");
-        assertTrue(catalog.asReadOnly().vmf().content().validate().isEmpty());
+        assertTrue(catalog.asReadOnly().vmf().content().validate().isValid());
 
         for (int i = 2; i <= 3; i++) {
             Item another = Item.newInstance();
             another.setName("item " + i);
             another.setCatalog(catalog);
         }
-        var overfull = catalog.vmf().content().validate();
+        var overfull = catalog.vmf().content().validate().getMultiplicityViolations();
         assertEquals(1, overfull.size());
         assertEquals(3, overfull.get(0).getActualCount());
         assertEquals(2, overfull.get(0).getProperty().getMultiplicity().getUpper());
@@ -88,15 +89,41 @@ public class CollectionContractTest {
     @Test public void legacyNullSlotsNeverSatisfyRelationshipBounds() {
         Catalog catalog = Catalog.newInstance();
         catalog.getItems().add(null);
-        assertEquals(0, catalog.vmf().content().validate().get(0).getActualCount());
+        assertEquals(0, catalog.vmf().content().validate().getMultiplicityViolations().get(0).getActualCount());
         Item item = Item.newInstance();
         catalog.getItems().add(item);
-        var issues = catalog.vmf().content().validate();
+        var issues = catalog.vmf().content().validate().getMultiplicityViolations();
         assertEquals(1, issues.size());
         assertSame(item, issues.get(0).getObject());
         item.setName("Inspection");
         catalog.getItems().add(null);
-        assertTrue(catalog.asReadOnly().vmf().content().validate().isEmpty());
+        assertTrue(catalog.asReadOnly().vmf().content().validate().isValid());
+    }
+
+    @Test public void validationAndIterationContinuePastANullChild() {
+        Catalog catalog = Catalog.newInstance();
+        Item first = Item.newBuilder().withName("first").build();
+        Item last = Item.newInstance();
+        catalog.getItems().add(first);
+        catalog.getItems().add(null);
+        catalog.getItems().add(last);
+
+        var issues = catalog.vmf().content().validate().getMultiplicityViolations();
+        assertEquals(1, issues.size());
+        assertSame(last, issues.get(0).getObject());
+        assertEquals("name", issues.get(0).getProperty().getName());
+
+        var iterator = catalog.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        assertSame(catalog, iterator.next());
+        assertSame(first, iterator.next());
+        assertTrue(iterator.hasNext());
+        assertTrue(iterator.hasNext());
+        Item replacement = Item.newBuilder().withName("replacement").build();
+        iterator.set(replacement);
+        assertSame(replacement, catalog.getItems().get(0));
+        assertNull(catalog.getItems().get(1));
+        assertSame(last, iterator.next());
+        assertFalse(iterator.hasNext());
     }
 
     @Test public void nativeSetChangesHaveMembershipSemanticsAndReadOnlySources() {

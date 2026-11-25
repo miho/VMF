@@ -82,6 +82,29 @@
     return _VMF_MULTIPLICITIES[propertyId];
   }
 
+#set($hasValueConstraints = false)
+#foreach($prop in $type.implementation.properties)
+#if(!$prop.constraintExpressions.isEmpty())
+#set($hasValueConstraints = true)
+#end
+#end
+#if($hasValueConstraints)
+  private static final java.util.List<java.util.List<${VMFPKG}.ValueConstraint>> _VMF_VALUE_CONSTRAINTS =
+      java.util.List.of(
+#foreach($prop in $type.implementation.properties)
+        java.util.List.of(
+#foreach($expression in $prop.constraintExpressions)
+            new ${VMFPKG}.${expression}#if($foreach.hasNext),#end
+#end
+        )#if($foreach.hasNext),#end
+#end
+      );
+
+  @Override public java.util.List<${VMFPKG}.ValueConstraint> _vmf_getValueConstraints(int propertyId) {
+    return _VMF_VALUE_CONSTRAINTS.get(propertyId);
+  }
+
+#end
   static final int[] _VMF_PROPERTY_TYPES = {
 #foreach($prop in $type.implementation.properties)
     ${StringUtil.alignRight($prop.typeId, 5)}#if($foreach.hasNext),#else #end // type $prop.typeName
@@ -436,10 +459,13 @@
 
 #end## for each annotation
 
+#if(!$prop.containmentProperty && ($prop.type || $prop.referenceInfo))
+      new ${VMFPKG}.internal.AnnotationImpl("vmf:property:reference-opposite",#if($prop.referenceInfo)"${prop.referenceInfo.opposite.name}"#else""#end),
+#end
 ## if contained, add annotation with opposite
       // containment info annotation
 #if($prop.containmentInfo.containmentType=="CONTAINER")
-      new ${VMFPKG}.internal.AnnotationImpl("vmf:property:containment-info",#if(${prop.containmentInfo.opposite})"container:${prop.containmentInfo.opposite.name}"#else"contained"#end)
+      new ${VMFPKG}.internal.AnnotationImpl("vmf:property:containment-info",#if(${prop.containmentInfo.opposite})"container:${prop.containmentInfo.opposite.name}"#else"container"#end)
 #elseif($prop.containmentInfo.containmentType=="CONTAINED")
       new ${VMFPKG}.internal.AnnotationImpl("vmf:property:containment-info",#if(${prop.containmentInfo.opposite})"contained:${prop.containmentInfo.opposite.name}"#else"contained"#end)
 #else

@@ -33,6 +33,7 @@ public class SchemaTest01 {
         Set<String> names = new HashSet<>();
         assertTrue(oneOf.isArray() && oneOf.size() > 0, "expected a non-empty oneOf");
         for (JsonNode option : oneOf) {
+            if ("null".equals(option.path("type").asText())) continue;
             JsonNode allOf = option.get("allOf");
             assertTrue(allOf != null && allOf.size() == 2,
                     "each polymorphic option must combine $ref + discriminator via allOf");
@@ -67,8 +68,8 @@ public class SchemaTest01 {
     @Test
     void recursiveNodeReferenceIsGenerated() {
         JsonNode schema = generateSchema();
-        // StoryNode has no subtypes, so nested nodes reference the StoryNode definition directly.
-        assertTrue(schema.at("/properties/nodes/items/$ref").asText().endsWith(StoryNode.class.getName()),
+        // A legacy list can hold the concrete node or a null slot.
+        assertTrue(schema.at("/properties/nodes/items/anyOf/0/$ref").asText().endsWith(StoryNode.class.getName()),
                 "recursive 'nodes' must reference the StoryNode definition");
     }
 }

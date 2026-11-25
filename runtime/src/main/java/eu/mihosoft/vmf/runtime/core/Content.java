@@ -24,15 +24,8 @@
 package eu.mihosoft.vmf.runtime.core;
 
 import eu.mihosoft.vcollections.VList;
-import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -49,38 +42,17 @@ import java.util.stream.Stream;
 public interface Content {
 
     /**
-     * Checks declared multiplicity bounds on this object and its contained descendants.
-     * Call this when a graph is ready to use or publish. A graph can be assembled
-     * in several edits, including attaching objects with required parent links.
-     * The immutable result is empty when every checked property satisfies its bounds.
-     * @return violations in containment and property order
+     * Checks declared multiplicity and value constraints on this object and its contained descendants.
+     * Call this when a graph is ready to use or publish. Use a configured {@link ModelValidator}
+     * to include application rules or follow non-containment references.
+     * @return the validation report in containment and property order
      */
-    default List<MultiplicityViolation> validate() {
-        List<MultiplicityViolation> issues = new ArrayList<>();
-        Set<VObject> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-        stream(VIterator.IterationStrategy.CONTAINMENT_TREE).filter(visited::add).forEachOrdered(object -> {
-            for (Property property : ReflectImpl.readProperties(object.vmf().reflect())) {
-                var bounds = property.getMultiplicity();
-                if (bounds.getLower() == 0 && bounds.getUpper() < 0) continue;
-                Type type = property.getType();
-                boolean many = type.isListType() || type.isSetType() || type.isMapType() || type.isReferenceSetType();
-                if (!many && bounds.getLower() == 0 && bounds.getUpper() == 1) continue;
-                Object value = property.get();
-                int count;
-                if (type.isReferenceSetType() && value instanceof RefSet) count = ((RefSet<?>) value).size();
-                else if (type.isListType() && type.isModelType() && value instanceof Collection) {
-                    // Legacy relationship lists accept null slots. Only actual targets satisfy the bound.
-                    count = 0;
-                    for (Object member : (Collection<?>) value) if (member != null) count++;
-                } else if (many && value instanceof Map) count = ((Map<?, ?>) value).size();
-                else if (many && value instanceof Collection) count = ((Collection<?>) value).size();
-                else count = value == null ? 0 : 1;
-                if (count < bounds.getLower() || (bounds.getUpper() >= 0 && count > bounds.getUpper())) {
-                    issues.add(new MultiplicityViolation(object, property, count));
-                }
-            }
-        });
-        return List.copyOf(issues);
+    default ValidationReport validate() {
+        // Older generated Content implementations expose their owner as the first stream element.
+        try (Stream<VObject> objects = stream(VIterator.IterationStrategy.CONTAINMENT_TREE)) {
+            return objects.findFirst().map(ModelValidator.DEFAULT::validate)
+                    .orElseGet(() -> new ValidationReport(List.of()));
+        }
     }
 
     /**

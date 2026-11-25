@@ -55,21 +55,21 @@ public class ReferenceEndsTest {
     @Test public void graphValidationCountsRealReferencesOnBothSidesOfAReparent() {
         var oldShop = Workshop.newInstance();
         var newShop = Workshop.newInstance();
-        assertEquals(0, oldShop.vmf().content().validate().get(0).getActualCount());
+        assertEquals(0, oldShop.vmf().content().validate().getMultiplicityViolations().get(0).getActualCount());
         var a = station("one");
         oldShop.getStations().add(a);
-        assertTrue(oldShop.vmf().content().validate().isEmpty());
+        assertTrue(oldShop.vmf().content().validate().isValid());
         a.setWorkshop(newShop);
         assertTrue(oldShop.getStations().isEmpty());
-        assertEquals(0, oldShop.vmf().content().validate().get(0).getActualCount());
+        assertEquals(0, oldShop.vmf().content().validate().getMultiplicityViolations().get(0).getActualCount());
         assertSame(a, newShop.getStations().get(0));
         newShop.getStations().addAll(List.of(station("two"), station("three")));
-        var issues = newShop.asReadOnly().vmf().content().validate();
+        var issues = newShop.asReadOnly().vmf().content().validate().getMultiplicityViolations();
         assertEquals(1, issues.size());
         assertEquals(3, issues.get(0).getActualCount());
         assertEquals("stations", issues.get(0).getProperty().getName());
         a.setName(null);
-        assertTrue(newShop.vmf().content().validate().stream().anyMatch(issue ->
+        assertTrue(newShop.vmf().content().validate().getMultiplicityViolations().stream().anyMatch(issue ->
                 issue.getObject() == a && issue.getProperty().getName().equals("name")));
     }
 

@@ -157,6 +157,13 @@ public final class Property {
         return TypeMetadataProvider.legacyMultiplicity(parent, propertyId);
     }
 
+    /** Returns the immutable value constraints declared on this property, including inherited declarations. */
+    public List<ValueConstraint> getConstraints() {
+        if (parent instanceof TypeMetadataProvider)
+            return ((TypeMetadataProvider) parent)._vmf_getValueConstraints(propertyId);
+        return List.of();
+    }
+
     @Deprecated
     public static Property newInstance(VObjectInternal parent, String name, boolean staticOnly) {
         return new Property(parent, name, staticOnly);

@@ -1,6 +1,7 @@
 package eu.mihosoft.vmf.jackson;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import eu.mihosoft.vmf.runtime.core.*;
@@ -8,9 +9,11 @@ import eu.mihosoft.vmf.runtime.core.*;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static eu.mihosoft.vmf.jackson.VMFTypeUtils.getBuilderClass;
@@ -40,6 +43,7 @@ public class VMFJsonSchemaGenerator {
 
     private final Map<String, String> typeAliases        = new HashMap<>();
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
+    private final Map<Class<? extends VObject>, List<JsonNode>> typeConstraints = new HashMap<>();
     private boolean referencesEnabled;
 
     /**
@@ -194,6 +198,23 @@ public class VMFJsonSchemaGenerator {
     }
 
     /**
+     * Adds a Draft-07 assertion to the wire schema for an exact VMF type. Each contribution
+     * is conjoined with the generated schema in both the root and matching definitions.
+     * Use serialized property names in the assertion.
+     *
+     * @param modelClass the type to constrain
+     * @param assertion the schema assertion to add
+     * @return this generator
+     */
+    public VMFJsonSchemaGenerator withTypeConstraint(Class<? extends VObject> modelClass, Map<String, ?> assertion) {
+        Objects.requireNonNull(assertion, "assertion");
+        JsonNode snapshot = createObjectMapper().valueToTree(assertion);
+        typeConstraints.computeIfAbsent(Objects.requireNonNull(modelClass, "modelClass"), type -> new ArrayList<>())
+                .add(snapshot);
+        return this;
+    }
+
+    /**
      * Creates a new experimental instance of the schema generator.
      * @param runtimeType must be {@link VMFJacksonModule.RUNTIME_TYPE#EXPERIMENTAL} to acknowledge
      *                    that this is experimental software
@@ -233,11 +254,6 @@ public class VMFJsonSchemaGenerator {
         Map<String, Object> schema = new LinkedHashMap<>();
         schema.put("$schema", "http://json-schema.org/draft-07/schema#");
         schema.put("title", modelClass.getSimpleName());
-        schema.put("type", "object");
-
-        Map<String, Object> properties = new LinkedHashMap<>();
-        schema.put("properties", properties);
-        if (referencesEnabled) properties.put(VMFReferences.ID_FIELD, idSchema(false));
 
         Type type = VMFTypeUtils.forClass(modelClass);
 
@@ -245,23 +261,37 @@ public class VMFJsonSchemaGenerator {
         // concrete subtypes even when the declared element type is @InterfaceOnly.
         SchemaTypes types = new SchemaTypes(modelClass.getClassLoader(), type.reflect().allTypes());
 
-        VObject prop = createPrototypeIfPossible(modelClass);
+        addObjectSchema(schema, modelClass, type, types);
+        schema.put("definitions", generateDefinitionsForModelRoot(types));
+        return schema;
+    }
+
+    private void addObjectSchema(Map<String, Object> schema, Class<? extends VObject> modelClass,
+                                 Type type, SchemaTypes types) {
+        schema.put("type", "object");
+        Map<String, Object> properties = new LinkedHashMap<>();
+        schema.put("properties", properties);
+        if (referencesEnabled) properties.put(VMFReferences.ID_FIELD, idSchema(false));
+
+        VObject prototype = createPrototypeIfPossible(modelClass);
+        List<Property> reflected = prototype == null ? type.reflect().properties() : prototype.vmf().reflect().properties();
+        List<String> required = new ArrayList<>();
 
         int order = 0;
-        for (Property property : prop!=null?prop.vmf().reflect().properties():type.reflect().properties()) {
-            if (!isToBeExcludedFromSerialization(property, types)) {
-                Map<String, Object> propertySchema = getPropertySchema(property, types);
-                // preserve VMF property/traversal order in the generated schema so editors
-                // (and stable test output) render fields in the order they are declared.
-                propertySchema.putIfAbsent("propertyOrder", order);
-                properties.put(getFieldNameForProperty(property), propertySchema);
-                order++;
-            }
+        for (Property property : reflected) {
+            if (isToBeExcludedFromSerialization(property, types)) continue;
+
+            String fieldName = VMFTypeUtils.getFieldNameForProperty(property);
+            Map<String, Object> propertySchema = getPropertySchema(property, types);
+            propertySchema.putIfAbsent("propertyOrder", order++);
+            properties.put(fieldName, propertySchema);
+            if (requiresWirePresence(property, prototype != null, types)) required.add(fieldName);
         }
-
-        schema.put("definitions", generateDefinitionsForModelRoot(types));
-
-        return schema;
+        if (!required.isEmpty()) schema.put("required", required);
+        List<JsonNode> assertions = typeConstraints.get(modelClass);
+        if (assertions != null) {
+            schema.put("allOf", assertions.stream().map(JsonNode::deepCopy).collect(Collectors.toList()));
+        }
     }
 
     /**
@@ -290,19 +320,28 @@ public class VMFJsonSchemaGenerator {
      */
     private Map<String, Object> getPropertySchema(Property property, SchemaTypes types) {
         Map<String, Object> propertySchema = new LinkedHashMap<>();
+        Type type = property.getType();
+        Multiplicity bounds = property.getMultiplicity();
+        boolean nullableLegacyList = isNullableModelList(property);
+        boolean restoreOpposite = canRestoreOpposite(property);
+        boolean referenceProperty = VMFReferences.isReferenceProperty(property);
 
-        if (isToBeExcludedFromSerialization(property, types)) {
+        if (!hasManyValues(type) && bounds.getUpper() == 0) {
+            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
+            addAssertion(propertySchema, Map.of("type", "null"));
             return propertySchema;
-        } else if (VMFReferences.isReferenceProperty(property)) {
-            Type elementType = VMFTypeUtils.forClass(types.load(property.getType().getElementTypeName().orElse(property.getType().getName())));
-            Map<String, Object> referenceSchema = referenceValueSchema(elementType, types, !property.getType().isReferenceSetType());
-            if (property.getType().isListType() || property.getType().isReferenceSetType()) {
+        }
+        if (referenceProperty) {
+            Type elementType = VMFTypeUtils.forClass(types.load(type.getElementTypeName().orElse(type.getName())));
+            boolean nullable = nullableLegacyList || !type.isReferenceSetType()
+                    && (bounds.getLower() == 0 || restoreOpposite);
+            Map<String, Object> referenceSchema = referenceValueSchema(elementType, types, nullable);
+            if (type.isListType() || type.isReferenceSetType()) {
                 propertySchema.put("type", "array");
                 propertySchema.put("items", referenceSchema);
             } else {
                 propertySchema.putAll(referenceSchema);
             }
-            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isMapType()) {
             var args = property.getType().getDescriptor().getArguments();
             String key = args.get(0).getName();
@@ -316,19 +355,12 @@ public class VMFJsonSchemaGenerator {
                         "required", List.of("key", "value"),
                         "properties", Map.of("key", scalarItemSchema(key, false), "value", scalarItemSchema(value, true))));
             }
-            var bounds = property.getMultiplicity();
-            boolean object = String.class.getName().equals(key);
-            if (bounds.getLower() > 0) propertySchema.put(object ? "minProperties" : "minItems", bounds.getLower());
-            if (bounds.getUpper() >= 0) propertySchema.put(object ? "maxProperties" : "maxItems", bounds.getUpper());
-            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isSetType()) {
             String element = property.getType().getDescriptor().getArguments().get(0).getName();
             propertySchema.put("type", "array");
             propertySchema.put("items", scalarItemSchema(element, false));
-            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (isValueType(property.getType())) {
             propertySchema.put("type", mapValueType(property.getType()));
-            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isModelType() && !property.getType().isListType() && !property.getType().isReferenceSetType()) {
             // Handle polymorphic types
             Type elementType = property.getType();
@@ -344,7 +376,6 @@ public class VMFJsonSchemaGenerator {
                 var typeAlias = getTypeAlias(property.getType());
                 propertySchema.put("$ref", "#/definitions/" + typeAlias);
             }
-            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (property.getType().isListType() || property.getType().isReferenceSetType()) {
             propertySchema.put("type", "array");
             Map<String, Object> itemsSchema = new LinkedHashMap<>();
@@ -366,27 +397,35 @@ public class VMFJsonSchemaGenerator {
                 itemsSchema.put("$ref", "#/definitions/" + typeAlias);
             }
             propertySchema.put("items", itemsSchema);
-            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else if (VMFTypeUtils.isEnum(property.getType())) {
             propertySchema.put("type", "string");
             propertySchema.put("enum", VMFTypeUtils.getEnumConstants(property.getType()));
-            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         } else {
             propertySchema.put("type", "string");
-            addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
         }
 
-        if (property.getType().isSetType() || property.getType().isListType() || property.getType().isReferenceSetType()) {
-            var multiplicity = property.getMultiplicity();
-            if (multiplicity.getLower() > 0) propertySchema.put("minItems", multiplicity.getLower());
-            if (multiplicity.getUpper() >= 0) propertySchema.put("maxItems", multiplicity.getUpper());
+        if (nullableLegacyList && bounds.getUpper() == 0) {
+            Map<String, String> nullItem = Map.of("type", "null");
+            propertySchema.put("items", nullItem);
+        } else if (nullableLegacyList && !(referencesEnabled && referenceProperty)) {
+            // In reference mode the native ID alternative already accepts null slots.
+            propertySchema.put("items", allowingNullItem(propertySchema.get("items")));
+        }
+        addDefaultValueAndDescriptionAndConstraintIfAvailable(property, propertySchema);
+
+        if (type.isMapType()) {
+            boolean object = String.class.getName().equals(type.getDescriptor().getArguments().get(0).getName());
+            addCollectionBounds(propertySchema, bounds, object ? "Properties" : "Items", false, false);
+        } else if (hasManyValues(type)) {
+            // A legacy opposite can add targets even when the supplied array is empty.
+            addCollectionBounds(propertySchema, bounds, "Items", nullableLegacyList, restoreOpposite && type.isListType());
             String element = property.getType().getDescriptor().getArguments().get(0).getName();
             // JSON Schema equates signed zeroes and structurally equal objects. Java model identity and
             // Float/Double membership can distinguish them, so the runtime enforces uniqueness in these cases.
             if (property.getType().isReferenceSetType() && referencesEnabled && VMFReferences.isReferenceProperty(property)
                     && !hasImmutableTarget(VMFTypeUtils.forClass(types.load(element)), types)) {
                 propertySchema.put("uniqueItems", true);
-            } else if (multiplicity.isUnique() && !property.getType().isModelType()
+            } else if (bounds.isUnique() && !property.getType().isModelType()
                     && !Float.class.getName().equals(element) && !Double.class.getName().equals(element)) {
                 propertySchema.put("uniqueItems", true);
             }
@@ -394,13 +433,121 @@ public class VMFJsonSchemaGenerator {
                 // Requiring the key is specific to entries in this list. The entry type may be used independently.
                 Type entryType = VMFTypeUtils.forClass(types.load(element));
                 Property key = entryType.reflect().propertyByName(keyName).orElseThrow();
-                String field = getFieldNameForProperty(key);
+                String field = VMFTypeUtils.getFieldNameForProperty(key);
                 Map<String, Object> requiredKey = Map.of("required", List.of(field), "properties",
                         Map.of(field, Map.of("not", Map.of("type", "null"))));
                 propertySchema.put("items", Map.of("allOf", List.of(propertySchema.get("items"), requiredKey)));
             });
         }
+        addValueConstraints(property, propertySchema);
         return propertySchema;
+    }
+
+    private static boolean hasManyValues(Type type) {
+        return type.isMapType() || type.isSetType() || type.isListType() || type.isReferenceSetType();
+    }
+
+    private static boolean isNullableModelList(Property property) {
+        Type type = property.getType();
+        return type.isModelType() && type.isListType() && !type.isReferenceSetType()
+                && property.getKeyPropertyName().isEmpty();
+    }
+
+    private static Map<String, ?> allowingNullItem(Object item) {
+        Map<String, String> nullItem = Map.of("type", "null");
+        Object oneOf = item instanceof Map<?, ?> ? ((Map<?, ?>) item).get("oneOf") : null;
+        if (oneOf == null) return Map.of("anyOf", List.of(item, nullItem));
+
+        List<Object> options = new ArrayList<>();
+        if (oneOf instanceof Object[]) Collections.addAll(options, (Object[]) oneOf);
+        else options.addAll((List<?>) oneOf);
+        options.add(nullItem);
+        return Map.of("oneOf", options);
+    }
+
+    private boolean canRestoreOpposite(Property property) {
+        return referencesEnabled && VMFReferences.isReferenceProperty(property)
+                && property.annotationByKey("vmf:property:reference-opposite")
+                        .map(annotation -> !annotation.getValue().isEmpty()).orElse(true);
+    }
+
+    private boolean requiresWirePresence(Property property, boolean hasPrototype, SchemaTypes types) {
+        if (canRestoreOpposite(property)) return false;
+        Type type = property.getType();
+        if (!referencesEnabled && VMFReferences.isReferenceProperty(property)) {
+            String target = type.getElementTypeName().orElse(type.getName());
+            // The reference-free projection can omit mutable targets of a declared model type.
+            if (!Immutable.class.isAssignableFrom(types.load(target))) return false;
+        }
+
+        Multiplicity bounds = property.getMultiplicity();
+        if (!hasPrototype) return bounds.getLower() > 0;
+        Object value = property.get();
+        long count = cardinality(property, value);
+        if (count < bounds.getLower() || (bounds.getUpper() >= 0 && count > bounds.getUpper())) return true;
+        return property.getConstraints().stream()
+                .filter(constraint -> !(constraint instanceof ValueConstraint.StringPattern)
+                        || ((ValueConstraint.StringPattern) constraint).getSchemaPattern().isPresent())
+                .anyMatch(constraint -> !constraint.isSatisfiedBy(value));
+    }
+
+    private static long cardinality(Property property, Object value) {
+        if (value == null) return 0;
+        if (!hasManyValues(property.getType())) return 1;
+        if (value instanceof RefSet<?>) return ((RefSet<?>) value).size();
+        if (value instanceof Map<?, ?>) return ((Map<?, ?>) value).size();
+        Collection<?> members = (Collection<?>) value;
+        return isNullableModelList(property) ? members.stream().filter(Objects::nonNull).count() : members.size();
+    }
+
+    private static void addCollectionBounds(Map<String, Object> schema, Multiplicity bounds, String keywordSuffix,
+                                            boolean nullableItems, boolean restoreOpposite) {
+        if (bounds.getLower() > 0 && !restoreOpposite) {
+            addAssertion(schema, Map.of("min" + keywordSuffix, bounds.getLower()));
+            if (nullableItems) addAssertion(schema, Map.of("contains", Map.of("not", Map.of("type", "null"))));
+        }
+        // Draft-07 cannot cap the number of non-null items when the list may also hold null slots.
+        if (bounds.getUpper() >= 0 && !nullableItems) {
+            addAssertion(schema, Map.of("max" + keywordSuffix, bounds.getUpper()));
+        }
+    }
+
+    private static void addValueConstraints(Property property, Map<String, Object> schema) {
+        for (ValueConstraint constraint : property.getConstraints()) {
+            Map<String, Object> assertion = new LinkedHashMap<>();
+            if (constraint instanceof ValueConstraint.NumericRange) {
+                ValueConstraint.NumericRange range = (ValueConstraint.NumericRange) constraint;
+                range.getMin().ifPresent(min -> assertion.put(range.isMinInclusive() ? "minimum" : "exclusiveMinimum", min));
+                range.getMax().ifPresent(max -> assertion.put(range.isMaxInclusive() ? "maximum" : "exclusiveMaximum", max));
+            } else if (constraint instanceof ValueConstraint.StringLength) {
+                ValueConstraint.StringLength length = (ValueConstraint.StringLength) constraint;
+                if (length.getMin() > 0) assertion.put("minLength", length.getMin());
+                if (length.getMax() >= 0) assertion.put("maxLength", length.getMax());
+            } else if (constraint instanceof ValueConstraint.StringPattern) {
+                ValueConstraint.StringPattern pattern = (ValueConstraint.StringPattern) constraint;
+                pattern.getSchemaPattern().ifPresent(value -> assertion.put("pattern", value));
+            }
+            if (!assertion.isEmpty()) {
+                assertion.put("type", mapValueType(property.getType()));
+                addAssertion(schema, assertion);
+            }
+        }
+    }
+
+    private static void addAssertion(Map<String, Object> schema, Map<String, ?> assertion) {
+        if (!schema.containsKey("$ref") && assertion.entrySet().stream()
+                .noneMatch(entry -> schema.containsKey(entry.getKey()) && !Objects.equals(schema.get(entry.getKey()), entry.getValue()))) {
+            schema.putAll(assertion);
+            return;
+        }
+        List<Object> combined = new ArrayList<>();
+        Object ref = schema.remove("$ref");
+        if (ref != null) combined.add(Map.of("$ref", ref));
+        Object existing = schema.remove("allOf");
+        if (existing instanceof List<?>) combined.addAll((List<?>) existing);
+        else if (existing != null) combined.add(Map.of("allOf", existing));
+        if (!assertion.isEmpty()) combined.add(assertion);
+        schema.put("allOf", combined);
     }
 
 
@@ -414,7 +561,7 @@ public class VMFJsonSchemaGenerator {
         if (valueName.equals("java.lang.Character")) {
             return Map.of("type", nullable ? List.of("string", "null") : "string", "minLength", 1, "maxLength", 1);
         }
-        String scalar = valueName.equals("java.lang.Byte") ? "integer" : mapValueType(type);
+        String scalar = mapValueType(type);
         return Map.of("type", nullable ? List.of(scalar, "null") : scalar);
     }
 
@@ -429,37 +576,8 @@ public class VMFJsonSchemaGenerator {
             if (subType.isInterfaceOnly()) continue;
 
             Map<String, Object> definition = new LinkedHashMap<>();
-            definition.put("type", "object");
-
-            VObject propParent = createPrototypeIfPossible(types.load(subType.getName()).asSubclass(VObject.class));
-
-            Map<String, Object> properties = new LinkedHashMap<>();
-            if (referencesEnabled) properties.put(VMFReferences.ID_FIELD, idSchema(false));
-            int order = 0;
-            for (Property property : propParent!=null?propParent.vmf().reflect().properties() : subType.reflect().properties()) {
-                if (!isToBeExcludedFromSerialization(property, types)) {
-                    Map<String, Object> propertySchema = getPropertySchema(property, types);
-                    propertySchema.putIfAbsent("propertyOrder", order);
-                    properties.put(getFieldNameForProperty(property), propertySchema);
-                    order++;
-                }
-            }
-
-//            if (!subType.superTypes().isEmpty()) {
-//                definition.put("allOf", subType.superTypes().stream().map(superType -> {
-//
-//                    var typeAlias = getTypeAlias(superType);
-//
-//                    Map<String, Object> ref = new HashMap<>();
-//                    ref.put("$ref", "#/definitions/" + typeAlias);
-//                    return ref;
-//                }).toArray());
-//            }
-
-            var typeAlias = getTypeAlias(subType);
-
-            definition.put("properties", properties);
-            definitions.put(typeAlias, definition);
+            addObjectSchema(definition, types.load(subType.getName()).asSubclass(VObject.class), subType, types);
+            definitions.put(getTypeAlias(subType), definition);
         }
         return definitions;
     }
@@ -523,6 +641,7 @@ public class VMFJsonSchemaGenerator {
     public static boolean isInteger(Type type) {
         return type.getName().equals("java.lang.Integer") || type.getName().equals("int") ||
                 type.getName().equals("java.lang.Short") || type.getName().equals("short") ||
+                type.getName().equals("java.lang.Byte") || type.getName().equals("byte") ||
                 type.getName().equals("java.lang.Long") || type.getName().equals("long");
     }
 
@@ -559,20 +678,8 @@ public class VMFJsonSchemaGenerator {
      * @return {@code true} if the given type is a value type, {@code false} otherwise
      */
     public static boolean isValueType(Type type) {
-        String clsName = type.getName();
-
-        return clsName.equals("int") || clsName.equals("java.lang.Integer") ||
-                clsName.equals("short") || clsName.equals("java.lang.Short") ||
-                clsName.equals("long") || clsName.equals("java.lang.Long") ||
-                clsName.equals("boolean") || clsName.equals("java.lang.Boolean") ||
-                clsName.equals("float") || clsName.equals("java.lang.Float") ||
-                clsName.equals("double") || clsName.equals("java.lang.Double") ||
-                clsName.equals("java.lang.String");
-    }
-
-    private static String getFieldNameForProperty(Property p) {
-        var a = p.annotationByKey("vmf:jackson:rename");
-        return a.isPresent() ? a.get().getValue() : p.getName();
+        return isInteger(type) || isBoolean(type) || isFloat(type) || isDouble(type)
+                || type.getName().equals("java.lang.String");
     }
 
     /**
@@ -616,6 +723,12 @@ public class VMFJsonSchemaGenerator {
         addInjections(property, propertySchema);
         addTitle(property, propertySchema);
         addPropertyOrder(property, propertySchema);
+        if (propertySchema.containsKey("$ref") && property.annotations().stream()
+                .anyMatch(annotation -> "vmf:jackson:schema:constraint".equals(annotation.getKey())
+                        || "vmf:jackson:schema:inject".equals(annotation.getKey())
+                        || "vmf:jackson:schema:format".equals(annotation.getKey()))) {
+            addAssertion(propertySchema, Map.of());
+        }
     }
 
     private void addDefaultValue(Property property, Map<String, Object> propertySchema) {

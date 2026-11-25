@@ -287,10 +287,10 @@ public final class VMFTypeUtils {
         // "contained:<opposite>" or "container:<opposite>"). Guard the Optional so we
         // never call get() on an absent value. A "contained" prop holds children that
         // must be serialized; a "container" back-reference must not.
-        if (a.isPresent()) {
-            return a.get().getValue().contains("contained");
-        }
-        return false;
+        return a.map(annotation -> {
+            String value = annotation.getValue();
+            return "contained".equals(value) || value.startsWith("contained:");
+        }).orElse(false);
     }
 
 

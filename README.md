@@ -34,7 +34,8 @@ It generates/supports:
 - [managed map properties](docs/typed-model-properties.md)
 - [generic model interfaces and inherited relationships](docs/generic-model-interfaces.md)
 - [Jackson serialization for existing JSON and reference-aware JSON, YAML, and XML](jackson/README.md)
-- json schema generation for validation and automatic visual editor generation
+- [model validation and custom rules](docs/model-validation.md)
+- JSON Schema generation for validation and visual editors
 - ...
 
 A VMF model consists of annotated Java interfaces. We could call this "wannabe" code. Just specify the interface and its properties and get a fully functional  implementation including property setters and getters, builders, iterators, and much more. Even for a simple model VMF provides a lot of useful APIs:

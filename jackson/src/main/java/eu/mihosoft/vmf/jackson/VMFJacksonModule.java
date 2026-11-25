@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.ModelRegistry;
+import eu.mihosoft.vmf.runtime.core.ModelValidator;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Reflect;
 import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
@@ -89,6 +90,20 @@ public class VMFJacksonModule extends SimpleModule {
 
     private volatile boolean referencesEnabled;
     private volatile ModelRegistry modelRegistry;
+    private volatile ModelValidator modelValidator;
+    private final ThreadLocal<Boolean> readingModelForValidation = new ThreadLocal<>();
+
+    /**
+     * Validates each outermost VMF model after decoding, including reference resolution when enabled.
+     * By default no model validation is invoked during deserialization.
+     * @param validator the configured VMF validator
+     * @return this module
+     * @throws NullPointerException if validator is null
+     */
+    public VMFJacksonModule withModelValidator(ModelValidator validator) {
+        this.modelValidator = Objects.requireNonNull(validator, "validator");
+        return this;
+    }
 
     VMFJacksonModule withModelRegistry(ModelRegistry registry) {
         this.modelRegistry = Objects.requireNonNull(registry, "registry");
@@ -432,8 +447,19 @@ public class VMFJacksonModule extends SimpleModule {
                 else
                     throw JsonMappingException.from(p, "Expected a model object for " + _valueClass.getName());
             }
+            ModelValidator validator = module.modelValidator;
             if (!module.isReferencesEnabled()) {
-                return deserializeNode(p, ctxt, node, null);
+                if (validator == null || module.readingModelForValidation.get() != null) {
+                    return deserializeNode(p, ctxt, node, null);
+                }
+                T result;
+                module.readingModelForValidation.set(Boolean.TRUE);
+                try {
+                    result = deserializeNode(p, ctxt, node, null);
+                } finally {
+                    module.readingModelForValidation.remove();
+                }
+                return validateModel(p, validator, result);
             }
 
             // the outermost VMF object owns the session: references are assigned when it is
@@ -445,13 +471,20 @@ public class VMFJacksonModule extends SimpleModule {
 
             ImmutableDefinitions definitions = new ImmutableDefinitions(p, ctxt, node, _valueClass);
             session = VMFReferences.startReadSession(definitions::load);
+            T result;
             try {
-                T result = deserializeNode(p, ctxt, node, session);
+                result = deserializeNode(p, ctxt, node, session);
                 session.resolve(p);
-                return result;
             } finally {
                 VMFReferences.endReadSession();
             }
+            return validator == null ? result : validateModel(p, validator, result);
+        }
+
+        private T validateModel(JsonParser parser, ModelValidator validator, T result) throws VMFValidationException {
+            var report = validator.validate((VObject) result);
+            if (!report.isValid()) throw new VMFValidationException(parser, report);
+            return result;
         }
 
         private T deserializeNode(JsonParser p, DeserializationContext ctxt, JsonNode node,

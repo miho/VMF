@@ -439,6 +439,7 @@ class VMFPropertyIterator implements VObjectIterator {
 
     // list iterator that is used for properties that consists of lists
     private ListIterator<VObject> listIterator;
+    private VList<?> currentList;
 
     // identity map that contains already visited elements
     private final IdentityHashMap<Object, Object> identityMap;
@@ -495,6 +496,7 @@ class VMFPropertyIterator implements VObjectIterator {
                 // we are done with the current list iterator
                 // skip to next
                 listIterator = null;
+                currentList = null;
                 // index++;
                 if (VMFIterator.isDebug()) {
                     System.out.println(
@@ -614,6 +616,7 @@ class VMFPropertyIterator implements VObjectIterator {
             //listIterator = ((VList<VObject>) o).stream().filter(e -> e != null).
             //        filter(hasNextFilter).iterator();
 
+            currentList = (VList<?>) o;
             listIterator = ((VList<VObject>) o).listIterator();
 
             if (VMFIterator.isDebug()) {
@@ -655,27 +658,15 @@ class VMFPropertyIterator implements VObjectIterator {
     }
 
     private boolean hasNextListElement() {
-
-        if(!listIterator.hasNext()) return false;
-
-        Predicate<Object> hasNextFilter;
-
-        if (strategy == VIterator.IterationStrategy.UNIQUE_NODE) {
-            hasNextFilter = e -> !identityMap.containsKey(
-                    VMFIterator.unwrapIfReadOnlyInstanceForIdentityCheck(e));
-        } else {
-            // we don't prevent multiple visits
-            hasNextFilter = e -> true;
+        // Peeking with next()/previous() changes which slot set() will edit.
+        for (int i = listIterator.nextIndex(); i < currentList.size(); i++) {
+            Object element = currentList.get(i);
+            if (element != null && (strategy != VIterator.IterationStrategy.UNIQUE_NODE
+                    || !identityMap.containsKey(VMFIterator.unwrapIfReadOnlyInstanceForIdentityCheck(element)))) {
+                return true;
+            }
         }
-
-        // look ahead ..
-        Object o = listIterator.next();
-        //.. and go back
-        listIterator.previous();
-
-        if(o==null) return false;
-
-        return hasNextFilter.test(o);
+        return false;
     }
 
     private int[] getPropIndices() {

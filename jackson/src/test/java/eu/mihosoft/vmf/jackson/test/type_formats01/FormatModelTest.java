@@ -33,7 +33,8 @@ class FormatModelTest {
                 "vmf:jackson:schema:format on the collection must be emitted");
         assertTrue(schema.at("/properties/pets/uniqueItems").asBoolean(),
                 "vmf:jackson:schema:uniqueItems must be emitted");
-        assertEquals("#/definitions/pet", schema.at("/properties/pets/items/$ref").asText());
+        assertEquals("#/definitions/pet", schema.at("/properties/pets/items/anyOf/0/$ref").asText());
+        assertEquals("null", schema.at("/properties/pets/items/anyOf/1/type").asText());
     }
 
     @Test
