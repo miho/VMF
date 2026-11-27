@@ -48,6 +48,7 @@ Generated classes also implement `INotifyPropertyChanged`.
 | `Set<T>` of model objects | `ReferenceSet<T>`, also with an opposite; `@Contains Set<T>` is a `ContainmentSet<TOwner, TChild>` |
 | `@Contains @Keyed(by = "sku")` | a keyed `ContainmentList` (or `ContainmentSet`) and `owner.FindItemsBySku(key)` returning the entry or `null` |
 | in a read-only view or an `@Immutable` type | `IReadOnlyScalarSet<T>`, `IReadOnlyScalarList<T>` and `IReadOnlyDictionary<TKey, TValue>` |
+| `@DefaultValue` of a collection (K12) | the content of a new object's collection, applied after the construction hook |
 
 ## Containment and references (C, R)
 

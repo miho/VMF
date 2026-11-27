@@ -48,7 +48,7 @@ public final class TypeScriptCapabilities {
     public static final String EXTERNAL_TYPE_ANNOTATION = "vmf:typescript:external-type";
     /** On an {@code @ExternalType} stub: the module that exports the TypeScript type. */
     public static final String EXTERNAL_MODULE_ANNOTATION = "vmf:typescript:external-module";
-    /** On a property: its non-literal {@code @DefaultValue} comes from the installed bindings. */
+    /** On a property: its non-literal {@code @DefaultValue}, a value or a collection, comes from the installed bindings. */
     public static final String BIND_DEFAULT_ANNOTATION = "vmf:typescript:bind-default";
     public static final String UUID = "java.util.UUID";
 
@@ -177,17 +177,84 @@ public final class TypeScriptCapabilities {
                 && property.getAnnotationValues(BIND_DEFAULT_ANNOTATION).equals(List.of("true"));
     }
 
-    /** The declared defaults TypeScript generates: literals, bound expressions and literal union members. */
-    static boolean acceptsDefault(ResolvedModel model, Property property) {
-        if (property.getKind() != Property.Kind.SCALAR || property.isCollection()) return false;
+    /**
+     * A non-literal collection default whose values the installed bindings supply: a list or set of non-null portable
+     * scalars, a map of portable scalars, or an unopposed reference set of a named nongeneric model type.
+     */
+    public static boolean bindsCollectionDefault(Property property) {
+        if (!property.hasDeclaredDefault() || !property.isCollection() || property.getCollectionDefault().isPresent()
+                || property.getReferenceSetDefault().isPresent()
+                || !property.getAnnotationValues(BIND_DEFAULT_ANNOTATION).equals(List.of("true"))) {
+            return false;
+        }
+        ValueType value = property.getValueType();
+        switch (property.getKind()) {
+            case SCALAR:
+                return value.isPortableScalar() && !property.allowsNullElements();
+            case MAP:
+                return value.isPortableScalar() && property.getKeyType().isPortableScalar();
+            case REFERENCE:
+                return property.isUnique() && property.getOppositeName().isEmpty()
+                        && value.getKind() == ValueType.Kind.MODEL && value.getArguments().isEmpty();
+            default:
+                return false;
+        }
+    }
+
+    /**
+     * A collection default TypeScript generates: literal values ({@code List.of}, {@code Set.of}, {@code Map.of}),
+     * a new member of a reference set, or values from the installed bindings.
+     */
+    public static boolean hasCollectionDefault(Property property) {
+        return property.isCollection() && (property.getCollectionDefault().isPresent()
+                || property.getReferenceSetDefault().isPresent() || bindsCollectionDefault(property));
+    }
+
+    /**
+     * Collection defaults belong to a concrete nongeneric declaration, and only that declaration in its hierarchy
+     * declares the property: subtypes inherit the default unchanged. A reference set default creates members of a
+     * concrete nongeneric type.
+     */
+    static boolean supportsCollectionDefault(ResolvedModel model, Type owner, Property property) {
+        if (owner.isInterfaceOnly() || !owner.getTypeParameters().isEmpty()) return false;
+        if (property.getKind() == Property.Kind.REFERENCE && model.findType(property.getValueType().getModelType())
+                .filter(target -> !target.isInterfaceOnly() && target.getTypeParameters().isEmpty()).isEmpty()) {
+            return false;
+        }
+        return model.getTypes().stream().noneMatch(type -> type != owner
+                && (model.isSubtypeOf(type, owner.getName()) || model.isSubtypeOf(owner, type.getName()))
+                && type.getProperties().stream().anyMatch(other -> other.getName().equals(property.getName())));
+    }
+
+    /** The declared defaults TypeScript generates: literals, bound expressions, literal union members, collections. */
+    static boolean acceptsDefault(ResolvedModel model, Type owner, Property property) {
+        if (property.isCollection()) {
+            return hasCollectionDefault(property) && supportsCollectionDefault(model, owner, property);
+        }
+        if (property.getKind() != Property.Kind.SCALAR) return false;
         return property.getScalarDefault().isPresent() || bindsDefault(property)
                 || literalDefault(model, property).isPresent();
     }
 
+    /** Why TypeScript does not generate a declared default. */
+    static String unsupportedDefault(Property property, String name) {
+        if (hasCollectionDefault(property)) {
+            return name + " uses declared default expressions: TypeScript generates a collection default on a concrete"
+                    + " nongeneric declaration that is the only one in its hierarchy to declare the property"
+                    + (property.getKind() == Property.Kind.REFERENCE ? ", with members of a concrete nongeneric type" : "");
+        }
+        return name + " uses declared default expressions: TypeScript generates literal values, constants of literal"
+                + " unions and new reference set members, and binds other defaults with " + BIND_DEFAULT_ANNOTATION
+                + "=true";
+    }
+
     /** Reports misplaced binding annotations. */
     static void validateDefault(Property property, String name, List<String> diagnostics) {
-        if (!property.getAnnotationValues(BIND_DEFAULT_ANNOTATION).isEmpty() && !bindsDefault(property)) {
-            diagnostics.add(name + " needs a non-literal scalar @DefaultValue for " + BIND_DEFAULT_ANNOTATION + "=true");
+        if (!property.getAnnotationValues(BIND_DEFAULT_ANNOTATION).isEmpty() && !bindsDefault(property)
+                && !bindsCollectionDefault(property)) {
+            diagnostics.add(name + " needs a non-literal @DefaultValue of a scalar, a list or set of non-null"
+                    + " portable scalars, a map of portable scalars or an unopposed reference set for "
+                    + BIND_DEFAULT_ANNOTATION + "=true");
         }
     }
 

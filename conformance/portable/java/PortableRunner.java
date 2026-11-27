@@ -732,10 +732,16 @@ public final class PortableRunner {
             if (value instanceof OrderedRefSet) {
                 return ((OrderedRefSet<?>) value).get(Integer.parseInt(index));
             }
-            if (!(value instanceof List)) {
+            if (value instanceof List) {
+                return ((List<?>) value).get(Integer.parseInt(index));
+            }
+            // A set in its iteration order, which scenarios only index when it holds one element.
+            if (!(value instanceof Iterable)) {
                 throw new ScenarioFailure("cannot index " + path);
             }
-            return ((List<?>) value).get(Integer.parseInt(index));
+            List<Object> items = new ArrayList<>();
+            ((Iterable<?>) value).forEach(items::add);
+            return items.get(Integer.parseInt(index));
         }
 
         /** Splits {@code a.b[2].c} into (name, index) pairs. */

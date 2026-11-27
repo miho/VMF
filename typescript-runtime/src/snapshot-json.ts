@@ -184,7 +184,8 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                 if (mutable && !omit) {
                     requireReferences(references, fieldPath);
                 }
-                if (references || (!mutable && members.length > 0)) {
+                // An empty collection with a declared default is written, so that readers do not restore the default.
+                if (references || (!mutable && (members.length > 0 || property.hasDefault === true))) {
                     fields.push({ name, kind: property.kind, value: members.map((member, index) => {
                         const memberPath = childPath(fieldPath, index);
                         if (isImmutable(member, registry, memberPath)) {
@@ -248,7 +249,8 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                 if (mutable && !omit) {
                     requireReferences(references, fieldPath);
                 }
-                if (references || (!mutable && members.length > 0)) {
+                // An empty collection with a declared default is written, so that readers do not restore the default.
+                if (references || (!mutable && (members.length > 0 || property.hasDefault === true))) {
                     fields.push({ name, kind: property.kind, value: members.map((member, index) => {
                         const memberPath = childPath(fieldPath, index);
                         if (isImmutable(member, registry, memberPath)) {
@@ -393,6 +395,9 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
             continue;
         }
         const fieldPath = childPath(path, property.wireName);
+        if ("hasDefault" in property && property.hasDefault === true) {
+            clearDefault(property, result);
+        }
         switch (property.kind) {
             case "scalarList":
                 array(value, fieldPath).forEach((item, index) =>
@@ -477,6 +482,11 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
         }
     }
     return result;
+}
+
+/** Removes the declared default of a new object's collection, which a field in the document replaces. */
+function clearDefault(property: SnapshotProperty, owner: object): void {
+    (property.get(owner) as { clear(): void }).clear();
 }
 
 /** Reads an immutable object from its values; it has no identity and holds no containment. */

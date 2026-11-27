@@ -38,7 +38,7 @@ Generated code is an ES2022 module that imports the runtime as `@vmf/runtime` (`
 | `char` | `string` of one UTF-16 code unit; the default is `"\u0000"` |
 | `String` and other optional values | `string \| null` |
 | list property (`T[]`) | `ScalarList<T>`, `ContainmentList<TOwner, TChild>` or `ReferenceList<T>` with `add`, `insert`, `set`, `remove`, `removeAt`, `clear`, `at`, `indexOf`, `contains`, `count` and iteration; an unordered reference collection is a `ReferenceSet<T>` with `add`, `remove`, `clear`, `contains` and `count` |
-| `@DefaultValue` (scalars) | the initial value of new objects (see [Defaults](#defaults)) |
+| `@DefaultValue` | the initial value or content of new objects (see [Defaults](#defaults)) |
 | external type | see [External types](#external-types-x) |
 
 ## External types (X)
@@ -107,10 +107,17 @@ an object keeps the default behaviors it already created. Models that need no ho
 |---|---|
 | a literal | the initial value |
 | a constant of an enum mapped to a literal union (`Level.MEDIUM`) | the literal (`"MEDIUM"`), no binding needed |
-| any other expression, with `@Annotation(key = "vmf:typescript:bind-default", value = "true")` | `bindings.defaults.<Type>.<property>()`, called for each new object |
+| `java.util.List.of(...)`, `Set.of(v)`, `Map.of(k, v)` of literals on an ordered set, bounded list, set or map (K12) | the initial content |
+| `java.util.List.of(T.newInstance())`, or a builder that sets one `String` property, on a set of model objects without opposite (K12) | a new `T` for each object (`Object.assign(new T(), { name: "..." })`, `new T({ name: "..." })` for immutable `T`) |
+| any other expression, with `@Annotation(key = "vmf:typescript:bind-default", value = "true")` | `bindings.defaults.<Type>.<property>()`, called for each new object; for a collection it returns the elements (an `Iterable`, entries for a map) |
 
-A nullable property that holds `null` while its default is not `null` is written as `null` in documents, so
-that readers keep `null` (J1). Defaults of lists, sets, maps and reference sets are not supported yet.
+Defaults of mutable objects are applied in the constructor, after the construction hook (B3); a default replaces
+what the hook added to its collection. `@Immutable` types use a default when the constructor gets no value for the
+property. A nullable property that holds `null` while its default is not `null` is written as `null` in documents,
+so that readers keep `null` (J1). Collections with a default are written also when they are empty; a field in a
+document replaces the default, and a deep copy holds the original's values (K12). A collection default belongs to a
+concrete nongeneric declaration that is the only one in its hierarchy to declare the property: subtypes inherit it
+unchanged, and the generator rejects a redeclaration.
 
 ## Behavior (B)
 
@@ -154,6 +161,7 @@ exceptions and `Object` methods other than `toString()` are rejected.
 | `Set<T>` of model objects | `vmf.ReferenceSet<T>`, also with an opposite; `@Contains Set<T>` is a `vmf.ContainmentSet<TOwner, TChild>` |
 | `@Contains @Keyed(by = "sku")` | a `ContainmentList` (or `ContainmentSet`) that checks the keys, and `owner.findItemsBySku(key)` returning the entry or `null`; the read-only view has the same lookup |
 | in a read-only view or an `@Immutable` type | `vmf.ReadOnlySet<T>` and `vmf.ReadOnlyMap<K, V>` (typed `vmf.CollectionView` and `vmf.MapView` in `ReadOnlyX`); immutable values take sets as `Iterable<T>` and maps as `Iterable<[K, V]>`, for example a `Map` |
+| `@DefaultValue` of a collection (K12) | the content of a new object's collection, applied in the constructor after the construction hook; an immutable value uses it when the constructor gets no value for the property (see [Defaults](#defaults)) |
 
 A set or map edit is one change: `{ kind: "add" | "remove" | "replace", values, keys }` (maps carry `keys`, sets no
 `indices`). Undo restores a removed map entry at its former position. Documents write sets as arrays and maps as
@@ -246,6 +254,7 @@ containment chains do not exhaust the call stack.
 
 ## Not supported
 
-The TypeScript generator rejects models that use generic immutable types, `@DefaultValue` on collections and
-reference sets, delegated methods of generic types and overloads with the same number of parameters. XML,
-YAML and journals are not available. None of these are part of the contract.
+The TypeScript generator rejects models that use generic immutable types, collection defaults that are
+redeclared or declared by interface-only or generic types, delegated methods of generic types and overloads
+with the same number of parameters. XML, YAML and journals are not available. None of these are part of the
+contract.

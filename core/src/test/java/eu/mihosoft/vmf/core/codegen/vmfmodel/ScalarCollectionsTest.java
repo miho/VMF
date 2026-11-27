@@ -219,8 +219,8 @@ public class ScalarCollectionsTest {
         CSharpCapabilities.validate(references);
         assertEquals(List.of("true"), property(references, "BoundReferenceCollectionDefault", "entries")
                 .getAnnotationValues("vmf:property:reference-default"));
-        var baseline = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(managed, "TypeScript"));
-        assertTrue(baseline.getMessage(), baseline.getMessage().contains(".numbers uses declared default expressions"));
+        // TypeScript generates the literal and binds other expressions only with its own annotation.
+        PortableCapabilities.validate(managed, "TypeScript");
         var baselineReferences = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(references, "TypeScript"));
         assertTrue(baselineReferences.getMessage(), baselineReferences.getMessage().contains(".entries uses declared default expressions"));
 

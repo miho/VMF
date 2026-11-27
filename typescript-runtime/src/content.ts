@@ -166,6 +166,10 @@ export function deepCopy<T extends object>(root: T, registry: SnapshotRegistry):
 type CopyOf = (model: unknown) => object | null;
 
 function copyValues(property: SnapshotProperty, value: unknown, copy: object, copyOf: CopyOf): void {
+    // The copy started with the declared default of the collection; it gets the values of the original instead.
+    if ("hasDefault" in property && property.hasDefault === true) {
+        (property.get(copy) as { clear(): void }).clear();
+    }
     switch (property.kind) {
         case "scalar":
             property.set(copy, value);

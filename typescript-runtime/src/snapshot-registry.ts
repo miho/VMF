@@ -39,8 +39,16 @@ interface SnapshotScalar extends SnapshotMember, ScalarValues {
     readonly set: (owner: object, value: unknown) => void;
 }
 
+/**
+ * A collection with a declared default, which new objects start with: a field in a document replaces it, and
+ * writers write an empty collection instead of leaving it out.
+ */
+interface DefaultedCollection {
+    readonly hasDefault?: boolean;
+}
+
 /** A list (`scalarList`, ordered, an ordered set too) or a set (`scalarSet`) of scalar values. */
-interface SnapshotScalarList extends SnapshotMember, ScalarValues {
+interface SnapshotScalarList extends SnapshotMember, ScalarValues, DefaultedCollection {
     readonly kind: "scalarList" | "scalarSet";
     readonly scalarType: ScalarType;
     /** True if the list may hold null elements. Sets never do. */
@@ -49,7 +57,7 @@ interface SnapshotScalarList extends SnapshotMember, ScalarValues {
 }
 
 /** A map of scalar keys to scalar values that may be null. */
-interface SnapshotScalarMap extends SnapshotMember {
+interface SnapshotScalarMap extends SnapshotMember, DefaultedCollection {
     readonly kind: "scalarMap";
     /** The type of the keys, which are never null. */
     readonly keyType: ScalarType;
@@ -67,7 +75,7 @@ interface SnapshotSingle extends SnapshotMember {
     readonly opposite?: string;
 }
 
-interface SnapshotCollection extends SnapshotMember {
+interface SnapshotCollection extends SnapshotMember, DefaultedCollection {
     readonly kind: "containmentList" | "containmentSet" | "referenceSet" | "referenceList";
     readonly modelType: () => ModelConstructor<object>;
     readonly add: (owner: object, value: object) => void;

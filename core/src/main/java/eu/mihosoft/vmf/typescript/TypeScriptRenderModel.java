@@ -136,12 +136,13 @@ final class TypeScriptRenderModel {
      * A construction hook runs before the declared defaults, as in Java: the hook sees the zero values, and the
      * defaults replace what it set. Every class of a base class family with a hook therefore starts with zero
      * values and applies its defaults in __vmfApplyDefaults(), which the constructor of the concrete class calls
-     * after the hook.
+     * after the hook. Collection defaults are applied there too, hook or not.
      */
     private void prepareDeferredDefaults(List<Type> ordered) {
         Set<String> roots = new HashSet<>();
         for (Type type : ordered) {
-            if (!type.isInterfaceOnly() && !type.isImmutable() && behaviors.hasHook(type)) {
+            if (!type.isInterfaceOnly() && !type.isImmutable() && (behaviors.hasHook(type)
+                    || type.getEffectiveProperties().stream().anyMatch(TypeScriptCapabilities::hasCollectionDefault))) {
                 roots.add(familyRoot(type).getName());
             }
         }
@@ -523,6 +524,9 @@ final class TypeScriptRenderModel {
                     && !initialValue(property).equals(zeroValue(property))) {
                 defaults.add("this.__vmfValue_" + member + " = " + initialValue(property) + ";");
             }
+            if (deferred && TypeScriptCapabilities.hasCollectionDefault(property)) {
+                defaults.add(collectionDefault(member, property));
+            }
         }
 
         boolean hasBase = primary != null;
@@ -649,10 +653,12 @@ final class TypeScriptRenderModel {
             String field = "__vmfValue_" + member;
             fields.add("/** @internal */\n    readonly " + field + ": " + stored + ";");
             boolean uuid = isUuid(property.getValueType());
+            String fallback = TypeScriptCapabilities.hasCollectionDefault(property) ? collectionDefaultValues(property)
+                    : "[]";
             assignments.add(property.isCollection()
                     ? "this." + field + " = " + immutableCollection(property, uuid ? "[...(values." + member
                         + " ?? [])].map(value => vmf.canonicalUuid(value)" + (property.allowsNullElements() ? "" : "!")
-                        + ")" : "values." + member + " ?? []") + ";"
+                        + ")" : "values." + member + " ?? " + fallback) + ";"
                     : "this." + field + " = values." + member + " !== undefined ? "
                         + (uuid ? "vmf.canonicalUuid(values." + member + ")" : "values." + member) + " : "
                         + initialValue(property) + ";");
@@ -1115,15 +1121,85 @@ final class TypeScriptRenderModel {
         return zeroValue(property);
     }
 
-    /** A bound default: the declaring type's binding computes the value for each new object. */
+    /**
+     * A bound default: the declaring type's binding computes the value for each new object, or the values of a
+     * collection: list and set elements, map entries or reference set members.
+     */
     private String boundDefault(Property property) {
         String owner = property.getDeclaringType();
         String key = "defaults." + owner + "." + property.getName();
-        boundDefaults.computeIfAbsent(owner, unused -> new java.util.TreeMap<>()).put(property.getName(),
-                property.getValueType().isPrimitive() ? typeName(property.getValueType())
-                        : orNull(typeName(property.getValueType())));
+        ValueType value = property.getValueType();
+        String type = property.getKind() == Property.Kind.MAP
+                ? "Iterable<readonly [" + typeName(property.getKeyType()) + ", " + mapValueType(property) + "]>"
+                : property.isCollection() ? "Iterable<" + typeName(value) + ">"
+                : value.isPrimitive() ? typeName(value) : orNull(typeName(value));
+        boundDefaults.computeIfAbsent(owner, unused -> new java.util.TreeMap<>()).put(property.getName(), type);
         String call = "__vmfBindings.use(" + quoted(key) + ", bindings => bindings." + key + ")()";
-        return isUuid(property.getValueType()) ? "vmf.canonicalUuid(" + call + ")" : call;
+        return isUuid(value) && !property.isCollection() ? "vmf.canonicalUuid(" + call + ")" : call;
+    }
+
+    /**
+     * Gives the collection of a new object its declared default after the construction hook: the default replaces
+     * what the hook added.
+     */
+    private String collectionDefault(String member, Property property) {
+        String collection = "this." + member;
+        String statements = collection + ".clear();\n        ";
+        if (property.getKind() == Property.Kind.REFERENCE && TypeScriptCapabilities.bindsCollectionDefault(property)) {
+            return statements + "for (const member of " + boundDefault(property) + ") {\n            " + collection
+                    + ".add(member);\n        }";
+        }
+        if (property.getKind() == Property.Kind.REFERENCE) {
+            return statements + collection + ".add(" + newMember(property) + ");";
+        }
+        return statements + collection + (property.getKind() == Property.Kind.MAP ? ".putAll(" : ".addAll(")
+                + collectionDefaultValues(property) + ");";
+    }
+
+    /**
+     * The values of a collection default: the literal elements or map entries, the bound values, or a new member of
+     * a reference set.
+     */
+    private String collectionDefaultValues(Property property) {
+        if (TypeScriptCapabilities.bindsCollectionDefault(property)) {
+            return boundDefault(property);
+        }
+        if (property.getKind() == Property.Kind.REFERENCE) {
+            return "[" + newMember(property) + "]";
+        }
+        ResolvedModel.CollectionDefault literal = property.getCollectionDefault().orElseThrow();
+        List<String> values = new ArrayList<>();
+        for (int index = 0; index < literal.getValues().size(); index++) {
+            ResolvedModel.ScalarDefault value = literal.getValues().get(index);
+            String text = literal(value.getKind(), value.getValue());
+            if (property.getKind() == Property.Kind.MAP) {
+                ResolvedModel.ScalarDefault key = literal.getKeys().get(index);
+                text = "[" + literal(key.getKind(), key.getValue()) + ", " + text + "]";
+            }
+            values.add(text);
+        }
+        return "[" + String.join(", ", values) + "]";
+    }
+
+    /**
+     * The new member of a reference set default ({@code Type.newInstance()}, or a builder that sets one string
+     * property): a new object, or an immutable value.
+     */
+    private String newMember(Property property) {
+        ResolvedModel.ReferenceSetDefault recipe = property.getReferenceSetDefault().orElseThrow();
+        Type target = model.findType(property.getValueType().getModelType()).orElseThrow();
+        List<String> values = new ArrayList<>();
+        recipe.getAssignments().forEach((name, value) -> {
+            Property assigned = effectiveProperty(target, name).orElseThrow();
+            values.add(propertyName(target, assigned) + ": " + literal(value.getKind(), value.getValue()));
+        });
+        values.sort(Comparator.naturalOrder());
+        String created = "new " + typeName(target) + "(";
+        if (values.isEmpty()) {
+            return created + ")";
+        }
+        String entries = "{ " + String.join(", ", values) + " }";
+        return target.isImmutable() ? created + entries + ")" : "Object.assign(" + created + "), " + entries + ")";
     }
 
     /** True if documents write null for the property instead of leaving it out: its default is not null. */

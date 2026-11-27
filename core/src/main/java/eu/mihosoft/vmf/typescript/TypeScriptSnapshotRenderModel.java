@@ -27,6 +27,7 @@ import eu.mihosoft.vmf.core.codegen.ResolvedModel;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Property;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Type;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.ValueType;
+import eu.mihosoft.vmf.core.codegen.TypeScriptCapabilities;
 
 import java.util.List;
 import java.util.Locale;
@@ -88,6 +89,10 @@ final class TypeScriptSnapshotRenderModel {
             if (property.getEntryKey().filter(ResolvedModel.EntryKey::usesIdentity).isPresent()) {
                 data += ", keyedByReference: true";
             }
+        }
+        // A field in a document replaces the collection's default; an empty collection is written, not left out.
+        if (TypeScriptCapabilities.hasCollectionDefault(property)) {
+            data += ", hasDefault: true";
         }
         String edit = property.getKind() == Property.Kind.MAP ? "put" : property.isCollection() ? "add" : "set";
         return Map.of("wireName", literal(property.getWireName()), "kind", propertyKind(property),

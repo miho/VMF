@@ -954,8 +954,12 @@ public final class PortableCapabilities {
             }
             if ((executableDefault || collectionDefault || literalCollectionDefault || referenceDefault)
                     && feature == Feature.DEFAULT_VALUE) continue;
-            if (profile == Profile.TYPESCRIPT && feature == Feature.DEFAULT_VALUE
-                    && TypeScriptCapabilities.acceptsDefault(model, property)) continue;
+            if (profile == Profile.TYPESCRIPT && feature == Feature.DEFAULT_VALUE) {
+                if (!TypeScriptCapabilities.acceptsDefault(model, owner, property)) {
+                    diagnostics.add(TypeScriptCapabilities.unsupportedDefault(property, name));
+                }
+                continue;
+            }
             // Both targets check declared value constraints; validatePatternBindings covers Java-only patterns.
             if (feature == Feature.VALUE_CONSTRAINT) continue;
             if (feature == Feature.READ_ONLY && property.isSharedContainer()) continue;

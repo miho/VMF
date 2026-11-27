@@ -40,6 +40,7 @@ sources; `VMF.generate(outputDir, interfaces...)` does the same from code. Gener
 | `Set<T>` of model objects, `ORDERED_SET` model list | `RefSet<T>`, `OrderedRefSet<T>` (`Change.referenceSetChange()`) |
 | `@Contains @Keyed(by = "sku")` | a keyed `VList<T>` and `owner.findItemsBySku(key)` returning an `Optional` |
 | in a read-only view or an `@Immutable` type | the same types, unmodifiable |
+| `@DefaultValue` of a collection (K12) | the content of a new object's collection, applied after the construction hook; builders start with it and `with<Property>(...)` replaces it |
 
 ## Containment and references (C, R)
 

@@ -22,7 +22,7 @@ every target, Java included, runs the same scenarios ([README](README.md)).
 | identity-equality | N1, N3 (the language compares objects by identity only) | optional |
 | json | J (snapshot documents that every target writes and reads alike) | optional |
 | validation | L (declared multiplicities and value constraints) | optional |
-| collections | K (sets, ordered sets, bounded lists, maps, keyed containment) | optional |
+| collections | K (sets, ordered sets, bounded lists, maps, keyed containment, their literal defaults) | optional |
 | externals | X (enum types, UUIDs, untyped `Object` values, host value types with codecs) | optional |
 | behavior | B (delegated methods and construction hooks, `@DelegateTo`) | optional |
 
@@ -243,8 +243,8 @@ invalid while it is being built.
 
 Besides ordinary lists (T5), a model declares sets (`Set<T>`), ordered sets (`@Multiplicity(kind = ORDERED_SET)` on a
 list), bounded lists (`@Multiplicity(upper = n)` on a list of scalars), maps (`VMap<K, V>` of scalar keys and values)
-and keyed containment (`@Contains @Keyed(by = "key")`). With the events, history, views and json modules, the K rules
-below extend those modules to these collections.
+and keyed containment (`@Contains @Keyed(by = "key")`), and literal defaults of these collections (K12). With the
+events, history, views and json modules, the K rules below extend those modules to these collections.
 
 - **K1** A set of scalar values holds each value at most once and never `null`. Adding a value it holds leaves it
   unchanged and produces no event; adding `null` is rejected. Removing a value it does not hold changes nothing. The
@@ -290,6 +290,15 @@ below extend those modules to these collections.
   document and reject `null` and repeated keys in the array form and `null` and repeated set members. Keyed lists are
   written like containment lists; readers reject entries without a key or with a repeated key, also when the key is a
   reference that they resolve after the entry.
+- **K12** A collection declares a literal default with `@DefaultValue`: `java.util.List.of(...)` for an ordered set or
+  a bounded list, `java.util.Set.of(v)` with at most one value for a set, `java.util.Map.of(k, v)` with at most one
+  entry for a map, and `java.util.List.of(T.newInstance())` (or a builder that sets one `String` property of `T`) for
+  a set of model objects without opposite. A new object, mutable or immutable, starts with the default in a
+  collection of its own; a set of model objects gets a new `T` for each owner. A construction hook (B3) runs before
+  the default is applied, and creation with initial values for the collection replaces it. A document (J1, K11)
+  writes the collection also when it is empty; readers keep the default when the field is absent and replace it
+  with the field's values otherwise, so `[]` clears it. A deep copy (Q3) holds the original's values, not the
+  default.
 
 ## Externals (optional)
 
@@ -370,9 +379,8 @@ across targets:
 Target-specific features may exist but are tested by that target's own tests: builder merge semantics
 (`applyFrom`, `applyTo`, appended collections), executable (bound) defaults, cursors and traversal APIs,
 reflection writes, journals and their file formats, XML and YAML, model diff, validation rules beyond the
-declared constraints (Java's and C#'s `ModelValidator` with application rules or reference following),
-collection defaults (`@DefaultValue` of sets, lists and maps). Each of these can become a module of its own
-with its own rules and scenarios once two targets need it.
+declared constraints (Java's and C#'s `ModelValidator` with application rules or reference following). Each of
+these can become a module of its own with its own rules and scenarios once two targets need it.
 
 The Workshop example additionally exchanges files between Java, C# and TypeScript
 (`:vmf:verifyTypeScriptWorkshop`); the JSON module states and checks the format those files share.

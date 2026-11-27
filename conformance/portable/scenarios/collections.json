@@ -515,6 +515,101 @@
         {"remove": "m1.teams", "obj": "u"},
         {"check": "u.members", "size": 0}
       ]
+    },
+    {
+      "id": "new-objects-start-with-collection-defaults",
+      "from": "ValueGroupsTest, ManagedSettingsTest (declared defaults)",
+      "rules": ["K12", "K5"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "p", "type": "Presets"},
+        {"check": "p.stages", "values": ["draft", "review"]},
+        {"check": "p.tags", "values": ["new"]},
+        {"check": "p.limits", "values": [1, 2]},
+        {"check": "p.ports", "entries": [["http", 80]]},
+        {"add": "p.stages", "value": "done"},
+        {"add": "p.limits", "value": 3},
+        {"add": "p.limits", "value": 4, "fails": true},
+        {"new": "q", "type": "Presets"},
+        {"check": "q.stages", "values": ["draft", "review"]},
+        {"check": "q.limits", "values": [1, 2]},
+        {"clear": "p.tags"},
+        {"check": "p.tags", "size": 0},
+        {"check": "q.tags", "values": ["new"]}
+      ]
+    },
+    {
+      "id": "documents-keep-or-replace-collection-defaults",
+      "from": "ManagedSettingsTest, collection default exchange (omitted and empty fields)",
+      "rules": ["K12", "K11", "J1", "J4"],
+      "requires": ["collections", "json"],
+      "steps": [
+        {"new": "p", "type": "Presets"},
+        {"clear": "p.tags"},
+        {"clear": "p.ports"},
+        {"remove": "p.stages", "value": "draft"},
+        {"write": "p", "as": "d"},
+        {"document": "d", "is": {"stages": ["review"], "tags": [], "limits": [1, 2], "ports": {}}},
+        {"read": "d", "type": "Presets", "as": "r"},
+        {"check": "r.stages", "values": ["review"]},
+        {"check": "r.tags", "size": 0},
+        {"check": "r.ports", "size": 0},
+        {"equal": ["p", "r"]},
+        {"read": {"json": {"stages": ["x"], "limits": []}}, "type": "Presets", "as": "s"},
+        {"check": "s.stages", "values": ["x"]},
+        {"check": "s.limits", "size": 0},
+        {"check": "s.tags", "values": ["new"]},
+        {"check": "s.ports", "entries": [["http", 80]]}
+      ]
+    },
+    {
+      "id": "copies-hold-the-values-not-the-defaults",
+      "from": "ManagedSettingsTest.replacementAndClonePreserveIterationOrderAcrossDefaultKeys",
+      "rules": ["K12", "K7", "Q3"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "p", "type": "Presets"},
+        {"add": "p.stages", "value": "done"},
+        {"clear": "p.tags"},
+        {"put": "p.ports", "key": "ssh", "value": 22},
+        {"copy": "p", "as": "c"},
+        {"check": "c.stages", "values": ["draft", "review", "done"]},
+        {"check": "c.tags", "size": 0},
+        {"check": "c.limits", "values": [1, 2]},
+        {"check": "c.ports", "entries": [["http", 80], ["ssh", 22]]},
+        {"equal": ["p", "c"]}
+      ]
+    },
+    {
+      "id": "a-reference-set-default-is-a-new-object-for-each-owner",
+      "from": "WorkshopTest (DefaultNetwork.nearby)",
+      "rules": ["K12", "K3"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "a", "type": "Starter"},
+        {"new": "b", "type": "Starter"},
+        {"check": "a.picks", "size": 1},
+        {"check": "a.picks[0].sku", "value": "starter"},
+        {"notSame": ["a.picks[0]", "b.picks[0]"]},
+        {"clear": "a.picks"},
+        {"check": "a.picks", "size": 0},
+        {"check": "b.picks", "size": 1}
+      ]
+    },
+    {
+      "id": "immutable-values-start-with-collection-defaults",
+      "from": "WorkshopTest (LabelBook.labels)",
+      "rules": ["K12", "K8"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "f", "type": "FrozenPresets"},
+        {"check": "f.tags", "values": ["new"]},
+        {"new": "g", "type": "FrozenPresets", "with": {"tags": []}},
+        {"check": "g.tags", "size": 0},
+        {"new": "h", "type": "FrozenPresets", "with": {"tags": ["x"]}},
+        {"check": "h.tags", "values": ["x"]},
+        {"notEqual": ["f", "g"]}
+      ]
     }
   ]
 }

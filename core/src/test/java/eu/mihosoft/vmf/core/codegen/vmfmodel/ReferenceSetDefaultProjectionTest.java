@@ -90,11 +90,15 @@ public class ReferenceSetDefaultProjectionTest {
         CSharpCapabilities.validate(inherited);
         assertEquals("FreshReferenceDefaults", member(inherited, "DerivedReferenceDefaults").getDeclaringType());
         assertTrue(member(inherited, "DerivedReferenceDefaults").getReferenceSetDefault().isPresent());
-        var baseline = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(inherited, "TypeScript"));
-        assertTrue(baseline.getMessage().contains("uses declared default expressions"));
+        // TypeScript subclasses inherit the unchanged default too.
+        PortableCapabilities.validate(inherited, "TypeScript");
 
         var redeclared = model(FreshReferenceSeed.class, FreshReferenceDefaults.class, RedefinedReferenceDefaults.class);
         assertThrows(IllegalArgumentException.class, () -> CSharpCapabilities.validate(redeclared));
+        var typescript = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(redeclared, "TypeScript"));
+        assertTrue(typescript.getMessage(), typescript.getMessage().contains("FreshReferenceDefaults.values uses declared"
+                + " default expressions: TypeScript generates a collection default on a concrete nongeneric declaration"));
     }
 
     @Test

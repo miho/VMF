@@ -164,9 +164,9 @@ installed codecs, and takes replacement behaviors from its `replacements`.
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 23 of 23 | 219 of 219 (the identity-equality scenario does not apply) | none |
-| C# | 23 of 23 | 219 of 219 (the identity-equality scenario does not apply) | none |
-| TypeScript | 23 of 23 | 216 of 216 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
+| Java | 23 of 23 | 224 of 224 (the identity-equality scenario does not apply) | none |
+| C# | 23 of 23 | 224 of 224 (the identity-equality scenario does not apply) | none |
+| TypeScript | 23 of 23 | 221 of 221 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
@@ -204,7 +204,7 @@ behavior.
 | PropertyOrderTest (5), AnnotationsTest (4) | reflection | reflection | `reflection.json` (4 and 2 of them) |
 | SetterIdentityTest (16, 2026) | equal but distinct objects | core Q4, C | `equality.json` (6) |
 | WorkshopSnapshots, VMFJacksonModule tests | snapshot documents | json | `json.json` (14) |
-| MultiplicityTest (8), ManagedSettingsTest (6), KeyedPropertyTest (14), CollectionContractTest (9), ReferenceEndsTest (18), 2025 and 2026 | sets, ordered sets, bounds, maps, keyed containment | collections | `collections.json` (24) |
+| MultiplicityTest (8), ManagedSettingsTest (6), KeyedPropertyTest (14), CollectionContractTest (9), ReferenceEndsTest (18), 2025 and 2026 | sets, ordered sets, bounds, maps, keyed containment, collection defaults | collections | `collections.json` (29) |
 | OneToOneReassignmentTest (11), OneToManyReassignmentTest (13, 2026) | reference takeover | core R2 | `references.json` (6) |
 | ContainmentCycleTest (6, 2026) | cycle rejection | core C5 | `containment.json` (3) |
 | ModelValidationTest (3, 2026) | multiplicities, ranges, lengths, patterns, paths | validation | `validation.json` (12) |

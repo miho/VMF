@@ -2,18 +2,23 @@ package eu.mihosoft.vmf.core.codegen.vmfmodel;
 
 import eu.mihosoft.vmf.GenerationTarget;
 import eu.mihosoft.vmf.VMF;
+import eu.mihosoft.vcollections.VMap;
 import eu.mihosoft.vmf.core.Annotation;
 import eu.mihosoft.vmf.core.DefaultValue;
 import eu.mihosoft.vmf.core.DelegateTo;
 import eu.mihosoft.vmf.core.ExternalType;
+import eu.mihosoft.vmf.core.Immutable;
 import eu.mihosoft.vmf.core.InterfaceOnly;
 import eu.mihosoft.vmf.core.Model;
+import eu.mihosoft.vmf.core.Multiplicity;
 import eu.mihosoft.vmf.core.codegen.PortableCapabilities;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel;
 import eu.mihosoft.vmf.core.io.MemoryResourceSet;
 import org.junit.Test;
 
 import java.io.IOException;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.Assert.*;
 
@@ -103,6 +108,64 @@ interface HostedPlain {
     String getName();
 }
 
+interface TsDefaultSeed {
+    String getName();
+}
+
+@Immutable
+interface TsFrozenSeed {
+    String getName();
+}
+
+@DelegateTo(className = "example.DefaultsBehavior")
+interface TsCollectionDefaults {
+    @DefaultValue("java.util.List.of(\"a\", \"b\")")
+    @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET)
+    List<String> getStages();
+
+    @DefaultValue("java.util.Set.of(2L)")
+    Set<Long> getCodes();
+
+    @DefaultValue("java.util.Map.of(\"port\", 80)")
+    VMap<String, Integer> getPorts();
+
+    @DefaultValue("java.util.List.of(TsDefaultSeed.newBuilder().withName(\"first\").build())")
+    Set<TsDefaultSeed> getSeeds();
+
+    @Multiplicity(upper = 3)
+    @DefaultValue("example.Defaults.numbers()")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
+    List<Integer> getNumbers();
+}
+
+@Immutable
+interface TsFrozenCollectionDefaults {
+    @DefaultValue("java.util.List.of(TsFrozenSeed.newBuilder().withName(\"first\").build())")
+    Set<TsFrozenSeed> getSeeds();
+
+    @DefaultValue("java.util.Map.of(4, \"ready\")")
+    VMap<Integer, String> getChoices();
+}
+
+interface TsDefaultBase {
+    @DefaultValue("java.util.List.of(\"x\")")
+    @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET)
+    List<String> getTags();
+}
+
+interface TsDefaultRedeclaration extends TsDefaultBase {
+    @Override
+    @DefaultValue("java.util.List.of(\"y\")")
+    @Multiplicity(kind = Multiplicity.Kind.ORDERED_SET)
+    List<String> getTags();
+}
+
+interface TsNullableBoundDefault {
+    @DefaultValue("example.Defaults.numbers()")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
+    List<Integer> getNumbers();
+}
+
 public class TypeScriptHostBindingsTest {
 
     @Test
@@ -161,6 +224,27 @@ public class TypeScriptHostBindingsTest {
     }
 
     @Test
+    public void collectionDefaultsReplaceWhatTheHookAdded() throws IOException {
+        String source = generate(TsDefaultSeed.class, TsCollectionDefaults.class);
+        assertTrue(source.contains("this.stages.clear();\n        this.stages.addAll([\"a\", \"b\"]);"));
+        assertTrue(source.contains("this.codes.addAll([2n]);"));
+        assertTrue(source.contains("this.ports.putAll([[\"port\", 80]]);"));
+        assertTrue(source.contains("this.seeds.add(Object.assign(new TsDefaultSeed(), { name: \"first\" }));"));
+        assertTrue(source.contains("this.numbers.addAll(__vmfBindings.use(\"defaults.TsCollectionDefaults.numbers\","
+                + " bindings => bindings.defaults.TsCollectionDefaults.numbers)());"));
+        assertTrue(source.contains("readonly numbers: () => Iterable<number>;"));
+        // The construction hook runs first; a field in a document replaces the default.
+        int hook = source.indexOf(".onTsCollectionDefaultsInstantiated?.(this);");
+        int defaults = source.indexOf("this.__vmfApplyDefaults();");
+        assertTrue(hook > 0 && defaults > hook);
+        assertTrue(source.contains("modelType: () => TsDefaultSeed, hasDefault: true"));
+
+        String frozen = generate(TsFrozenSeed.class, TsFrozenCollectionDefaults.class);
+        assertTrue(frozen.contains("values.seeds ?? [new TsFrozenSeed({ name: \"first\" })]"));
+        assertTrue(frozen.contains("values.choices ?? [[4, \"ready\"]]"));
+    }
+
+    @Test
     public void rejectsWhatTypeScriptCannotBind() {
         var sameArity = assertThrows(IllegalArgumentException.class,
                 () -> PortableCapabilities.validate(model(HostedSameArity.class), "TypeScript"));
@@ -172,7 +256,18 @@ public class TypeScriptHostBindingsTest {
 
         var misplaced = assertThrows(IllegalArgumentException.class,
                 () -> PortableCapabilities.validate(model(HostedMisplacedBinding.class), "TypeScript"));
-        assertTrue(misplaced.getMessage().contains("HostedMisplacedBinding.count needs a non-literal scalar @DefaultValue"));
+        assertTrue(misplaced.getMessage().contains("HostedMisplacedBinding.count needs a non-literal @DefaultValue"));
+
+        var nullable = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(model(TsNullableBoundDefault.class), "TypeScript"));
+        assertTrue(nullable.getMessage(), nullable.getMessage().contains("TsNullableBoundDefault.numbers needs a"
+                + " non-literal @DefaultValue of a scalar, a list or set of non-null portable scalars"));
+
+        // A redeclaration would give subclasses a second default.
+        var redeclared = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(model(TsDefaultBase.class, TsDefaultRedeclaration.class), "TypeScript"));
+        assertTrue(redeclared.getMessage(), redeclared.getMessage().contains("TsDefaultBase.tags uses declared default"
+                + " expressions: TypeScript generates a collection default on a concrete nongeneric declaration"));
     }
 
     private static String generate(Class<?>... declarations) throws IOException {
