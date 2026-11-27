@@ -108,8 +108,9 @@ scenarios check this shared behavior on Java, C#, and TypeScript.
 
 TypeScript represents `long` as `bigint`. Every model object offers
 `vmfChanges` for local and recursive listeners and for recording edits that
-can be undone and redone. TypeScript does not yet support several model
-supertypes, immutable types, or read-only views. Its snapshot JSON does not
+can be undone and redone. A TypeScript class extends one model supertype and
+implements further interface-only ones; `instanceof` works for all of them.
+TypeScript does not yet support immutable types or read-only views. Its snapshot JSON does not
 yet write scalar lists, reference lists, or 64-bit integers.
 
 The C# backend also generates live read-only projections of these mutable

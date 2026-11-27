@@ -259,8 +259,8 @@ public class HierarchyCapabilitiesTest {
                 .findFirst().orElseThrow().getWireName());
 
         CSharpCapabilities.validate(model);
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains("HierarchyMerged extends more than one model type"));
+        // TypeScript extends the first interface-only supertype and implements the second.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
@@ -274,6 +274,8 @@ public class HierarchyCapabilitiesTest {
         assertTrue(csharp.getMessage(), csharp.getMessage().contains("HierarchyConflictReversed.name inherits incompatible property metadata"));
         var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
         assertFalse(typescript.getMessage(), typescript.getMessage().contains("inherits incompatible property metadata"));
+        assertTrue(typescript.getMessage(), typescript.getMessage()
+                .contains("HierarchyConflicting.name inherits conflicting declarations from its model supertypes"));
     }
 
     @Test
@@ -298,7 +300,8 @@ public class HierarchyCapabilitiesTest {
         assertEquals(2, named.getEffectiveProperties().size());
         assertTrue(named.getEffectiveProperties().stream().allMatch(property -> "HierarchyEntry".equals(property.getValueType().getModelType())));
         var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(open, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains("HierarchyOpenDiamond extends more than one model type"));
+        assertTrue(typescript.getMessage(), typescript.getMessage()
+                .contains("HierarchyOpenDiamond combines several model supertypes with type parameters"));
 
         var unrelated = model(HierarchyCommonLabel.class, HierarchyItems.class, HierarchyItemsLeft.class,
                 HierarchyUnrelatedCurrent.class, HierarchyOpenOverlap.class);
@@ -332,7 +335,8 @@ public class HierarchyCapabilitiesTest {
         assertEquals("HierarchyNarrowEntry", closed.getEffectiveProperties().stream()
                 .filter(property -> property.getName().equals("current")).findFirst().orElseThrow().getValueType().getModelType());
         var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains("HierarchyOpenChoice extends more than one model type"));
+        assertTrue(typescript.getMessage(), typescript.getMessage()
+                .contains("HierarchyOpenChoice combines several model supertypes with type parameters"));
     }
 
     @Test

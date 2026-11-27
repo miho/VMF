@@ -115,7 +115,17 @@ public final class PortableCapabilities {
         }
         if (type.getSuperTypeApplications().size() > 1) {
             if (profile == Profile.TYPESCRIPT) {
-                diagnostics.add(name + " extends more than one model type");
+                // A TypeScript class extends one base class and implements the interface-only supertypes.
+                long classes = type.getSuperTypes().stream()
+                        .filter(parent -> model.findType(parent).filter(Type::isInterfaceOnly).isEmpty()).count();
+                if (classes > 1) {
+                    diagnostics.add(name + " extends more than one model type that is not interface-only");
+                }
+                if (!type.getTypeParameters().isEmpty() || type.getSuperTypeApplications().stream()
+                        .anyMatch(application -> !application.getArguments().isEmpty())) {
+                    diagnostics.add(name + " combines several model supertypes with type parameters");
+                }
+                checkTypeScriptComposition(model, type, diagnostics);
             } else {
                 PortableInheritance.checkCSharpComposition(model, type, diagnostics);
             }
@@ -1018,6 +1028,31 @@ public final class PortableCapabilities {
         if (opposite.isEmpty() || !matchesTypeScriptOpposite(model, owner, property, opposite.get(), oppositeKind)) {
             diagnostics.add(name + " needs a matching reciprocal " + oppositeKind.name().toLowerCase(Locale.ROOT)
                     + " property on a local model type");
+        }
+    }
+
+    /** Properties that several supertypes provide must agree, because the class declares them once. */
+    private static void checkTypeScriptComposition(ResolvedModel model, Type type, List<String> diagnostics) {
+        var declarations = new java.util.LinkedHashMap<String, Property>();
+        var conflicts = new java.util.TreeSet<String>();
+        for (String parent : type.getSuperTypes()) {
+            var parentType = model.findType(parent);
+            if (parentType.isEmpty()) continue;
+            for (var property : parentType.get().getEffectiveProperties()) {
+                var previous = declarations.putIfAbsent(property.getName(), property);
+                if (previous != null && (previous.getKind() != property.getKind()
+                        || previous.isCollection() != property.isCollection()
+                        || !previous.getWireName().equals(property.getWireName())
+                        || !previous.getOppositeName().equals(property.getOppositeName())
+                        || !String.valueOf(previous.getValueType().getSourceType())
+                            .equals(String.valueOf(property.getValueType().getSourceType())))) {
+                    conflicts.add(property.getName());
+                }
+            }
+        }
+        for (String conflict : conflicts) {
+            diagnostics.add(type.getQualifiedName() + "." + conflict
+                    + " inherits conflicting declarations from its model supertypes");
         }
     }
 

@@ -3,7 +3,14 @@ import * as vmf from "@vmf/runtime";
 
 #foreach($type in $types)
 ${type.declaration} {
+#if($type.brand != "")
     declare protected readonly ${type.brand}: void;
+#end
+#if($type.interfaceOnly)
+    static [Symbol.hasInstance](value: unknown): boolean {
+        return vmf.isInstance(value, this);
+    }
+#end
 #if(!$type.hasBase)
     /** @internal */
     readonly __vmfContainerLink = new vmf.ContainmentLink();
@@ -89,6 +96,12 @@ ${type.declaration} {
     }
 #end
 }
+
+#end
+#foreach($declaration in $supertypeDeclarations)
+vmf.declareSupertypes(${declaration.type}, [${declaration.supertypes}]);
+#end
+#if(!$supertypeDeclarations.isEmpty())
 
 #end
 #parse("eu/mihosoft/vmf/typescript/snapshot.vm")

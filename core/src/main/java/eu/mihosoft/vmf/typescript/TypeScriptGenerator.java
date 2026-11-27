@@ -62,6 +62,7 @@ public final class TypeScriptGenerator {
         StringWriter rendered = new StringWriter();
         VelocityContext context = new VelocityContext();
         context.put("types", prepared.getTypes());
+        context.put("supertypeDeclarations", prepared.getSupertypeDeclarations());
         context.put("registrations", prepared.getSnapshots().getRegistrations());
         context.put("aliases", prepared.getSnapshots().getAliases());
         Engine.INSTANCE.getTemplate(MODEL_TEMPLATE, StandardCharsets.UTF_8.name()).merge(context, rendered);

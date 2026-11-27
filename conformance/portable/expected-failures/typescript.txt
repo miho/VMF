@@ -1,4 +1,3 @@
 # Scenarios the generated TypeScript code currently fails. One scenario id per line, then "# reason".
 # The runner fails on any unexpected failure and on any listed scenario that passes again.
 
-types/several-model-supertypes  # the TypeScript generator supports one model supertype per type (classes have single inheritance)

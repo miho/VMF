@@ -117,7 +117,8 @@ How the runners reach the generated code:
   `I<Name>` interfaces.
 - TypeScript: `new` on the classes listed in `ModelSnapshot.registry` (interface-only types are abstract and
   not registered), then plain property assignment for initial values; properties and list objects by model
-  name; `contentEquals`, `contentHashCode` and `deepCopy` on every model object; `vmfChanges.addListener(listener,
+  name; `instanceof` also for interface-only supertypes a class implements besides its base class;
+  `contentEquals`, `contentHashCode` and `deepCopy` on every model object; `vmfChanges.addListener(listener,
   "local" | "recursive")` (returns a function that removes the listener), `vmfChanges.start()` and `history`,
   whose entries have `undo()` and `redo()`. `long` values are `bigint`; the runner parses large JSON integers
   exactly.
@@ -128,7 +129,7 @@ How the runners reach the generated code:
 |---|---|---|---|
 | Java | 15 of 15 | 111 of 111 | none |
 | C# | 15 of 15 | 111 of 111 | none |
-| TypeScript | 13 of 15 | 93 of 94 (claims core, events and history; 17 scenarios of views, reflection and equality modes skipped) | a type with several model supertypes (TypeScript classes have one base class) |
+| TypeScript | 14 of 15 | 94 of 94 (claims core, events and history; 17 scenarios of views, reflection and equality modes skipped) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java).

@@ -56,6 +56,7 @@ final class TypeScriptRenderModel {
     private final String outputPath;
     private final Map<String, String> typeNames = new LinkedHashMap<>();
     private final List<Map<String, Object>> types;
+    private final List<Map<String, String>> supertypeDeclarations = new ArrayList<>();
     private final TypeScriptSnapshotRenderModel snapshots;
 
     TypeScriptRenderModel(ResolvedModel model) {
@@ -108,6 +109,38 @@ final class TypeScriptRenderModel {
         return snapshots;
     }
 
+    /** Model supertypes a class implements besides its base class, for {@code instanceof}. */
+    List<Map<String, String>> getSupertypeDeclarations() {
+        return supertypeDeclarations;
+    }
+
+    /**
+     * The supertype a class extends: the first one that is not interface-only, else the first one. TypeScript
+     * classes have one base class; the other supertypes must be interface-only and are implemented.
+     */
+    private ValueType primarySupertype(Type type) {
+        List<ValueType> applications = type.getSuperTypeApplications();
+        for (ValueType application : applications) {
+            if (!model.findType(application.getModelType()).orElseThrow().isInterfaceOnly()) {
+                return application;
+            }
+        }
+        return applications.isEmpty() ? null : applications.get(0);
+    }
+
+    private Set<String> supertypeClosure(String typeName) {
+        Set<String> closure = new java.util.LinkedHashSet<>();
+        java.util.ArrayDeque<String> pending = new java.util.ArrayDeque<>(List.of(typeName));
+        while (!pending.isEmpty()) {
+            for (String parent : model.findType(pending.removeFirst()).orElseThrow().getSuperTypes()) {
+                if (closure.add(parent)) {
+                    pending.add(parent);
+                }
+            }
+        }
+        return closure;
+    }
+
     private Map<String, Object> prepareType(Type type) {
         String name = typeNames.get(type.getName());
         Set<String> parameterNames = new HashSet<>();
@@ -131,11 +164,37 @@ final class TypeScriptRenderModel {
             }
         }
 
+        ValueType primary = primarySupertype(type);
+        Set<String> inherited = new HashSet<>();
+        if (primary != null) {
+            model.findType(primary.getModelType()).orElseThrow().getEffectiveProperties()
+                    .forEach(property -> inherited.add(property.getName()));
+        }
+        List<String> implemented = new ArrayList<>();
+        for (ValueType application : type.getSuperTypeApplications()) {
+            if (application != primary) {
+                implemented.add(typeName(application));
+            }
+        }
+        if (!implemented.isEmpty()) {
+            Set<String> secondary = supertypeClosure(type.getName());
+            secondary.removeAll(primary == null ? Set.of() : supertypeClosure(primary.getModelType()));
+            if (primary != null) {
+                secondary.remove(primary.getModelType());
+            }
+            supertypeDeclarations.add(Map.of("type", name, "supertypes", secondary.stream()
+                    .map(typeNames::get).collect(Collectors.joining(", "))));
+        }
+
         List<Map<String, Object>> properties = new ArrayList<>();
         List<Map<String, Object>> containments = new ArrayList<>();
         List<Map<String, Object>> multiplicities = new ArrayList<>();
         String owner = apply(name, parameters);
-        for (Property property : type.getProperties()) {
+        // Properties of interface-only supertypes besides the base class are declared on the class itself.
+        for (Property property : type.getEffectiveProperties()) {
+            if (inherited.contains(property.getName())) {
+                continue;
+            }
             String member = propertyName(type, property);
             properties.add(prepareMember(owner, member, property));
             if (property.getKind() == Property.Kind.CONTAINMENT) {
@@ -144,13 +203,16 @@ final class TypeScriptRenderModel {
             addMultiplicity(property, member, multiplicities);
         }
 
-        boolean hasBase = !type.getSuperTypeApplications().isEmpty();
-        String base = hasBase ? " extends " + typeName(type.getSuperTypeApplications().get(0)) : "";
+        boolean hasBase = primary != null;
+        String base = (hasBase ? " extends " + typeName(primary) : "")
+                + (implemented.isEmpty() ? "" : " implements " + String.join(", ", implemented));
         String modifier = type.isInterfaceOnly() ? "abstract " : "";
         boolean hasValidation = !containments.isEmpty() || !multiplicities.isEmpty();
         return Map.of(
                 "declaration", "export " + modifier + "class " + apply(name, declarations) + base,
-                "brand", BRAND_PREFIX + name,
+                // Interface-only types stay structural so that classes can implement them besides their base.
+                "brand", type.isInterfaceOnly() ? "" : BRAND_PREFIX + name,
+                "interfaceOnly", type.isInterfaceOnly(),
                 "hasBase", hasBase,
                 "hasValidation", hasValidation,
                 "emitValidation", !hasBase || hasValidation,
