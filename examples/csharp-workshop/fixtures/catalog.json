@@ -1,0 +1,7 @@
+{
+  "featured": "probe",
+  "items": [
+    {"@vmf-type": "thermometer", "@vmf-id": "probe", "sku": "T-1", "unit": "C"},
+    {"@vmf-type": "instrument", "sku": "I-1"}
+  ]
+}

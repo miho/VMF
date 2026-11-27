@@ -1,0 +1,14 @@
+{
+  "items": [
+    {"sku_code": "A", "quantity": 3},
+    {"sku_code": "B", "quantity": 4}
+  ],
+  "assignments": [
+    {"part": "one", "count": 5},
+    {"part": "two", "count": 6}
+  ],
+  "parts": [
+    {"@vmf-id": "one", "name": "shared label"},
+    {"@vmf-id": "two", "name": "shared label"}
+  ]
+}

@@ -24,7 +24,7 @@ It generates/supports:
 - deep and shallow cloning
 - [change notification and observer scopes](docs/observing-models.md)
 - undo/redo
-- [portable change journals in JSON, YAML, and XML](docs/change-journal.md)
+- [portable change journals in JSON, YAML, and XML (feature preview)](docs/change-journal.md)
 - object graph traversal API via iterators and streams
 - immutable types and read-only wrappers
 - delegation
@@ -41,6 +41,15 @@ It generates/supports:
 A VMF model consists of annotated Java interfaces. We could call this "wannabe" code. Just specify the interface and its properties and get a fully functional  implementation including property setters and getters, builders, iterators, and much more. Even for a simple model VMF provides a lot of useful APIs:
 
 <img src="resources/img/vmf-01.svg">
+
+## C# and TypeScript code generation
+
+The [Workshop example](examples/csharp-workshop/README.md) generates Java, C#,
+and TypeScript from the same annotated model interfaces. It verifies model
+behavior and exchanges both reference-aware VMF snapshots and plain external
+JSON across the three targets. The [C# conformance suite](conformance/README.md)
+also verifies native read-only projections, immutable snapshot identity,
+and cross-runtime scalar and validation behavior.
 
 ## Using VMF
 

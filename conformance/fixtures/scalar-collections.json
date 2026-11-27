@@ -1,0 +1,17 @@
+{
+  "messages": ["ready", null, "ready"],
+  "phases": ["calibrate", "measure"],
+  "counts": [1, 2],
+  "readings": [0.0],
+  "options": {"@vmf-id": true, "@vmf-type": false},
+  "levels": [0.0, -0.0, "NaN"],
+  "limits": {
+    "limit": 9223372036854775807,
+    "optional": null
+  },
+  "markers": [
+    {"key": 0.0, "value": "+"},
+    {"key": -0.0, "value": "-"},
+    {"key": "NaN", "value": null}
+  ]
+}

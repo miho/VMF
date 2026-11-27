@@ -1,0 +1,40 @@
+#if(!$sharedBehaviorBindings.isEmpty())
+public static partial class ModelBehaviorBindings
+{
+#foreach($binding in $sharedBehaviorBindings)
+    public interface ${binding.name} : ${binding.bases}
+    {
+#foreach($method in $binding.methods)
+        ${method.returnType} ${method.name}(${method.bindingParameters});
+#end
+#foreach($bridge in $binding.bridges)
+        ${bridge.returnType} ${bridge.behaviorType}.${bridge.name}(${bridge.bindingParameters}) =>
+            ${bridge.name}(${bridge.arguments});
+#end
+    }
+
+    private static partial ${binding.name} Create${binding.name}();
+
+    private sealed class __vmf${binding.name}State
+    {
+        internal volatile ${binding.name}? Binding;
+    }
+
+    private static readonly global::System.Runtime.CompilerServices.ConditionalWeakTable<
+        object, __vmf${binding.name}State> __vmf${binding.name}ByOwner = new();
+
+    internal static ${binding.name} ${binding.accessor}(object caller)
+    {
+        var state = __vmf${binding.name}ByOwner.GetValue(caller, static _ => new());
+        if (state.Binding is { } current) return current;
+        lock (state)
+        {
+            return state.Binding ??= Create${binding.name}()
+                ?? throw new global::System.InvalidOperationException("The shared behavior factory returned null.");
+        }
+    }
+
+#end
+}
+
+#end

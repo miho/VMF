@@ -1,0 +1,41 @@
+{
+  "order": [
+    "early:null:one",
+    "model:name",
+    "late:name",
+    "named:name",
+    "model:trail"
+  ],
+  "reentry": [
+    "early:outer",
+    "early:nested",
+    "model:nested",
+    "new:nested",
+    "named:nested",
+    "old:outer",
+    "model:outer",
+    "named:outer",
+    "history:nested",
+    "history:outer"
+  ],
+  "projected": [
+    "raw:anchor",
+    "projected:anchor",
+    "model:anchor",
+    "named:anchor"
+  ],
+  "ownership": [
+    "child:insetOf:false",
+    "parentExisting:inset",
+    "parentAdded:inset",
+    "parentModelAdded:inset"
+  ],
+  "recorder": [
+    "raw:outer",
+    "raw:nested",
+    "model:nested",
+    "model:outer",
+    "replay:nested",
+    "checkpoint:outer"
+  ]
+}

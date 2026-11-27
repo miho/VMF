@@ -1,0 +1,17 @@
+[
+  {"op":"add","shop":"left","item":"a","result":true,"left":["a"],"right":[],"favorites":[],"leftValid":true,"rightValid":false},
+  {"op":"add","shop":"left","item":"b","result":true,"left":["a","b"],"right":[],"favorites":[],"leftValid":true,"rightValid":false},
+  {"op":"favorite","shop":"left","item":"a","result":true,"left":["a","b"],"right":[],"favorites":["a"],"leftValid":true,"rightValid":false},
+  {"op":"add","shop":"left","item":"a","result":false,"left":["a","b"],"right":[],"favorites":["a"],"leftValid":true,"rightValid":false},
+  {"op":"duplicate-insert","shop":"left","item":"a","left":["a","b"],"right":[],"favorites":["a"],"leftValid":true,"rightValid":false},
+  {"op":"invalid-move","shop":"left","left":["a","b"],"right":[],"favorites":["a"],"leftValid":true,"rightValid":false},
+  {"op":"move","shop":"left","from":1,"to":0,"left":["b","a"],"right":[],"favorites":["a"],"leftValid":true,"rightValid":false},
+  {"op":"set-parent","shop":"right","item":"c","left":["b","a"],"right":["c"],"favorites":["a"],"leftValid":true,"rightValid":true},
+  {"op":"add","shop":"right","item":"a","result":true,"left":["b"],"right":["c","a"],"favorites":["a"],"leftValid":true,"rightValid":true},
+  {"op":"set-parent","shop":"left","item":"a","left":["b","a"],"right":["c"],"favorites":["a"],"leftValid":true,"rightValid":true},
+  {"op":"add","shop":"left","item":"d","result":true,"left":["b","a","d"],"right":["c"],"favorites":["a"],"leftValid":false,"rightValid":true},
+  {"op":"remove","shop":"left","item":"d","result":true,"left":["b","a"],"right":["c"],"favorites":["a"],"leftValid":true,"rightValid":true},
+  {"op":"set-parent","item":"a","left":["b"],"right":["c"],"favorites":["a"],"leftValid":true,"rightValid":true},
+  {"op":"rename","item":"b","name":null,"left":["b"],"right":["c"],"favorites":["a"],"leftValid":false,"rightValid":true},
+  {"op":"rename","item":"b","name":"restored","left":["b"],"right":["c"],"favorites":["a"],"leftValid":true,"rightValid":true}
+]

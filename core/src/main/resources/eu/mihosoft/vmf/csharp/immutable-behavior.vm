@@ -1,0 +1,35 @@
+#foreach($binding in $type.immutableBehavior.bindings)
+    private interface ${binding.contract}
+    {
+#foreach($method in $binding.methods)
+        ${method.returnType} ${method.name}(${method.bindingParameters});
+#end
+    }
+
+    private static partial ${binding.contract} ${binding.factory}();
+
+    private ${binding.contract}? ${binding.state};
+    private bool ${binding.initialized};
+    private object? ${binding.syncLock};
+
+    private ${binding.contract} ${binding.getter}() =>
+        global::System.Threading.LazyInitializer.EnsureInitialized(
+            ref ${binding.state}, ref ${binding.initialized}, ref ${binding.syncLock}, ${binding.factory})
+        ?? throw new global::System.InvalidOperationException("The immutable default behavior factory returned null.");
+#foreach($method in $binding.methods)
+
+#if(!$method.objectOverride.isEmpty())
+    public override ${method.returnType} ${method.name}(${method.parameters}) =>
+        ${binding.getter}().${method.name}(${method.arguments});
+#else
+    ${method.returnType} ${method.calls}.${method.name}(${method.parameters}) =>
+        ${binding.getter}().${method.name}(${method.arguments});
+#end
+#end
+
+#end
+#foreach($bridge in $type.immutableBehavior.resultBridges)
+    ${bridge.returnType} ${bridge.calls}.${bridge.name}(${bridge.parameters}) =>
+        ((${bridge.selected})this).${bridge.name}(${bridge.parameterArguments});
+
+#end

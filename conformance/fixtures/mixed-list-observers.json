@@ -1,0 +1,79 @@
+[
+  {
+    "name": "model-first-activates-projection",
+    "steps": [
+      {"action":"observe-model-change"},
+      {"action":"read-projected-list"},
+      {"action":"add","value":"outer"},
+      {"action":"add","value":"future"}
+    ],
+    "trace": ["model:1", "new:outer", "model:2", "new:future"]
+  },
+  {
+    "name": "model-last-activates-projection",
+    "steps": [
+      {"action":"read-projected-list"},
+      {"action":"observe-model-change"},
+      {"action":"add","value":"outer"},
+      {"action":"add","value":"future"}
+    ],
+    "trace": ["model:1", "new:future", "model:2"]
+  },
+  {
+    "name": "model-last-replaces-projected-listener",
+    "steps": [
+      {"action":"read-projected-list"},
+      {"action":"observe-original-projection"},
+      {"action":"observe-model-change"},
+      {"action":"add","value":"outer"},
+      {"action":"add","value":"future"}
+    ],
+    "trace": ["old:outer", "model:1", "new:future", "model:2"]
+  },
+  {
+    "name": "direct-subscription-depends-on-model-relay",
+    "steps": [
+      {"action":"observe-mutable-list"},
+      {"action":"read-projected-list"},
+      {"action":"mark-modeled-delivery"},
+      {"action":"add","value":"outer"}
+    ],
+    "trace": ["register:A", "projected:A", "model"]
+  },
+  {
+    "name": "containment-inverse-replaces-projected-listener",
+    "kind": "containment-inverse",
+    "trace": ["inverse", "new"]
+  },
+  {
+    "name": "read-only-model-listener-runs-inside-projected-list",
+    "steps": [
+      {"action": "mark-mutable-list", "value": "raw0"},
+      {"action": "read-projected-list"},
+      {"action": "mark-projected-list", "value": "projected0"},
+      {"action": "mark-mutable-list", "value": "raw1"},
+      {"action": "mark-projected-model", "value": "readOnlyModel"},
+      {"action": "mark-projected-list", "value": "projected1"},
+      {"action": "mark-modeled-delivery"},
+      {"action": "add", "value": "outer"}
+    ],
+    "trace": ["raw0", "projected0", "readOnlyModel", "projected1", "raw1", "model"]
+  },
+  {
+    "name": "read-only-model-subscription-installs-projection-relay",
+    "steps": [
+      {"action": "mark-mutable-list", "value": "raw0"},
+      {"action": "mark-projected-model", "value": "readOnlyModel"},
+      {"action": "mark-mutable-list", "value": "raw1"},
+      {"action": "read-projected-list"},
+      {"action": "mark-projected-list", "value": "projected0"},
+      {"action": "add", "value": "outer"}
+    ],
+    "trace": ["raw0", "readOnlyModel", "projected0", "raw1"]
+  },
+  {
+    "name": "nested-direct-edit-records-native-and-portable-order",
+    "kind": "journal-reentry",
+    "trace": ["direct:outer", "direct:nested", "native:nested", "native:outer", "replay:outer", "replay:nested"]
+  }
+]

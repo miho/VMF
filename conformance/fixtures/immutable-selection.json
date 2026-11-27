@@ -1,0 +1,10 @@
+{
+  "current": "shared",
+  "first": "parent",
+  "nodes": [
+    {"@vmf-id": "parent", "label": "shared", "next": "leaf"},
+    {"@vmf-id": "leaf", "label": {"@vmf-id": "shared", "text": "A"}}
+  ],
+  "second": {"@vmf-id": "twin", "text": "A"},
+  "selected": ["shared", "twin"]
+}

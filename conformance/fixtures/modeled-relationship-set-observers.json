@@ -1,0 +1,15 @@
+{
+  "ordered-keyed-late": ["M0", "M1", "R0", "R1"],
+  "ordered-keyed-early": ["M0", "R0", "R1", "M1"],
+  "ordered-keyed-dormant": ["M0", "Rnew", "M1"],
+  "reciprocal-primary-late": ["opposite", "M0", "M1", "R0", "R1"],
+  "reciprocal-primary-early": ["opposite", "M0", "R0", "R1", "M1"],
+  "reciprocal-primary-dormant": ["opposite", "M0", "Rnew", "M1"],
+  "reciprocal-primary-fresh": ["opposite", "M0", "M1"],
+  "reciprocal-opposite-late": ["M0", "M1", "R0", "R1", "opposite"],
+  "reciprocal-opposite-early": ["M0", "R0", "R1", "M1", "opposite"],
+  "reciprocal-opposite-dormant": ["M0", "M1", "opposite"],
+  "reciprocal-opposite-fresh": ["M0", "M1", "opposite"],
+  "reciprocal-primary-only-dormant": ["opposite", "Rnew"],
+  "reciprocal-primary-only-fresh": ["opposite"]
+}

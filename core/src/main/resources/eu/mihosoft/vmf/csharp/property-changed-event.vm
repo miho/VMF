@@ -1,0 +1,9 @@
+${propertyEventIndent}event global::System.ComponentModel.PropertyChangedEventHandler? global::System.ComponentModel.INotifyPropertyChanged.PropertyChanged
+${propertyEventIndent}{
+${propertyEventIndent}    add
+${propertyEventIndent}    {
+${propertyEventIndent}        if (value is not null)
+${propertyEventIndent}            global::Vmf.Runtime.ModelPropertyChangedEvents.Add(this, value, VmfChanges.AddDirectPropertyListener, ${propertyNameResolver});
+${propertyEventIndent}    }
+${propertyEventIndent}    remove => global::Vmf.Runtime.ModelPropertyChangedEvents.Remove(this, value);
+${propertyEventIndent}}

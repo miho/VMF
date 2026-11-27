@@ -1,0 +1,233 @@
+def workshop = rootProject.layout.projectDirectory.dir('examples/csharp-workshop')
+def model = fileTree(workshop.dir('src/main/vmf')) { include '**/*.java' }
+def generatedJava = workshop.dir('build/generated/java')
+def generatedCSharp = workshop.dir('build/generated/csharp')
+def javaClasses = workshop.dir('build/classes/java')
+def javaTrace = workshop.file('build/java-trace.txt').asFile
+def csharpTrace = workshop.file('build/csharp-trace.txt').asFile
+
+def javaRuntime = evaluationDependsOn(':vmf-runtime').sourceSets.main.runtimeClasspath
+
+tasks.register('generateModel', JavaExec) {
+    group = 'vmf'
+    description = 'Generates Java, C#, or TypeScript sources from Java VMF declarations supplied via --args.'
+    workingDir rootProject.projectDir
+    classpath = sourceSets.main.runtimeClasspath + javaRuntime
+    mainClass = 'eu.mihosoft.vmf.cli.GenerateModel'
+}
+
+def generateJava = tasks.register('generateJavaWorkshop', JavaExec) {
+    group = 'vmf'
+    description = 'Generates the Workshop example in Java.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'eu.mihosoft.vmf.cli.GenerateModel'
+    args 'java', generatedJava.asFile.absolutePath
+    args model.files.sort().collect { it.absolutePath }
+    inputs.files model
+    outputs.dir generatedJava
+}
+
+def generateCSharp = tasks.register('generateCSharpWorkshop', JavaExec) {
+    group = 'vmf'
+    description = 'Generates the Workshop example in C#.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'eu.mihosoft.vmf.cli.GenerateModel'
+    args 'csharp', generatedCSharp.asFile.absolutePath
+    args model.files.sort().collect { it.absolutePath }
+    inputs.files model
+    outputs.dir generatedCSharp
+}
+
+def compileJavaWorkshop = tasks.register('compileJavaWorkshop', JavaCompile) {
+    dependsOn generateJava
+    source generatedJava, workshop.file('WorkshopJavaSmoke.java')
+    classpath = javaRuntime
+    destinationDirectory = javaClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def runJavaWorkshop = tasks.register('runJavaWorkshop', JavaExec) {
+    dependsOn compileJavaWorkshop
+    classpath = files(javaClasses) + javaRuntime
+    mainClass = 'eu.mihosoft.vmf.example.workshops.verification.WorkshopJavaSmoke'
+    args javaTrace.absolutePath
+}
+
+def runCSharpWorkshop = tasks.register('runCSharpWorkshop', Exec) {
+    dependsOn generateCSharp
+    workingDir workshop.asFile
+    commandLine 'dotnet', 'run', '--project', 'WorkshopSmoke.csproj', '--configuration', 'Release',
+            '--', csharpTrace.absolutePath
+}
+
+tasks.register('verifyCSharpWorkshop') {
+    group = 'verification'
+    description = 'Generates and compiles the model in Java and C#, then compares the two runtime traces.'
+    dependsOn runJavaWorkshop, runCSharpWorkshop
+    doLast {
+        def javaResult = javaTrace.getText('UTF-8')
+        def csharpResult = csharpTrace.getText('UTF-8')
+        if (javaResult != csharpResult) {
+            throw new GradleException("Workshop traces differ.\nJava: ${javaResult}\nC#:   ${csharpResult}")
+        }
+        println "Java and C# matched: ${javaResult}"
+    }
+}
+
+def jacksonVersion = commonProps.getProperty('deps.jackson.version')
+def jacksonDependencies = configurations.detachedConfiguration(
+        dependencies.create("com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"),
+        dependencies.create("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}"),
+        dependencies.create("com.fasterxml.jackson.dataformat:jackson-dataformat-xml:${jacksonVersion}"))
+def jacksonClasses = workshop.dir('build/classes/jackson')
+def snapshotClasses = workshop.dir('build/classes/snapshots')
+def fixtures = workshop.dir('fixtures').asFile.absolutePath
+def javaSnapshots = workshop.dir('build/snapshots/java').asFile.absolutePath
+def csharpSnapshots = workshop.dir('build/snapshots/csharp').asFile.absolutePath
+def snapshotClasspath = files(snapshotClasses, jacksonClasses, javaClasses) + javaRuntime + jacksonDependencies
+
+def compileJackson = tasks.register('compileWorkshopJackson', JavaCompile) {
+    source rootProject.fileTree('jackson/src/main/java') { include '**/*.java' }
+    classpath = javaRuntime + jacksonDependencies
+    destinationDirectory = jacksonClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def compileSnapshots = tasks.register('compileJavaWorkshopSnapshots', JavaCompile) {
+    dependsOn compileJavaWorkshop, compileJackson
+    source workshop.file('WorkshopSnapshots.java')
+    classpath = files(jacksonClasses, javaClasses) + javaRuntime + jacksonDependencies
+    destinationDirectory = snapshotClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def buildCSharp = tasks.register('buildCSharpWorkshop', Exec) {
+    dependsOn generateCSharp
+    workingDir workshop.asFile
+    commandLine 'dotnet', 'build', 'WorkshopSmoke.csproj', '--configuration', 'Release'
+}
+
+def writeJava = tasks.register('writeJavaWorkshopSnapshots', JavaExec) {
+    dependsOn compileSnapshots
+    classpath = snapshotClasspath
+    mainClass = 'eu.mihosoft.vmf.example.workshops.verification.WorkshopSnapshots'
+    args 'snapshot-write', javaSnapshots, fixtures
+}
+
+def writeCSharp = tasks.register('writeCSharpWorkshopSnapshots', Exec) {
+    dependsOn buildCSharp
+    workingDir workshop.asFile
+    commandLine 'dotnet', 'run', '--project', 'WorkshopSmoke.csproj', '--configuration', 'Release',
+            '--no-build', '--', 'snapshot-write', csharpSnapshots, fixtures
+}
+
+def readInJava = tasks.register('readCSharpWorkshopSnapshotsInJava', JavaExec) {
+    dependsOn compileSnapshots, writeCSharp
+    classpath = snapshotClasspath
+    mainClass = 'eu.mihosoft.vmf.example.workshops.verification.WorkshopSnapshots'
+    args 'snapshot-read', csharpSnapshots, fixtures
+}
+
+def readInCSharp = tasks.register('readJavaWorkshopSnapshotsInCSharp', Exec) {
+    dependsOn buildCSharp, writeJava
+    workingDir workshop.asFile
+    commandLine 'dotnet', 'run', '--project', 'WorkshopSmoke.csproj', '--configuration', 'Release',
+            '--no-build', '--', 'snapshot-read', javaSnapshots, fixtures
+}
+
+tasks.register('verifyCSharpSnapshots') {
+    group = 'verification'
+    description = 'Verifies VMF JSON interchange between Java and C# and reads the shared fixtures.'
+    dependsOn readInJava, readInCSharp
+    doLast {
+        println 'Java and C# exchanged reference-aware snapshots and plain external JSON.'
+    }
+}
+
+def typescript = workshop.dir('typescript')
+def generatedTypeScript = typescript.dir('build/generated')
+def compiledTypeScript = typescript.dir('build/js')
+def typescriptRuntime = rootProject.layout.projectDirectory.dir('typescript-runtime')
+def typescriptSnapshots = workshop.dir('build/snapshots/typescript').asFile.absolutePath
+def tsc = typescript.file('node_modules/typescript/bin/tsc').asFile.absolutePath
+def npmExecutable = System.getProperty('os.name').startsWith('Windows') ? 'npm.cmd' : 'npm'
+
+def generateTypeScript = tasks.register('generateTypeScriptWorkshop', JavaExec) {
+    group = 'vmf'
+    description = 'Generates the shared Workshop and Catalog example in TypeScript.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'eu.mihosoft.vmf.cli.GenerateModel'
+    args 'typescript', generatedTypeScript.asFile.absolutePath
+    args model.files.sort().collect { it.absolutePath }
+    inputs.files model
+    outputs.dir generatedTypeScript
+}
+
+def installTypeScript = tasks.register('installWorkshopTypeScriptCompiler', Exec) {
+    workingDir typescript.asFile
+    commandLine npmExecutable, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'
+    if (gradle.startParameter.offline) {
+        args '--offline'
+    }
+    inputs.files typescript.file('package.json'), typescript.file('package-lock.json'),
+            typescriptRuntime.file('package.json')
+    outputs.dir typescript.dir('node_modules')
+}
+
+def buildTypeScriptRuntime = tasks.register('buildWorkshopTypeScriptRuntime', Exec) {
+    dependsOn installTypeScript
+    workingDir typescriptRuntime.asFile
+    commandLine 'node', tsc, '-p', typescriptRuntime.file('tsconfig.json').asFile.absolutePath
+    inputs.files typescriptRuntime.file('tsconfig.json'), typescriptRuntime.dir('src'), typescript.file('package-lock.json')
+    outputs.dir typescriptRuntime.dir('dist')
+}
+
+def compileTypeScript = tasks.register('compileTypeScriptWorkshop', Exec) {
+    dependsOn generateTypeScript, buildTypeScriptRuntime
+    workingDir typescript.asFile
+    commandLine 'node', tsc, '-p', typescript.file('tsconfig.json').asFile.absolutePath
+    inputs.files typescript.file('tsconfig.json'), typescript.file('scenarios.ts'),
+            generatedTypeScript, typescriptRuntime.dir('dist'), typescript.file('package-lock.json')
+    outputs.dir compiledTypeScript
+}
+
+def writeTypeScript = tasks.register('writeTypeScriptWorkshopSnapshots', Exec) {
+    dependsOn compileTypeScript
+    workingDir typescript.asFile
+    commandLine 'node', 'verify.mjs', 'write', fixtures, typescriptSnapshots
+}
+
+def readInTypeScript = tasks.register('readWorkshopSnapshotsInTypeScript', Exec) {
+    dependsOn writeJava, writeCSharp, writeTypeScript
+    workingDir typescript.asFile
+    commandLine 'node', 'verify.mjs', 'read', fixtures, javaSnapshots, csharpSnapshots, typescriptSnapshots
+}
+
+def readTypeScriptInJava = tasks.register('readTypeScriptWorkshopSnapshotsInJava', JavaExec) {
+    dependsOn compileSnapshots, writeTypeScript
+    classpath = snapshotClasspath
+    mainClass = 'eu.mihosoft.vmf.example.workshops.verification.WorkshopSnapshots'
+    args 'snapshot-read', typescriptSnapshots, fixtures
+}
+
+def readTypeScriptInCSharp = tasks.register('readTypeScriptWorkshopSnapshotsInCSharp', Exec) {
+    dependsOn buildCSharp, writeTypeScript
+    workingDir workshop.asFile
+    commandLine 'dotnet', 'run', '--project', 'WorkshopSmoke.csproj', '--configuration', 'Release',
+            '--no-build', '--', 'snapshot-read', typescriptSnapshots, fixtures
+}
+
+tasks.register('verifyTypeScriptWorkshop') {
+    group = 'verification'
+    description = 'Verifies TypeScript graph behavior and three-way JSON interchange.'
+    dependsOn tasks.named('verifyCSharpSnapshots'), readInTypeScript, readTypeScriptInJava, readTypeScriptInCSharp
+    doLast {
+        println 'Java, C#, and TypeScript exchanged reference-aware snapshots and plain external JSON.'
+    }
+}

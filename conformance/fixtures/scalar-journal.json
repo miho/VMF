@@ -1,0 +1,158 @@
+{
+  "format" : "vmf-journal",
+  "version" : 1,
+  "model" : {
+    "id" : "conformance.scalar-journal",
+    "version" : 1
+  },
+  "root" : "scalar-sample",
+  "base" : {
+    "checkpoint" : "scalar-checkpoint-40",
+    "sequence" : 40
+  },
+  "transactions" : [
+    {
+      "sequence" : 41,
+      "operations" : [
+        {
+          "kind" : "SET",
+          "target" : "scalar-sample",
+          "property" : "NAME",
+          "indices" : [ ],
+          "before" : [
+            {
+              "kind" : "STRING",
+              "text" : "draft"
+            }
+          ],
+          "after" : [
+            {
+              "kind" : "STRING",
+              "text" : "inspection \uD83D\uDD27"
+            }
+          ],
+          "created" : [ ]
+        },
+        {
+          "kind" : "SET",
+          "target" : "scalar-sample",
+          "property" : "optionalLong",
+          "indices" : [ ],
+          "before" : [
+            {
+              "kind" : "LONG",
+              "text" : "9007199254740993"
+            }
+          ],
+          "after" : [
+            {
+              "kind" : "LONG",
+              "text" : "-9223372036854775808"
+            }
+          ],
+          "created" : [ ]
+        },
+        {
+          "kind" : "SET",
+          "target" : "scalar-sample",
+          "property" : "probe",
+          "indices" : [ ],
+          "before" : [
+            {
+              "kind" : "DOUBLE",
+              "text" : "0x0.0p0"
+            }
+          ],
+          "after" : [
+            {
+              "kind" : "DOUBLE",
+              "text" : "-0x0.0p0"
+            }
+          ],
+          "created" : [ ]
+        },
+        {
+          "kind" : "SET",
+          "target" : "scalar-sample",
+          "property" : "surrogateUnit",
+          "indices" : [ ],
+          "before" : [
+            {
+              "kind" : "CHAR",
+              "text" : "65"
+            }
+          ],
+          "after" : [
+            {
+              "kind" : "CHAR",
+              "text" : "55296"
+            }
+          ],
+          "created" : [ ]
+        }
+      ]
+    },
+    {
+      "sequence" : 42,
+      "operations" : [
+        {
+          "kind" : "SET",
+          "target" : "scalar-sample",
+          "property" : "probe",
+          "indices" : [ ],
+          "before" : [
+            {
+              "kind" : "DOUBLE",
+              "text" : "-0x0.0p0"
+            }
+          ],
+          "after" : [
+            {
+              "kind" : "DOUBLE",
+              "text" : "0x1.23p45"
+            }
+          ],
+          "created" : [ ]
+        },
+        {
+          "kind" : "SET",
+          "target" : "scalar-sample",
+          "property" : "optionalFloat",
+          "indices" : [ ],
+          "before" : [
+            {
+              "kind" : "NULL",
+              "text" : null
+            }
+          ],
+          "after" : [
+            {
+              "kind" : "FLOAT",
+              "text" : "0x0.000002p-126"
+            }
+          ],
+          "created" : [ ]
+        },
+        {
+          "kind" : "SET",
+          "target" : "scalar-sample",
+          "property" : "NAME",
+          "indices" : [ ],
+          "before" : [
+            {
+              "kind" : "STRING",
+              "text" : "inspection \uD83D\uDD27"
+            }
+          ],
+          "after" : [
+            {
+              "kind" : "STRING",
+              "text" : "ready"
+            }
+          ],
+          "created" : [ ]
+        }
+      ]
+    }
+  ]
+}

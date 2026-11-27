@@ -1,0 +1,649 @@
+import javax.inject.Inject
+import org.gradle.api.file.FileSystemOperations
+
+abstract class GenerateConformanceModelTask extends JavaExec {
+    @Inject
+    abstract FileSystemOperations getFileSystemOperations()
+}
+
+def conformance = rootProject.layout.projectDirectory.dir('conformance')
+def graphClasses = conformance.dir('build/classes/workshop')
+def compileWorkshop = tasks.named('compileJavaWorkshop', JavaCompile)
+def modelClasspath = sourceSets.main.runtimeClasspath + project(':vmf-runtime').sourceSets.main.runtimeClasspath
+def compileJackson = tasks.named('compileWorkshopJackson', JavaCompile)
+def workshopClasspath = files(compileWorkshop.flatMap { it.destinationDirectory }) +
+        files(compileJackson.flatMap { it.destinationDirectory }) + compileJackson.get().classpath
+
+def compileGraphConformance = tasks.register('compileJavaWorkshopConformance', JavaCompile) {
+    dependsOn compileWorkshop, compileJackson
+    source conformance.file('java/WorkshopGraphConformance.java')
+    classpath = workshopClasspath
+    destinationDirectory = graphClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def verifyJavaGraph = tasks.register('verifyJavaWorkshopConformance', JavaExec) {
+    dependsOn compileGraphConformance
+    classpath = files(graphClasses) + workshopClasspath
+    mainClass = 'eu.mihosoft.vmf.conformance.WorkshopGraphConformance'
+    args conformance.file('fixtures/workshop-operations.json').asFile.absolutePath
+}
+
+def verifyDotNet = tasks.register('testCSharpConformance', Exec) {
+    dependsOn tasks.named('generateCSharpWorkshop')
+    workingDir conformance.asFile
+    commandLine 'dotnet', 'test', 'csharp/Vmf.CSharp.Conformance.csproj', '--configuration', 'Release',
+            '--warnaserror', '-p:RestoreLockedMode=true', '--logger', 'trx',
+            '--results-directory', conformance.dir('build/test-results').asFile.absolutePath
+}
+
+tasks.register('verifyCSharpConformance') {
+    group = 'verification'
+    description = 'Checks C# model behavior and Java interchange in JSON, XML, and YAML.'
+    dependsOn verifyDotNet, verifyJavaGraph, tasks.named('verifyCSharpWorkshop'), tasks.named('verifyCSharpSnapshots')
+}
+
+def models = fileTree(conformance.dir('models/src/main/vmf')) { include '**/*.java' }
+def immutableModels = fileTree(conformance.dir('immutable-models/src/main/vmf')) { include '**/*.java' }
+def hierarchyModels = fileTree(conformance.dir('hierarchy-models/src/main/vmf')) { include '**/*.java' }
+def concreteBaseModels = fileTree(conformance.dir('concrete-base-models/src/main/vmf')) { include '**/*.java' }
+def exactRedeclarationModels = fileTree(conformance.dir('exact-redeclaration-models/src/main/vmf')) { include '**/*.java' }
+def keyedRedeclarationModels = fileTree(conformance.dir('keyed-redeclaration-models/src/main/vmf')) { include '**/*.java' }
+def warehousePromotionModels = fileTree(conformance.dir('warehouse-promotion-models/src/main/vmf')) { include '**/*.java' }
+def numericModels = fileTree(conformance.dir('numeric-models/src/main/vmf')) { include '**/*.java' }
+def genericBoundModels = fileTree(conformance.dir('generic-bound-models/src/main/vmf')) { include '**/*.java' }
+def genericScalarModels = fileTree(conformance.dir('generic-scalar-models/src/main/vmf')) { include '**/*.java' }
+def genericKeyModels = fileTree(conformance.dir('generic-key-models/src/main/vmf')) { include '**/*.java' }
+def genericKeyedModels = fileTree(conformance.dir('generic-keyed-models/src/main/vmf')) { include '**/*.java' }
+def genericIdentityKeyModels = fileTree(conformance.dir('generic-identity-key-models/src/main/vmf')) { include '**/*.java' }
+def genericValueModels = fileTree(conformance.dir('generic-value-models/src/main/vmf')) { include '**/*.java' }
+def nominalBoundModels = fileTree(conformance.dir('nominal-bound-models/src/main/vmf')) { include '**/*.java' }
+def equalityModels = fileTree(conformance.dir('equality-models/src/main/vmf')) { include '**/*.java' }
+def summaryModels = fileTree(conformance.dir('model-summary-models/src/main/vmf')) { include '**/*.java' }
+def traitModels = fileTree(conformance.dir('trait-models/src/main/vmf')) { include '**/*.java' }
+def externalModels = fileTree(conformance.dir('external-models/src/main/vmf')) { include '**/*.java' }
+def externalBindingModels = fileTree(conformance.dir('external-binding-models/src/main/vmf')) { include '**/*.java' }
+def oppositeModels = fileTree(conformance.dir('opposite-models/src/main/vmf')) { include '**/*.java' }
+def inheritedOppositeModels = fileTree(conformance.dir('inherited-opposites-models/src/main/vmf')) { include '**/*.java' }
+def executableDefaultModels = fileTree(conformance.dir('executable-default-models/src/main/vmf')) { include '**/*.java' }
+def collectionDefaultModels = fileTree(conformance.dir('collection-default-models/src/main/vmf')) { include '**/*.java' }
+def referenceDefaultModels = fileTree(conformance.dir('reference-default-models/src/main/vmf')) { include '**/*.java' }
+def ordinaryContainmentModels = fileTree(conformance.dir('ordinary-containment-models/src/main/vmf')) { include '**/*.java' }
+def namedInverseModels = fileTree(conformance.dir('named-inverse-models/src/main/vmf')) { include '**/*.java' }
+def behaviorModels = fileTree(conformance.dir('behavior-models/src/main/vmf')) { include '**/*.java' }
+def behaviorHierarchyModels = fileTree(conformance.dir('behavior-hierarchy-models/src/main/vmf')) { include '**/*.java' }
+def immutableBehaviorModels = fileTree(conformance.dir('immutable-behavior-models/src/main/vmf')) { include '**/*.java' }
+def immutableAncestryModels = fileTree(conformance.dir('immutable-ancestry-models/src/main/vmf')) { include '**/*.java' }
+def appliedCallModels = fileTree(conformance.dir('applied-call-models/src/main/vmf')) { include '**/*.java' }
+def delegatedListModels = fileTree(conformance.dir('delegated-list-models/src/main/vmf')) { include '**/*.java' }
+def redeclarationModels = fileTree(conformance.dir('redeclaration-models/src/main/vmf')) { include '**/*.java' }
+def collectionRedeclarationModels = fileTree(conformance.dir('collection-redeclaration-models/src/main/vmf')) { include '**/*.java' }
+def covarianceModels = fileTree(conformance.dir('covariance-models/src/main/vmf')) { include '**/*.java' }
+def javaValuesSource = conformance.dir('build/generated/java')
+def csharpValuesSource = conformance.dir('build/generated/csharp')
+def javaImmutableSource = conformance.dir('build/generated/immutable-java')
+def csharpImmutableSource = conformance.dir('build/generated/immutable-csharp')
+def javaHierarchySource = conformance.dir('build/generated/hierarchy-java')
+def csharpHierarchySource = conformance.dir('build/generated/hierarchy-csharp')
+def javaConcreteBaseSource = conformance.dir('build/generated/concrete-base-java')
+def csharpConcreteBaseSource = conformance.dir('build/generated/concrete-base-csharp')
+def javaExactRedeclarationSource = conformance.dir('build/generated/exact-redeclaration-java')
+def csharpExactRedeclarationSource = conformance.dir('build/generated/exact-redeclaration-csharp')
+def javaKeyedRedeclarationSource = conformance.dir('build/generated/keyed-redeclaration-java')
+def csharpKeyedRedeclarationSource = conformance.dir('build/generated/keyed-redeclaration-csharp')
+def javaWarehousePromotionSource = conformance.dir('build/generated/warehouse-promotion-java')
+def csharpWarehousePromotionSource = conformance.dir('build/generated/warehouse-promotion-csharp')
+def javaNumericSource = conformance.dir('build/generated/numeric-java')
+def csharpNumericSource = conformance.dir('build/generated/numeric-csharp')
+def javaGenericBoundSource = conformance.dir('build/generated/generic-bound-java')
+def csharpGenericBoundSource = conformance.dir('build/generated/generic-bound-csharp')
+def javaGenericScalarSource = conformance.dir('build/generated/generic-scalar-java')
+def csharpGenericScalarSource = conformance.dir('build/generated/generic-scalar-csharp')
+def javaGenericKeySource = conformance.dir('build/generated/generic-key-java')
+def csharpGenericKeySource = conformance.dir('build/generated/generic-key-csharp')
+def javaGenericKeyedSource = conformance.dir('build/generated/generic-keyed-java')
+def csharpGenericKeyedSource = conformance.dir('build/generated/generic-keyed-csharp')
+def javaGenericIdentityKeySource = conformance.dir('build/generated/generic-identity-key-java')
+def csharpGenericIdentityKeySource = conformance.dir('build/generated/generic-identity-key-csharp')
+def javaGenericValueSource = conformance.dir('build/generated/generic-value-java')
+def csharpGenericValueSource = conformance.dir('build/generated/generic-value-csharp')
+def javaNominalBoundSource = conformance.dir('build/generated/nominal-bound-java')
+def csharpNominalBoundSource = conformance.dir('build/generated/nominal-bound-csharp')
+def javaEqualitySource = conformance.dir('build/generated/equality-java')
+def csharpEqualitySource = conformance.dir('build/generated/equality-csharp')
+def javaSummarySource = conformance.dir('build/generated/model-summary-java')
+def csharpSummarySource = conformance.dir('build/generated/model-summary-csharp')
+def javaTraitSource = conformance.dir('build/generated/trait-java')
+def csharpTraitSource = conformance.dir('build/generated/trait-csharp')
+def javaExternalSource = conformance.dir('build/generated/external-java')
+def csharpExternalSource = conformance.dir('build/generated/external-csharp')
+def javaExternalBindingSource = conformance.dir('build/generated/external-binding-java')
+def csharpExternalBindingSource = conformance.dir('build/generated/external-binding-csharp')
+def javaOppositeSource = conformance.dir('build/generated/opposite-java')
+def csharpOppositeSource = conformance.dir('build/generated/opposite-csharp')
+def javaInheritedOppositeSource = conformance.dir('build/generated/inherited-opposite-java')
+def csharpInheritedOppositeSource = conformance.dir('build/generated/inherited-opposite-csharp')
+def javaExecutableDefaultSource = conformance.dir('build/generated/executable-default-java')
+def csharpExecutableDefaultSource = conformance.dir('build/generated/executable-default-csharp')
+def javaCollectionDefaultSource = conformance.dir('build/generated/collection-default-java')
+def csharpCollectionDefaultSource = conformance.dir('build/generated/collection-default-csharp')
+def javaReferenceDefaultSource = conformance.dir('build/generated/reference-default-java')
+def csharpReferenceDefaultSource = conformance.dir('build/generated/reference-default-csharp')
+def javaOrdinaryContainmentSource = conformance.dir('build/generated/ordinary-containment-java')
+def csharpOrdinaryContainmentSource = conformance.dir('build/generated/ordinary-containment-csharp')
+def javaNamedInverseSource = conformance.dir('build/generated/named-inverse-java')
+def csharpNamedInverseSource = conformance.dir('build/generated/named-inverse-csharp')
+def javaBehaviorSource = conformance.dir('build/generated/behavior-java')
+def csharpBehaviorSource = conformance.dir('build/generated/behavior-csharp')
+def javaBehaviorHierarchySource = conformance.dir('build/generated/behavior-hierarchy-java')
+def csharpBehaviorHierarchySource = conformance.dir('build/generated/behavior-hierarchy-csharp')
+def javaImmutableBehaviorSource = conformance.dir('build/generated/immutable-behavior-java')
+def csharpImmutableBehaviorSource = conformance.dir('build/generated/immutable-behavior-csharp')
+def javaImmutableAncestrySource = conformance.dir('build/generated/immutable-ancestry-java')
+def csharpImmutableAncestrySource = conformance.dir('build/generated/immutable-ancestry-csharp')
+def javaAppliedCallSource = conformance.dir('build/generated/applied-call-java')
+def csharpAppliedCallSource = conformance.dir('build/generated/applied-call-csharp')
+def javaDelegatedListSource = conformance.dir('build/generated/delegated-list-java')
+def csharpDelegatedListSource = conformance.dir('build/generated/delegated-list-csharp')
+def javaRedeclarationSource = conformance.dir('build/generated/redeclaration-java')
+def csharpRedeclarationSource = conformance.dir('build/generated/redeclaration-csharp')
+def javaCollectionRedeclarationSource = conformance.dir('build/generated/collection-redeclaration-java')
+def csharpCollectionRedeclarationSource = conformance.dir('build/generated/collection-redeclaration-csharp')
+def javaCovarianceSource = conformance.dir('build/generated/covariance-java')
+def csharpCovarianceSource = conformance.dir('build/generated/covariance-csharp')
+def valueClasses = conformance.dir('build/classes/values')
+def javaValues = conformance.file('build/interchange/immutable-java.json').asFile.absolutePath
+def csharpValues = conformance.file('build/interchange/immutable-csharp.json').asFile.absolutePath
+def immutableFixture = conformance.file('fixtures/immutable-selection.json').asFile.absolutePath
+
+def generateConformanceModels = { String target, FileTree definitions, Directory output, String taskName ->
+    tasks.register(taskName, GenerateConformanceModelTask) {
+        classpath = modelClasspath
+        mainClass = 'eu.mihosoft.vmf.cli.GenerateModel'
+        args target, output.asFile.absolutePath
+        args definitions.files.sort().collect { it.absolutePath }
+        inputs.files definitions
+        outputs.dir output
+        doFirst {
+            // A changed declaration may stop emitting some of the previous files.
+            def generatedRoot = conformance.dir('build/generated').asFile.canonicalFile.toPath()
+            def destination = output.asFile.canonicalFile.toPath()
+            if (destination == generatedRoot || !destination.startsWith(generatedRoot)) {
+                throw new GradleException("Unexpected conformance generation directory: " + destination)
+            }
+            fileSystemOperations.delete { delete(destination.toFile()) }
+        }
+    }
+}
+
+def generateJavaValues = generateConformanceModels('java', models, javaValuesSource, 'generateJavaConformanceValues')
+def generateCSharpValues = generateConformanceModels('csharp', models, csharpValuesSource, 'generateCSharpConformanceValues')
+def generateJavaImmutable = generateConformanceModels('java', immutableModels, javaImmutableSource, 'generateJavaConformanceImmutable')
+def generateCSharpImmutable = generateConformanceModels('csharp', immutableModels, csharpImmutableSource, 'generateCSharpConformanceImmutable')
+def generateJavaHierarchy = generateConformanceModels('java', hierarchyModels, javaHierarchySource, 'generateJavaConformanceHierarchy')
+def generateCSharpHierarchy = generateConformanceModels('csharp', hierarchyModels, csharpHierarchySource, 'generateCSharpConformanceHierarchy')
+def generateJavaConcreteBases = generateConformanceModels('java', concreteBaseModels, javaConcreteBaseSource,
+        'generateJavaConformanceConcreteBases')
+def generateCSharpConcreteBases = generateConformanceModels('csharp', concreteBaseModels, csharpConcreteBaseSource,
+        'generateCSharpConformanceConcreteBases')
+def generateJavaExactRedeclarations = generateConformanceModels('java', exactRedeclarationModels, javaExactRedeclarationSource,
+        'generateJavaConformanceExactRedeclarations')
+def generateCSharpExactRedeclarations = generateConformanceModels('csharp', exactRedeclarationModels, csharpExactRedeclarationSource,
+        'generateCSharpConformanceExactRedeclarations')
+def generateJavaKeyedRedeclarations = generateConformanceModels('java', keyedRedeclarationModels, javaKeyedRedeclarationSource,
+        'generateJavaConformanceKeyedRedeclaration')
+def generateCSharpKeyedRedeclarations = generateConformanceModels('csharp', keyedRedeclarationModels, csharpKeyedRedeclarationSource,
+        'generateCSharpConformanceKeyedRedeclaration')
+def generateJavaWarehousePromotion = generateConformanceModels('java', warehousePromotionModels, javaWarehousePromotionSource,
+        'generateJavaConformanceWarehousePromotion')
+def generateCSharpWarehousePromotion = generateConformanceModels('csharp', warehousePromotionModels, csharpWarehousePromotionSource,
+        'generateCSharpConformanceWarehousePromotion')
+def generateJavaNumeric = generateConformanceModels('java', numericModels, javaNumericSource, 'generateJavaConformanceNumeric')
+def generateCSharpNumeric = generateConformanceModels('csharp', numericModels, csharpNumericSource, 'generateCSharpConformanceNumeric')
+def generateJavaGenericBounds = generateConformanceModels('java', genericBoundModels, javaGenericBoundSource,
+        'generateJavaConformanceGenericBounds')
+def generateCSharpGenericBounds = generateConformanceModels('csharp', genericBoundModels, csharpGenericBoundSource,
+        'generateCSharpConformanceGenericBounds')
+def generateJavaGenericScalars = generateConformanceModels('java', genericScalarModels, javaGenericScalarSource,
+        'generateJavaConformanceGenericScalars')
+def generateCSharpGenericScalars = generateConformanceModels('csharp', genericScalarModels, csharpGenericScalarSource,
+        'generateCSharpConformanceGenericScalars')
+def generateJavaGenericKeys = generateConformanceModels('java', genericKeyModels, javaGenericKeySource,
+        'generateJavaConformanceGenericKeys')
+def generateCSharpGenericKeys = generateConformanceModels('csharp', genericKeyModels, csharpGenericKeySource,
+        'generateCSharpConformanceGenericKeys')
+def generateJavaGenericKeyed = generateConformanceModels('java', genericKeyedModels, javaGenericKeyedSource,
+        'generateJavaConformanceGenericKeyed')
+def generateCSharpGenericKeyed = generateConformanceModels('csharp', genericKeyedModels, csharpGenericKeyedSource,
+        'generateCSharpConformanceGenericKeyed')
+def generateJavaGenericIdentityKey = generateConformanceModels('java', genericIdentityKeyModels, javaGenericIdentityKeySource,
+        'generateJavaConformanceGenericIdentityKey')
+def generateCSharpGenericIdentityKey = generateConformanceModels('csharp', genericIdentityKeyModels, csharpGenericIdentityKeySource,
+        'generateCSharpConformanceGenericIdentityKey')
+def generateJavaGenericValues = generateConformanceModels('java', genericValueModels, javaGenericValueSource,
+        'generateJavaConformanceGenericValues')
+def generateCSharpGenericValues = generateConformanceModels('csharp', genericValueModels, csharpGenericValueSource,
+        'generateCSharpConformanceGenericValues')
+def generateJavaNominalBounds = generateConformanceModels('java', nominalBoundModels, javaNominalBoundSource,
+        'generateJavaConformanceNominalBounds')
+def generateCSharpNominalBounds = generateConformanceModels('csharp', nominalBoundModels, csharpNominalBoundSource,
+        'generateCSharpConformanceNominalBounds')
+def generateJavaEquality = generateConformanceModels('java', equalityModels, javaEqualitySource, 'generateJavaConformanceEquality')
+def generateCSharpEquality = generateConformanceModels('csharp', equalityModels, csharpEqualitySource, 'generateCSharpConformanceEquality')
+def generateJavaSummaries = generateConformanceModels('java', summaryModels, javaSummarySource,
+        'generateJavaConformanceModelSummaries')
+def generateCSharpSummaries = generateConformanceModels('csharp', summaryModels, csharpSummarySource,
+        'generateCSharpConformanceModelSummaries')
+def generateJavaTrait = generateConformanceModels('java', traitModels, javaTraitSource, 'generateJavaConformanceTraits')
+def generateCSharpTrait = generateConformanceModels('csharp', traitModels, csharpTraitSource, 'generateCSharpConformanceTraits')
+def generateJavaExternal = generateConformanceModels('java', externalModels, javaExternalSource, 'generateJavaConformanceExternal')
+def generateCSharpExternal = generateConformanceModels('csharp', externalModels, csharpExternalSource, 'generateCSharpConformanceExternal')
+def generateJavaExternalBinding = generateConformanceModels('java', externalBindingModels, javaExternalBindingSource,
+        'generateJavaConformanceExternalBinding')
+def generateCSharpExternalBinding = generateConformanceModels('csharp', externalBindingModels, csharpExternalBindingSource,
+        'generateCSharpConformanceExternalBinding')
+def generateJavaOpposites = generateConformanceModels('java', oppositeModels, javaOppositeSource, 'generateJavaConformanceOpposites')
+def generateCSharpOpposites = generateConformanceModels('csharp', oppositeModels, csharpOppositeSource, 'generateCSharpConformanceOpposites')
+def generateJavaInheritedOpposites = generateConformanceModels('java', inheritedOppositeModels, javaInheritedOppositeSource,
+        'generateJavaConformanceInheritedOpposites')
+def generateCSharpInheritedOpposites = generateConformanceModels('csharp', inheritedOppositeModels, csharpInheritedOppositeSource,
+        'generateCSharpConformanceInheritedOpposites')
+def generateJavaExecutableDefaults = generateConformanceModels('java', executableDefaultModels, javaExecutableDefaultSource,
+        'generateJavaConformanceExecutableDefaults')
+def generateCSharpExecutableDefaults = generateConformanceModels('csharp', executableDefaultModels, csharpExecutableDefaultSource,
+        'generateCSharpConformanceExecutableDefaults')
+def generateJavaCollectionDefaults = generateConformanceModels('java', collectionDefaultModels, javaCollectionDefaultSource,
+        'generateJavaConformanceCollectionDefaults')
+def generateCSharpCollectionDefaults = generateConformanceModels('csharp', collectionDefaultModels, csharpCollectionDefaultSource,
+        'generateCSharpConformanceCollectionDefaults')
+def generateJavaReferenceDefaults = generateConformanceModels('java', referenceDefaultModels, javaReferenceDefaultSource,
+        'generateJavaConformanceReferenceDefaults')
+def generateCSharpReferenceDefaults = generateConformanceModels('csharp', referenceDefaultModels, csharpReferenceDefaultSource,
+        'generateCSharpConformanceReferenceDefaults')
+def generateJavaOrdinaryContainment = generateConformanceModels('java', ordinaryContainmentModels, javaOrdinaryContainmentSource,
+        'generateJavaConformanceOrdinaryContainment')
+def generateCSharpOrdinaryContainment = generateConformanceModels('csharp', ordinaryContainmentModels, csharpOrdinaryContainmentSource,
+        'generateCSharpConformanceOrdinaryContainment')
+def generateJavaNamedInverse = generateConformanceModels('java', namedInverseModels, javaNamedInverseSource,
+        'generateJavaConformanceNamedInverse')
+def generateCSharpNamedInverse = generateConformanceModels('csharp', namedInverseModels, csharpNamedInverseSource,
+        'generateCSharpConformanceNamedInverse')
+def generateJavaBehavior = generateConformanceModels('java', behaviorModels, javaBehaviorSource, 'generateJavaConformanceBehavior')
+def generateCSharpBehavior = generateConformanceModels('csharp', behaviorModels, csharpBehaviorSource, 'generateCSharpConformanceBehavior')
+def generateJavaBehaviorHierarchy = generateConformanceModels('java', behaviorHierarchyModels, javaBehaviorHierarchySource,
+        'generateJavaConformanceBehaviorHierarchy')
+def generateCSharpBehaviorHierarchy = generateConformanceModels('csharp', behaviorHierarchyModels, csharpBehaviorHierarchySource,
+        'generateCSharpConformanceBehaviorHierarchy')
+def generateJavaImmutableBehavior = generateConformanceModels('java', immutableBehaviorModels, javaImmutableBehaviorSource,
+        'generateJavaConformanceImmutableBehavior')
+def generateCSharpImmutableBehavior = generateConformanceModels('csharp', immutableBehaviorModels, csharpImmutableBehaviorSource,
+        'generateCSharpConformanceImmutableBehavior')
+def generateJavaImmutableAncestry = generateConformanceModels('java', immutableAncestryModels, javaImmutableAncestrySource,
+        'generateJavaConformanceImmutableAncestry')
+def generateCSharpImmutableAncestry = generateConformanceModels('csharp', immutableAncestryModels, csharpImmutableAncestrySource,
+        'generateCSharpConformanceImmutableAncestry')
+def generateJavaAppliedCalls = generateConformanceModels('java', appliedCallModels, javaAppliedCallSource,
+        'generateJavaConformanceAppliedCalls')
+def generateCSharpAppliedCalls = generateConformanceModels('csharp', appliedCallModels, csharpAppliedCallSource,
+        'generateCSharpConformanceAppliedCalls')
+def generateJavaDelegatedLists = generateConformanceModels('java', delegatedListModels, javaDelegatedListSource,
+        'generateJavaConformanceDelegatedLists')
+def generateCSharpDelegatedLists = generateConformanceModels('csharp', delegatedListModels, csharpDelegatedListSource,
+        'generateCSharpConformanceDelegatedLists')
+def generateJavaRedeclarations = generateConformanceModels('java', redeclarationModels, javaRedeclarationSource,
+        'generateJavaConformanceRedeclarations')
+def generateCSharpRedeclarations = generateConformanceModels('csharp', redeclarationModels, csharpRedeclarationSource,
+        'generateCSharpConformanceRedeclarations')
+def generateJavaCollectionRedeclarations = generateConformanceModels('java', collectionRedeclarationModels,
+        javaCollectionRedeclarationSource, 'generateJavaConformanceCollectionRedeclarations')
+def generateCSharpCollectionRedeclarations = generateConformanceModels('csharp', collectionRedeclarationModels,
+        csharpCollectionRedeclarationSource, 'generateCSharpConformanceCollectionRedeclarations')
+def generateJavaCovariance = generateConformanceModels('java', covarianceModels, javaCovarianceSource,
+        'generateJavaConformanceCovariance')
+def generateCSharpCovariance = generateConformanceModels('csharp', covarianceModels, csharpCovarianceSource,
+        'generateCSharpConformanceCovariance')
+
+def stockJson = 'test-suite/src/test/vmf/eu/mihosoft/vmftest/complex/vmf_text/generated/json/vmfmodel'
+def javaStockJsonSource = conformance.dir('build/generated/stock-json-java')
+def generateJavaStockJson = generateConformanceModels('java',
+        fileTree(rootProject.layout.projectDirectory.dir(stockJson)) { include '*.java' },
+        javaStockJsonSource, 'generateJavaConformanceStockJson')
+def stockVFlow = 'test-suite/src/test/vmf/eu/mihosoft/vmftest/complex/vflow/vmfmodel'
+def stockGenericSeries = 'test-suite/src/test/vmf/eu/mihosoft/vmftest/genericseries/vmfmodel'
+def stockJournalValues = 'test-suite/src/test/vmf/eu/mihosoft/vmftest/journalvalues/vmfmodel'
+def stockReadOnlyExternalList = 'test-suite/src/test/vmf/eu/mihosoft/vmftest/readonlyexternallist/vmfmodel'
+def javaStockVFlowSource = conformance.dir('build/generated/stock-vflow-java')
+def javaStockGenericSeriesSource = conformance.dir('build/generated/stock-generic-series-java')
+def javaStockJournalValuesSource = conformance.dir('build/generated/stock-journal-values-java')
+def javaStockReadOnlyExternalListSource = conformance.dir('build/generated/stock-read-only-external-list-java')
+def generateJavaStockVFlow = generateConformanceModels('java',
+        fileTree(rootProject.layout.projectDirectory.dir(stockVFlow)) { include '*.java' },
+        javaStockVFlowSource, 'generateJavaConformanceStockVFlow')
+def stockVFlowDelegates = fileTree(rootProject.layout.projectDirectory.dir(
+        'test-suite/src/test/java/eu/mihosoft/vmftest/complex/vflow')) { include '*Delegate.java' }
+def generateJavaStockGenericSeries = generateConformanceModels('java',
+        fileTree(rootProject.layout.projectDirectory.dir(stockGenericSeries)) { include '*.java' },
+        javaStockGenericSeriesSource, 'generateJavaConformanceStockGenericSeries')
+def generateJavaStockJournalValues = generateConformanceModels('java',
+        fileTree(rootProject.layout.projectDirectory.dir(stockJournalValues)) { include '*.java' },
+        javaStockJournalValuesSource, 'generateJavaConformanceStockJournalValues')
+def generateJavaStockReadOnlyExternalList = generateConformanceModels('java',
+        fileTree(rootProject.layout.projectDirectory.dir(stockReadOnlyExternalList)) { include '*.java' },
+        javaStockReadOnlyExternalListSource, 'generateJavaConformanceStockReadOnlyExternalList')
+def javaStockReadValidationSource = conformance.dir('build/generated/stock-read-validation-java')
+def generateJavaStockReadValidation = generateConformanceModels('java',
+        fileTree(rootProject.layout.projectDirectory.dir(
+                'jackson/src/test/vmf/eu/mihosoft/vmf/jackson/test/readvalidation/vmfmodel')) { include '*.java' },
+        javaStockReadValidationSource, 'generateJavaConformanceStockReadValidation')
+def javaStockRawExternalTypesSource = conformance.dir('build/generated/stock-raw-external-types-java')
+def generateJavaStockRawExternalTypes = generateConformanceModels('java',
+        fileTree(rootProject.layout.projectDirectory.dir(
+                'test-suite/src/test/vmf/eu/mihosoft/vmftest/externaltypes/vmfmodel')) { include '*.java' },
+        javaStockRawExternalTypesSource, 'generateJavaConformanceStockRawExternalTypes')
+def stockRawExternalTypesHosts = fileTree(rootProject.layout.projectDirectory.dir(
+        'test-suite/src/test/java/eu/mihosoft/vmftest/externaltypes')) {
+    include 'ModelBehavior.java', 'MyAction.java', 'MyType.java'
+}
+def stockDocumentRevision = rootProject.layout.projectDirectory.file(
+        'test-suite/src/test/java/eu/mihosoft/vmftest/journalvalues/DocumentRevision.java')
+
+def stockNamedHostModels = [
+        StockDevCom: 'test-suite/src/test/vmf/eu/mihosoft/vmftest/complex/devcom/vmfmodel',
+        StockExternalEnum: 'jackson/src/test/vmf/eu/mihosoft/vmf/jackson/test/external_types01/vmfmodel',
+        StockExternalMap: 'jackson/src/test/vmf/eu/mihosoft/vmf/jackson/test/external_types02/vmfmodel',
+        StockMapJournal: 'jackson/src/test/vmf/eu/mihosoft/vmf/jackson/test/mapjournal/vmfmodel',
+        StockPetFormat: 'jackson/src/test/vmf/eu/mihosoft/vmf/jackson/test/type_formats01/vmfmodel',
+        StockSupplier: 'test-suite/src/test/vmf/eu/mihosoft/vmftest/complex/supplier/vmfmodel'
+]
+def javaStockNamedHostSources = stockNamedHostModels.keySet().collectEntries { name ->
+    [(name): conformance.dir('build/generated/' + name + '-java')]
+}
+def generateJavaStockNamedHosts = stockNamedHostModels.collect { name, source ->
+    generateConformanceModels('java', fileTree(rootProject.layout.projectDirectory.dir(source)) { include '*.java' },
+            javaStockNamedHostSources[name], 'generateJavaConformance' + name)
+}
+def stockNamedHostEnums = [
+        rootProject.layout.projectDirectory.file('jackson/src/test/java/eu/mihosoft/vmf/jackson/test/external_types01/ExternalEnum.java'),
+        rootProject.layout.projectDirectory.file('jackson/src/test/java/eu/mihosoft/vmf/jackson/test/type_formats01/PetType.java'),
+        rootProject.layout.projectDirectory.file('test-suite/src/test/java/eu/mihosoft/vmftest/complex/devcom/Device.java'),
+        rootProject.layout.projectDirectory.file('test-suite/src/test/java/eu/mihosoft/vmftest/complex/devcom/ParityBits.java'),
+        rootProject.layout.projectDirectory.file('test-suite/src/test/java/eu/mihosoft/vmftest/complex/devcom/StopBits.java')
+]
+
+def javaCases = conformance.dir('java').asFileTree.matching {
+    include '*Conformance.java'
+    exclude 'WorkshopGraphConformance.java'
+}
+
+def compileJavaValues = tasks.register('compileJavaConformanceValues', JavaCompile) {
+    dependsOn generateJavaStockRawExternalTypes
+    source javaStockRawExternalTypesSource, stockRawExternalTypesHosts
+    dependsOn generateJavaValues, generateJavaImmutable, generateJavaHierarchy, generateJavaNumeric, generateJavaConcreteBases,
+            generateJavaExactRedeclarations, generateJavaKeyedRedeclarations, generateJavaWarehousePromotion,
+            generateJavaGenericBounds, generateJavaGenericScalars, generateJavaGenericKeys, generateJavaGenericValues,
+            generateJavaGenericKeyed, generateJavaGenericIdentityKey,
+            generateJavaNominalBounds,
+            generateJavaEquality, generateJavaSummaries, generateJavaTrait, generateJavaExternal, generateJavaOpposites, generateJavaInheritedOpposites,
+            generateJavaBehavior, generateJavaBehaviorHierarchy, generateJavaImmutableBehavior, generateJavaImmutableAncestry,
+            generateJavaAppliedCalls, generateJavaDelegatedLists,
+            generateJavaExternalBinding, generateJavaStockGenericSeries, generateJavaStockJournalValues,
+            generateJavaStockReadOnlyExternalList, generateJavaStockReadValidation, generateJavaStockVFlow, generateJavaStockJson,
+            generateJavaStockNamedHosts,
+            generateJavaRedeclarations,
+            generateJavaCollectionRedeclarations, generateJavaCovariance,
+            generateJavaExecutableDefaults, generateJavaCollectionDefaults, generateJavaReferenceDefaults,
+            generateJavaOrdinaryContainment, generateJavaNamedInverse, compileJackson
+    source javaValuesSource, javaImmutableSource, javaHierarchySource, javaNumericSource, javaEqualitySource, javaSummarySource, javaTraitSource,
+            javaConcreteBaseSource, conformance.dir('concrete-base-java'),
+            javaExactRedeclarationSource, conformance.dir('exact-redeclaration-java'),
+            javaNamedInverseSource, conformance.dir('named-inverse-java'),
+            javaKeyedRedeclarationSource, conformance.dir('keyed-redeclaration-java'),
+            javaWarehousePromotionSource, conformance.dir('warehouse-promotion-java'),
+            javaGenericBoundSource, conformance.dir('generic-bound-java'),
+            javaGenericScalarSource, conformance.dir('generic-scalar-java'),
+            javaGenericKeySource, conformance.dir('generic-key-java'),
+            javaGenericKeyedSource, conformance.dir('generic-keyed-java'),
+            javaGenericIdentityKeySource, conformance.dir('generic-identity-key-java'),
+            javaGenericValueSource, conformance.dir('generic-value-java'),
+            javaNominalBoundSource, conformance.dir('nominal-bound-java'),
+            javaExternalSource, javaOppositeSource, javaInheritedOppositeSource, javaBehaviorSource, javaBehaviorHierarchySource,
+            javaImmutableBehaviorSource, javaImmutableAncestrySource, conformance.dir('immutable-ancestry-java'),
+            javaAppliedCallSource, conformance.dir('applied-call-java'),
+            javaDelegatedListSource, conformance.dir('delegated-list-java'),
+            javaExternalBindingSource, javaStockGenericSeriesSource, javaStockJournalValuesSource,
+            javaStockReadOnlyExternalListSource, javaStockReadValidationSource, javaStockVFlowSource, stockVFlowDelegates, javaStockJsonSource,
+            stockDocumentRevision, javaStockNamedHostSources.values(), stockNamedHostEnums,
+            javaRedeclarationSource, javaExecutableDefaultSource, javaOrdinaryContainmentSource, javaCases,
+            javaCollectionDefaultSource, conformance.dir('collection-default-java'),
+            javaReferenceDefaultSource, conformance.dir('reference-default-java'),
+            javaCollectionRedeclarationSource, conformance.dir('collection-redeclaration-java'),
+            javaCovarianceSource, conformance.dir('covariance-java'),
+            conformance.dir('immutable-java'), conformance.dir('hierarchy-java'), conformance.dir('numeric-java'),
+            conformance.dir('equality-java'), conformance.dir('model-summary-java'), conformance.dir('trait-java'), conformance.dir('external-java'),
+            conformance.dir('schema-java'), conformance.dir('opposite-java'), conformance.dir('inherited-opposites-java'),
+            conformance.dir('feature-java'),
+            conformance.dir('behavior-java'), conformance.dir('behavior-hierarchy-java'), conformance.dir('immutable-behavior-java'),
+            conformance.dir('external-binding-java'), conformance.dir('redeclaration-java'),
+            conformance.dir('executable-default-java'), conformance.dir('ordinary-containment-java')
+    classpath = workshopClasspath
+    destinationDirectory = valueClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def writeJavaValues = tasks.register('writeJavaConformanceValues', JavaExec) {
+    dependsOn compileJavaValues
+    classpath = files(valueClasses) + workshopClasspath
+    mainClass = 'eu.mihosoft.vmf.conformance.ValueConformance'
+    args 'write', javaValues, immutableFixture
+}
+
+verifyDotNet.configure {
+    dependsOn generateCSharpValues, generateCSharpImmutable, generateCSharpHierarchy, generateCSharpNumeric, generateCSharpConcreteBases,
+            generateCSharpExactRedeclarations, generateCSharpKeyedRedeclarations, generateCSharpWarehousePromotion,
+            generateCSharpGenericBounds, generateCSharpGenericScalars, generateCSharpGenericKeys, generateCSharpGenericValues,
+            generateCSharpGenericKeyed, generateCSharpGenericIdentityKey,
+            generateCSharpNominalBounds,
+            generateCSharpEquality, generateCSharpSummaries, generateCSharpTrait, generateCSharpExternal, generateCSharpOpposites, generateCSharpInheritedOpposites,
+            generateCSharpBehavior, generateCSharpBehaviorHierarchy, generateCSharpImmutableBehavior, generateCSharpImmutableAncestry,
+            generateCSharpAppliedCalls, generateCSharpDelegatedLists,
+            generateCSharpExternalBinding, generateCSharpRedeclarations,
+            generateCSharpCollectionRedeclarations, generateCSharpCovariance,
+            generateCSharpExecutableDefaults, generateCSharpCollectionDefaults, generateCSharpReferenceDefaults,
+            generateCSharpOrdinaryContainment, generateCSharpNamedInverse, writeJavaValues
+    environment 'VMF_CONFORMANCE_JAVA_VALUES', javaValues
+    environment 'VMF_CONFORMANCE_CSHARP_VALUES', csharpValues
+}
+
+def readCSharpValues = tasks.register('readCSharpConformanceValuesInJava', JavaExec) {
+    dependsOn verifyDotNet, compileJavaValues
+    classpath = files(valueClasses) + workshopClasspath
+    mainClass = 'eu.mihosoft.vmf.conformance.ValueConformance'
+    args 'read', csharpValues, immutableFixture
+}
+
+tasks.named('verifyCSharpConformance') {
+    dependsOn readCSharpValues
+}
+
+def valueClasspath = files(valueClasses) + workshopClasspath
+def verification = tasks.named('verifyCSharpConformance')
+
+def verifyInheritedOpposites = tasks.register('verifyJavaInheritedOppositeConformance', JavaExec) {
+    dependsOn compileJavaValues
+    classpath = valueClasspath
+    mainClass = 'eu.mihosoft.vmf.conformance.inheritedopposites.InheritedOppositeConformance'
+}
+verification.configure { dependsOn verifyInheritedOpposites }
+
+def verifyExecutableDefaults = tasks.register('verifyJavaExecutableDefaultConformance', JavaExec) {
+    dependsOn compileJavaValues
+    classpath = valueClasspath
+    mainClass = 'eu.mihosoft.vmf.conformance.executabledefaults.ExecutableDefaultConformance'
+}
+verification.configure { dependsOn verifyExecutableDefaults }
+
+def verifyImmutableBehavior = tasks.register('verifyJavaImmutableBehaviorConformance', JavaExec) {
+    dependsOn compileJavaValues
+    classpath = valueClasspath
+    mainClass = 'eu.mihosoft.vmf.conformance.immutablebehavior.ImmutableBehaviorConformance'
+}
+verification.configure { dependsOn verifyImmutableBehavior }
+
+def verifyExchange = { String taskSuffix, String runner, String directory, String variable, String fixture ->
+    def interchange = conformance.dir('build/interchange/' + directory).asFile.absolutePath
+    def fromJava = tasks.register('writeJavaConformance' + taskSuffix, JavaExec) {
+        dependsOn compileJavaValues
+        classpath = valueClasspath
+        mainClass = 'eu.mihosoft.vmf.conformance.' + runner
+        args 'write', interchange
+        if (fixture != null) args conformance.file(fixture).asFile.absolutePath
+    }
+    verifyDotNet.configure {
+        dependsOn fromJava
+        environment variable, interchange
+    }
+    def toJava = tasks.register('readCSharpConformance' + taskSuffix + 'InJava', JavaExec) {
+        dependsOn verifyDotNet, compileJavaValues
+        classpath = valueClasspath
+        mainClass = 'eu.mihosoft.vmf.conformance.' + runner
+        args 'read', interchange
+    }
+    verification.configure { dependsOn toJava }
+}
+
+verifyExchange('Scalars', 'ScalarConformance', 'scalars', 'VMF_CONFORMANCE_SCALARS', 'fixtures')
+verifyExchange('Archive', 'ArchiveConformance', 'archive', 'VMF_CONFORMANCE_ARCHIVE',
+        'fixtures/archive-references.json')
+verifyExchange('OrdinaryContainment', 'ordinarycontainment.OrdinaryContainmentConformance', 'ordinary-containment',
+        'VMF_CONFORMANCE_ORDINARY_CONTAINMENT', null)
+verifyExchange('NamedInverse', 'namedinverse.NamedInverseConformance', 'named-inverse',
+        'VMF_CONFORMANCE_NAMED_INVERSE', null)
+verifyExchange('Collections', 'CollectionConformance', 'collections', 'VMF_CONFORMANCE_COLLECTIONS',
+        'fixtures/scalar-collections.json')
+verifyExchange('Journal', 'JournalConformance', 'journal', 'VMF_CONFORMANCE_JOURNAL', null)
+verifyExchange('Defaults', 'DefaultConformance', 'defaults', 'VMF_CONFORMANCE_DEFAULTS', null)
+verifyExchange('CollectionDefaults', 'collectiondefaults.CollectionDefaultConformance', 'collection-defaults',
+        'VMF_CONFORMANCE_COLLECTION_DEFAULTS', null)
+verifyExchange('ReferenceDefaults', 'referencedefaults.ReferenceDefaultConformance', 'reference-defaults',
+        'VMF_CONFORMANCE_REFERENCE_DEFAULTS', null)
+verifyExchange('MembershipJournal', 'MembershipJournalConformance', 'membership-journal',
+        'VMF_CONFORMANCE_MEMBERSHIP_JOURNAL', 'fixtures')
+verifyExchange('PositionalJournal', 'PositionalJournalConformance', 'positional-journal',
+        'VMF_CONFORMANCE_POSITIONAL_JOURNAL', 'fixtures/archive-references.json')
+
+verifyExchange('CreationJournal', 'CreationJournalConformance', 'creation-journal',
+        'VMF_CONFORMANCE_CREATION_JOURNAL', null)
+verifyExchange('CollectionCreation', 'CollectionCreationJournalConformance', 'collection-creation-journal',
+        'VMF_CONFORMANCE_COLLECTION_CREATION', null)
+verifyExchange('Immutable', 'ImmutableConformance', 'immutable-collections',
+        'VMF_CONFORMANCE_IMMUTABLE_COLLECTIONS', null)
+verifyExchange('Hierarchy', 'HierarchyConformance', 'hierarchy',
+        'VMF_CONFORMANCE_HIERARCHY', null)
+verifyExchange('ConcreteBases', 'multiplebases.ConcreteBasesConformance', 'concrete-bases',
+        'VMF_CONFORMANCE_CONCRETE_BASES', null)
+verifyExchange('ExactRedeclarations', 'exactredeclarations.ExactRedeclarationsConformance', 'exact-redeclarations',
+        'VMF_CONFORMANCE_EXACT_REDECLARATIONS', null)
+verifyExchange('Numeric', 'NumericConformance', 'numeric-generics', 'VMF_CONFORMANCE_NUMERIC', null)
+verifyExchange('GenericBounds', 'GenericBoundConformance', 'generic-bounds', 'VMF_CONFORMANCE_GENERIC_BOUNDS', null)
+verifyExchange('GenericScalars', 'GenericScalarConformance', 'generic-scalars', 'VMF_CONFORMANCE_GENERIC_SCALARS', null)
+verifyExchange('GenericKeys', 'GenericKeyConformance', 'generic-keys', 'VMF_CONFORMANCE_GENERIC_KEYS', null)
+verifyExchange('GenericKeyed', 'generickeyed.GenericKeyedConformance', 'generic-keyed', 'VMF_CONFORMANCE_GENERIC_KEYED', null)
+verifyExchange('KeyedRedeclaration', 'keyedredeclaration.KeyedRedeclarationConformance', 'keyed-redeclaration',
+        'VMF_CONFORMANCE_KEYED_REDECLARATION', null)
+verifyExchange('WarehousePromotion', 'warehousepromotion.WarehousePromotionConformance', 'warehouse-promotion',
+        'VMF_CONFORMANCE_WAREHOUSE_PROMOTION', null)
+verifyExchange('GenericIdentityKey', 'genericidentitykey.GenericIdentityKeyConformance', 'generic-identity-key',
+        'VMF_CONFORMANCE_GENERIC_IDENTITY_KEY', null)
+verifyExchange('GenericValues', 'GenericValueConformance', 'generic-values', 'VMF_CONFORMANCE_GENERIC_VALUES', null)
+verifyExchange('NominalBounds', 'NominalBoundConformance', 'nominal-bounds', 'VMF_CONFORMANCE_NOMINAL_BOUNDS', null)
+verifyExchange('ModelSummaries', 'modelsummaries.ModelSummaryConformance', 'model-summaries',
+        'VMF_CONFORMANCE_MODEL_SUMMARIES', null)
+verifyExchange('Traits', 'TraitConformance', 'getter-only-traits', 'VMF_CONFORMANCE_TRAITS', null)
+verifyExchange('ExternalJournal', 'externalcheck.ExternalValueConformance', 'external-journal',
+        'VMF_CONFORMANCE_EXTERNAL_JOURNAL', null)
+verifyExchange('ExternalBinding', 'ExternalBindingConformance', 'external-binding',
+        'VMF_CONFORMANCE_EXTERNAL_TYPE', null)
+verifyExchange('Opposites', 'ReciprocalConformance', 'reciprocal', 'VMF_CONFORMANCE_RECIPROCAL', null)
+verifyExchange('SecondaryReciprocals', 'inheritedopposites.InheritedOppositeConformance', 'secondary-reciprocal',
+        'VMF_CONFORMANCE_SECONDARY_RECIPROCAL', null)
+verifyExchange('Keyed', 'KeyedConformance', 'keyed', 'VMF_CONFORMANCE_KEYED', 'fixtures/keyed-inventory.json')
+verifyExchange('Xml', 'XmlSnapshotConformance', 'xml', 'VMF_CONFORMANCE_XML', '..')
+verifyExchange('Yaml', 'YamlConformance', 'yaml', 'VMF_CONFORMANCE_YAML', '..')
+verifyExchange('Features', 'FeatureBundleConformance', 'features', 'VMF_CONFORMANCE_FEATURES', '..')
+// The feature-envelope boundary fixture hydrates a deep Java model with Jackson's recursive builder.
+['writeJavaConformanceFeatures', 'readCSharpConformanceFeaturesInJava'].each { task ->
+    tasks.named(task, JavaExec).configure { jvmArgs '-Xss8m' }
+}
+verifyExchange('Behavior', 'BehaviorConformance', 'behavior', 'VMF_CONFORMANCE_BEHAVIOR', null)
+verifyExchange('BehaviorHierarchy', 'BehaviorHierarchyConformance', 'behavior-hierarchy',
+        'VMF_CONFORMANCE_BEHAVIOR_HIERARCHY', null)
+verifyExchange('ImmutableAncestry', 'immutableancestry.ImmutableAncestryConformance', 'immutable-ancestry',
+        'VMF_CONFORMANCE_IMMUTABLE_ANCESTRY', null)
+verifyExchange('AppliedCalls', 'appliedcalls.AppliedCallsConformance', 'applied-calls',
+        'VMF_CONFORMANCE_APPLIED_CALLS', null)
+verifyExchange('DelegatedLists', 'delegatedlists.DelegatedListsConformance', 'delegated-lists',
+        'VMF_CONFORMANCE_DELEGATED_LISTS', null)
+verifyExchange('Redeclarations', 'RedeclarationConformance', 'redeclarations', 'VMF_CONFORMANCE_REDECLARATIONS', null)
+verifyExchange('CollectionRedeclarations', 'CollectionRedeclarationConformance', 'collection-redeclarations',
+        'VMF_CONFORMANCE_COLLECTION_REDECLARATIONS', null)
+verifyExchange('Covariance', 'CovarianceConformance', 'covariance', 'VMF_CONFORMANCE_COVARIANCE', null)
+verifyExchange('TypedValueReferences', 'TypedValueReferencesConformance', 'typed-values',
+        'VMF_CONFORMANCE_TYPED_VALUES', '..')
+
+verifyExchange('Schema', 'SnapshotSchemaConformance', 'schema', 'VMF_CONFORMANCE_SCHEMA', '..')
+
+['Observation', 'ObserverOrder', 'CollectionObservation', 'ContainmentObservation', 'Reflection', 'DeepCopy',
+ 'ContentEquality', 'JournalHistory', 'ConfiguredValidation', 'ModelPatch', 'ReflectionDefaults', 'ModelVersion',
+ 'ShallowCopy', 'DynamicDefaults'].each { String cases ->
+    def verifyCases = tasks.register('verifyJava' + cases + 'Conformance', JavaExec) {
+        dependsOn compileJavaValues
+        classpath = valueClasspath
+        mainClass = 'eu.mihosoft.vmf.conformance.' + cases + 'Conformance'
+    }
+    verification.configure { dependsOn verifyCases }
+}
+
+[
+    MixedListObservation: 'mixed-list-observers.json',
+    ScalarMembershipObserver: 'scalar-membership-observers.json',
+    ModelIdentitySetObserver: 'model-identity-set-observers.json',
+    ModeledRelationshipSetObserver: 'modeled-relationship-set-observers.json',
+    DirectPropertyObservation: 'direct-property-observers.json'
+].each { String cases, String fixture ->
+    def verifyCases = tasks.register('verifyJava' + cases + 'Conformance', JavaExec) {
+        dependsOn compileJavaValues
+        classpath = valueClasspath
+        mainClass = 'eu.mihosoft.vmf.conformance.' + cases + 'Conformance'
+        args conformance.file('fixtures/' + fixture).asFile.absolutePath
+    }
+    verification.configure { dependsOn verifyCases }
+}
+
+def stockPackages = conformance.file('stock-java/packages.txt')
+def stockSources = ['jackson/src/test/vmf', 'test-suite/src/test/vmf'].collect { folder ->
+    rootProject.fileTree(folder) { include '**/vmfmodel/*.java' }
+}
+def stockClasses = conformance.dir('build/classes/stock-java')
+def stockGenerated = conformance.dir('build/generated/stock-csharp')
+def compileStockGenerator = tasks.register('compileStockCSharpModelGenerator', JavaCompile) {
+    source conformance.file('stock-java/GenerateStockCSharpModels.java')
+    classpath = modelClasspath
+    destinationDirectory = stockClasses
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+def generateStockModels = tasks.register('generateCSharpStockModels', JavaExec) {
+    dependsOn compileStockGenerator
+    classpath = files(stockClasses) + modelClasspath
+    mainClass = 'eu.mihosoft.vmf.conformance.GenerateStockCSharpModels'
+    args rootProject.projectDir.absolutePath, stockGenerated.asFile.absolutePath, stockPackages.asFile.absolutePath
+    inputs.file stockPackages
+    inputs.files stockSources
+    outputs.dir stockGenerated
+}
+verifyDotNet.configure { dependsOn generateStockModels }

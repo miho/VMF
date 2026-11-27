@@ -1,0 +1,17 @@
+<eu.mihosoft.vmf.conformance.values.DefaultSettings>
+  <future source="external">
+    <level>55</level>
+    <fallback><value>ignored</value></fallback>
+  </future>
+  <display_name>known</display_name>
+  <future>
+    <level>56</level>
+  </future>
+  <entries>
+    <item>
+      <next-label><localized>unused</localized></next-label>
+      <label>nested</label>
+      <next-label><localized>also unused</localized></next-label>
+    </item>
+  </entries>
+</eu.mihosoft.vmf.conformance.values.DefaultSettings>

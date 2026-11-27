@@ -1,0 +1,62 @@
+#if(!$type.hasBase)
+    private ${type.readOnly.returnType}? __vmfReadOnlyView;
+
+    public ${type.readOnly.modifier}${type.readOnly.returnType} AsReadOnly() =>
+        global::System.Threading.LazyInitializer.EnsureInitialized(ref __vmfReadOnlyView, __vmfCreateReadOnlyView);
+#else
+    public override ${type.readOnly.returnType} AsReadOnly() =>
+        (${type.readOnly.returnType})base.AsReadOnly();
+#end
+
+#if($type.hasBase || $type.isBase)
+    protected ${type.readOnly.modifier}${type.readOnly.returnType} __vmfCreateReadOnlyView() =>
+        ModelSnapshot.RememberReadOnly(new __VmfReadOnly(this), this);
+#else
+    private ${type.readOnly.returnType} __vmfCreateReadOnlyView() =>
+        ModelSnapshot.RememberReadOnly(new __VmfReadOnly(this), this);
+#end
+
+    private sealed class __VmfReadOnly : ${type.readOnly.returnType}, global::System.ComponentModel.INotifyPropertyChanged
+    {
+        private readonly ${type.readOnly.owner} model;
+
+        public __VmfReadOnly(${type.readOnly.owner} model)
+        {
+            this.model = model;
+#foreach($property in $type.readOnly.collections)
+            ${property.name} = ${property.initializer};
+#end
+        }
+
+#foreach($property in $type.readOnly.effective)
+#if($property.containsKey("lazyStorage"))
+        private ${property.type}? ${property.lazyStorage};
+#end
+        public ${property.type} ${property.name} ${property.getter}
+#end
+#foreach($getter in $type.readOnly.covariantBaseGetters)
+        $getter
+#end
+#foreach($lookup in $type.readOnly.effectiveLookups)
+        public ${lookup.returnType} ${lookup.name}(${lookup.keyType} key) =>
+            ${lookup.expression};
+#end
+
+        public global::System.Collections.Generic.IReadOnlyList<global::Vmf.Runtime.ValidationIssue> Validate() =>
+            model.Validate();
+
+        public global::Vmf.Runtime.ReadOnlyModelChanges VmfChanges =>
+            ModelSnapshot.Reflection.ChangesForReadOnlyView(this);
+
+#set($propertyEventIndent = "        ")
+#set($propertyNameResolver = "model.__vmfPropertyChangedName")
+#parse("eu/mihosoft/vmf/csharp/property-changed-event.vm")
+
+        public override ${type.summaryReturnType} ToString() => model.ToString();
+#if($type.structuralEquality || $type.objectEqualityDelegated)
+
+        public override bool Equals(object? other) => model.Equals(other);
+
+        public override int GetHashCode() => model.GetHashCode();
+#end
+    }

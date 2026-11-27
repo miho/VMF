@@ -1,0 +1,40 @@
+    public interface Behavior
+    {
+#if($type.behavior.hasHook)
+        void ${type.behavior.hook}(${type.instanceName} caller) { }
+#end
+#foreach($method in $type.behavior.methods)
+        ${method.returnType} ${method.name}(${method.bindingParameters});
+#end
+    }
+
+    private static partial Behavior CreateDefaultBehavior();
+
+    private readonly object __vmfBehaviorLock = new();
+    private volatile Behavior? __vmfDefaultBehavior;
+    private volatile Behavior? __vmfBehaviorOverride;
+
+    public Behavior? BehaviorOverride => __vmfBehaviorOverride;
+
+    public void ReplaceBehavior(Behavior behavior)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(behavior);
+        __vmfBehaviorOverride = behavior;
+    }
+
+    private Behavior __vmfGetBehavior()
+    {
+        var current = __vmfBehaviorOverride ?? __vmfDefaultBehavior;
+        if (current is not null) return current;
+        lock (__vmfBehaviorLock)
+        {
+            return __vmfBehaviorOverride ?? (__vmfDefaultBehavior ??= CreateDefaultBehavior()
+                ?? throw new global::System.InvalidOperationException("The default behavior factory returned null."));
+        }
+    }
+
+#foreach($method in $type.behavior.methods)
+    public ${method.objectOverride}${method.returnType} ${method.name}(${method.parameters}) =>
+        __vmfGetBehavior().${method.name}(${method.arguments});
+
+#end

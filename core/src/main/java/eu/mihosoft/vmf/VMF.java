@@ -30,6 +30,8 @@ import eu.mihosoft.vmf.core.io.FileResourceSet;
 import eu.mihosoft.vmf.core.io.IOUtils;
 import eu.mihosoft.vmf.core.io.Resource;
 import eu.mihosoft.vmf.core.io.ResourceSet;
+import eu.mihosoft.vmf.csharp.CSharpGenerator;
+import eu.mihosoft.vmf.typescript.TypeScriptGenerator;
 import io.github.classgraph.ClassGraph;
 
 import java.io.File;
@@ -77,6 +79,67 @@ public class VMF {
      */
     public static void generate(ResourceSet resourceSet, Class<?>... interfaces) throws IOException {
         new CodeGenerator().generate(resourceSet, interfaces);
+    }
+
+
+    /**
+     * Generates a model for the selected target from already compiled model interfaces.
+     *
+     * @param target output language
+     * @param output target resource set
+     * @param interfaces model interfaces from one package ending with '.vmfmodel'
+     * @throws IOException if an output resource cannot be written
+     * @throws IllegalArgumentException if the model is invalid or unsupported by the target
+     */
+    public static void generate(GenerationTarget target, ResourceSet output, Class<?>... interfaces) throws IOException {
+        Objects.requireNonNull(target, "target");
+        Objects.requireNonNull(output, "output");
+        switch (target) {
+            case JAVA:
+                generate(output, interfaces);
+                break;
+            case CSHARP:
+                CSharpGenerator.generate(output, interfaces);
+                break;
+            case TYPESCRIPT:
+                TypeScriptGenerator.generate(output, interfaces);
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported generation target: " + target);
+        }
+    }
+
+    /**
+     * Compiles Java VMF model declarations and generates sources for the selected target.
+     * Uses the thread context classloader for model dependencies when it is a URL classloader.
+     *
+     * @param target output language
+     * @param outputDir output directory
+     * @param sourceFiles model declarations from one package ending with '.vmfmodel'
+     * @throws IOException if compilation or output fails
+     * @throws IllegalArgumentException if the model is invalid or unsupported by the target
+     */
+    public static void generate(GenerationTarget target, File outputDir, File... sourceFiles) throws IOException {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        URLClassLoader modelLoader = loader instanceof URLClassLoader ? (URLClassLoader) loader : null;
+        generate(target, new FileResourceSet(outputDir), modelLoader, sourceFiles);
+    }
+
+    /**
+     * Compiles Java VMF declarations with the given dependency classloader and generates sources
+     * for the selected target.
+     *
+     * @param target output language
+     * @param output target resource set
+     * @param classLoader model dependency classloader, or null to use the compiler default
+     * @param sourceFiles model declarations from one package ending with '.vmfmodel'
+     * @throws IOException if compilation or output fails
+     * @throws IllegalArgumentException if the model is invalid or unsupported by the target
+     */
+    public static void generate(
+            GenerationTarget target, ResourceSet output, URLClassLoader classLoader, File... sourceFiles)
+            throws IOException {
+        generate(target, output, compileDefinitions(classLoader, sourceFiles));
     }
 
     /**
@@ -136,6 +199,10 @@ public class VMF {
      * @throws IllegalArgumentException if the specified model is empty
      */
     public static void generate(ResourceSet outputDir, URLClassLoader classLoader, File... sourceFiles) throws IOException {
+        generate(outputDir, compileDefinitions(classLoader, sourceFiles));
+    }
+
+    private static Class<?>[] compileDefinitions(URLClassLoader classLoader, File... sourceFiles) throws IOException {
 
         JCompiler compiler = JCompiler.newInstance();
 
@@ -160,7 +227,7 @@ public class VMF {
             throw new IOException("Cannot compile model definitions.", ex);
         }
 
-        generate(outputDir,modelClasses.values().toArray(new Class[modelClasses.values().size()]));
+        return modelClasses.values().toArray(new Class<?>[0]);
     }
 
     /**

@@ -1,0 +1,15 @@
+{
+  "workshops": [
+    {
+      "favorites": ["2"],
+      "stations": [{"name": "left"}]
+    },
+    {
+      "favorites": [],
+      "stations": [
+        {"@vmf-id": 2, "name": "shared"},
+        {"name": "right"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+#if(!$type.referenceDefaults.isEmpty())
+    public ${type.name}(#foreach($property in $type.constructor)${property.parameter}#if($foreach.hasNext), #end#end)
+        : this(#foreach($property in $type.constructor)${property.parameterName}, #end#foreach($default in $type.referenceDefaults)${default.accessor}()#if($foreach.hasNext), #end#end) { }
+
+    private ${type.name}(#foreach($property in $type.constructor)${property.parameterWithoutDefault}, #end#foreach($default in $type.referenceDefaults)global::System.Collections.Generic.IReadOnlyList<${default.element}> ${default.cache}#if($foreach.hasNext), #end#end)
+#else
+    public ${type.name}(#foreach($property in $type.constructor)${property.parameter}#if($foreach.hasNext), #end#end)${type.immutableBaseArguments}
+#end
+    {
+#foreach($property in $type.constructor)
+#if($property.declared)
+        ${property.name} = ${property.initialization};
+#end
+#end
+#foreach($default in $type.referenceDefaults)
+        global::Vmf.Runtime.ReferenceCollectionDefaults.Store(this, ${default.key}, ${default.cache});
+#end
+    }
+
+#foreach($property in $type.constructor)
+#if($property.declared)
+    public ${property.type} ${property.name} { get; }
+#end
+#end
+
+#foreach($property in $type.promotedSetters)
+    public new ${property.type} ${property.name} => ${property.getter};
+#end
+#foreach($getter in $type.immutableCovariantGetters)
+    $getter
+#end
+
+    public ${type.immutableBuilder.modifier}${type.name} AsReadOnly() => this;
+
+#if(!$type.hasBase)
+    public global::Vmf.Runtime.ReadOnlyModelChanges VmfChanges =>
+        ModelSnapshot.Reflection.ChangesForReadOnlyView(this);
+
+#if(!$type.objectToStringDelegated)
+    public override ${type.summaryReturnType} ToString() => ModelSnapshot.Reflection.FormatSummary(this);
+
+#end
+#end
+    public bool ContentEquals(${type.name}? other) => __vmfContentEquals(other);
+
+    ${type.contentModifier}bool __vmfContentEquals(object? candidate) =>
+        global::System.Object.ReferenceEquals(this, candidate)
+        || (candidate is ${type.name} other && other.GetType() == typeof(${type.name})
+#foreach($property in $type.equalityFields)
+            && ${property.comparison}
+#end
+            );
+
+    public ${type.contentHashModifier}int ContentHashCode()
+    {
+        var hash = new global::System.HashCode();
+#foreach($property in $type.equalityFields)
+        hash.Add(${property.hashValue});
+#end
+        return hash.ToHashCode();
+    }
+
+#if(!$type.objectEqualityDelegated)
+#if($type.structuralEquality)
+    public bool Equals(${type.name}? other) => Equals((object?)other);
+
+    public override bool Equals(object? other) => __vmfContentEquals(other);
+
+    public override int GetHashCode() => ContentHashCode();
+#else
+    public override bool Equals(object? other) => global::System.Object.ReferenceEquals(this, other);
+
+    public override int GetHashCode() => global::System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(this);
+#end
+#end
+
+#if(!$type.immutableBehavior.isEmpty())
+#parse("eu/mihosoft/vmf/csharp/immutable-behavior.vm")
+#end
+    public ${type.immutableBuilder.modifier}static Builder NewBuilder() => new();
+
+    public ${type.immutableBuilder.modifier}sealed class Builder : global::Vmf.Runtime.IModelBuilder<${type.name}>
+    {
+#if($type.immutableBuilder.hasCollections)
+        private bool __vmfAppendCollections = true;
+#end
+#foreach($default in $type.referenceDefaults)
+        private readonly global::System.Collections.Generic.IReadOnlyList<${default.element}> ${default.cache} = ${default.accessor}();
+#end
+#foreach($property in $type.immutableBuilder.fields)
+        private ${property.type} ${property.field}${property.initializer};
+#if(!$property.nested.isEmpty())
+        private ${property.nested.type} ${property.nested.field};
+#end
+#end
+#if(!$type.referenceDefaults.isEmpty())
+
+        public Builder()
+        {
+#foreach($property in $type.immutableBuilder.fields)
+#if(!$property.referenceDefault.isEmpty())
+            ${property.field} = ${property.referenceDefault};
+#end
+#end
+        }
+#end
+#foreach($property in $type.immutableBuilder.fields)
+
+        public Builder With${property.name}(${property.inputType} value)
+        {
+            ${property.assignment}
+#if(!$property.nested.isEmpty())
+            ${property.nested.field} = null;
+#end
+            return this;
+        }
+#if(!$property.nested.isEmpty())
+
+        public Builder With${property.name}${property.nested.suffix}(${property.nested.input} value)
+        {
+#if($property.collection)
+            global::System.ArgumentNullException.ThrowIfNull(value);
+#end
+            ${property.nested.field} = ${property.nested.stage};
+            ${property.field} = null;
+            return this;
+        }
+#end
+#if(!$property.append.isEmpty())
+
+        private void __vmfImport${property.name}(${property.inputType} value)
+        {
+            if (__vmfAppendCollections && ${property.field} is not null)
+            {
+                ${property.append}
+            }
+            else
+            {
+                With${property.name}(value);
+            }
+        }
+#end
+#end
+#if($type.immutableBuilder.hasCollections)
+
+        public Builder AppendCollections(bool append)
+        {
+            __vmfAppendCollections = append;
+            return this;
+        }
+#end
+#foreach($input in $type.immutableBuilder.imports)
+
+        public Builder ApplyFrom(${input.type} source)
+        {
+            global::System.ArgumentNullException.ThrowIfNull(source);
+#foreach($statement in $input.statements)
+            ${statement}
+#end
+            return this;
+        }
+#end
+
+        public ${type.name} Build() => new(${type.immutableBuilder.arguments}#foreach($default in $type.referenceDefaults), ${default.cache}#end);
+    }

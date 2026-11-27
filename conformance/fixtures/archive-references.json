@@ -1,0 +1,14 @@
+{
+  "@vmf-id": "archive",
+  "review": ["left", null, "right"],
+  "head": {
+    "@vmf-id": "root",
+    "name": "main",
+    "children": [
+      {"@vmf-id": "left", "name": "left"}
+    ],
+    "inset": {"@vmf-id": "right", "name": "right"},
+    "trail": ["right", null, "left", "right", "root"],
+    "featured": ["left", "right"]
+  }
+}

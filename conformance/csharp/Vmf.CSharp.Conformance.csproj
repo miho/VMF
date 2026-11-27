@@ -1,0 +1,83 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" PrivateAssets="all" />
+    <ProjectReference Include="../../csharp-runtime/Vmf.Runtime.csproj" />
+    <Compile Include="../../examples/csharp-workshop/build/generated/csharp/**/*.cs" />
+    <Compile Include="../build/generated/csharp/**/*.cs" />
+    <Compile Include="../build/generated/immutable-csharp/**/*.cs" />
+    <Compile Include="../build/generated/hierarchy-csharp/**/*.cs" />
+    <Compile Include="../build/generated/concrete-base-csharp/**/*.cs" />
+    <Compile Include="../concrete-base-csharp/*.cs" />
+    <Compile Include="../build/generated/exact-redeclaration-csharp/**/*.cs" />
+    <Compile Include="../exact-redeclaration-csharp/*.cs" />
+    <Compile Include="../build/generated/keyed-redeclaration-csharp/**/*.cs" />
+    <Compile Include="../keyed-redeclaration-csharp/*.cs" />
+    <Compile Include="../build/generated/warehouse-promotion-csharp/**/*.cs" />
+    <Compile Include="../warehouse-promotion-csharp/*.cs" />
+    <Compile Include="../build/generated/numeric-csharp/**/*.cs" />
+    <Compile Include="../build/generated/generic-bound-csharp/**/*.cs" />
+    <Compile Include="../generic-bound-csharp/*.cs" />
+    <Compile Include="../build/generated/generic-scalar-csharp/**/*.cs" />
+    <Compile Include="../generic-scalar-csharp/*.cs" />
+    <Compile Include="../build/generated/generic-key-csharp/**/*.cs" />
+    <Compile Include="../generic-key-csharp/*.cs" />
+    <Compile Include="../build/generated/generic-keyed-csharp/**/*.cs" />
+    <Compile Include="../generic-keyed-csharp/*.cs" />
+    <Compile Include="../build/generated/generic-identity-key-csharp/**/*.cs" />
+    <Compile Include="../generic-identity-key-csharp/*.cs" />
+    <Compile Include="../build/generated/generic-value-csharp/**/*.cs" />
+    <Compile Include="../generic-value-csharp/*.cs" />
+    <Compile Include="../build/generated/nominal-bound-csharp/**/*.cs" />
+    <Compile Include="../nominal-bound-csharp/*.cs" />
+    <Compile Include="../build/generated/equality-csharp/**/*.cs" />
+    <Compile Include="../build/generated/model-summary-csharp/**/*.cs" />
+    <Compile Include="../model-summary-csharp/*.cs" />
+    <Compile Include="../build/generated/trait-csharp/**/*.cs" />
+    <Compile Include="../build/generated/external-csharp/**/*.cs" />
+    <Compile Include="../build/generated/external-binding-csharp/**/*.cs" />
+    <Compile Include="../external-binding-csharp/*.cs" />
+    <Compile Include="../build/generated/opposite-csharp/**/*.cs" />
+    <Compile Include="../build/generated/inherited-opposite-csharp/**/*.cs" />
+    <Compile Include="../inherited-opposites-csharp/*.cs" />
+    <Compile Include="../build/generated/executable-default-csharp/**/*.cs" />
+    <Compile Include="../executable-default-csharp/*.cs" />
+    <Compile Include="../build/generated/collection-default-csharp/**/*.cs" />
+    <Compile Include="../collection-default-csharp/*.cs" />
+    <Compile Include="../build/generated/reference-default-csharp/**/*.cs" />
+    <Compile Include="../reference-default-csharp/*.cs" />
+    <Compile Include="../build/generated/ordinary-containment-csharp/**/*.cs" />
+    <Compile Include="../ordinary-containment-csharp/*.cs" />
+    <Compile Include="../build/generated/named-inverse-csharp/**/*.cs" />
+    <Compile Include="../named-inverse-csharp/*.cs" />
+    <Compile Include="../build/generated/behavior-csharp/**/*.cs" />
+    <Compile Include="../behavior-csharp/*.cs" />
+    <Compile Include="../build/generated/behavior-hierarchy-csharp/**/*.cs" />
+    <Compile Include="../behavior-hierarchy-csharp/*.cs" />
+    <Compile Include="../build/generated/immutable-behavior-csharp/**/*.cs" />
+    <Compile Include="../immutable-behavior-csharp/*.cs" />
+    <Compile Include="../build/generated/immutable-ancestry-csharp/**/*.cs" />
+    <Compile Include="../immutable-ancestry-csharp/*.cs" />
+    <Compile Include="../build/generated/applied-call-csharp/**/*.cs" />
+    <Compile Include="../applied-call-csharp/*.cs" />
+    <Compile Include="../build/generated/delegated-list-csharp/**/*.cs" />
+    <Compile Include="../delegated-list-csharp/*.cs" />
+    <Compile Include="../build/generated/redeclaration-csharp/**/*.cs" />
+    <Compile Include="../redeclaration-csharp/*.cs" />
+    <Compile Include="../build/generated/collection-redeclaration-csharp/**/*.cs" />
+    <Compile Include="../collection-redeclaration-csharp/*.cs" />
+    <Compile Include="../build/generated/covariance-csharp/**/*.cs" />
+    <Compile Include="../covariance-csharp/*.cs" />
+    <Compile Include="../build/generated/stock-csharp/**/*.cs" />
+    <None Include="../fixtures/*" Link="fixtures/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

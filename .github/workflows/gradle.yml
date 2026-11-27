@@ -69,3 +69,37 @@ jobs:
         if: runner.os == 'Windows'
         shell: cmd
         run: call build-and-test-all.bat
+
+      - name: Set up .NET for generated model tests
+        if: matrix.jdk == 17 && runner.os != 'macOS'
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Set up Node for the TypeScript baseline
+        if: matrix.jdk == 17 && runner.os != 'macOS'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+
+      - name: Check generated C# and TypeScript models on Linux
+        if: matrix.jdk == 17 && runner.os == 'Linux'
+        shell: bash
+        run: ./gradlew --console=plain :vmf:verifyCSharpConformance :vmf:verifyTypeScriptWorkshop
+
+      - name: Check generated C# and TypeScript models on Windows
+        if: matrix.jdk == 17 && runner.os == 'Windows'
+        shell: cmd
+        run: call gradlew.bat --console=plain :vmf:verifyCSharpConformance :vmf:verifyTypeScriptWorkshop
+
+      - name: Set up Python for snapshot schema verification
+        if: matrix.jdk == 17 && runner.os == 'Linux'
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+
+      - name: Validate generated snapshot schemas
+        if: matrix.jdk == 17 && runner.os == 'Linux'
+        run: |
+          python -m pip install jsonschema==4.26.0
+          python conformance/schema/verify.py conformance/build/interchange/schema

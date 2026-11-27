@@ -1,0 +1,7 @@
+{
+  "warehouse_id": "BER-1",
+  "stock_items": [
+    {"part_no": "A-42", "available_qty": 0, "active": false},
+    {"part_no": "B-10", "available_qty": 8, "active": true}
+  ]
+}
