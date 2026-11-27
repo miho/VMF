@@ -48,7 +48,9 @@ public final class PortableRunner {
     static final String TARGET = "java";
     static final String BASE_PACKAGE = "eu.mihosoft.vmf.portable.";
     static final Set<String> CAPABILITIES = Set.of(
-            "core", "views", "events", "history", "reflection", "equality-modes", "json");
+            "core", "views", "events", "history", "reflection", "equality-modes", "json", "externals", "behavior");
+    /** Converts host values (enums, UUIDs, untyped values, external types) as documents do. */
+    static final ObjectMapper JSON = new ObjectMapper();
     /** Modules that do not apply to the language, with the reason. */
     static final Map<String, String> NOT_APPLICABLE = Map.of(
             "identity-equality", "Java's equals and hashCode follow the declared mode (N2)");
@@ -273,7 +275,8 @@ public final class PortableRunner {
         static final List<String> OPERATIONS = List.of("new", "set", "add", "insert", "remove", "clear", "check",
                 "let", "equal", "notEqual", "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly",
                 "instanceOf", "notInstanceOf", "listen", "unlisten", "events", "record", "recorded", "undoAll",
-                "redoAll", "properties", "annotations", "write", "read", "document", "calls");
+                "redoAll", "properties", "annotations", "write", "read", "document", "calls", "call",
+                "replaceBehavior");
 
         final String model;
         final Map<String, Object> labels = new LinkedHashMap<>();
@@ -486,6 +489,12 @@ public final class PortableRunner {
                     }
                     break;
                 }
+                case "call":
+                    call(node.get("call").asText(), node);
+                    break;
+                case "replaceBehavior":
+                    replaceBehavior(node.get("replaceBehavior").asText(), node.get("with").asText());
+                    break;
                 default:
                     throw new ScenarioFailure("unsupported operation " + operation);
             }
@@ -811,6 +820,55 @@ public final class PortableRunner {
             return javaType(property.getType().getElementTypeName().orElse("java.lang.Object"));
         }
 
+        /**
+         * Calls a delegated method of the model interface; the last arguments fill a variable-argument array. Checks
+         * the result against "result" (a value) or "resultObj" (a label).
+         */
+        void call(String path, JsonNode node) throws Exception {
+            Object[] owner = owner(path);
+            Object target = owner[0];
+            JsonNode args = node.path("args");
+            Method method = null;
+            for (Method candidate : modelInterface(target).getMethods()) {
+                int count = candidate.getParameterCount();
+                if (candidate.getName().equals(owner[1])
+                        && (count == args.size() || candidate.isVarArgs() && args.size() >= count - 1)) {
+                    method = candidate;
+                    break;
+                }
+            }
+            if (method == null) {
+                throw new ScenarioFailure(path + " is not a method that takes " + args.size() + " arguments");
+            }
+            Class<?>[] types = method.getParameterTypes();
+            Object[] arguments = new Object[types.length];
+            for (int i = 0; i < types.length; i++) {
+                if (method.isVarArgs() && i == types.length - 1) {
+                    Object rest = Array.newInstance(types[i].getComponentType(), args.size() - i);
+                    for (int j = i; j < args.size(); j++) {
+                        Array.set(rest, j - i, toJava(args.get(j), types[i].getComponentType()));
+                    }
+                    arguments[i] = rest;
+                } else {
+                    arguments[i] = toJava(args.get(i), types[i]);
+                }
+            }
+            Object result = method.invoke(target, arguments);
+            if (node.has("result") && !sameScalar(result, node.get("result"))) {
+                throw new ScenarioFailure(path + ": expected " + node.get("result") + ", returned " + render(result));
+            }
+            if (node.has("resultObj") && result != object(node.get("resultObj"))) {
+                throw new ScenarioFailure(path + ": expected " + node.get("resultObj") + ", returned " + render(result));
+            }
+        }
+
+        /** Replaces the behavior of one object with a new instance of a host class of the model's package. */
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        void replaceBehavior(String path, String name) throws Exception {
+            Object behavior = Class.forName(BASE_PACKAGE + model + "." + name).getConstructor().newInstance();
+            vobject(resolve(path)).vmf().behavior().set((eu.mihosoft.vmf.runtime.core.DelegatedBehavior) behavior);
+        }
+
         static Class<?> javaType(String name) {
             switch (name) {
                 case "int":
@@ -840,8 +898,30 @@ public final class PortableRunner {
                 case "java.lang.String":
                     return String.class;
                 default:
-                    return Object.class;
+                    return hostType(name);
             }
+        }
+
+        /** An external host type such as an enum, UUID or value class; Object if it cannot be loaded. */
+        static Class<?> hostType(String name) {
+            for (String binary = name; ; ) {
+                try {
+                    return Class.forName(binary);
+                } catch (ClassNotFoundException missing) {
+                    // A nested class has a binary name with '$'.
+                    int dot = binary.lastIndexOf('.');
+                    if (dot < 0) {
+                        return Object.class;
+                    }
+                    binary = binary.substring(0, dot) + "$" + binary.substring(dot + 1);
+                }
+            }
+        }
+
+        static boolean isPortableScalar(Class<?> type) {
+            return type == String.class || type == Boolean.class || type == Integer.class || type == Long.class
+                    || type == Double.class || type == Float.class || type == Short.class || type == Byte.class
+                    || type == Character.class;
         }
 
         static Class<?> box(Class<?> type) {
@@ -865,6 +945,15 @@ public final class PortableRunner {
             }
             if (value.isObject() && value.has("obj")) {
                 return object(value.get("obj"));
+            }
+            Class<?> host = box(type);
+            if (!isPortableScalar(host) && !VObject.class.isAssignableFrom(host)) {
+                // Untyped values, enums, UUIDs and external value types convert as documents do.
+                try {
+                    return JSON.treeToValue(value, host);
+                } catch (com.fasterxml.jackson.core.JsonProcessingException mismatch) {
+                    throw new IllegalArgumentException(mismatch.getMessage(), mismatch);
+                }
             }
             if (value.isBoolean()) {
                 return value.asBoolean();
@@ -964,6 +1053,11 @@ public final class PortableRunner {
             }
             if (actual == null) {
                 return false;
+            }
+            if (expected.isObject() || !(actual instanceof Number || actual instanceof Boolean
+                    || actual instanceof String || actual instanceof Character || actual instanceof List)) {
+                // Untyped maps, enums, UUIDs and external values compare in their document form.
+                return sameJson(JSON.valueToTree(actual), expected);
             }
             if (expected.isNumber()) {
                 if (!(actual instanceof Number)) {

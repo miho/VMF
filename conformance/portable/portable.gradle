@@ -49,6 +49,8 @@ def portableJsonClasspath = files(portableVmfJackson.flatMap { it.destinationDir
 def compilePortableJava = tasks.register('compilePortableJava', JavaCompile) {
     dependsOn portableGeneration['java'], portableVmfJackson
     source portableBuild.dir('generated/java'), portable.file('java/PortableRunner.java')
+    // Host code of the models (Java enums, value types, delegation classes) lives next to their vmfmodel packages.
+    source fileTree(portableModels) { include '**/*.java'; exclude '**/vmfmodel/**' }
     classpath = portableRuntime + portableJackson + portableJsonClasspath
     destinationDirectory = portableBuild.dir('classes/java')
     javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }

@@ -7,7 +7,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as vmf from "@vmf/runtime";
 
 const TARGET = "typescript";
-const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "identity-equality", "json"]);
+const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "identity-equality", "json",
+    "externals", "behavior"]);
 /** Modules that do not apply to the language, with the reason. */
 const NOT_APPLICABLE = new Map([
     ["equality-modes", "JavaScript compares objects by identity only (===, Map, Set); TypeScript follows N3"],
@@ -15,21 +16,31 @@ const NOT_APPLICABLE = new Map([
 const OPERATIONS = ["new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual",
     "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf",
     "listen", "unlisten", "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write",
-    "read", "document", "calls"];
+    "read", "document", "calls", "call", "replaceBehavior"];
 const generated = join(dirname(fileURLToPath(import.meta.url)), "build", "js", "build", "generated", "eu", "mihosoft",
     "vmf", "portable");
+/** Host code of a model (hosts/<model>.ts): the bindings to install and named replacement behaviors. */
+const hostCode = join(dirname(fileURLToPath(import.meta.url)), "build", "js", "hosts");
 
 /** A scenario expectation that did not hold (as opposed to an edit the model rejected). */
 class ScenarioFailure extends Error {
 }
 
 const modules = new Map();
+const hosts = new Map();
 
+/** Loads a generated model module and installs the bindings of its host code, if it has any. */
 async function loadModel(model) {
     let module = modules.get(model);
     if (module === undefined) {
         module = await import(pathToFileURL(join(generated, model, "model.g.js")).href);
+        const file = join(hostCode, `${model}.js`);
+        const host = existsSync(file) ? await import(pathToFileURL(file).href) : {};
+        if (host.bindings !== undefined) {
+            module.installModelBindings(host.bindings);
+        }
         modules.set(model, module);
+        hosts.set(model, host);
     }
     return module;
 }
@@ -67,7 +78,7 @@ async function main() {
                 result.message = `model '${model}' was not generated: ${unsupported.get(model)}`;
             } else {
                 try {
-                    new Execution(await loadModel(model)).run(scenario.steps);
+                    new Execution(await loadModel(model), hosts.get(model)).run(scenario.steps);
                     result.status = "passed";
                 } catch (error) {
                     result.status = "failed";
@@ -252,7 +263,9 @@ function sameScalar(actual, expected) {
         return items !== undefined && items.length === expected.length
             && items.every((item, index) => sameScalar(item, expected[index]));
     }
-    return false;
+    // An untyped JSON value, or the document form of an external value (see Execution.documentForm).
+    return typeof expected === "object" && typeof actual === "object" && actual !== null && !Array.isArray(actual)
+        && sameJson(actual, expected);
 }
 
 /**
@@ -365,8 +378,9 @@ class Execution {
     documents = new Map();
     step = 0;
 
-    constructor(module) {
+    constructor(module, host = {}) {
         this.module = module;
+        this.host = host;
         this.registry = module.ModelSnapshot.registry;
     }
 
@@ -576,6 +590,17 @@ class Execution {
                 }
                 break;
             }
+            case "call":
+                this.call(node.call, node);
+                break;
+            case "replaceBehavior": {
+                const create = this.host.replacements?.[node.with];
+                if (typeof create !== "function") {
+                    throw new ScenarioFailure(`no replacement behavior '${node.with}' in hosts/${node.with}`);
+                }
+                this.content(this.resolve(node.replaceBehavior)).replaceBehavior(create());
+                break;
+            }
             default:
                 throw new ScenarioFailure(`unsupported operation ${operation}`);
         }
@@ -744,13 +769,13 @@ class Execution {
         const instance = new constructor();
         for (const [property, value] of Object.entries(initial ?? {})) {
             const current = this.get(instance, property);
-            const scalarType = this.scalarTypeOf(instance, property);
+            const meta = this.scalarMeta(instance, property);
             if (isCollection(current)) {
                 for (const item of value) {
-                    current.add(this.convert(item, scalarType));
+                    current.add(this.convertFor(item, meta));
                 }
             } else {
-                instance[property] = this.convert(value, scalarType);
+                instance[property] = this.convertFor(value, meta);
             }
         }
         return instance;
@@ -774,12 +799,49 @@ class Execution {
     }
 
     scalarTypeOf(owner, property) {
+        return this.scalarMeta(owner, property)?.scalarType;
+    }
+
+    /** The snapshot metadata of a scalar property, which knows external codecs. */
+    scalarMeta(owner, property) {
         if (!isModel(owner)) {
             return undefined;
         }
         const type = this.registry.types.find(candidate => candidate.runtimeType === owner.constructor);
         const meta = type?.properties.find(candidate => (candidate.name ?? candidate.wireName) === property);
-        return meta !== undefined && (meta.kind === "scalar" || meta.kind === "scalarList") ? meta.scalarType : undefined;
+        return meta !== undefined && (meta.kind === "scalar" || meta.kind === "scalarList") ? meta : undefined;
+    }
+
+    /** A scenario value for a scalar property: external values come from their document form through the codec. */
+    convertFor(value, meta) {
+        if (meta?.scalarType === "external" && value !== null && value !== undefined && !has(value, "obj")) {
+            return meta.codec().read(value);
+        }
+        return this.convert(value, meta?.scalarType);
+    }
+
+    /** The value to compare with a scenario value: external values in their document form. */
+    documentForm(value, meta) {
+        if (meta?.scalarType === "external" && value !== null && value !== undefined) {
+            return isCollection(value) || Array.isArray(value) ? [...value].map(item => this.documentForm(item, meta))
+                : meta.codec().write(value);
+        }
+        return value;
+    }
+
+    /** Calls a delegated method with the scenario's arguments and checks its result. */
+    call(path, node) {
+        const [owner, name] = this.owner(path);
+        if (typeof owner?.[name] !== "function") {
+            throw new ScenarioFailure(`${path} is not a method`);
+        }
+        const result = owner[name](...(node.args ?? []).map(value => this.convert(value, undefined)));
+        if (has(node, "result") && !sameScalar(result ?? null, node.result)) {
+            throw new ScenarioFailure(`${path}: expected ${JSON.stringify(node.result, bigintJson)}, returned ${this.render(result)}`);
+        }
+        if (has(node, "resultObj") && result !== this.object(node.resultObj)) {
+            throw new ScenarioFailure(`${path}: expected ${node.resultObj}, returned ${this.render(result)}`);
+        }
     }
 
     resolve(path) {
@@ -863,7 +925,8 @@ class Execution {
     set(path, node) {
         const [owner, name, index] = this.owner(path);
         const current = this.get(owner, name);
-        const value = this.single(node, this.scalarTypeOf(owner, name));
+        const meta = this.scalarMeta(owner, name);
+        const value = has(node, "value") ? this.convertFor(node.value, meta) : this.single(node, meta?.scalarType);
         if (index !== undefined) {
             if (isCollection(current)) {
                 requireEditable(current, path);
@@ -887,8 +950,10 @@ class Execution {
             throw new ScenarioFailure(`${path} is not a list`);
         }
         requireEditable(current, path);
-        const scalarType = this.scalarTypeOf(owner, name);
-        const values = has(node, "objs") || has(node, "values") ? this.many(node, scalarType) : [this.single(node, scalarType)];
+        const meta = this.scalarMeta(owner, name);
+        const values = has(node, "values") ? node.values.map(value => this.convertFor(value, meta))
+            : has(node, "value") ? [this.convertFor(node.value, meta)]
+                : has(node, "objs") ? this.many(node, meta?.scalarType) : [this.single(node, meta?.scalarType)];
         values.forEach((value, offset) => {
             if (index < 0) {
                 current.add(value);
@@ -925,6 +990,9 @@ class Execution {
     // ------------------------------------------------------------------------------------------------ checks
 
     check(path, node) {
+        const dot = path.lastIndexOf(".");
+        const meta = dot < 0 ? undefined : this.scalarMeta(this.resolve(path.substring(0, dot)),
+            parse(path.substring(dot + 1))[0][0]);
         const actual = this.resolve(path);
         if (has(node, "obj")) {
             const expected = this.object(node.obj);
@@ -932,14 +1000,14 @@ class Execution {
                 throw new ScenarioFailure(`${path}: expected ${this.render(expected)}, found ${this.render(actual)}`);
             }
         }
-        if (has(node, "value") && !sameScalar(actual, node.value)) {
+        if (has(node, "value") && !sameScalar(this.documentForm(actual, meta), node.value)) {
             throw new ScenarioFailure(`${path}: expected ${JSON.stringify(node.value, bigintJson)}, found ${this.render(actual)}`);
         }
         if (has(node, "objs") || has(node, "values") || has(node, "size")) {
             if (!isCollection(actual)) {
                 throw new ScenarioFailure(`${path} is not a collection: ${this.render(actual)}`);
             }
-            const items = [...actual];
+            const items = has(node, "values") ? this.documentForm([...actual], meta) : [...actual];
             if (has(node, "size") && items.length !== node.size) {
                 throw new ScenarioFailure(`${path}: expected size ${node.size}, found ${items.length} ${this.render(items)}`);
             }
@@ -1016,6 +1084,9 @@ class Execution {
                 }
             }
             return `<${value.constructor.name}>`;
+        }
+        if (typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+            return stringifyJson(value);
         }
         return typeof value === "string" ? `"${value}"` : String(value);
     }

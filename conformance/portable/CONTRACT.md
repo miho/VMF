@@ -21,6 +21,8 @@ every target, Java included, runs the same scenarios ([README](README.md)).
 | equality-modes | N1, N2 (the language's own equality follows `@VMFEquals` and `@VMFModel(equality = ...)`) | optional |
 | identity-equality | N1, N3 (the language compares objects by identity only) | optional |
 | json | J (snapshot documents that every target writes and reads alike) | optional |
+| externals | X (enum types, UUIDs, untyped `Object` values, host value types with codecs) | optional |
+| behavior | B (delegated methods and construction hooks, `@DelegateTo`) | optional |
 
 A target claims the modules it implements. Scenarios of modules it does not claim are skipped and reported
 as skipped, not as passed.
@@ -179,8 +181,10 @@ are read by every other target.
 
 - **J1** Each model object is a JSON object; its properties are fields named by their wire name (the model
   name, or the value of `vmf:jackson:rename`). Primitive values and lists are always written, an empty list
-  as `[]`; an absent single value (`null`) is omitted. Integers are exact, including all 64 bits of `long`;
-  doubles are JSON numbers, and readers accept `2` as well as `2.0`. Field order carries no meaning.
+  as `[]`; an absent single value (`null`) is omitted, unless the property declares a non-null default: then
+  `null` is written, so that readers keep `null` instead of restoring the default. Integers are exact,
+  including all 64 bits of `long`; doubles are JSON numbers, and readers accept `2` as well as `2.0`. Field
+  order carries no meaning.
 - **J2** Contained objects are nested where they are contained. A reference is written as the `@vmf-id` of its
   target, a string. Writers number the referenced objects `"1"`, `"2"`, ... in the order in which they occur in
   the document; reference lists keep their order and repeats. A reference to an immutable value is written by
@@ -193,6 +197,48 @@ are read by every other target.
   a mutable object cannot be written as a plain document: by default the writer rejects it. Every target offers
   an explicit option to leave such references out instead; the document then holds the containment tree only.
 - **J6** Writers reject a reference to an object outside the written containment tree.
+
+## Externals (optional)
+
+A property can have an external type: a type of the host language, declared in the model by an
+`@ExternalType` stub. Each target maps the stub to a type of its language and says how in its language
+mapping; the scenarios cover the kinds of external types that all targets map.
+
+- **X1** A Java enum is an external type whose values are its constant names. Documents write a value as its
+  name, a JSON string; readers reject any other string.
+- **X2** A `@DefaultValue` that names an enum constant (`Level.MEDIUM`) is the default of a new object like a
+  literal (T2).
+- **X3** `java.util.UUID` values are UUIDs. Documents write the canonical form, 8-4-4-4-12 hexadecimal digits in
+  lower case; readers accept either case. A UUID given in either case is the same value.
+- **X4** An untyped `Object` property holds a JSON value: `null`, a string, a boolean, a number, a list of JSON
+  values or a map from strings to JSON values, without cycles. Documents write the value as that JSON value, and
+  readers restore an equal value. Content equality (Q1) compares untyped values as JSON values: lists in order,
+  maps regardless of key order, strings, booleans and numbers by value.
+- **X5** A host value type with a codec (Java: the class as Jackson writes it; C#: `ExternalSnapshotCodecs`;
+  TypeScript: `ModelBindings.externals`) appears in documents as the JSON that its codec writes, also in lists;
+  readers restore an equal value through the codec.
+- **X6** Content equality compares external values with the host type's equality: Java `equals`, C# `Equals`,
+  TypeScript the codec's `equals` (or `===` without one). Objects that hold equal but distinct external values
+  are content-equal.
+
+## Behavior (optional)
+
+`@DelegateTo` binds a method of a model type to host code: a delegation class in Java, a partial
+`CreateDefaultBehavior` in C#, a factory in TypeScript's `ModelBindings.behaviors`. On a type it also binds the
+construction hook `on<Type>Instantiated`.
+
+- **B1** Calling a delegated method passes the object it is called on and the arguments to the behavior, and
+  returns the behavior's result: scalars, model objects, `null`, variable arguments and `void`.
+- **B2** Each object has its own default behavior, so the state that a behavior keeps belongs to one object.
+- **B3** The construction hook runs exactly once for each new object, including deep copies and objects read
+  from documents, before the declared defaults are applied: it sees the zero values, and the defaults replace
+  what it set on properties that declare one.
+- **B4** Replacing the behavior of one object (Java `vmf().behavior().set`, C# `ReplaceBehavior`, TypeScript
+  `replaceBehavior`) routes that object's delegated calls to the replacement, with the object as caller; other
+  objects keep theirs. Deep copies and objects read from documents start with the default behavior. A
+  replacement never receives the construction hook.
+- **B5** A subtype that does not bind a delegated method again uses the binding of the type that declares it;
+  a subtype that binds the method again uses its own binding.
 
 ## Deliberately unspecified
 
@@ -208,17 +254,24 @@ across targets:
 - adding an object to the containment list that already holds it, duplicate entries created by
   index-based replacement in containment lists, and `null` entries in containment lists
 - recordings that cover only one side of a moved object (the previous owner is not covered)
-- whether a deep copy shares or copies immutable values
+- whether a deep copy shares or copies immutable values, external values and untyped values
+- how a language represents untyped numbers: which integer and floating-point types it uses, whether an
+  integral floating-point value such as `2.0` reads back as an integer, and how documents write such a value
+- untyped values that are not JSON values (Java writes any value that Jackson can serialize)
+- what a construction hook sets on a property that creation with initial values also sets: Java's builders
+  set every property, C# and TypeScript only the given ones
+- the hooks of several supertypes: Java runs every inherited type-level hook, C# and TypeScript the one that
+  the model selects
 - plain documents for models whose subtypes occur where a property declares their supertype
 - `toString` formats and concrete hash code values; threading
 
 ## Not part of the cross-language contract
 
 Target-specific features may exist but are tested by that target's own tests: builder merge semantics
-(`applyFrom`, `applyTo`, appended collections), behavior delegation (`@DelegateTo`), executable defaults,
-custom external value types, cursors and traversal APIs, reflection writes, journals and their file
-formats, XML and YAML, model diff, validation, maps and sets, generic model types. Each of these can become a
-module of its own with its own rules and scenarios once two targets need it.
+(`applyFrom`, `applyTo`, appended collections), executable (bound) defaults, cursors and traversal APIs,
+reflection writes, journals and their file formats, XML and YAML, model diff, validation, maps and sets,
+generic model types. Each of these can become a module of its own with its own rules and scenarios once two
+targets need it.
 
 The Workshop example additionally exchanges files between Java, C# and TypeScript
 (`:vmf:verifyTypeScriptWorkshop`); the JSON module states and checks the format those files share.

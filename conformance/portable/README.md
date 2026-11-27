@@ -5,13 +5,15 @@ One set of scenario files, one small runner per target language. The rules are i
 
 ```
 conformance/portable/
-  CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J optional modules)
-  models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>)
+  CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J, X, B optional modules)
+  models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>);
+                              Java host code (enums, value types, delegation classes) next to the vmfmodel package
   scenarios/*.json            the scenarios, each citing the rules it checks and, where one exists, the Java test it came from
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
   java/                       model generation helper and the Java runner
-  csharp/                     the C# runner
-  typescript/                 the TypeScript runner (runner.mjs) and the project that compiles the generated code
+  csharp/                     the C# runner; Hosts/ holds the C# host code of the models
+  typescript/                 the TypeScript runner (runner.mjs) and the project that compiles the generated code;
+                              hosts/<model>.ts holds the bindings the runner installs and named replacement behaviors
   portable.gradle             generation and run tasks
 ```
 
@@ -63,7 +65,8 @@ to its language.
 
 Values: `"obj": label` or `"objs": [labels]` for model objects (compared by identity), `"value": v` or
 `"values": [v]` for scalars (JSON numbers, strings, booleans, `null`). In `with`, a model object is written
-`{"obj": label}`.
+`{"obj": label}`. Values of external types (module externals) are written in their document form: an enum
+constant's name, a UUID string, an untyped JSON value, or the JSON of a host value's codec.
 
 | Step | Meaning |
 |---|---|
@@ -91,6 +94,8 @@ Values: `"obj": label` or `"objs": [labels]` for model objects (compared by iden
 | `{"write": path, "as": d, "plain": true?, "references": "omit"?}` | write a snapshot document (J), plain without metadata, optionally leaving references out |
 | `{"read": d or {"json": ...}, "type": T, "as": l, "plain": true?}` | read a written or a literal document |
 | `{"document": d, "is": json}` | compare a written document; key order is ignored, numbers compare by value |
+| `{"call": path, "args": [v], "result": v}` | call a delegated method (B); optional `"resultObj": label`; the last arguments fill a variable-argument parameter |
+| `{"replaceBehavior": path, "with": name}` | replace an object's behavior with the host's behavior of that name (B4) |
 
 Any edit step may carry `"fails": true`: the edit must be rejected, and the runner checks that every object
 reachable from a label is unchanged afterwards.
@@ -131,19 +136,30 @@ How the runners reach the generated code (for users, the [language mappings](../
   returns a live view typed by the generated `ReadOnly<Type>` interface, without setters or list edits.
   Reflection through `vmfType` (`properties`, `annotations`, `property(name)`).
 
+Host code: Java finds enums, value types and delegation classes on the classpath and converts external values
+with Jackson; `replaceBehavior` instantiates the named class of the model's package and calls
+`vmf().behavior().set(...)`. C# implements the generated partial methods (`CreateExternalValueCodecs`,
+`CreateDefault<Property>`, `CreateDefaultBehavior`) in `csharp/Hosts` and replaces behaviors with
+`ReplaceBehavior(new Vmf.Portable.Hosts.<name>())`. The TypeScript runner calls the generated
+`installModelBindings` with the `bindings` that `hosts/<model>.ts` exports, converts external values with the
+installed codecs, and takes replacement behaviors from its `replacements`.
+
 ## Current results
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 16 of 16 | 127 of 127 (the identity-equality scenario does not apply) | none |
-| C# | 16 of 16 | 127 of 127 (the identity-equality scenario does not apply) | none |
-| TypeScript | 16 of 16 | 124 of 124 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
+| Java | 21 of 21 | 170 of 170 (the identity-equality scenario does not apply) | none |
+| C# | 21 of 21 | 170 of 170 (the identity-equality scenario does not apply) | none |
+| TypeScript | 21 of 21 | 167 of 167 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
 change: documents without reference IDs used to leave out references to mutable objects in Java (and in C#'s
 `WriteWithoutReferences`); all three languages now reject them by default and leave them out only on request:
-Java `ReferenceMode.OMIT`, C# `ReferenceMode.Omit`, TypeScript `"omit"`.
+Java `ReferenceMode.OMIT`, C# `ReferenceMode.Omit`, TypeScript `"omit"`. The externals and behavior modules
+found that vmf-jackson could not read a list of external object values (fixed), that TypeScript documents left
+out a cleared value with a non-null default instead of writing `null` (fixed, J1), and that Java builders set
+every property after the construction hook ran, so what the hook set is lost for built objects (unspecified).
 
 Before this contract the TypeScript generator accepted 2 of the 15 models. Supporting the core took about 700
 lines of runtime code and 230 lines of generator changes; the views and reflection modules and immutable values
@@ -173,7 +189,8 @@ behavior.
 | OneToOneReassignmentTest (11), OneToManyReassignmentTest (13, 2026) | reference takeover | core R2 | `references.json` (6) |
 | ContainmentCycleTest (6, 2026) | cycle rejection | core C5 | `containment.json` (3) |
 | ReadOnlyExternalListTest (6, 2026) | live read-only lists | views | `views.json` (2) |
-| parentcontainment01 (2) | parent lookup through `@DelegateTo` | Java only (delegation) | none |
-| ToStringTest (3), ExternalTypesTest (2), StaticReflectionTest (1), PropertyTypeTest (3), CustomLoaderPropertyTest (1), ModelRegistryTest (2), GeneratedDispatchTest (4) | Java API | Java only | none |
+| parentcontainment01 (2), delegationinherit, vflow delegates | `@DelegateTo` methods and construction hooks | behavior | `behavior.json` (7) |
+| ExternalTypesTest (2), journalvalues, devcom, vmf-jackson external_types01 | enums, UUIDs, untyped values, host value types | externals | `externals.json` (14) |
+| ToStringTest (3), StaticReflectionTest (1), PropertyTypeTest (3), CustomLoaderPropertyTest (1), ModelRegistryTest (2), GeneratedDispatchTest (4) | Java API | Java only | none |
 | VMFGenerateRuns (25), VMFGeneratorTest (1), MemoryResourceSetTest (2), ImmutableContainmentValidationTest (1) | generator | generator tests | none |
 | observer failures, reentrancy, filtered listeners, transactions, journals, diff, list replay (about 140 tests, 2025 to 2026) | Java runtime details | not portable (see CONTRACT.md, unspecified) | none |

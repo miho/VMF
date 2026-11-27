@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Globalization;
+using System.Numerics;
 using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -22,7 +23,7 @@ public static class PortableRunner
 
     private static readonly HashSet<string> Capabilities = new(StringComparer.Ordinal)
     {
-        "core", "views", "events", "history", "reflection", "equality-modes", "json",
+        "core", "views", "events", "history", "reflection", "equality-modes", "json", "externals", "behavior",
     };
 
     /// <summary>Modules that do not apply to the language, with the reason.</summary>
@@ -270,7 +271,7 @@ internal sealed class Execution(string model)
         "new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual", "nativeEqual",
         "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf", "listen", "unlisten",
         "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write", "read", "calls",
-        "document",
+        "document", "call", "replaceBehavior",
     ];
 
     private static readonly Dictionary<string, ModelReflectionRegistry> Registries = new(StringComparer.Ordinal);
@@ -552,6 +553,12 @@ internal sealed class Execution(string model)
                 }
                 break;
             }
+            case "call":
+                Call(Json.Text(node["call"]), node);
+                break;
+            case "replaceBehavior":
+                ReplaceBehavior(Json.Text(node["replaceBehavior"]), Json.Text(node["with"]));
+                break;
             default:
                 throw new ScenarioFailure("unsupported operation " + operation);
         }
@@ -997,15 +1004,146 @@ internal sealed class Execution(string model)
 
     private object? Object(JsonNode? label) => label is null ? null : Resolve(Json.Text(label));
 
+    /// <summary>JSON forms of host values: external value types by their property names.</summary>
+    private static readonly JsonSerializerOptions HostJson = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        PropertyNameCaseInsensitive = true,
+    };
+
+    /// <summary>Calls a delegated method; the last arguments fill a params array. Checks "result" or "resultObj".</summary>
+    private void Call(string path, JsonObject node)
+    {
+        var (owner, name, _) = Owner(path);
+        if (owner is null)
+        {
+            throw new ScenarioFailure("null before " + name + " in " + path);
+        }
+        var args = node["args"]?.AsArray() ?? new JsonArray();
+        string member = char.ToUpperInvariant(name[0]) + name[1..];
+        MethodInfo method = owner.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .FirstOrDefault(candidate => candidate.Name == member && Accepts(candidate, args.Count))
+            ?? throw new ScenarioFailure(path + " is not a method that takes " + args.Count + " arguments");
+        var parameters = method.GetParameters();
+        var arguments = new object?[parameters.Length];
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            if (IsParams(parameters[i]))
+            {
+                Type element = parameters[i].ParameterType.GetElementType()!;
+                var rest = Array.CreateInstance(element, args.Count - i);
+                for (int j = i; j < args.Count; j++)
+                {
+                    rest.SetValue(ToClr(args[j], element), j - i);
+                }
+                arguments[i] = rest;
+            }
+            else
+            {
+                arguments[i] = ToClr(args[i], parameters[i].ParameterType);
+            }
+        }
+        object? result;
+        try
+        {
+            result = method.Invoke(owner, arguments);
+        }
+        catch (TargetInvocationException error) when (error.InnerException is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error.InnerException).Throw();
+            throw;
+        }
+        if (node.ContainsKey("result") && !SameScalar(result, node["result"]))
+        {
+            throw new ScenarioFailure(path + ": expected " + Json.Show(node["result"]) + ", returned " + Render(result));
+        }
+        if (node.ContainsKey("resultObj") && !ReferenceEquals(result, Object(node["resultObj"])))
+        {
+            throw new ScenarioFailure(path + ": expected " + Json.Show(node["resultObj"]) + ", returned " + Render(result));
+        }
+    }
+
+    private static bool IsParams(ParameterInfo parameter) => parameter.IsDefined(typeof(ParamArrayAttribute));
+
+    private static bool Accepts(MethodInfo method, int count)
+    {
+        var parameters = method.GetParameters();
+        return parameters.Length == count
+            || parameters.Length > 0 && IsParams(parameters[^1]) && count >= parameters.Length - 1;
+    }
+
+    /// <summary>Replaces the behavior of one object with a new instance of a host class in Vmf.Portable.Hosts.</summary>
+    private void ReplaceBehavior(string path, string name)
+    {
+        object target = Resolve(path) ?? throw new ScenarioFailure(path + " is null");
+        Type type = typeof(Execution).Assembly.GetType("Vmf.Portable.Hosts." + name)
+            ?? throw new ScenarioFailure("no host behavior Vmf.Portable.Hosts." + name);
+        object behavior = Activator.CreateInstance(type)!;
+        MethodInfo replace = target.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .FirstOrDefault(method => method.Name == "ReplaceBehavior" && method.GetParameters().Length == 1
+                && method.GetParameters()[0].ParameterType.IsInstanceOfType(behavior))
+            ?? throw new ScenarioFailure(name + " is not a behavior of " + target.GetType().Name);
+        try
+        {
+            replace.Invoke(target, [behavior]);
+        }
+        catch (TargetInvocationException error) when (error.InnerException is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error.InnerException).Throw();
+            throw;
+        }
+    }
+
+    /// <summary>An untyped Object value as C# reads it from a document: maps, lists, int, long, BigInteger, double.</summary>
+    private static object? ToUntyped(JsonNode? value)
+    {
+        switch (value)
+        {
+            case null:
+                return null;
+            case JsonObject map:
+                return map.ToDictionary(field => field.Key, field => ToUntyped(field.Value), StringComparer.Ordinal);
+            case JsonArray list:
+                return list.Select(ToUntyped).ToList();
+        }
+        var scalar = value.AsValue();
+        switch (scalar.GetValueKind())
+        {
+            case JsonValueKind.True:
+                return true;
+            case JsonValueKind.False:
+                return false;
+            case JsonValueKind.String:
+                return scalar.GetValue<string>();
+            case JsonValueKind.Number:
+                string text = scalar.ToJsonString();
+                if (text.AsSpan().IndexOfAny('.', 'E', 'e') >= 0) return double.Parse(text, CultureInfo.InvariantCulture);
+                if (int.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int small)) return small;
+                if (long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out long wide)) return wide;
+                return BigInteger.Parse(text, CultureInfo.InvariantCulture);
+            default:
+                throw new ScenarioFailure("cannot convert " + Json.Show(value));
+        }
+    }
+
     /// <summary>Converts a JSON value; <c>{"obj": label}</c> denotes a model object.</summary>
     private object? ToClr(JsonNode? value, Type type)
     {
+        Type host = Nullable.GetUnderlyingType(type) ?? type;
         switch (value)
         {
             case null:
                 return null;
             case JsonObject reference when reference.ContainsKey("obj"):
                 return Object(reference["obj"]);
+            case not null when host == typeof(object):
+                return ToUntyped(value);
+            case JsonValue name when host.IsEnum && name.GetValueKind() == JsonValueKind.String:
+                return Enum.Parse(host, name.GetValue<string>());
+            case JsonValue id when host == typeof(Guid) && id.GetValueKind() == JsonValueKind.String:
+                return Guid.Parse(id.GetValue<string>());
+            case JsonObject external when host != typeof(string) && !IsModelType(host):
+                return external.Deserialize(host, HostJson);
             case JsonValue scalar:
                 switch (scalar.GetValueKind())
                 {
@@ -1115,6 +1253,9 @@ internal sealed class Execution(string model)
         return true;
     }
 
+    private static bool IsModelType(Type type) =>
+        type.Namespace is { } ns && ns.StartsWith(PortableRunner.BaseNamespace, StringComparison.Ordinal);
+
     private static bool SameScalar(object? actual, JsonNode? expected)
     {
         if (expected is null || expected.GetValueKind() == JsonValueKind.Null)
@@ -1124,6 +1265,24 @@ internal sealed class Execution(string model)
         if (actual is null)
         {
             return false;
+        }
+        if (expected is JsonObject fields)
+        {
+            // An untyped map, or an external value in its document form.
+            return actual is IDictionary map
+                ? map.Count == fields.Count && fields.All(field => map.Contains(field.Key) && SameScalar(map[field.Key], field.Value))
+                : SameJson(JsonSerializer.SerializeToNode(actual, actual.GetType(), HostJson), expected);
+        }
+        if (actual is BigInteger big)
+        {
+            return expected.GetValueKind() == JsonValueKind.Number
+                && BigInteger.TryParse(expected.ToJsonString(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture,
+                    out var wanted) && big == wanted;
+        }
+        if (actual is Enum or Guid)
+        {
+            return expected.GetValueKind() == JsonValueKind.String
+                && (actual is Guid id ? id.ToString("D") : actual.ToString()) == expected.GetValue<string>();
         }
         switch (expected.GetValueKind())
         {
