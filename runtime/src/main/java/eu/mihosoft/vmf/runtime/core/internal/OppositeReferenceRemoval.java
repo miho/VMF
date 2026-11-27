@@ -24,6 +24,7 @@
 package eu.mihosoft.vmf.runtime.core.internal;
 
 import eu.mihosoft.vcollections.VList;
+import eu.mihosoft.vcollections.VListChangeEvent;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
 import java.util.IdentityHashMap;
@@ -49,6 +50,16 @@ public final class OppositeReferenceRemoval implements AutoCloseable {
         var removal = new OppositeReferenceRemoval(list, member, ACTIVE.get());
         ACTIVE.set(removal);
         return removal;
+    }
+
+    static boolean isCommittedSourceRemoval(VListChangeEvent<?> event) {
+        var removal = ACTIVE.get();
+        if (removal == null || event.source() != removal.list || !event.wasRemoved() || event.wasAdded()
+                || ChangeInternal.CHANGE_TYPE_CROSS_REF.equals(event.eventInfo())) return false;
+        for (var removed : event.removed().elements()) {
+            if (removed == removal.member) return true;
+        }
+        return false;
     }
 
     static void record(ListChangeImpl change, ChangesImpl history, long generation) {

@@ -27,7 +27,9 @@ interface Document {
     @Multiplicity(lower = 1, upper = 2) VMap<Integer, String> getLabels();
     @Range(min = "0.125", max = "42.5", maxInclusive = false) Double getRate();
     @Range(min = "2", max = "100") Byte getCount();
-    @Pattern(value = "\\A[a-z]+\\z", portable = false) String getJavaOnly();
+    @Pattern(value = "\\A[a-z]+\\z", portable = false)
+    @Annotation(key = "vmf:pattern:csharp", value = "\\A[a-z]+\\z")
+    String getJavaOnly();
     @Length(min = 1, max = 1) String getGlyph();
     @Pattern("^[A-Z]+$") String getAnchored();
 

@@ -17,11 +17,10 @@ apply plugin: 'signing'
 // Performs publishing
 // -----------------------------------------------------------------------------
 
-// this build lives in a sub directory of the git repository: without this, the
-// 'Build-Revision' manifest entry stays empty
-versioning {
-    gitRepoRootDir = rootProject.projectDir.parentFile.absolutePath
-}
+// Git resolves the repository revision from this subproject, including linked worktrees.
+def buildRevision = providers.exec {
+    commandLine 'git', 'rev-parse', 'HEAD'
+}.standardOutput.asText.map { it.trim() }
 
 Date buildTimeAndDate = new Date()
 ext {
@@ -36,7 +35,7 @@ jar {
                 'Created-By': System.properties['java.version'] + " (" + System.properties['java.vendor'] + " " + System.properties['java.vm.version'] + ")",
                 'Build-Date': project.buildDate,
                 'Build-Time': project.buildTime,
-                'Build-Revision': versioning.info.commit,
+                'Build-Revision': buildRevision.get(),
                 'Specification-Title': project.name,
                 'Specification-Version': project.version,
                 'Implementation-Title': project.name,

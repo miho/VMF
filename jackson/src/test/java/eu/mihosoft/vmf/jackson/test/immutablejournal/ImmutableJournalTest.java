@@ -94,7 +94,7 @@ class ImmutableJournalTest {
 
     @Test void allJournalFormatsPreserveIntroducedAndCheckpointIdentity() throws IOException {
         var journal = edit(checkpoint(false));
-        assertEquals(6, journal.wireVersion());
+        assertEquals(1, journal.wireVersion());
         for (VMFDocumentFormat format : VMFDocumentFormat.values()) {
             String bytes = VMFJournalCodec.write(journal, format);
             var restored = VMFJournalCodec.read(bytes, format);
@@ -153,9 +153,6 @@ class ImmutableJournalTest {
         collision.getBookmarks().add(note("1"));
         assertThrows(IllegalArgumentException.class, () -> JournalRecorder.start(collision, BINDING, "notebook-v1", 0));
         String encoded = VMFJournalCodec.write(journal);
-        var older = (com.fasterxml.jackson.databind.node.ObjectNode) new com.fasterxml.jackson.databind.ObjectMapper().readTree(encoded);
-        older.put("version", 5);
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(older.toString()));
         var wrongKind = VMFJournalCodec.read(encoded.replaceFirst("IMMUTABLE_REFERENCE", "REFERENCE"));
         assertThrows(IllegalArgumentException.class, () -> JournalReplayer.replay(checkpoint(true), BINDING, "notebook-v1", wrongKind));
     }

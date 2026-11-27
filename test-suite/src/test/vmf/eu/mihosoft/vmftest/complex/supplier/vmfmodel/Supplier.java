@@ -58,6 +58,7 @@ interface Customer {
 interface PurchaseOrder {
 
     String getComment();
+    @Annotation(key = "vmf:jackson:schema:inject", value = "\"type\": [\"integer\", \"null\"]")
     Date getDate();
     String getStatus();
 
@@ -85,6 +86,7 @@ interface Item {
     Integer getQuantity();
     Double getUSPrice();
     String getComment();
+    @Annotation(key = "vmf:jackson:schema:inject", value = "\"type\": [\"integer\", \"null\"]")
     Date getShipDate();
 
     String getPartNumber();

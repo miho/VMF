@@ -81,7 +81,7 @@ public class ExternalValueJournalTest {
             journal = recorder.finish();
         }
 
-        assertEquals(ChangeJournal.EXTERNAL_VALUES_VERSION, journal.wireVersion());
+        assertEquals(1, journal.wireVersion());
         assertEquals(2, journal.transactions().size());
         var first = journal.transactions().get(0).operations();
         assertEquals(List.of(Value.external(UUID_CODEC, SECOND.toString())), first.get(0).after());

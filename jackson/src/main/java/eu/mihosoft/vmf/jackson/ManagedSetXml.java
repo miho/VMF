@@ -27,7 +27,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.TextNode;
 
 import java.io.IOException;
 import java.util.LinkedHashSet;
@@ -65,10 +64,7 @@ final class ManagedSetXml {
     private static void readMember(JsonNode member, JavaType type, DeserializationContext context, Set<Object> result)
             throws IOException {
         if (!member.isObject() || member.size() != 1) throw new IOException("Expected a set member value");
-        String text = ManagedMapXml.text(member, "value");
-        Object decoded = type.hasRawClass(String.class) ? text : context.readTreeAsValue(TextNode.valueOf(text), type);
-        if (decoded == null || !text.equals(decoded.toString()) || !result.add(decoded)) {
-            throw new IOException("Invalid or duplicate set member");
-        }
+        Object decoded = ManagedMapXml.readScalarText(ManagedMapXml.text(member, "value"), type, context);
+        if (!result.add(decoded)) throw new IOException("Duplicate set member");
     }
 }

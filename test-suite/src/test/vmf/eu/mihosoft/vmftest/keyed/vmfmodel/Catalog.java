@@ -64,3 +64,8 @@ interface CodeSlot extends Slot<Code> {}
 }
 @InterfaceOnly interface UnkeyedInventory { Item[] getItems(); }
 interface Warehouse extends UnkeyedInventory, ExtraInventory, Inventory {}
+
+interface RecursiveKeyedNode {
+    String getKey();
+    @Contains @Keyed(by = "key") RecursiveKeyedNode[] getChildren();
+}

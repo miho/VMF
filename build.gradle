@@ -1,9 +1,14 @@
 plugins {
     id 'com.github.hierynomus.license' version '0.16.1'
     id 'maven-publish'
-    id 'net.nemerosa.versioning' version '3.0.0'
     id 'com.github.ben-manes.versions' version '0.44.0'
 }
+
+// The native Git client resolves HEAD in regular checkouts and linked worktrees.
+ext.buildRevision = providers.exec {
+    workingDir rootDir
+    commandLine 'git', 'rev-parse', 'HEAD'
+}.standardOutput.asText.map { it.trim() }
 
 wrapper {
 //    gradleVersion = '8.14.2'

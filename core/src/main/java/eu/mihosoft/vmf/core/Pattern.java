@@ -32,6 +32,8 @@ import java.lang.annotation.Target;
  * Requires a present String to contain a regex match. Portable patterns use a common Java and
  * JSON Schema subset of ASCII literals, positive character classes, grouping, alternation,
  * quantifiers, and anchors. Set portable to false for Java-specific expressions.
+ * A generator can use an explicit counterpart from an {@link Annotation} on the same declaration
+ * with a key such as {@code vmf:pattern:csharp}.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

@@ -53,6 +53,8 @@ final class SetChangeImpl implements Change {
     @Override public ChangeType getType() { return ChangeType.SET; }
     @Override public Optional<VSetChangeEvent<Object>> setChange() { return Optional.of(event); }
 
+    Object deliveryIdentity() { return event; }
+
     @Override
     public boolean isUndoable() {
         VSet<Object> current = event.source();

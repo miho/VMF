@@ -26,7 +26,6 @@ package eu.mihosoft.vmf.runtime.core;
 import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 
 import java.lang.reflect.InvocationTargetException;
-import eu.mihosoft.vmf.runtime.core.internal.TypeMetadataProvider;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.TypeVariable;
@@ -107,6 +106,16 @@ public final class Type {
 
     /** Returns the structured declaration of this type. */
     public TypeDescriptor getDescriptor() { return descriptor; }
+
+    /** Indicates a scalar whose Java type is an enum. */
+    public boolean isEnumType() {
+        return !listType && modelClass != null && modelClass.isEnum();
+    }
+
+    /** Returns the enum constants in declaration order, or an empty array for other types. */
+    public Object[] getEnumConstants() {
+        return isEnumType() ? modelClass.getEnumConstants() : new Object[0];
+    }
 
     /** Indicates whether the property is a managed VMF map. */
     public boolean isMapType() {
@@ -261,8 +270,8 @@ public final class Type {
 
 
     /**
-     * Returns the super types of this type. Note, this method only returns the super types if the type represented by
-     * this object is a model type.
+     * Returns the super types of this model type.
+     * Current generated models supply this metadata without constructing a model instance.
      * @return list of super types of this type if this is a model type; returns an empty list otherwise
      * (for non-model types, such as {@code java.lang.String} and list types, regardless of the element type)
      */
@@ -282,10 +291,7 @@ public final class Type {
                         parents.add(parentType(raw, resolveArgument(parent), parent));
                     }
                 } else {
-                    var prototype = (eu.mihosoft.vmf.runtime.core.internal.VObjectInternal) getPrototype();
-                    String[] declarations = prototype instanceof TypeMetadataProvider
-                            ? ((TypeMetadataProvider) prototype)._vmf_getGenericSuperTypeNames()
-                            : prototype._vmf_getSuperTypeNames();
+                    String[] declarations = ReflectImpl.readDeclaredSuperTypeNames(modelClass, this::getPrototype);
                     for (String declared : declarations) {
                         TypeDescriptor parent = TypeDescriptor.fromTypeName(declared);
                         try {

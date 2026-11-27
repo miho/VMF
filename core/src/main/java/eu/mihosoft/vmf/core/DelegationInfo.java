@@ -51,8 +51,11 @@ public class DelegationInfo {
     private final boolean constructor;
 
     private final String customDocumentation;
+    private final Class<?> sourceDeclaration;
+    private final Method sourceMethod;
 
-    private DelegationInfo(String fullTypeName, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor, String customDocumentation) {
+    private DelegationInfo(String fullTypeName, String methodName, String returnType, List<String> paramTypes, List<String> paramNames,
+                           boolean constructor, String customDocumentation, Class<?> sourceDeclaration, Method sourceMethod) {
         this.fullTypeName = fullTypeName;
         this.methodName = methodName;
         this.returnType = returnType;
@@ -68,6 +71,8 @@ public class DelegationInfo {
         this.constructor = constructor;
 
         this.customDocumentation = customDocumentation;
+        this.sourceDeclaration = sourceDeclaration;
+        this.sourceMethod = sourceMethod;
     }
 
     /**
@@ -88,7 +93,8 @@ public class DelegationInfo {
     }
 
     public static DelegationInfo newInstance(String className, String methodName, String returnType, List<String> paramTypes, List<String> paramNames, boolean constructor, String customDocumentation) {
-        return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames, constructor, customDocumentation);
+        return new DelegationInfo(className, methodName, returnType, paramTypes, paramNames, constructor, customDocumentation,
+                null, null);
     }
 
     public static DelegationInfo newInstance(Model model, Method m, DelegationInfo constructorDelegationInfo) {
@@ -121,11 +127,11 @@ public class DelegationInfo {
             customDocumentation = "";
         }
 
-        return newInstance(
+        return new DelegationInfo(
                 className,
                 m.getName(),
                 TypeUtil.getReturnTypeAsString(model,m),
-                paramTypes, paramNames, false, customDocumentation);
+                paramTypes, paramNames, false, customDocumentation, m.getDeclaringClass(), m);
     }
 
     public static DelegationInfo newInstance(Model model, Class<?> clazz) {
@@ -139,13 +145,19 @@ public class DelegationInfo {
         List<String> paramTypes = new ArrayList<>();
         List<String> paramNames = new ArrayList<>();
 
-        return newInstance(
+        return new DelegationInfo(
                 delegation.className(),
                 "on"+clazz.getSimpleName()+"Instantiated",
                 TypeUtil.getTypeAsString(model,clazz,false,false),
                 paramTypes, paramNames, true, 
-                "" /*constructors are not documented because there's no public API for them*/);
+                "" /*constructors are not documented because there's no public API for them*/, clazz, null);
     }
+
+    /** Source declaration used to resolve the type-level binding or method. */
+    public Class<?> getSourceDeclaration() { return sourceDeclaration; }
+
+    /** Source method, when this binding is attached to a method declaration. */
+    public Method getSourceMethod() { return sourceMethod; }
 
     public List<String> getParamTypes() {
         return paramTypes;

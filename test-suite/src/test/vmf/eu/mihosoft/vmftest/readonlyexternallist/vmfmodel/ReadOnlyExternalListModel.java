@@ -24,7 +24,14 @@
  */
 package eu.mihosoft.vmftest.readonlyexternallist.vmfmodel;
 
+import eu.mihosoft.vmf.core.Annotation;
 import eu.mihosoft.vmf.core.Contains;
+import eu.mihosoft.vmf.core.ExternalType;
+
+@ExternalType(pkgName = "java.lang")
+@Annotation(key = "vmf:csharp:external-type", value = "System.Text.StringBuilder")
+interface StringBuilder {
+}
 
 /**
  * Collection properties with external element types next to one with model

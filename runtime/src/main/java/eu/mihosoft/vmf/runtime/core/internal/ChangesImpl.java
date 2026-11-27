@@ -41,7 +41,9 @@ import java.lang.ref.WeakReference;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * Don't rely on this API. Seriously, <b>don't</b> rely on it!
@@ -72,12 +74,15 @@ public class ChangesImpl implements Changes {
     private final Set<VObjectInternal> observedObjects = Collections.newSetFromMap(new IdentityHashMap<>());
     private final Map<Object, Subscription> recursiveCollectionSubscriptions = new IdentityHashMap<>();
     private final Map<Object, Subscription> localCollectionSubscriptions = new IdentityHashMap<>();
+    private Set<Object> preparedMemberships;
 
     private final PropertyChangeListener objListener;
     private final PropertyChangeListener nonRecursiveObjListener;
 
     private boolean modelVersioningEnabled;
     private Subscription modelVersioningSubscription;
+    private Consumer<Change> journalCapture;
+    private Predicate<Change> journalPreparedDelivery;
 
     private boolean recording;
     private boolean recursiveObservationActive;
@@ -95,10 +100,68 @@ public class ChangesImpl implements Changes {
         return false;
     }
 
+    /** Registers the journal's internal capture before observers can make further changes. */
+    public static Subscription captureBeforeObservers(Changes changes, Consumer<Change> capture) {
+        return captureBeforeObservers(changes, capture, null);
+    }
+
+    /** Registers a journal capture and its eligibility check at the native recording relay. */
+    public static Subscription captureBeforeObservers(Changes changes, Consumer<Change> capture,
+                                                       Predicate<Change> preparedDelivery) {
+        if (!(changes instanceof ChangesImpl)) return () -> {};
+        var impl = (ChangesImpl) changes;
+        impl.journalCapture = capture;
+        impl.journalPreparedDelivery = preparedDelivery;
+        return () -> {
+            if (impl.journalCapture == capture) {
+                impl.journalCapture = null;
+                impl.journalPreparedDelivery = null;
+            }
+        };
+    }
+
+    /** Early and public deliveries may wrap one origin event in separate native changes. */
+    public static Object deliveryIdentity(Change change) {
+        if (change instanceof PropChangeImpl) return ((PropChangeImpl) change).deliveryIdentity();
+        if (change instanceof MapChangeImpl && MembershipPreparation.available()) return ((MapChangeImpl) change).deliveryIdentity();
+        if (change instanceof SetChangeImpl && MembershipPreparation.available()) return ((SetChangeImpl) change).deliveryIdentity();
+        return change instanceof ListChangeImpl ? ((ListChangeImpl) change).deliveryIdentity() : null;
+    }
+
     @SuppressWarnings({"deprecation"})
     public ChangesImpl() {
-        objListener = this::observePropertyChange;
+        objListener = new VMFPropertyChangeSupport.PreparingListener() {
+            @Override public void prepare(PropertyChangeEvent event) {
+                if (capturesProperty(event)) journalCapture.accept(ChangesImpl.this.propertyChange(event));
+            }
+            @Override public void propertyChange(PropertyChangeEvent event) { observePropertyChange(event); }
+        };
         nonRecursiveObjListener = evt -> firePropertyChange(evt, localPropertyNames, nonRecursiveChangeListeners);
+    }
+
+    private boolean capturesProperty(PropertyChangeEvent event) {
+        return recording && journalCapture != null && event.getSource() instanceof VObject
+                && requiresPreparedProperty(event);
+    }
+
+    private static boolean requiresPreparedProperty(PropertyChangeEvent event) {
+        if (ChangeInternal.CHANGE_TYPE_ORDINARY_PROPERTY.equals(propertyEventInfo(event))
+                || !(event.getOldValue() instanceof VObject) && !(event.getNewValue() instanceof VObject)) return true;
+        if (!(event.getSource() instanceof VObjectInternal)) return false;
+        var owner = (VObjectInternal) event.getSource();
+        return isContainmentProperty(owner, owner._vmf_getPropertyIdByName(event.getPropertyName()));
+    }
+
+    private static String propertyEventInfo(PropertyChangeEvent event) {
+        return event instanceof VMFPropertyChangeSupport.VMFPropertyChangeEvent
+                ? ((VMFPropertyChangeSupport.VMFPropertyChangeEvent) event).getEventInfo() : "";
+    }
+
+    private PropChangeImpl propertyChange(PropertyChangeEvent event) {
+        String info = propertyEventInfo(event);
+        if (ChangeInternal.CHANGE_TYPE_ORDINARY_PROPERTY.equals(info)) info = "";
+        return new PropChangeImpl((VObject) event.getSource(), event.getPropertyName(),
+                event.getOldValue(), event.getNewValue(), info, capturesProperty(event) ? event : null);
     }
 
     private void observePropertyChange(PropertyChangeEvent event) {
@@ -167,20 +230,37 @@ public class ChangesImpl implements Changes {
         String name = evt.getPropertyName();
         boolean firstDelivery = firstDelivery(evt.getSource(), evt);
         if (needsChange(propertyNames, name)) {
-            String info = evt instanceof VMFPropertyChangeSupport.VMFPropertyChangeEvent
-                    ? ((VMFPropertyChangeSupport.VMFPropertyChangeEvent) evt).getEventInfo() : "";
-            var change = new PropChangeImpl((VObject) evt.getSource(), name, evt.getOldValue(), evt.getNewValue(), info);
-            fireChange(change, firstDelivery && recording, listeners);
+            var change = propertyChange(evt);
+            // A newly opened journal checkpoint already includes properties assigned
+            // before this delivery began. Their live notifications may still reach this relay.
+            boolean record = firstDelivery && recording
+                    && (!requiresPreparedProperty(evt) || isJournalDelivery(change));
+            fireChange(change, record, listeners);
         }
+    }
+
+    private boolean isJournalDelivery(Change change) {
+        return journalPreparedDelivery == null || journalPreparedDelivery.test(change);
     }
 
     private void fireListChange(VObject object, String name, CollectionChangeEvent<Object, VList<Object>, VListChange<Object>> evt,
                                 Set<String> propertyNames, List<Registration> listeners, boolean referenceSet) {
         boolean firstDelivery = firstDelivery(object, evt);
         if (needsChange(propertyNames, name)) {
-            Change change = referenceSet ? new RefSetChangeImpl(object, name, evt) : new ListChangeImpl(object, name, evt);
-            fireChange(change, firstDelivery && recording, listeners);
+            var change = listChange(object, name, evt, referenceSet);
+            // A recorder opened during opposite delivery starts from the already committed list.
+            boolean record = firstDelivery && recording
+                    && (!(evt.source() instanceof ObservableModelList
+                        && ((ObservableModelList<?>) evt.source()).hasReciprocalCollectionOpposite())
+                        || isJournalDelivery(change));
+            fireChange(change, record, listeners);
         }
+    }
+
+    private static Change listChange(VObject object, String name,
+                                     CollectionChangeEvent<Object, VList<Object>, VListChange<Object>> event,
+                                     boolean referenceSet) {
+        return referenceSet ? new RefSetChangeImpl(object, name, event) : new ListChangeImpl(object, name, event);
     }
 
     private boolean firstDelivery(Object source, Object event) {
@@ -492,22 +572,32 @@ public class ChangesImpl implements Changes {
             String name = owner._vmf_getPropertyNames()[id];
             if (types[id] == VObjectInternal.VMF_TYPE_MAP) {
                 var map = (VMap<Object, Object>) owner._vmf_getPropertyValueById(id);
-                subscriptions.put(map, map.addChangeListener(event -> {
+                var preparation = recursive && MembershipPreparation.available() ? MembershipPreparation.observe(map, event -> {
+                    if (recording && journalCapture != null) journalCapture.accept(new MapChangeImpl(owner, name, event));
+                }) : Optional.<Subscription>empty();
+                var relay = map.addChangeListener(event -> {
                     boolean first = firstDelivery(owner, event);
                     if (needsChange(recursive ? recursivePropertyNames : localPropertyNames, name)) {
-                        fireChange(new MapChangeImpl(owner, name, event), first && recording,
+                        var change = new MapChangeImpl(owner, name, event);
+                        fireChange(change, recordsMembership(map, change, first),
                                 recursive ? changeListeners : nonRecursiveChangeListeners);
                     }
-                }));
+                });
+                subscriptions.put(map, prepareMembership(map, preparation, relay));
             } else if (types[id] == VObjectInternal.VMF_TYPE_SET) {
                 var set = (VSet<Object>) owner._vmf_getPropertyValueById(id);
-                subscriptions.put(set, set.addChangeListener(event -> {
+                var preparation = recursive && MembershipPreparation.available() ? MembershipPreparation.observe(set, event -> {
+                    if (recording && journalCapture != null) journalCapture.accept(new SetChangeImpl(owner, name, event));
+                }) : Optional.<Subscription>empty();
+                var relay = set.addChangeListener(event -> {
                     boolean first = firstDelivery(owner, event);
                     if (needsChange(recursive ? recursivePropertyNames : localPropertyNames, name)) {
-                        fireChange(new SetChangeImpl(owner, name, event), first && recording,
+                        var change = new SetChangeImpl(owner, name, event);
+                        fireChange(change, recordsMembership(set, change, first),
                                 recursive ? changeListeners : nonRecursiveChangeListeners);
                     }
-                }));
+                });
+                subscriptions.put(set, prepareMembership(set, preparation, relay));
             } else {
                 var list = (VList<Object>) owner._vmf_getPropertyValueById(id);
                 int propertyId = id;
@@ -515,7 +605,45 @@ public class ChangesImpl implements Changes {
                         (owner._vmf_isReadOnly() && owner._vmf_getPublicPropertyValueById(id) instanceof RefSet);
                 Subscription subscription;
                 if (recursive && isContainmentProperty(owner, id)) {
-                    subscription = list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event, referenceSet));
+                    var containment = ReferenceCollections.containment(list);
+                    if (!referenceSet && list instanceof ContainmentList) {
+                        subscription = ((ContainmentList<Object>) list).observe(
+                                event -> observeContainmentListChange(owner, propertyId, list, name, event, false),
+                                event -> {
+                                    if (recording && journalCapture != null) {
+                                        journalCapture.accept(new ListChangeImpl(owner, name, event));
+                                    }
+                                });
+                    } else if (list instanceof ObservableModelList && containment != null) {
+                        subscription = ((ObservableModelList<Object>) list).observe(
+                                event -> observeContainmentListChange(owner, propertyId, list, name, event, referenceSet),
+                                event -> {
+                                    // The owning set's relay runs after ownership repair. Its installed membership
+                                    // can already be removed by a nested public callback.
+                                    if (recording && journalCapture != null && (containment.keys != null
+                                            || !(owner._vmf_getPublicPropertyValueById(propertyId) instanceof OrderedRefSet)
+                                            || event.wasRemoved()
+                                            && ChangeInternal.CHANGE_TYPE_CONTAINMENT.equals(event.eventInfo()))) {
+                                        journalCapture.accept(listChange(owner, name, event, referenceSet));
+                                    }
+                                });
+                    } else {
+                        subscription = list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event, referenceSet));
+                    }
+                } else if (recursive && list instanceof ObservableModelList) {
+                    var observable = (ObservableModelList<Object>) list;
+                    boolean capturePositional = observable.isOrdinary() || observable.hasReciprocalCollectionOpposite()
+                            || !referenceSet && Arrays.stream(owner._vmf_getIndicesOfPropertiesWithModelElementTypes())
+                                    .noneMatch(index -> index == propertyId);
+                    subscription = observable.observe(
+                            event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners, referenceSet),
+                            event -> {
+                                if (recording && journalCapture != null
+                                        && (capturePositional && !ChangeInternal.CHANGE_TYPE_CROSS_REF.equals(event.eventInfo())
+                                            || OppositeReferenceRemoval.isCommittedSourceRemoval(event))) {
+                                    journalCapture.accept(listChange(owner, name, event, referenceSet));
+                                }
+                            });
                 } else if (recursive) {
                     subscription = list.addChangeListener(event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners, referenceSet));
                 } else {
@@ -524,6 +652,22 @@ public class ChangesImpl implements Changes {
                 subscriptions.put(list, subscription);
             }
         }
+    }
+
+    private boolean recordsMembership(Object collection, Change change, boolean first) {
+        return first && recording && (journalPreparedDelivery == null || preparedMemberships == null
+                || !preparedMemberships.contains(collection) || journalPreparedDelivery.test(change));
+    }
+
+    private Subscription prepareMembership(Object collection, Optional<Subscription> preparation, Subscription relay) {
+        if (preparation.isEmpty()) return relay;
+        if (preparedMemberships == null) preparedMemberships = Collections.newSetFromMap(new IdentityHashMap<>());
+        preparedMemberships.add(collection);
+        return () -> {
+            preparedMemberships.remove(collection);
+            preparation.get().unsubscribe();
+            relay.unsubscribe();
+        };
     }
 
     private void observeContainmentListChange(VObjectInternal owner, int propertyId, VList<Object> list, String name,

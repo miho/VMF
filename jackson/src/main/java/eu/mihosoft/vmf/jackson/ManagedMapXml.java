@@ -33,9 +33,12 @@ import java.nio.ByteBuffer;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /** Maps the fixed XML entry vocabulary onto a VMF scalar map. */
 final class ManagedMapXml {
+    private static final Pattern DECIMAL = Pattern.compile("-?(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?");
+
     private ManagedMapXml() {}
 
     static void write(Map<?, ?> entries, JsonGenerator generator) throws IOException {
@@ -90,9 +93,7 @@ final class ManagedMapXml {
                                   Map<Object, Object> result) throws IOException {
         if (!entry.isObject() || entry.size() != 2) throw new IOException("Expected a map key and value");
         String keyText = text(entry, "key");
-        Object key = mapType.getKeyType().hasRawClass(String.class) ? keyText :
-                context.readTreeAsValue(com.fasterxml.jackson.databind.node.TextNode.valueOf(keyText), mapType.getKeyType());
-        if (key == null || !keyText.equals(key.toString())) throw new IOException("Invalid managed map key");
+        Object key = readScalarText(keyText, mapType.getKeyType(), context);
         if (result.containsKey(key)) throw new IOException("Duplicate managed map key");
         JavaType valueType = mapType.getContentType();
         Object value;
@@ -117,11 +118,34 @@ final class ManagedMapXml {
                 if (!"true".equals(literal) && !"false".equals(literal)) throw new IOException("Expected a boolean map value");
                 value = Boolean.valueOf(literal);
             } else {
-                value = TypedMapEntries.xmlNumber(scalar.asText(), valueType, context);
+                value = isFloating(valueType) ? readFloating(scalar.asText(), valueType, context)
+                        : TypedMapEntries.xmlNumber(scalar.asText(), valueType, context);
             }
             if (value == null) throw new IOException("Expected an explicit null marker");
         }
         result.put(key, value);
+    }
+
+    static Object readScalarText(String text, JavaType type, DeserializationContext context) throws IOException {
+        if (type.hasRawClass(String.class)) return text;
+        if (isFloating(type)) return readFloating(text, type, context);
+        Object value = context.readTreeAsValue(com.fasterxml.jackson.databind.node.TextNode.valueOf(text), type);
+        if (value == null || !text.equals(value.toString())) throw new IOException("Invalid managed scalar value for " + type);
+        return value;
+    }
+
+    private static boolean isFloating(JavaType type) {
+        return type.hasRawClass(Float.class) || type.hasRawClass(Double.class);
+    }
+
+    private static Object readFloating(String text, JavaType type, DeserializationContext context) throws IOException {
+        // Float/Double.toString need not choose the same decimal across JVMs or language targets.
+        // Read at the declared precision and keep typed duplicate and range checks.
+        if (!"NaN".equals(text) && !"Infinity".equals(text) && !"-Infinity".equals(text)
+                && !DECIMAL.matcher(text).matches()) {
+            throw new IOException("Invalid floating-point value for " + type);
+        }
+        return TypedMapEntries.xmlNumber(text, type, context);
     }
 
     static String text(JsonNode entry, String field) throws IOException {

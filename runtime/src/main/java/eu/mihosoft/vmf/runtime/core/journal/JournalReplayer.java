@@ -27,8 +27,11 @@ import eu.mihosoft.vcollections.VList;
 import eu.mihosoft.vmf.runtime.core.Builder;
 import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.Property;
+import eu.mihosoft.vmf.runtime.core.internal.DeclaredClassNames;
 import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 import eu.mihosoft.vmf.runtime.core.VObject;
+import eu.mihosoft.vmf.runtime.core.internal.ContainmentList;
+import eu.mihosoft.vmf.runtime.core.internal.ObservableModelList;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Creation;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Frame;
 import eu.mihosoft.vmf.runtime.core.journal.ChangeJournal.Operation;
@@ -494,6 +497,7 @@ public final class JournalReplayer {
     private List<Object> applyList(VList<Object> list, Property property, Operation operation, List<Object> before, List<Object> after) {
         List<Object> expected = new ArrayList<>(list);
         List<Integer> positions = operation.indices();
+        boolean scalarOpposite = ObservableModelList.hasScalarReciprocalOpposite(list);
         switch (operation.kind()) {
             case LIST_ADD:
                 for (int i = 0; i < positions.size(); i++) {
@@ -501,9 +505,11 @@ public final class JournalReplayer {
                     require(index <= expected.size(), "List add index out of bounds");
                     expected.add(index, after.get(i));
                 }
-                if (property.getMultiplicity().isUnique()) {
+                if (property.getMultiplicity().isUnique() || scalarOpposite
+                        && normalizeReciprocalDuplicates(expected, after)) {
                     list.addAll(positions.stream().mapToInt(Integer::intValue).toArray(), after);
-                } else {
+                } else if (!(list instanceof ContainmentList) || !ContainmentList.insertRecordedAliases(
+                        list, positions.stream().mapToInt(Integer::intValue).toArray(), after)) {
                     for (int i = 0; i < positions.size(); i++) list.add(positions.get(i), after.get(i));
                 }
                 break;
@@ -522,16 +528,35 @@ public final class JournalReplayer {
                 int end = positions.get(positions.size() - 1) + 1;
                 if (end - first == positions.size()) {
                     list.setAll(first, after);
-                } else if (property.getMultiplicity().isUnique() || property.getKeyPropertyName().isPresent()) {
-                    // An in-place permutation can transiently duplicate a member/key if applied position by position.
+                } else if (scalarOpposite || property.getMultiplicity().isUnique() || property.getKeyPropertyName().isPresent()) {
+                    // Replacing positions separately can create a transient duplicate and normalize the wrong slot.
                     list.setAll(first, expected.subList(first, end));
                 } else {
                     for (int i = 0; i < positions.size(); i++) list.set(positions.get(i), after.get(i));
+                }
+                if (scalarOpposite && !ObservableModelList.permutesIdentities(before, after)) {
+                    normalizeReciprocalDuplicates(expected, after);
                 }
                 break;
             default: throw new IllegalArgumentException("Expected a list operation");
         }
         return expected;
+    }
+
+    private static boolean normalizeReciprocalDuplicates(List<Object> expected, List<Object> added) {
+        // A scalar inverse removes the first occurrence whenever an edit adds its existing identity.
+        var occurrences = new IdentityHashMap<Object, Integer>();
+        for (Object value : added) {
+            if (value != null) occurrences.put(value, 0);
+        }
+        if (occurrences.isEmpty()) return false;
+        expected.forEach(value -> occurrences.computeIfPresent(value, (key, count) -> count + 1));
+        return expected.removeIf(value -> {
+            Integer count = occurrences.get(value);
+            if (count == null || count <= 1) return false;
+            occurrences.put(value, count - 1);
+            return true;
+        });
     }
 
     private static void checkOldListValues(List<?> list, List<Integer> positions, List<Object> before) {
@@ -578,7 +603,7 @@ public final class JournalReplayer {
         Class<?> type = PRIMITIVES.get(typeName);
         if (type != null) return type;
         try {
-            return Class.forName(typeName, false, target.getClass().getClassLoader());
+            return DeclaredClassNames.load(typeName, target.getClass().getClassLoader());
         } catch (ClassNotFoundException ex) {
             throw new IllegalArgumentException("Cannot resolve property type " + typeName, ex);
         }

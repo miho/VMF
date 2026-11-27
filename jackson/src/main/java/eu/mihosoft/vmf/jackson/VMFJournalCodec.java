@@ -58,12 +58,13 @@ import java.util.TreeMap;
 import java.util.function.Function;
 
 /**
- * Reads and writes versioned portable {@link ChangeJournal} records in JSON, YAML, or XML.
+ * Reads and writes version 1 preview {@link ChangeJournal} records in JSON, YAML, or XML.
  *
  * <p>The envelope contains {@code format}, {@code version}, {@code model} with
  * an {@code id} and {@code version}, {@code root}, {@code base} with a
  * {@code checkpoint} and {@code sequence}, and a {@code transactions} array.
  * Each transaction contains its {@code sequence} and an ordered {@code operations} array.
+ * The envelope version is independent of the model version.
  *
  * <p>Each scalar or list operation contains {@code kind}, {@code target}, {@code property},
  * {@code indices}, {@code before}, {@code after}, and {@code created}. A creation
@@ -72,12 +73,12 @@ import java.util.function.Function;
  * uses {@code kind} and {@code text}. JSON and YAML use strings for every kind
  * except {@code NULL}, which requires null. Kind tags are the names of
  * the corresponding {@link Kind} and {@link ValueKind} constants. An
- * {@code EXTERNAL} value requires version 2 and adds a {@code codec} string
+ * {@code EXTERNAL} value adds a {@code codec} string
  * identifying the binding's value codec. This class preserves the codec ID
  * and text for replay. YAML uses the same maps and sequences as JSON. XML projects
  * the same records onto elements with explicit list wrappers.
  *
- * <p>Version 3 represents a managed map edit with {@code kind=MAP_EDIT}, {@code target},
+ * <p>A managed map edit contains {@code kind=MAP_EDIT}, {@code target},
  * {@code property}, {@code beforeEntries}, and {@code afterEntries}. Entry arrays hold a
  * string {@code key} and tagged scalar {@code value}. Creation records additionally
  * store each managed map as a named entry array in {@code mapProperties}.
@@ -126,7 +127,7 @@ public final class VMFJournalCodec {
     }
 
     /**
-     * Writes a journal as JSON using the wire version required by its values.
+     * Writes a version 1 journal as JSON.
      * @param journal journal to encode
      * @return the journal JSON
      * @throws IOException when writing fails
@@ -136,7 +137,7 @@ public final class VMFJournalCodec {
     }
 
     /**
-     * Writes a journal in the selected format using the wire version its values require.
+     * Writes a version 1 journal in the selected format.
      * @param journal journal to encode
      * @param format the document format
      * @return the journal document
@@ -150,7 +151,7 @@ public final class VMFJournalCodec {
     }
 
     /**
-     * Writes a journal in the selected format using the wire version its values require.
+     * Writes a version 1 journal in the selected format.
      * @param journal journal to encode
      * @param format the document format
      * @return the journal document
@@ -221,7 +222,7 @@ public final class VMFJournalCodec {
         String format = text(envelope.get("format"), "$.format");
         if (!ChangeJournal.FORMAT.equals(format)) throw invalid("$.format", "unsupported journal format " + format);
         int version = integer(envelope.get("version"), "$.version");
-        if (version < ChangeJournal.VERSION || version > ChangeJournal.IMMUTABLE_REFERENCES_VERSION) {
+        if (version != ChangeJournal.VERSION) {
             throw invalid("$.version", "unsupported journal version " + version);
         }
         fields(envelope, "$", ENVELOPE_FIELDS);
@@ -229,14 +230,10 @@ public final class VMFJournalCodec {
         ObjectNode model = object(envelope.get("model"), "$.model", MODEL_FIELDS);
         ObjectNode base = object(envelope.get("base"), "$.base", BASE_FIELDS);
         try {
-            ChangeJournal journal = new ChangeJournal(text(model.get("id"), "$.model.id"), integer(model.get("version"), "$.model.version"),
+            return new ChangeJournal(text(model.get("id"), "$.model.id"), integer(model.get("version"), "$.model.version"),
                     text(envelope.get("root"), "$.root"), text(base.get("checkpoint"), "$.base.checkpoint"),
                     longInteger(base.get("sequence"), "$.base.sequence"),
                     readArray(envelope.get("transactions"), "$.transactions", VMFJournalCodec::readFrame));
-            if (journal.wireVersion() > version) {
-                throw invalid("$.version", "records require journal version " + journal.wireVersion());
-            }
-            return journal;
         } catch (IllegalArgumentException | ArithmeticException exception) {
             throw invalid("$", exception);
         }

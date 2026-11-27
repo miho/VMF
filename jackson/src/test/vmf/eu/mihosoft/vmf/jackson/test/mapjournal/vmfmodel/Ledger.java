@@ -25,6 +25,7 @@ package eu.mihosoft.vmf.jackson.test.mapjournal.vmfmodel;
 
 import eu.mihosoft.vcollections.VMap;
 import eu.mihosoft.vmf.core.Contains;
+import eu.mihosoft.vmf.core.Annotation;
 import eu.mihosoft.vmf.core.DefaultValue;
 
 import java.util.Map;
@@ -41,5 +42,6 @@ interface Labels {
     VMap<String, Character> getCharacters();
     VMap<String, Double> getNumbers();
     @DefaultValue("new java.util.LinkedHashMap<>()")
+    @Annotation(key = "vmf:csharp:bind-default", value = "true")
     Map<String, String> getExternal();
 }

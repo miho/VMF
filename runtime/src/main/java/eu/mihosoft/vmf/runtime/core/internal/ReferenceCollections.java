@@ -172,6 +172,10 @@ public final class ReferenceCollections {
             check(this);
         }
 
+        @Override boolean isOrdinary() {
+            return storage instanceof ObservableModelList && ((ObservableModelList<?>) storage).isOrdinary();
+        }
+
         @Override void checkElement(E value) {
             super.checkElement(value);
             requireWritableTarget(value);

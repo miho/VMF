@@ -5,15 +5,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import eu.mihosoft.vmf.runtime.core.*;
+import eu.mihosoft.vmf.runtime.core.internal.DeclaredClassNames;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static eu.mihosoft.vmf.jackson.VMFTypeUtils.getBuilderClass;
@@ -77,7 +82,7 @@ public class VMFJsonSchemaGenerator {
 
         Class<?> load(String name) {
             try {
-                return Class.forName(name, false, loader);
+                return DeclaredClassNames.load(name, loader);
             } catch (ClassNotFoundException ex) {
                 throw new IllegalArgumentException("Cannot resolve model property type " + name, ex);
             }
@@ -198,6 +203,15 @@ public class VMFJsonSchemaGenerator {
     }
 
     /**
+     * Registers aliases declared with the VMF annotation key {@code vmf:wire:type}.
+     * @param modelType a generated concrete type from the model
+     * @return this schema generator
+     */
+    public VMFJsonSchemaGenerator withModelWireTypeAliases(Class<? extends VObject> modelType) {
+        return withTypeAliases(VMFTypeUtils.modelWireTypeAliases(modelType, typeAliases));
+    }
+
+    /**
      * Adds a Draft-07 assertion to the wire schema for an exact VMF type. Each contribution
      * is conjoined with the generated schema in both the root and matching definitions.
      * Use serialized property names in the assertion.
@@ -259,9 +273,25 @@ public class VMFJsonSchemaGenerator {
 
         // capture the full type list up-front so polymorphic properties can resolve their
         // concrete subtypes even when the declared element type is @InterfaceOnly.
-        SchemaTypes types = new SchemaTypes(modelClass.getClassLoader(), type.reflect().allTypes());
+        var declarations = type.isInterfaceOnly() ? VMFTypeUtils.interfaceOnlyModelRegistry(modelClass).allTypes()
+                : type.reflect().allTypes();
+        SchemaTypes types = new SchemaTypes(modelClass.getClassLoader(), declarations);
 
-        addObjectSchema(schema, modelClass, type, types);
+        var subtypes = types.concreteSubtypes(type);
+        if (type.isInterfaceOnly() && subtypes.isEmpty()) {
+            schema.put("not", Map.of());
+        } else if (!type.isInterfaceOnly() && subtypes.isEmpty()) {
+            addObjectSchema(schema, modelClass, type, types);
+        } else {
+            // An untagged document still constructs the declared concrete root.
+            List<Map<String, Object>> alternatives = new ArrayList<>();
+            if (!type.isInterfaceOnly()) alternatives.add(polymorphicOption(type, false));
+            for (Type subtype : subtypes) {
+                alternatives.add(polymorphicOption(subtype, true));
+            }
+            schema.put("type", "object");
+            schema.put("oneOf", alternatives);
+        }
         schema.put("definitions", generateDefinitionsForModelRoot(types));
         return schema;
     }
@@ -359,8 +389,10 @@ public class VMFJsonSchemaGenerator {
             String element = property.getType().getDescriptor().getArguments().get(0).getName();
             propertySchema.put("type", "array");
             propertySchema.put("items", scalarItemSchema(element, false));
+        } else if (isUuid(type)) {
+            propertySchema.putAll(uuidSchema(bounds.getLower() == 0));
         } else if (isValueType(property.getType())) {
-            propertySchema.put("type", mapValueType(property.getType()));
+            propertySchema.put("type", scalarType(property));
         } else if (property.getType().isModelType() && !property.getType().isListType() && !property.getType().isReferenceSetType()) {
             // Handle polymorphic types
             Type elementType = property.getType();
@@ -371,7 +403,7 @@ public class VMFJsonSchemaGenerator {
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
                 propertySchema.put("oneOf", typesToChooseFrom.stream()
-                        .map(subType -> polymorphicOption(getTypeAlias(subType))).toArray());
+                        .map(subType -> polymorphicOption(subType, subType != elementType)).toArray());
             } else {
                 var typeAlias = getTypeAlias(property.getType());
                 propertySchema.put("$ref", "#/definitions/" + typeAlias);
@@ -384,19 +416,24 @@ public class VMFJsonSchemaGenerator {
             Type elementType = VMFTypeUtils.forClass(types.load(property.getType().getElementTypeName().get()));
 
             var typesToChooseFrom = types.concreteSubtypes(elementType);
-            if (isValueType(elementType)) {
+            if (isUuid(elementType)) {
+                itemsSchema.putAll(uuidSchema(true));
+            } else if (isValueType(elementType)) {
                 itemsSchema.put("type", mapValueType(elementType));
+            } else if (elementType.isEnumType()) {
+                itemsSchema.put("type", "string");
+                itemsSchema.put("enum", elementType.getEnumConstants());
             } else if (!typesToChooseFrom.isEmpty()) {
                 typesToChooseFrom.add(elementType);
                 typesToChooseFrom.removeIf(Type::isInterfaceOnly);
 
                 itemsSchema.put("oneOf", typesToChooseFrom.stream()
-                        .map(subType -> polymorphicOption(getTypeAlias(subType))).toArray());
+                        .map(subType -> polymorphicOption(subType, subType != elementType)).toArray());
             } else {
                 var typeAlias = getTypeAlias(elementType);
                 itemsSchema.put("$ref", "#/definitions/" + typeAlias);
             }
-            propertySchema.put("items", itemsSchema);
+            propertySchema.put("items", elementType.isEnumType() ? allowingNullItem(itemsSchema) : itemsSchema);
         } else if (VMFTypeUtils.isEnum(property.getType())) {
             propertySchema.put("type", "string");
             propertySchema.put("enum", VMFTypeUtils.getEnumConstants(property.getType()));
@@ -451,6 +488,15 @@ public class VMFJsonSchemaGenerator {
         Type type = property.getType();
         return type.isModelType() && type.isListType() && !type.isReferenceSetType()
                 && property.getKeyPropertyName().isEmpty();
+    }
+
+    private static boolean isUuid(Type type) {
+        return UUID.class.getName().equals(type.getName());
+    }
+
+    private static Map<String, Object> uuidSchema(boolean nullable) {
+        return Map.of("type", nullable ? List.of("string", "null") : "string", "format", "uuid",
+                "pattern", "^[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}(?![\\s\\S])");
     }
 
     private static Map<String, ?> allowingNullItem(Object item) {
@@ -528,7 +574,7 @@ public class VMFJsonSchemaGenerator {
                 pattern.getSchemaPattern().ifPresent(value -> assertion.put("pattern", value));
             }
             if (!assertion.isEmpty()) {
-                assertion.put("type", mapValueType(property.getType()));
+                assertion.put("type", scalarType(property));
                 addAssertion(schema, assertion);
             }
         }
@@ -607,10 +653,10 @@ public class VMFJsonSchemaGenerator {
         List<Type> subtypes = types.concreteSubtypes(declaredType);
         if (Immutable.class.isAssignableFrom(types.load(declaredType.getName())) && !declaredType.isInterfaceOnly()) {
             String name = getTypeAlias(declaredType);
-            options.add(subtypes.isEmpty() ? Map.of("$ref", "#/definitions/" + name) : polymorphicOption(name));
+            options.add(subtypes.isEmpty() ? Map.of("$ref", "#/definitions/" + name) : polymorphicOption(declaredType, false));
         }
         for (Type subtype : subtypes) {
-            if (Immutable.class.isAssignableFrom(types.load(subtype.getName()))) options.add(polymorphicOption(getTypeAlias(subtype)));
+            if (Immutable.class.isAssignableFrom(types.load(subtype.getName()))) options.add(polymorphicOption(subtype, true));
         }
         return options.size() == 1 ? new LinkedHashMap<>(options.get(0)) : Map.of("oneOf", options);
     }
@@ -631,6 +677,16 @@ public class VMFJsonSchemaGenerator {
         if (isBoolean(type)) return "boolean";
         if (isDouble(type) || isFloat(type)) return "number";
         return "string";
+    }
+
+    private static Object scalarType(Property property) {
+        var type = property.getType();
+        String wireType = mapValueType(type);
+        // Known java.lang value types are boxed (or String). An explicit null can clear a default.
+        if (property.getMultiplicity().getLower() == 0 && isValueType(type) && type.getName().startsWith("java.lang.")) {
+            return List.of(wireType, "null");
+        }
+        return wireType;
     }
 
     /**
@@ -685,24 +741,34 @@ public class VMFJsonSchemaGenerator {
     /**
      * Builds a single {@code oneOf} option for a polymorphic property: a reference to the
      * subtype definition combined via {@code allOf} with a required {@code @vmf-type}
-     * discriminator fixed to the subtype's alias.
+     * discriminator selected from the type names the reader accepts.
      *
      * <p>The discriminator must be combined via {@code allOf} rather than placed as a sibling
      * of {@code $ref}: under JSON Schema draft-07 any keyword next to {@code $ref} is ignored,
      * so a sibling discriminator would be silently dropped by validators. This is what
      * previously made "options about extending types" not work in the generated schema.</p>
      *
-     * @param typeAlias the alias (or fully qualified name) of the subtype
+     * @param type the declared or concrete model type for this option
+     * @param requiresDiscriminator whether the reader needs an explicit type name
      * @return the schema fragment describing this polymorphic choice
      */
-    private Map<String, Object> polymorphicOption(String typeAlias) {
+    private Map<String, Object> polymorphicOption(Type type, boolean requiresDiscriminator) {
+        String typeName = type.getName();
+        String typeAlias = getTypeAlias(type);
+        var allowedNames = new LinkedHashSet<String>();
+        if (typeName.equals(typeAliases.getOrDefault(typeAlias, typeAlias))) allowedNames.add(typeAlias);
+        if (typeName.equals(typeAliases.getOrDefault(typeName, typeName))) allowedNames.add(typeName);
+        typeAliases.entrySet().stream().filter(entry -> typeName.equals(entry.getValue()))
+                .map(Map.Entry::getKey).sorted().forEach(allowedNames::add);
+
         Map<String, Object> ref = new LinkedHashMap<>();
-        ref.put("$ref", "#/definitions/" + typeAlias);
+        String pointerToken = typeAlias.replace("~", "~0").replace("/", "~1");
+        ref.put("$ref", "#/definitions/" + URLEncoder.encode(pointerToken, StandardCharsets.UTF_8).replace("+", "%20"));
 
         Map<String, Object> discriminator = new LinkedHashMap<>();
         discriminator.put("properties", Map.of("@vmf-type",
-                Map.of("type", "string", "enum", List.of(typeAlias), "readOnly", true)));
-        discriminator.put("required", new String[]{"@vmf-type"});
+                Map.of("type", "string", "enum", List.copyOf(allowedNames), "readOnly", true)));
+        if (requiresDiscriminator) discriminator.put("required", new String[]{"@vmf-type"});
 
         Map<String, Object> option = new LinkedHashMap<>();
         option.put("title", typeAlias);

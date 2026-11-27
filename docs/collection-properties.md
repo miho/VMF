@@ -49,6 +49,24 @@ Listen to the owning model's changes and use `change.referenceSetChange()` for m
 
 Jackson writes owned targets inline. The default mapper also reads and writes inline immutable values, including an array of objects for a unique immutable relationship. Each inline occurrence creates a separate instance. Use `withReferences(true)` when two ends must point to the same target after loading. A mutable target belongs in the saved containment tree. A shared immutable target can be defined inline and referenced elsewhere by its document ID. [Jackson reference format](../jackson/README.md)
 
+## Match objects in an ordinary list
+
+Lookup and single-value removal use model equality and select the first matching
+slot. A generated read-only view resolves to its backing object for lookup and
+removal. If two entries compare equal, removing via the second entry's view can
+remove the first. The edit reports the stored object and its position, and any
+inverse update applies to that object. Moving an owned child between lists uses
+the identity of the child being moved.
+
+Bulk filtering on ordinary scalar, reference, and owning lists compares each
+stored value to the candidates. In C#, `RemoveAll` and `RetainAll` take a
+sequence of candidates. Scalar matching distinguishes positive and negative
+zero and treats all NaN encodings as equal. The operation publishes one removal
+with the original slot indices. An owning list detaches a child when its final
+occurrence is removed. Native undo restores noncontiguous entries in contiguous runs.
+When restoring a repeated owning identity, it restores the slots in one
+positional edit and attaches the child once.
+
 ## Choose a map representation
 
 Use a direct `VMap` for scalar data. For a qualified association such as `Catalog[sku] → Item`, declare a keyed list. The generated lookup returns an `Optional`. The list owns the item once, its key may be edited, and duplicates are checked before mutation. For a model-object key, the lookup compares object identity and recognizes a read-only view of the same object.

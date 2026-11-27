@@ -87,3 +87,7 @@ interface ElementMultipleOpposites {
     @Container() // multiple opposites (unknown at compile-time)
     ContainerMultipleOpposites getParent();
 }
+
+interface CycleSlotNode {
+    @Contains CycleSlotNode getChild();
+}

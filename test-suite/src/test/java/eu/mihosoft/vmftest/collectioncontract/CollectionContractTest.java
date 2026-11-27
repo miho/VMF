@@ -3,6 +3,7 @@ package eu.mihosoft.vmftest.collectioncontract;
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.VIterator;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -10,6 +11,34 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class CollectionContractTest {
+    @Test public void boundedOrdinaryBuilderTransfersSlotsAndValidatesOnlyActualMembers() {
+        var first = Item.newBuilder().withName("first").build();
+        var next = Item.newBuilder().withName("next").build();
+        var source = Catalog.newBuilder().withItems(Arrays.asList(first, null, next)).build();
+        var staged = Catalog.newBuilder().applyFrom(source);
+        assertSame(source, first.getCatalog());
+        assertSame(source, next.getCatalog());
+        assertEquals(3, source.getItems().size());
+
+        var target = Catalog.newInstance();
+        var items = target.getItems();
+        staged.appendCollections(false).applyTo(target);
+        assertSame(items, target.getItems());
+        assertEquals(3, items.size());
+        assertSame(first, items.get(0));
+        assertNull(items.get(1));
+        assertSame(next, items.get(2));
+        assertSame(target, first.getCatalog());
+        assertSame(target, next.getCatalog());
+        assertEquals(1, source.getItems().size());
+        assertNull(source.getItems().get(0));
+        assertTrue(target.vmf().content().validate().isValid());
+
+        Catalog.newBuilder().withItems(Item.newBuilder().withName("extra").build()).applyTo(target);
+        assertEquals(4, items.size());
+        assertEquals("/items", target.vmf().content().validate().getIssues().get(0).getPath());
+    }
+
     @Test public void undoOfARemovalRespectsMembersAddedSinceTheChange() {
         Catalog catalog = Catalog.newInstance();
         var map = catalog.getLabels();
@@ -124,6 +153,61 @@ public class CollectionContractTest {
         assertNull(catalog.getItems().get(1));
         assertSame(last, iterator.next());
         assertFalse(iterator.hasNext());
+    }
+
+    @Test public void iteratorRejectsReorderingAnOwnedIdentityBeforeItMutatesTheList() {
+        var catalog = Catalog.newInstance();
+        var first = Item.newBuilder().withName("same").build();
+        var second = Item.newBuilder().withName("second").build();
+        var last = Item.newBuilder().withName("last").build();
+        catalog.getItems().addAll(java.util.Arrays.asList(first, second, null, last));
+        var iterator = cursorAtSecond(catalog, first, second);
+
+        var changes = new ArrayList<Change>();
+        var listener = catalog.vmf().changes().addLocalListener(changes::add);
+        try {
+            assertThrows(IllegalArgumentException.class, () -> iterator.add(first));
+            assertSame(first, catalog.getItems().get(0));
+            assertSame(second, catalog.getItems().get(1));
+            assertNull(catalog.getItems().get(2));
+            assertSame(last, catalog.getItems().get(3));
+            assertTrue(changes.isEmpty());
+            assertSame(catalog, first.getCatalog());
+
+            var fresh = Item.newBuilder().withName("same").build();
+            assertEquals(first, fresh);
+            assertNotSame(first, fresh);
+            iterator.add(fresh);
+            assertSame(fresh, catalog.getItems().get(2));
+            assertSame(catalog, fresh.getCatalog());
+            assertSame(last, iterator.next());
+            assertFalse(iterator.hasNext());
+
+            var other = Catalog.newInstance();
+            var transfer = Item.newBuilder().withName("transfer").build();
+            other.getItems().add(transfer);
+            var transferCursor = cursorAtSecond(catalog, first, second);
+            transferCursor.add(transfer);
+            assertTrue(other.getItems().isEmpty());
+            assertSame(catalog, transfer.getCatalog());
+            assertSame(transfer, catalog.getItems().get(2));
+            assertSame(fresh, transferCursor.next());
+            assertSame(last, transferCursor.next());
+            assertFalse(transferCursor.hasNext());
+        } finally {
+            listener.unsubscribe();
+        }
+    }
+
+    private static VIterator cursorAtSecond(Catalog catalog, Item first, Item second) {
+        var iterator = catalog.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        assertSame(catalog, iterator.next());
+        assertSame(first, iterator.next());
+        assertSame(second, iterator.next());
+        assertTrue(iterator.hasNext());
+        assertTrue(iterator.hasNext());
+        assertTrue(iterator.isAddSupported());
+        return iterator;
     }
 
     @Test public void nativeSetChangesHaveMembershipSemanticsAndReadOnlySources() {

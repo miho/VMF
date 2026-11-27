@@ -23,6 +23,7 @@
  */
 package eu.mihosoft.vmftest.journalvalues.vmfmodel;
 
+import eu.mihosoft.vmf.core.Annotation;
 import eu.mihosoft.vmf.core.ExternalType;
 
 @ExternalType(pkgName = "java.util")
@@ -30,7 +31,13 @@ interface UUID {
 }
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.journalvalues")
+@Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmftest.Journalvalues.DocumentRevision")
 interface DocumentRevision {
+}
+
+@ExternalType(pkgName = "java.lang")
+@Annotation(key = "vmf:csharp:external-type", value = "System.Text.StringBuilder")
+interface StringBuilder {
 }
 
 interface ArchiveEntry {

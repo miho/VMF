@@ -43,9 +43,15 @@
   private ${type.typeName}.Behavior __vmf_dynamicBehavior;
 #end
 
+#set($tracksContainmentSlots = false)
 #foreach( $prop in ${type.implementation.properties})
+#set($singularContainment = $prop.propType != "COLLECTION" && !$prop.container && $prop.contained && !$prop.crossRefProperty)
   // --- PROP '$prop.typeName'
-#if($prop.propType == "COLLECTION" && $prop.hasUniqueReferenceOpposite())
+#if(!$type.immutable && $singularContainment)
+#set($tracksContainmentSlots = true)
+  private long __vmf_containment_revision_${prop.name};
+#end
+#if($prop.propType == "COLLECTION" && ($prop.hasUniqueReferenceOpposite() || $prop.hasOrdinaryReferenceListOpposite()))
   private long __vmf_reference_revision_${prop.name};
 #end
 #if($prop.referenceSet)
@@ -83,6 +89,16 @@
   @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {
     ${VMFPKG}.internal.ReferenceCollections.copy(__vmf_get_prop_${prop.name}(), obj, false);
   }
+#elseif($singularContainment)
+#if($prop.isInheritedProp())
+  @Override public void __vmf_set_prop_${prop.name}(${prop.inheritedProp.typeName} obj) {
+#else
+  @Override public void __vmf_set_prop_${prop.name}($prop.typeName obj) {
+#end
+    if (this.__vmf_prop_${prop.name} == obj) return;
+    this.__vmf_prop_${prop.name} = ($prop.typeName) obj;
+    this.__vmf_containment_revision_${prop.name}++;
+  }
 #elseif(${prop.isInheritedProp()})## if   inheritedprop
   //  -> prop is inherited from: '${prop.inheritedProp.parent.typeName}.${prop.inheritedProp.name}'
   //  -> we have to stick to the parent method signature and do the necessary casting in the setter impl, see (*1*) 
@@ -105,4 +121,17 @@
   };
 #end## collection
 #end## is not immutable  
+#end
+
+#if($tracksContainmentSlots)
+  @Override public long _vmf_getContainmentSlotRevision(int propertyId) {
+    switch (propertyId) {
+#foreach($prop in $type.implementation.properties)
+#if($prop.propType != "COLLECTION" && !$prop.container && $prop.contained && !$prop.crossRefProperty)
+      case $foreach.index: return __vmf_containment_revision_${prop.name};
+#end
+#end
+      default: return 0;
+    }
+  }
 #end

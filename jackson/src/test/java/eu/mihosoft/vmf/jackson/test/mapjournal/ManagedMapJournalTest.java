@@ -82,7 +82,7 @@ class ManagedMapJournalTest {
             root.getCounts().putAll(mixed);
             root.getCounts().remove("remove");
         });
-        assertEquals(ChangeJournal.MAPS_VERSION, journal.wireVersion());
+        assertEquals(1, journal.wireVersion());
         var operations = journal.transactions().get(0).operations();
         assertEquals(2, operations.size());
         var bulk = operations.get(0);
@@ -115,7 +115,7 @@ class ManagedMapJournalTest {
             child.getCounts().put("initial", 1);
             root.getChildren().add(child);
         });
-        assertEquals(3, journal.wireVersion());
+        assertEquals(1, journal.wireVersion());
         var creation = journal.transactions().get(0).operations().get(0).created().get(0);
         assertEquals(Map.of("counts", Map.of("initial", new Value(ValueKind.INT, "1"))), creation.mapProperties());
         for (VMFDocumentFormat format : VMFDocumentFormat.values()) {
@@ -169,16 +169,15 @@ class ManagedMapJournalTest {
                 xml.replace(entry, entry + entry),
                 xml.replace("<key>1</key>", "<key null=\"true\"/>"),
                 xml.replace("<key>1</key>", "<key><key>1</key></key>"),
-                xml.replace("<version>3</version>", "<version>2</version>"),
                 xml.replace("<key>1</key>", "<key>1</key><key>2</key>"))) {
             assertThrows(IOException.class, () -> VMFJournalCodec.read(malformed, VMFDocumentFormat.XML));
         }
     }
 
     @Test
-    void readsVersionThreeGoldenDocument() throws IOException {
+    void readsVersionOneMapFixture() throws IOException {
         String json;
-        try (var input = getClass().getResourceAsStream("map-edit-v3.json")) {
+        try (var input = getClass().getResourceAsStream("map-edit-v1.json")) {
             assertNotNull(input);
             json = new String(input.readAllBytes(), StandardCharsets.UTF_8);
         }
@@ -193,16 +192,13 @@ class ManagedMapJournalTest {
     }
 
     @Test
-    void rejectsDuplicateKeysUnsupportedPayloadsAndDowngradedVersions() throws IOException {
+    void rejectsDuplicateKeysAndUnsupportedPayloads() throws IOException {
         var op = Operation.mapEdit("root", "counts", Map.of(), Map.of("1", new Value(ValueKind.INT, "2")));
         ObjectNode document = (ObjectNode) new ObjectMapper().readTree(VMFJournalCodec.write(journal(op)));
         var operations = (ArrayNode) document.at("/transactions/0/operations");
         var entries = (ArrayNode) operations.get(0).get("afterEntries");
         var entry = (ObjectNode) entries.get(0);
 
-        document.put("version", 2);
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(document.toString()));
-        document.put("version", 3);
         entries.add(entry.deepCopy());
         assertThrows(IOException.class, () -> VMFJournalCodec.read(document.toString()));
         entries.remove(1);

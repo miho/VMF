@@ -346,6 +346,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
         new java.util.ArrayList<$genericCollArg>( (${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}())
       )
       );
+#if((${p.type} || ${p.genericType}) && !$p.managedValues && !$p.mapType)
+      this.__vmf_prop__builder_${prop.name} = null;
+#end
     } else {
       java.util.List<$genericCollArg> merged = new java.util.ArrayList<>(this.__vmf_prop_${prop.name});
       merged.addAll((${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}());
@@ -353,6 +356,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
     }
     #else## if property is collection
     this.__vmf_prop_${prop.name} = (${p.typeName}) o.${prop.getterPrefix}${prop.nameWithUpperCase}();
+#if((${p.type} || ${p.genericType}) && !$p.managedValues && !$p.mapType)
+    this.__vmf_prop__builder_${prop.name} = null;
+#end
     #end## if property is collection
     ###end## if type is immutable or property is no collection
 #end## foreach property
@@ -385,6 +391,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
               new java.util.ArrayList<$genericCollArg>(o.${prop.getterPrefix}${prop.nameWithUpperCase}())
           )
         );
+#if(${prop.type} || ${prop.genericType})
+        this.__vmf_prop__builder_${prop.name} = null;
+#end
       } else {
         java.util.List<$genericCollArg> merged = new java.util.ArrayList<>(this.__vmf_prop_${prop.name});
         merged.addAll(o.${prop.getterPrefix}${prop.nameWithUpperCase}());
@@ -392,6 +401,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
       }
 #else## if property is collection
       this.__vmf_prop_${prop.name} = o.${prop.getterPrefix}${prop.nameWithUpperCase}();
+#if(${prop.type} || ${prop.genericType})
+      this.__vmf_prop__builder_${prop.name} = null;
+#end
 #end## if property is collection
 ###end## if type is immutable or property is no collection
 #end## foreach property
@@ -402,6 +414,11 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
 #if(!$type.immutable)
   public Builder applyTo(${type.typeName} o) {
 
+#foreach($prop in ${type.implementation.properties})
+#if($prop.propType == "COLLECTION" && $prop.contained && !$prop.referenceSet && !$prop.keyed)
+      ${VMFPKG}.internal.ContainmentList.validateOrdinaryBuilderChildren(o, this.__vmf_prop_${prop.name});
+#end
+#end
 #foreach( $prop in ${type.implementation.properties} )
 #if($prop.managedValues)
       ${VMFPKG}.internal.ManagedValues.copy(o.${prop.getterPrefix}${prop.nameWithUpperCase}(), this.__vmf_prop_${prop.name}, this.appendCollections);
@@ -416,6 +433,9 @@ public static class Builder${VMF_IMPL_CLASS_EXT} implements ${type.typeName}.Bui
           this.__vmf_prop_${prop.name} == null ? java.util.List.of() : this.__vmf_prop_${prop.name}, this.appendCollections);
 #elseif($prop.propType == "COLLECTION")
       if(!this.appendCollections) {
+#if($prop.contained)
+        ${VMFPKG}.internal.ContainmentList.validateOrdinaryBuilderChildren(o, this.__vmf_prop_${prop.name});
+#end
         o.${prop.getterPrefix}${prop.nameWithUpperCase}().clear();
       }
       if (this.__vmf_prop_${prop.name} != null) {

@@ -24,6 +24,7 @@
 package eu.mihosoft.vmf.runtime.core;
 
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
+import eu.mihosoft.vmf.runtime.core.internal.DeclaredClassNames;
 import eu.mihosoft.vmf.runtime.core.internal.TypeMetadataProvider;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternalModifiable;
 import vjavax.observer.Subscription;
@@ -69,24 +70,24 @@ public final class Property {
         Class<?> modelClass = parent.getClass();
         ClassLoader loader = modelClass.getClassLoader();
         // An application-provided loader may attach behavior to loadClass().
-        // Keep the original calls for those loaders and for security checks.
+        // Leave those lookups uncached, including when a security manager is installed.
         if (name == null || loader == null || loader.getClass().getModule() != Object.class.getModule()
                 || System.getSecurityManager() != null) {
-            return loader.loadClass(name);
+            return DeclaredClassNames.load(name, loader);
         }
         ClassLoader systemLoader;
         try {
             systemLoader = ClassLoader.getSystemClassLoader();
         } catch (IllegalStateException | SecurityException unavailable) {
             // A custom system loader can use its built-in parent during its own construction.
-            return loader.loadClass(name);
+            return DeclaredClassNames.load(name, loader);
         }
-        if (loader != systemLoader) return loader.loadClass(name);
+        if (loader != systemLoader) return DeclaredClassNames.load(name, loader);
 
         var classes = LOADED_PROPERTY_CLASSES.get(modelClass);
         Class<?> cached = classes.get(name);
         if (cached != null) return cached;
-        Class<?> resolved = loader.loadClass(name);
+        Class<?> resolved = DeclaredClassNames.load(name, loader);
         synchronized (classes) {
             if (classes.size() < CLASS_CACHE_LIMIT) classes.putIfAbsent(name, resolved);
         }

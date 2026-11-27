@@ -53,6 +53,8 @@ import eu.mihosoft.vmf.runtime.core.Immutable;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Transaction;
 import eu.mihosoft.vmf.runtime.core.VObject;
+import eu.mihosoft.vmf.runtime.core.internal.ChangesImpl;
+import eu.mihosoft.vmf.runtime.core.internal.ContainmentList;
 import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 import vjavax.observer.Subscription;
 
@@ -81,11 +83,11 @@ public final class JournalRecorder implements AutoCloseable {
     private final long baseSequence;
     private final String rootId;
     private final Changes changes;
-    private final List<Subscription> subscriptions = new ArrayList<>(2);
+    private final List<Subscription> subscriptions = new ArrayList<>(3);
     private final Map<String, VObject> known;
     private final Map<VObject, String> identities = new IdentityHashMap<>();
     private final List<Change> captured = new ArrayList<>();
-    private final List<Operation> operations = new ArrayList<>();
+    private final JournalEditCapture editCapture = new JournalEditCapture(identities::containsKey, this::capture);
     private final List<List<Change>> published = new ArrayList<>();
     private final List<Frame> frames = new ArrayList<>();
     private int nextChange;
@@ -176,6 +178,14 @@ public final class JournalRecorder implements AutoCloseable {
         this.verifier = new JournalReplayer(binding, known, workspace.snapshot(replayRoot, binding), workspace);
         try {
             changes.start();
+            subscriptions.add(ChangesImpl.captureBeforeObservers(changes, change -> {
+                if (failure != null) return;
+                try {
+                    editCapture.reserveCommittedEdit(change);
+                } catch (RuntimeException ex) {
+                    failure = ex;
+                }
+            }, change -> failure != null || editCapture.preparedDelivery(change)));
             subscriptions.add(changes.all().addChangeListener(event -> {
                 if (failure != null) return;
                 if (event.wasRemoved()) {
@@ -184,9 +194,8 @@ public final class JournalRecorder implements AutoCloseable {
                 }
                 for (Change change : event.added().elements()) {
                     try {
-                        Operation operation = capture(change);
+                        editCapture.finishNativeDelivery(change);
                         captured.add(change);
-                        operations.add(operation);
                     } catch (RuntimeException ex) {
                         // Propagating through the native listener can interrupt bookkeeping for the edit.
                         failure = ex;
@@ -221,14 +230,14 @@ public final class JournalRecorder implements AutoCloseable {
         }
     }
 
-    private Operation capture(Change change) {
+    private List<Operation> capture(Change change) {
         VObject object = change.object();
         String name = change.propertyName();
         // The unnamed generated opposite can appear in the native stream despite having no property ID.
-        if (JournalSupport.isContainer(object, name)) return null;
+        if (JournalSupport.isContainer(object, name)) return List.of();
         var propertyChange = change.propertyChange();
         var listChange = change.listChange();
-        if (listChange.isPresent() && !listChange.get().wasAdded() && !listChange.get().wasRemoved()) return null;
+        if (listChange.isPresent() && !listChange.get().wasAdded() && !listChange.get().wasRemoved()) return List.of();
         if (!identities.containsKey(object)) {
             throw new IllegalArgumentException("Change target was not introduced before its first edit");
         }
@@ -236,27 +245,27 @@ public final class JournalRecorder implements AutoCloseable {
         String target = reference(object, created);
         String property = propertyKey(object, name);
         if (propertyChange.isPresent()) {
-            return new Operation(Kind.SET, target, property, List.of(),
+            return List.of(new Operation(Kind.SET, target, property, List.of(),
                     List.of(freeze(propertyChange.get().oldValue(), created)),
-                    List.of(freeze(propertyChange.get().newValue(), created)), created);
+                    List.of(freeze(propertyChange.get().newValue(), created)), created));
         }
 
         var mapChange = change.mapChange();
         if (mapChange.isPresent()) {
             var event = mapChange.get();
-            if (!event.wasAdded() && !event.wasRemoved()) return null;
+            if (!event.wasAdded() && !event.wasRemoved()) return List.of();
             if (!stringKeys(JournalSupport.property(object, property, binding))) {
-                return Operation.typedMapEdit(target, property, freezeTypedEntries(event.removed().entries()),
-                        freezeTypedEntries(event.added().entries()));
+                return List.of(Operation.typedMapEdit(target, property, freezeTypedEntries(event.removed().entries()),
+                        freezeTypedEntries(event.added().entries())));
             }
-            return Operation.mapEdit(target, property, freezeEntries(event.removed().entries()),
-                    freezeEntries(event.added().entries()));
+            return List.of(Operation.mapEdit(target, property, freezeEntries(event.removed().entries()),
+                    freezeEntries(event.added().entries())));
         }
 
         var setChange = change.setChange();
         if (setChange.isPresent()) {
             var event = setChange.get();
-            return Operation.setEdit(target, property, freezeMembers(event.removed()), freezeMembers(event.added()));
+            return List.of(Operation.setEdit(target, property, freezeMembers(event.removed()), freezeMembers(event.added())));
         }
 
         if (change.getType() == Change.ChangeType.REFERENCE_SET) {
@@ -264,11 +273,11 @@ public final class JournalRecorder implements AutoCloseable {
             List<Value> before = new ArrayList<>(), after = new ArrayList<>();
             for (VObject member : edit.removed()) before.add(freeze(member, created));
             for (VObject member : edit.added()) after.add(freeze(member, created));
-            if (before.isEmpty() && after.isEmpty()) return null;
+            if (before.isEmpty() && after.isEmpty()) return List.of();
             Kind kind = Kind.REF_SET_EDIT;
             if (!edit.indices().isEmpty())
                 kind = before.isEmpty() ? Kind.LIST_ADD : after.isEmpty() ? Kind.LIST_REMOVE : Kind.LIST_SET;
-            return new Operation(kind, target, property, edit.indices(), before, after, created);
+            return List.of(new Operation(kind, target, property, edit.indices(), before, after, created));
         }
         var event = listChange.orElseThrow();
         Map<Integer, Value> before = indexed(event.removed(), created);
@@ -277,10 +286,17 @@ public final class JournalRecorder implements AutoCloseable {
         if (before.isEmpty()) kind = Kind.LIST_ADD;
         else if (after.isEmpty()) kind = Kind.LIST_REMOVE;
         else if (!before.keySet().equals(after.keySet())) {
-            throw new IllegalArgumentException("List replacement has different before and after indices");
+            if (!ContainmentList.isRangeChange(event)) {
+                throw new IllegalArgumentException("List replacement has different before and after indices");
+            }
+            // V1 represents an unequal replacement as adjacent removal and addition in one frame.
+            return List.of(new Operation(Kind.LIST_REMOVE, target, property, List.copyOf(before.keySet()),
+                            List.copyOf(before.values()), List.of(), List.of()),
+                    new Operation(Kind.LIST_ADD, target, property, List.copyOf(after.keySet()),
+                            List.of(), List.copyOf(after.values()), created));
         }
-        return new Operation(kind, target, property, List.copyOf((before.isEmpty() ? after : before).keySet()),
-                List.copyOf(before.values()), List.copyOf(after.values()), created);
+        return List.of(new Operation(kind, target, property, List.copyOf((before.isEmpty() ? after : before).keySet()),
+                List.copyOf(before.values()), List.copyOf(after.values()), created));
     }
 
     private Map<Integer, Value> indexed(VListChange<Object> part, List<Creation> created) {
@@ -347,6 +363,8 @@ public final class JournalRecorder implements AutoCloseable {
             if (!previous.equals(id)) throw new IllegalArgumentException("Object ID changed during recording: " + previous);
             return id;
         }
+        // A later edit can refer to the ID without freezing the earlier initialization.
+        if (editCapture.reservedByEarlierIntroduction(object)) return id;
         if (!(object instanceof Immutable)) JournalSupport.mutable(object);
         if (known.putIfAbsent(id, object) != null) throw new IllegalArgumentException("Duplicate object ID: " + id);
         verifier.excludeLiveInstance(object);
@@ -455,6 +473,7 @@ public final class JournalRecorder implements AutoCloseable {
 
     private void requireHealthyRecording() {
         if (failure != null) throw new IllegalStateException("Portable journal recording failed", failure);
+        if (editCapture.hasPendingEdit()) throw new IllegalStateException("A journaled edit is still pending in native history");
     }
 
     private void verifyKnownObjects(JournalSupport.GraphIndex liveIndex) {
@@ -499,6 +518,7 @@ public final class JournalRecorder implements AutoCloseable {
     }
 
     private void captureBoundary(Transaction transaction) {
+        if (editCapture.hasPendingEdit()) throw new IllegalStateException("A journaled edit is still pending in native history");
         List<Change> group = transaction.changes();
         int end = captured.size();
         int start = end - group.size();
@@ -543,10 +563,7 @@ public final class JournalRecorder implements AutoCloseable {
     }
 
     private void appendFrame(int from, int to) {
-        List<Operation> edits = new ArrayList<>();
-        for (Operation operation : operations.subList(from, to)) {
-            if (operation != null) edits.add(operation);
-        }
+        var edits = editCapture.operationsForFrame(from, to);
         if (edits.isEmpty()) return;
         Frame frame = new Frame(Math.addExact(baseSequence, frames.size() + 1L), edits);
         verifier.applyFrame(frame, replayRoot);
@@ -578,6 +595,7 @@ public final class JournalRecorder implements AutoCloseable {
             }
         } finally {
             subscriptions.forEach(Subscription::unsubscribe);
+            editCapture.discardReservations();
         }
     }
 }

@@ -114,7 +114,7 @@ class CollectionPersistenceTest {
             entry.getBits().put(7, false);
             catalog.getPriority().add("high");
         });
-        assertEquals(4, journal.wireVersion());
+        assertEquals(1, journal.wireVersion());
         var operations = journal.transactions().get(0).operations();
         assertTrue(operations.stream().anyMatch(op -> op.kind() == ChangeJournal.Kind.SET_EDIT));
         assertTrue(operations.stream().anyMatch(op -> op.kind() == ChangeJournal.Kind.TYPED_MAP_EDIT));
@@ -178,7 +178,7 @@ class CollectionPersistenceTest {
         }
     }
 
-    @Test void rejectsWrongVersionDuplicateKeysAndStaleMembershipPreconditions() throws IOException {
+    @Test void rejectsDuplicateKeysAndStaleMembershipPreconditions() throws IOException {
         Catalog working = Catalog.newBuilder().withId("catalog").build();
         var journal = JournalRecorder.recordFrame(working, BINDING, "base", 0, catalog -> {
             catalog.getRatings().put(1.5, null);
@@ -186,9 +186,6 @@ class CollectionPersistenceTest {
         });
         var mapper = new ObjectMapper();
         var envelope = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(VMFJournalCodec.write(journal));
-        envelope.put("version", 3);
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
-        envelope.put("version", 4);
         var entries = (com.fasterxml.jackson.databind.node.ArrayNode) envelope.at("/transactions/0/operations/0/afterEntries");
         entries.add(entries.get(0).deepCopy());
         assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
@@ -290,7 +287,7 @@ class CollectionPersistenceTest {
             var created = ReferenceGroup.newBuilder().withId("new-group").withItems(newItem).withSelected(newItem).build();
             shelf.getGroups().add(created);
         });
-        assertEquals(ChangeJournal.REFERENCE_SETS_VERSION, journal.wireVersion());
+        assertEquals(1, journal.wireVersion());
         for (var format : VMFDocumentFormat.values()) {
             var decoded = VMFJournalCodec.read(VMFJournalCodec.write(journal, format), format);
             var result = JournalReplayer.replay(checkpoint, BINDING, "base", decoded);
@@ -307,10 +304,6 @@ class CollectionPersistenceTest {
         assertTrue(membership.created().isEmpty());
         assertThrows(IllegalArgumentException.class, () -> new ChangeJournal.Operation(ChangeJournal.Kind.REF_SET_EDIT,
                 "group", "selected", List.of(), List.of(), java.util.Collections.nCopies(2, membership.before().get(0)), List.of()));
-        var json = new ObjectMapper();
-        var envelope = (com.fasterxml.jackson.databind.node.ObjectNode) json.readTree(VMFJournalCodec.write(journal));
-        envelope.put("version", ChangeJournal.COLLECTIONS_VERSION);
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(json.writeValueAsString(envelope)));
     }
 
     @Test void identityReferencesUseIdSchemaAndRequireAReachableTarget() throws IOException {

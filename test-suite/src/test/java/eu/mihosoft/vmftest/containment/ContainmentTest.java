@@ -27,7 +27,14 @@ package eu.mihosoft.vmftest.containment;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.Matchers.isIn;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Test;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 
 public class ContainmentTest {
@@ -38,6 +45,62 @@ public class ContainmentTest {
         ContainerOne ca = ContainerOne.newBuilder().withElement1(Element.newInstance()).build();
         Element e = ca.getElement1();
         assertThat(e.getParentOne(), equalTo(ca));
+    }
+
+    @Test
+    public void importStagesTheOriginalSingularChildForConstructionOnly() {
+        var source = ContainerOne.newInstance();
+        var target = ContainerOne.newInstance();
+        var incoming = Element.newInstance();
+        var retained = Element.newInstance();
+        source.setElement1(incoming);
+        target.setElement1(retained);
+        var sourceSlot = source.vmf().reflect().propertyByName("element1").orElseThrow();
+        var targetSlot = target.vmf().reflect().propertyByName("element1").orElseThrow();
+        var edits = new ArrayList<String>();
+        source.vmf().changes().addListener(change -> {
+            if ("element1".equals(change.propertyName())) edits.add("source");
+        });
+        target.vmf().changes().addListener(change -> {
+            if ("element1".equals(change.propertyName())) edits.add("target");
+        });
+
+        var staged = ContainerOne.newBuilder().appendCollections(false).applyFrom(source);
+        staged.applyTo(source).applyTo(target);
+        assertTrue(edits.isEmpty());
+        assertSame(incoming, source.getElement1());
+        assertSame(retained, target.getElement1());
+        assertSame(source, incoming.getParentOne());
+        assertSame(target, retained.getParentOne());
+        assertNull(sourceSlot.getDefault());
+        assertTrue(sourceSlot.isSet());
+        assertTrue(targetSlot.isSet());
+
+        var built = staged.build();
+        assertSame(incoming, built.getElement1());
+        assertSame(built, incoming.getParentOne());
+        assertNull(source.getElement1());
+        assertFalse(sourceSlot.isSet());
+        assertTrue(targetSlot.isSet());
+        assertThat(edits, equalTo(List.of("source")));
+    }
+
+    @Test
+    public void applyingASingularSlotStageCannotIntroduceACycle() {
+        var root = CycleSlotNode.newInstance();
+        var branch = CycleSlotNode.newInstance();
+        var leaf = CycleSlotNode.newInstance();
+        root.setChild(branch);
+        branch.setChild(leaf);
+        var edits = new ArrayList<String>();
+        branch.vmf().changes().addListener(change -> edits.add(change.propertyName()));
+
+        CycleSlotNode.newBuilder().withChild(root).applyTo(branch);
+        assertThrows(IllegalArgumentException.class, () -> branch.setChild(root));
+
+        assertTrue(edits.isEmpty());
+        assertSame(branch, root.getChild());
+        assertSame(leaf, branch.getChild());
     }
 
     @Test

@@ -267,13 +267,15 @@ public class EqualsTest {
         // that is, with identical properties we expect equality
         // even though we are comparing two different objects
         {
+            AReference ref = AReference.newBuilder().withName("shared").build();
             EqualsTestModelAllEq model1 = EqualsTestModelAllEq.
                     newBuilder().withName("my name1").
-                    withValue(3).build();
+                    withValue(3).withReference(ref).build();
 
             EqualsTestModelAllEq model2 = EqualsTestModelAllEq.newInstance();
             EqualsTestModelAllEq.newBuilder().applyFrom(model1).applyTo(model2);
 
+            Assert.assertSame(ref, model2.getReference());
             Assert.assertEquals(model1, model2);
         }
 

@@ -3,6 +3,7 @@ package eu.mihosoft.vmf.jackson.test.type_formats01.vmfmodel;
 import eu.mihosoft.vmf.core.*;
 
 @ExternalType(pkgName = "eu.mihosoft.vmf.jackson.test.type_formats01")
+@Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmf.Jackson.Test.Type_formats01.PetType")
 interface PetType {
 }
 
@@ -15,6 +16,8 @@ interface FormatModel01 {
 
 interface Pet {
     @DefaultValue("eu.mihosoft.vmf.jackson.test.type_formats01.PetType.UNKNOWN")
+    @Annotation(key = "vmf:csharp:bind-default", value = "true")
+    @Annotation(key = "vmf:jackson:schema:constraint", value = "default=UNKNOWN")
     PetType getType();
     String getName();
     int getAge();

@@ -113,10 +113,14 @@ public class Prop {
     private Contains uniqueContainment;
     private Refers uniqueReference;
     private String constrainedElementType;
-    private List<String> constraintExpressions = List.of();
+    private ConstraintDeclarations.Result constraints = ConstraintDeclarations.Result.EMPTY;
 
     public List<String> getConstraintExpressions() {
-        return constraintExpressions;
+        return constraints.javaExpressions;
+    }
+
+    public List<PropertyConstraint> getConstraints() {
+        return constraints.declarations;
     }
 
     private static final String VMAP_NAME = "eu.mihosoft.vcollections.VMap";
@@ -187,6 +191,7 @@ public class Prop {
         this.uniqueContainment = other.uniqueContainment;
         this.uniqueReference = other.uniqueReference;
         this.constrainedElementType = other.constrainedElementType;
+        this.constraints = other.constraints;
         this.mapValueTypeName = other.mapValueTypeName;
         this.nestedBinaryName = other.nestedBinaryName;
         this.getterOnly = other.getterOnly;
@@ -203,7 +208,7 @@ public class Prop {
         copy.initGenericRelationship(owner);
         copy.valueClass = copy.resolveValueClass(owner);
         copy.initMultiplicity(getterMethod, owner);
-        copy.constraintExpressions = ConstraintDeclarations.expressions(owner, getterMethod, copy.valueClass);
+        copy.constraints = ConstraintDeclarations.resolve(owner, getterMethod, copy.valueClass);
         if (copy.isMapType()) copy.setMapTypes(owner);
         else if (copy.genericParameter != null) copy.setParameterType(owner);
         if ((copy.isKeyed() && !isKeyed()) || !Objects.equals(copy.genericRelationship, genericRelationship)) {
@@ -478,7 +483,7 @@ public class Prop {
         valueClass = resolveValueClass(parent);
         initGenericRelationship(parent);
         initMultiplicity(getterMethod, parent);
-        constraintExpressions = ConstraintDeclarations.expressions(parent, getterMethod, valueClass);
+        constraints = ConstraintDeclarations.resolve(parent, getterMethod, valueClass);
         if (isManagedValues()) {
             // initMultiplicity resolves the element and generated collection kind together.
         } else if (genericParameter != null) {
@@ -1095,6 +1100,12 @@ public class Prop {
         return isCrossRefProperty() && (referenceSet || getReferenceInfo().getOpposite().isReferenceSet());
     }
 
+    public boolean hasOrdinaryReferenceListOpposite() {
+        if (propType != PropType.COLLECTION || !isCrossRefProperty() || hasUniqueReferenceOpposite()) return false;
+        var opposite = getReferenceInfo().getOpposite();
+        return opposite.getPropType() == PropType.COLLECTION && opposite.getParent() != parent;
+    }
+
     public String getReferenceCollectionFactory() { return ordered ? "ordered" : "unordered"; }
 
     public String getReferenceCollectionClass() {
@@ -1273,6 +1284,13 @@ public class Prop {
         return getPropType() == PropType.COLLECTION;
     }
 
+    /** Whether the property has a known non-model value type and carries a single value. */
+    public boolean isScalarValue() {
+        return propType == PropType.PRIMITIVE || (propType == PropType.CLASS && valueClass != null
+                && !parent.getModel().declares(valueClass) && !Collection.class.isAssignableFrom(valueClass)
+                && !Map.class.isAssignableFrom(valueClass));
+    }
+
     public String getElementTypeName() {
         if (!isCollectionType()) return null;
         return genericPackageName.isEmpty() ? genericTypeName : genericPackageName + "." + genericTypeName;
@@ -1328,6 +1346,11 @@ public class Prop {
 
     public String getDefaultValueAsString() {
         return this.defaultValueAsString == null || this.defaultValueAsString.isEmpty() ? "null" : this.defaultValueAsString;
+    }
+
+    /** Whether the getter explicitly declares a default, including the Java null sentinel. */
+    public boolean hasDeclaredDefaultValue() {
+        return getterMethod.isAnnotationPresent(DefaultValue.class);
     }
 
     public void setDefaultValueAsString(String defaultValueAsString) {

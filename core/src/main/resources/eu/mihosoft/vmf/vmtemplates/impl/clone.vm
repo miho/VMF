@@ -65,7 +65,13 @@
           // TODO do a bulk operation instead
           ${VMFPKG_INT}.VObjectInternal eClone = e == null ? null :
               (${VMFPKG_INT}.VObjectInternal)(($prop.genericType.typeName)((VCloneableInternal)e)._vmf_deepCopy(identityMap));
+#if($prop.crossRefProperty && !$prop.contained && ${prop.referenceInfo.opposite.propType} == "COLLECTION")
+          // Each reciprocal collection copies its own members and positions.
+          this.get${prop.nameWithUpperCase}();
+          ${VMFPKG_INT}.ObservableModelList.addCrossReference(this.__vmf_get_prop_${prop.name}(), ($prop.genericType.typeName)eClone);
+#else
           this.get${prop.nameWithUpperCase}().add(($prop.genericType.typeName)eClone);
+#end
         }
 #else ## if prop genericType
         // element type is an external type (TODO implement cloning strategy)

@@ -26,15 +26,73 @@ package eu.mihosoft.vmftest.staticreflection;
 
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.Type;
+import eu.mihosoft.vmf.runtime.core.Change;
+import eu.mihosoft.vmf.runtime.core.diff.ModelDiff;
 
 import org.junit.Assert;
 import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class StaticReflectionTest {
+    @Test
+    public void crossConcreteDiffPreservesSourceOnlyPropertiesAndImportedAliases() {
+        var source = TypeC.newBuilder().withName("retained").withPropA1(17).withPropB1(2.5).build();
+        var incoming = TypeC.newBuilder().withName("imported").withPropA2("reference").build();
+        incoming.setProp(incoming);
+        var desired = TypeB.newBuilder().withPropB1(25).withProp(incoming).withPropB2(incoming).build();
+
+        var changes = ModelDiff.diff(source, desired.asReadOnly());
+        Assert.assertEquals(Set.of("prop", "propB1", "propB2"),
+                changes.stream().map(Change::propertyName).collect(Collectors.toSet()));
+        Assert.assertNull(source.getProp());
+        Assert.assertThrows(IllegalArgumentException.class, () -> ModelDiff.apply(source.clone(), changes));
+        ModelDiff.apply(source, changes);
+        Assert.assertEquals("retained", source.getName());
+        Assert.assertEquals(17, source.getPropA1());
+        Assert.assertEquals(25, source.getPropB1(), 0.0);
+        var copied = source.getProp();
+        Assert.assertNotSame(incoming, copied);
+        Assert.assertSame(copied, source.getPropB2());
+        Assert.assertSame(copied, copied.getProp());
+        Assert.assertEquals("imported", copied.getName());
+        Assert.assertEquals("reference", copied.getPropA2());
+
+        desired.setPropB2(null);
+        var clearing = ModelDiff.diff(source, desired);
+        Assert.assertEquals(List.of("propB2"), clearing.stream().map(Change::propertyName).collect(Collectors.toList()));
+        ModelDiff.apply(source, clearing);
+        Assert.assertNull(source.getPropB2());
+        Assert.assertSame(copied, source.getProp());
+        clearing.get(0).undo();
+        Assert.assertSame(copied, source.getPropB2());
+        for (int i = changes.size() - 1; i >= 0; i--) changes.get(i).undo();
+        Assert.assertEquals(2.5, source.getPropB1(), 0.0);
+        Assert.assertNull(source.getProp());
+        Assert.assertNull(source.getPropB2());
+        Assert.assertSame(incoming, incoming.getProp());
+    }
+
+    @Test
+    public void crossConcreteDiffUpdatesTheExistingDetachedSingularTarget() {
+        var existing = TypeA.newBuilder().withPropA2("before").build();
+        var incoming = TypeA.newBuilder().withPropA2("after").build();
+        var source = TypeC.newBuilder().withPropB2(existing).build();
+        var desired = TypeB.newBuilder().withPropB2(incoming).build();
+        var changes = ModelDiff.diff(source, desired);
+        Assert.assertEquals(1, changes.size());
+        Assert.assertSame(existing, changes.get(0).object());
+        Assert.assertEquals("propA2", changes.get(0).propertyName());
+        ModelDiff.apply(source, changes);
+        Assert.assertSame(existing, source.getPropB2());
+        Assert.assertEquals("after", existing.getPropA2());
+        changes.get(0).undo();
+        Assert.assertEquals("before", existing.getPropA2());
+    }
+
     @Test
     public void staticReflectionTest() {
         int propSize = Root.type().reflect().properties().size();

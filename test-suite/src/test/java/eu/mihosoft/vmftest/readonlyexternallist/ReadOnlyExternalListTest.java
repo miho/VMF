@@ -41,6 +41,36 @@ import java.util.ListIterator;
  */
 public class ReadOnlyExternalListTest {
 
+    @Test
+    public void builderImportsExternalObjectsWithTheirOriginalIdentity() {
+        var text = new StringBuilder("source");
+        var child = Entry.newBuilder().withName("owned").build();
+        var source = Sample.newBuilder().withBuffers(new StringBuilder[]{text, null, text}).withEntries(child).build();
+        var staged = Sample.newBuilder().applyFrom(source);
+        source.getBuffers().clear();
+        text.append("-updated");
+
+        var existing = new StringBuilder("existing");
+        var target = Sample.newBuilder().withBuffers(existing).build();
+        var buffers = target.getBuffers();
+        staged.applyTo(target);
+        Assert.assertSame(buffers, target.getBuffers());
+        Assert.assertEquals(4, buffers.size());
+        Assert.assertSame(existing, buffers.get(0));
+        Assert.assertSame(text, buffers.get(1));
+        Assert.assertNull(buffers.get(2));
+        Assert.assertSame(text, buffers.get(3));
+        Assert.assertSame(child, target.getEntries().get(0));
+        Assert.assertTrue(source.getEntries().isEmpty());
+        Assert.assertEquals("source-updated", target.asReadOnly().getBuffers().get(1).toString());
+
+        staged.appendCollections(false).applyTo(target);
+        Assert.assertEquals(3, buffers.size());
+        Assert.assertSame(text, buffers.get(0));
+        Assert.assertNull(buffers.get(1));
+        Assert.assertSame(text, buffers.get(2));
+    }
+
     private static Sample sampleWithLabels(String... labels) {
         Sample model = Sample.newInstance();
         model.getLabels().addAll(Arrays.asList(labels));

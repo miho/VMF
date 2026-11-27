@@ -78,12 +78,17 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
   // --------------------------------------------------------------------
 
   public ${type.implementation.typeName}() {
-#if($type.hasReferenceDefaults())
-    this(true);
+    this(false, true);
   }
 
+#if($type.hasReferenceDefaults())
   private ${type.implementation.typeName}(boolean initializeReferenceDefaults) {
+    this(false, initializeReferenceDefaults);
+  }
+
 #end
+  private ${type.implementation.typeName}(boolean metadataOnly, boolean initializeReferenceDefaults) {
+    if (metadataOnly) return;
 #parse("${VMF_TEMPLATE_PATH}impl/constructor-delegates.vm")
 
 // --------------------------------------------------------------------
@@ -117,6 +122,8 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
   // --------------------------------------------------------------------
   // --- public getter methods for accessing properties
   // --------------------------------------------------------------------
+
+#parse("${VMF_TEMPLATE_PATH}impl/snapshot-metadata.vm")
 
 #parse("${VMF_TEMPLATE_PATH}impl/getter.vm")
 

@@ -27,13 +27,19 @@
 
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
-        this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ObservableModelList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
+#if($prop.referenceSet)
+        this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ObservableModelList.newReferenceInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
+#elseif(${prop.referenceInfo.opposite.propType} == "COLLECTION")
+        this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ObservableModelList.newCollectionReciprocalSequence(__vmf_get_prop_${prop.name}__vmf_RawList());
+#else
+        this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ObservableModelList.newScalarReciprocalSequence(__vmf_get_prop_${prop.name}__vmf_RawList());
+#end
 #if($prop.referenceSet)
       this.__vmf_prop_${prop.name} = ${VMFPKG_INT}.ReferenceCollections.checked(this.__vmf_prop_${prop.name}, ${prop.elementTypeName}.class, ${prop.ordered});
 #end
 
         this.__vmf_prop_${prop.name}.addChangeListener(evt -> {
-#if($prop.hasUniqueReferenceOpposite())
+#if($prop.hasUniqueReferenceOpposite() || $prop.hasOrdinaryReferenceListOpposite())
             final long revision = ++this.__vmf_reference_revision_${prop.name};
 #end
             if (${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF.equals(evt.eventInfo())) return;
@@ -60,6 +66,10 @@
                 var target = (${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl) e;
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION")
                 var opposite = ${prop.referenceInfo.opposite.internalGetter("target")};
+#if($prop.hasOrdinaryReferenceListOpposite())
+                if (revision != this.__vmf_reference_revision_${prop.name}
+                        && ${VMFPKG_INT}.ObservableModelList.compareOppositeOccurrences(this.__vmf_prop_${prop.name}, e, opposite, this) >= 0) continue;
+#end
                 try {
                     ${VMFPKG_INT}.ObservableModelList.addCrossReference(opposite, this);
                 } catch (RuntimeException | Error failure) {
@@ -92,12 +102,14 @@
                 target.__vmf_set_prop_${oppositeRefProp.name}(this);
                 if (previousOwner != null) {
                     var previousRefs = ${prop.internalGetter("previousOwner")};
-                    for (int i = previousRefs.size() - 1; i >= 0; i--) {
-                        if (previousRefs.get(i) == e) {
-                            try {
-                                previousRefs.remove(i);
-                            } catch (RuntimeException | Error failure) {
-                                observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
+                    try (var removal = ${VMFPKG_INT}.OppositeReferenceRemoval.begin(previousRefs, e)) {
+                        for (int i = previousRefs.size() - 1; i >= 0; i--) {
+                            if (previousRefs.get(i) == e) {
+                                try {
+                                    previousRefs.remove(i);
+                                } catch (RuntimeException | Error failure) {
+                                    observerFailure = ${VMFPKG_INT}.ObserverFailures.add(observerFailure, failure);
+                                }
                             }
                         }
                     }
@@ -123,6 +135,10 @@
                 var target = (${prop.parent.packageName}.impl.__VMF_TYPE_${prop.genericTypeName}Impl) e;
 #if(${prop.referenceInfo.opposite.propType} == "COLLECTION")
                 var opposite = ${prop.referenceInfo.opposite.internalGetter("target")};
+#if($prop.hasOrdinaryReferenceListOpposite())
+                if (revision != this.__vmf_reference_revision_${prop.name}
+                        && ${VMFPKG_INT}.ObservableModelList.compareOppositeOccurrences(this.__vmf_prop_${prop.name}, e, opposite, this) <= 0) continue;
+#end
                 try {
 #if($prop.referenceSet && !$prop.referenceInfo.opposite.referenceSet)
                     ${VMFPKG_INT}.ObservableModelList.removeAllCrossReferences(opposite, this);

@@ -1,0 +1,7 @@
+  private static ${VMFPKG}.Reflect __vmf_snapshotMetadata() {
+    var reflect = new ${VMFPKG_INT}.ReflectImpl();
+    reflect.setModel(new ${type.implementation.typeName}(#if(!$type.immutable)true, false#end));
+    reflect.setModelAPIClass(${type.packageName}.${modelName}Model__VMF_API.class);
+    reflect.setStaticOnly(true);
+    return reflect;
+  }

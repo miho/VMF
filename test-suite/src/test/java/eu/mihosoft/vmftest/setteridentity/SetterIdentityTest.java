@@ -25,15 +25,19 @@
 package eu.mihosoft.vmftest.setteridentity;
 
 import eu.mihosoft.vmf.runtime.core.Change;
+import eu.mihosoft.vmf.runtime.core.TraversalListener;
 import eu.mihosoft.vmf.runtime.core.VIterator;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import org.junit.Assert;
 import org.junit.Test;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.ConcurrentModificationException;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.stream.Collectors;
 
 /**
@@ -399,6 +403,562 @@ public class SetterIdentityTest {
                 collect(Collectors.toList());
 
         Assert.assertEquals(5, wholeTree.size());
+    }
+
+    @Test
+    public void containmentTraversalYieldsRepeatedOwningSlotsAndExpandsOnce() {
+        var branch = binary("*", number(1), number(2));
+        var tail = number(4);
+        var root = BinaryExpression.newInstance();
+        root.getArguments().addAll(java.util.Arrays.asList(branch, null, number(3), tail));
+        root.getArguments().set(2, branch);
+
+        assertIdentityTraversal(root, VIterator.IterationStrategy.UNIQUE_NODE,
+                root, branch, branch.getLeft(), branch.getRight(), tail);
+        assertIdentityTraversal(root, VIterator.IterationStrategy.UNIQUE_PROPERTY,
+                root, branch, branch.getLeft(), branch.getRight(), branch, tail);
+        assertIdentityTraversal(root, VIterator.IterationStrategy.CONTAINMENT_TREE,
+                root, branch, branch.getLeft(), branch.getRight(), branch, tail);
+
+        var view = root.asReadOnly();
+        var branchView = branch.asReadOnly();
+        assertIdentityTraversal(view, VIterator.IterationStrategy.CONTAINMENT_TREE,
+                view, branchView, branchView.getLeft(), branchView.getRight(), branchView, tail.asReadOnly());
+    }
+
+    private static void assertIdentityTraversal(VObject root, VIterator.IterationStrategy strategy, VObject... expected) {
+        var actual = root.vmf().content().stream(strategy).collect(Collectors.toList());
+        Assert.assertEquals(expected.length, actual.size());
+        for (int i = 0; i < expected.length; i++) Assert.assertSame(expected[i], actual.get(i));
+    }
+
+    @Test
+    public void containmentCursorPrunesTheDetachedLookaheadFrameAfterTheOwningEdit() {
+        var branch = binary("*", number(1), number(2));
+        var replacement = binary("*", number(3), number(4));
+        var sibling = number(5);
+        var root = BinaryExpression.newBuilder().withArguments(branch, sibling).build();
+        var trace = new ArrayList<String>();
+        var cursor = VIterator.of(root, new TraversalListener() {
+            @Override public void onEnter(VObject value) {
+                if (value == root) trace.add("enter root");
+                else if (value == branch) trace.add("enter branch");
+                else if (value == sibling) trace.add("enter sibling");
+                else Assert.fail("Unexpected traversal into a detached or replacement branch");
+            }
+
+            @Override public void onExit(VObject value) {
+                if (value != branch) return;
+                Assert.assertNull(branch.getParent());
+                Assert.assertSame(replacement, root.getArguments().get(0));
+                Assert.assertSame(root, replacement.getParent());
+                trace.add("exit branch");
+            }
+        }, VIterator.IterationStrategy.CONTAINMENT_TREE);
+        var edits = root.vmf().changes().addLocalListener(change -> {
+            if ("arguments".equals(change.propertyName())) trace.add("replace branch");
+        });
+        try {
+            assertCursorOnBranch(cursor, root, branch);
+            cursor.set(replacement);
+            Assert.assertEquals(List.of("enter root", "enter branch", "replace branch", "exit branch"), trace);
+            Assert.assertTrue(cursor.hasNext());
+            Assert.assertSame(sibling, cursor.next());
+            Assert.assertFalse(cursor.hasNext());
+            Assert.assertEquals(List.of("enter root", "enter branch", "replace branch", "exit branch", "enter sibling"), trace);
+        } finally {
+            edits.unsubscribe();
+        }
+    }
+
+    @Test
+    public void containmentCursorKeepsItsFrameWhenTheSameChildOrAnotherOwnedSlotRemains() {
+        for (boolean duplicate : new boolean[] {false, true}) {
+            var branch = binary("*", number(1), number(2));
+            var sibling = number(5);
+            var root = duplicate
+                    ? BinaryExpression.newBuilder().withArguments(branch, number(9), sibling).build()
+                    : BinaryExpression.newBuilder().withArguments(branch, sibling).build();
+            if (duplicate) root.getArguments().set(1, branch);
+            var exits = new ArrayList<VObject>();
+            var cursor = VIterator.of(root, new TraversalListener() {
+                @Override public void onEnter(VObject value) { }
+                @Override public void onExit(VObject value) { exits.add(value); }
+            }, VIterator.IterationStrategy.CONTAINMENT_TREE);
+
+            assertCursorOnBranch(cursor, root, branch);
+            var selected = duplicate ? binary("*", number(3), number(4)) : branch;
+            cursor.set(selected);
+            Assert.assertSame(selected, root.getArguments().get(0));
+            Assert.assertSame(root, branch.getParent());
+            Assert.assertTrue(exits.stream().noneMatch(value -> value == branch));
+            Assert.assertSame(branch.getLeft(), cursor.next());
+            Assert.assertSame(branch.getRight(), cursor.next());
+            if (duplicate) {
+                Assert.assertSame(branch, root.getArguments().get(1));
+                Assert.assertSame(branch, cursor.next());
+            }
+            Assert.assertSame(sibling, cursor.next());
+            Assert.assertFalse(cursor.hasNext());
+            Assert.assertEquals(1L, exits.stream().filter(value -> value == branch).count());
+        }
+    }
+
+    @Test
+    public void containmentCursorFinishesPruningEvenWhenReplacementAndExitObserversThrow() {
+        var branch = binary("*", number(1), number(2));
+        var replacement = binary("*", number(3), number(4));
+        var sibling = number(5);
+        var root = BinaryExpression.newBuilder().withArguments(branch, sibling).build();
+        var editFailure = new IllegalStateException("owning edit");
+        var exitFailure = new IllegalStateException("cursor exit");
+        var exits = new ArrayList<VObject>();
+        var cursor = VIterator.of(root, new TraversalListener() {
+            @Override public void onEnter(VObject value) { }
+            @Override public void onExit(VObject value) {
+                if (value != branch) return;
+                exits.add(value);
+                throw exitFailure;
+            }
+        }, VIterator.IterationStrategy.CONTAINMENT_TREE);
+        var edits = root.vmf().changes().addLocalListener(change -> {
+            if ("arguments".equals(change.propertyName())) throw editFailure;
+        });
+        try {
+            assertCursorOnBranch(cursor, root, branch);
+            var thrown = Assert.assertThrows(IllegalStateException.class, () -> cursor.set(replacement));
+            Assert.assertSame(editFailure, thrown);
+            Assert.assertArrayEquals(new Throwable[] {exitFailure}, thrown.getSuppressed());
+            Assert.assertSame(replacement, root.getArguments().get(0));
+            Assert.assertNull(branch.getParent());
+            Assert.assertSame(sibling, cursor.next());
+            Assert.assertFalse(cursor.hasNext());
+            Assert.assertEquals(1, exits.size());
+        } finally {
+            edits.unsubscribe();
+        }
+    }
+
+    @Test
+    public void rejectedContainmentCursorReplacementKeepsTheLiveFrame() {
+        var branch = binary("*", number(1), number(2));
+        var sibling = number(5);
+        var root = BinaryExpression.newBuilder().withArguments(branch, sibling).build();
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        assertCursorOnBranch(cursor, root, branch);
+        Assert.assertThrows(IllegalArgumentException.class, () -> cursor.set(root));
+        Assert.assertSame(branch, root.getArguments().get(0));
+        Assert.assertSame(root, branch.getParent());
+        Assert.assertSame(branch.getLeft(), cursor.next());
+        Assert.assertSame(branch.getRight(), cursor.next());
+        Assert.assertSame(sibling, cursor.next());
+        Assert.assertFalse(cursor.hasNext());
+    }
+
+    private static void assertCursorOnBranch(VIterator cursor, BinaryExpression root, BinaryExpression branch) {
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(branch, cursor.next());
+        Assert.assertTrue(cursor.hasNext());
+        Assert.assertTrue(cursor.hasNext());
+    }
+
+    @Test
+    public void containmentCursorEditsTheRepeatedOwningSlotInsteadOfItsDescendant() {
+        var branch = binary("*", number(1), number(2));
+        var right = branch.getRight();
+        var sibling = number(5);
+        var root = BinaryExpression.newBuilder().withArguments(branch, number(9), sibling).build();
+        root.getArguments().set(1, branch);
+
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(branch, cursor.next());
+        Assert.assertSame(branch.getLeft(), cursor.next());
+        Assert.assertSame(right, cursor.next());
+        Assert.assertSame(branch, cursor.next());
+        Assert.assertTrue(cursor.hasNext());
+        Assert.assertTrue(cursor.hasNext());
+        Assert.assertTrue(cursor.isAddSupported());
+
+        var replacement = number(3);
+        cursor.set(replacement);
+        Assert.assertSame(branch, root.getArguments().get(0));
+        Assert.assertSame(replacement, root.getArguments().get(1));
+        Assert.assertSame(right, branch.getRight());
+        Assert.assertSame(root, branch.getParent());
+
+        var inserted = number(4);
+        cursor.add(inserted);
+        Assert.assertSame(inserted, root.getArguments().get(2));
+        Assert.assertSame(sibling, cursor.next());
+        Assert.assertFalse(cursor.hasNext());
+    }
+
+    @Test
+    public void containmentCursorCanEditTheLastListSlotAfterTrailingLookahead() {
+        var first = number(1);
+        var last = number(2);
+        var root = BinaryExpression.newInstance();
+        root.getArguments().addAll(java.util.Arrays.asList(first, last, null));
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(first, cursor.next());
+        Assert.assertSame(last, cursor.next());
+        Assert.assertFalse(cursor.hasNext());
+        Assert.assertFalse(cursor.hasNext());
+        Assert.assertTrue(cursor.isAddSupported());
+
+        var replacement = number(3);
+        cursor.set(replacement);
+        Assert.assertSame(replacement, root.getArguments().get(1));
+        Assert.assertNull(root.getLeft());
+        Assert.assertNull(last.getParent());
+
+        var inserted = number(4);
+        cursor.add(inserted);
+        Assert.assertSame(inserted, root.getArguments().get(2));
+        Assert.assertNull(root.getArguments().get(3));
+        Assert.assertFalse(cursor.hasNext());
+    }
+
+    @Test
+    public void containmentCursorEditsThePoppedDescendantSlotWithoutReopeningItsFrame() {
+        var child = number(1);
+        var branch = BinaryExpression.newBuilder().withArguments(child).build();
+        var sibling = number(5);
+        var root = BinaryExpression.newBuilder().withArguments(branch, sibling).build();
+        var names = new IdentityHashMap<VObject, String>();
+        names.put(root, "root");
+        names.put(branch, "branch");
+        names.put(child, "child");
+        names.put(sibling, "sibling");
+        var trace = new ArrayList<String>();
+        var cursor = VIterator.of(root, new TraversalListener() {
+            @Override public void onEnter(VObject value) { trace.add("enter " + names.get(value)); }
+            @Override public void onExit(VObject value) { trace.add("exit " + names.get(value)); }
+        }, VIterator.IterationStrategy.CONTAINMENT_TREE);
+
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(branch, cursor.next());
+        Assert.assertSame(child, cursor.next());
+        Assert.assertTrue(cursor.hasNext());
+        Assert.assertTrue(cursor.hasNext());
+        Assert.assertEquals(List.of("enter root", "enter branch", "enter child", "exit child", "exit branch"), trace);
+        Assert.assertTrue(cursor.isAddSupported());
+
+        var edits = branch.vmf().changes().addLocalListener(change -> trace.add("edit " + change.propertyName()));
+        try {
+            var replacement = number(3);
+            cursor.set(replacement);
+            Assert.assertSame(replacement, branch.getArguments().get(0));
+            Assert.assertNull(branch.getLeft());
+            Assert.assertSame(sibling, cursor.next());
+            Assert.assertFalse(cursor.hasNext());
+        } finally {
+            edits.unsubscribe();
+        }
+        Assert.assertEquals(List.of("enter root", "enter branch", "enter child", "exit child", "exit branch",
+                "edit arguments", "enter sibling", "exit sibling", "exit root"), trace);
+    }
+
+    @Test
+    public void nextThrowsAfterTraversingAnEmptyModelOrSingleton() {
+        var empty = BinaryExpression.newInstance();
+        empty.getArguments().add(null);
+        for (var root : List.<VObject>of(empty, number(1))) {
+            for (var strategy : VIterator.IterationStrategy.values()) {
+                var trace = new ArrayList<String>();
+                var cursor = VIterator.of(root, recordTraversal(trace, root), strategy);
+                Assert.assertTrue(cursor.hasNext());
+                Assert.assertSame(root, cursor.next());
+                Assert.assertThrows(NoSuchElementException.class, cursor::next);
+                Assert.assertFalse(cursor.hasNext());
+                Assert.assertThrows(NoSuchElementException.class, cursor::next);
+                Assert.assertEquals(List.of("enter root", "exit root"), trace);
+            }
+        }
+    }
+
+    @Test
+    public void nextThrowsAfterReadOnlyTraversalWithoutAnotherListenerEvent() {
+        var root = BinaryExpression.newBuilder().withArguments(number(1)).build().asReadOnly();
+        var child = root.getArguments().get(0);
+        var trace = new ArrayList<String>();
+        var cursor = VIterator.of(root, recordTraversal(trace, root), VIterator.IterationStrategy.CONTAINMENT_TREE);
+
+        // Use next directly to ensure exhaustion closes any remaining root frame.
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(child, cursor.next());
+        Assert.assertThrows(NoSuchElementException.class, cursor::next);
+        Assert.assertFalse(cursor.hasNext());
+        Assert.assertThrows(NoSuchElementException.class, cursor::next);
+        Assert.assertEquals(List.of("enter root", "enter child", "exit child", "exit root"), trace);
+        Assert.assertThrows(RuntimeException.class, () -> cursor.set(number(2)));
+        Assert.assertSame(child, root.getArguments().get(0));
+    }
+
+    @Test
+    public void nextAfterExhaustionDoesNotChangeTheSelectedRepeatedOwningSlot() {
+        var terminal = number(1);
+        var root = BinaryExpression.newBuilder().withArguments(terminal, number(9)).build();
+        root.getArguments().set(1, terminal);
+        root.getArguments().add(null);
+        var trace = new ArrayList<String>();
+        var cursor = VIterator.of(root, recordTraversal(trace, root), VIterator.IterationStrategy.CONTAINMENT_TREE);
+
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(terminal, cursor.next());
+        Assert.assertSame(terminal, cursor.next());
+        Assert.assertFalse(cursor.hasNext());
+        Assert.assertThrows(NoSuchElementException.class, cursor::next);
+        Assert.assertThrows(NoSuchElementException.class, cursor::next);
+        Assert.assertTrue(cursor.isAddSupported());
+
+        var replacement = number(2);
+        cursor.set(replacement);
+        Assert.assertSame(terminal, root.getArguments().get(0));
+        Assert.assertSame(replacement, root.getArguments().get(1));
+        Assert.assertSame(root, terminal.getParent());
+        Assert.assertNull(root.getLeft());
+
+        var inserted = number(3);
+        cursor.add(inserted);
+        Assert.assertSame(inserted, root.getArguments().get(2));
+        Assert.assertNull(root.getArguments().get(3));
+        Assert.assertFalse(cursor.hasNext());
+        Assert.assertThrows(NoSuchElementException.class, cursor::next);
+        Assert.assertEquals(List.of("enter root", "enter child", "exit child", "exit root"), trace);
+    }
+
+    private static TraversalListener recordTraversal(List<String> trace, VObject root) {
+        return new TraversalListener() {
+            @Override public boolean isIgnoreNullObjects() { return false; }
+            @Override public void onEnter(VObject value) { trace.add("enter " + name(value)); }
+            @Override public void onExit(VObject value) { trace.add("exit " + name(value)); }
+
+            private String name(VObject value) {
+                return value == null ? "null" : value == root ? "root" : "child";
+            }
+        };
+    }
+
+    @Test
+    public void cursorRejectsAReplacementAndInsertionAfterAnExternalListSet() {
+        var selected = number(1);
+        var second = number(2);
+        var root = BinaryExpression.newBuilder().withArguments(selected, second).build();
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(selected, cursor.next());
+        Assert.assertTrue(cursor.hasNext());
+
+        var external = number(1);
+        Assert.assertEquals(selected, external);
+        root.getArguments().set(0, external);
+        var attempted = number(3);
+
+        Assert.assertThrows(ConcurrentModificationException.class, () -> cursor.set(attempted));
+        Assert.assertThrows(ConcurrentModificationException.class, () -> cursor.add(attempted));
+        Assert.assertFalse(cursor.isAddSupported());
+        Assert.assertSame(external, root.getArguments().get(0));
+        Assert.assertSame(root, external.getParent());
+        Assert.assertSame(second, root.getArguments().get(1));
+        Assert.assertNull(selected.getParent());
+        Assert.assertNull(attempted.getParent());
+
+        Assert.assertSame(second, cursor.next());
+        Assert.assertTrue(cursor.isAddSupported());
+        cursor.set(attempted);
+        Assert.assertSame(attempted, root.getArguments().get(1));
+        Assert.assertSame(root, attempted.getParent());
+    }
+
+    @Test
+    public void cursorRejectsAReplacementAfterAnExternalSingularSet() {
+        var selected = binary("+", number(1), number(2));
+        var external = binary("+", number(1), number(2));
+        Assert.assertEquals(selected, external);
+        var tail = number(3);
+        var root = binary("*", selected, tail);
+        var trace = new ArrayList<String>();
+        var cursor = VIterator.of(root, recordTraversal(trace, root), VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(selected, cursor.next());
+        Assert.assertTrue(cursor.hasNext());
+        root.setLeft(external);
+        var attempted = number(4);
+        Assert.assertThrows(ConcurrentModificationException.class, () -> cursor.set(attempted));
+        Assert.assertSame(external, root.getLeft());
+        Assert.assertSame(root, external.getParent());
+        Assert.assertSame(tail, root.getRight());
+        Assert.assertNull(selected.getParent());
+        Assert.assertNull(attempted.getParent());
+        Assert.assertEquals(List.of("enter root", "enter child"), trace);
+    }
+
+    @Test
+    public void cursorStillEditsItsOwnReplacementAndKeepsStructuralFailFastBehavior() {
+        var selected = number(1);
+        var second = number(2);
+        var root = BinaryExpression.newBuilder().withArguments(selected, second).build();
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(selected, cursor.next());
+
+        cursor.set(null);
+        var replacement = number(3);
+        cursor.set(replacement);
+        Assert.assertSame(replacement, root.getArguments().get(0));
+        root.getArguments().add(0, selected);
+        Assert.assertThrows(ConcurrentModificationException.class, () -> cursor.set(null));
+        Assert.assertSame(selected, root.getArguments().get(0));
+        Assert.assertSame(replacement, root.getArguments().get(1));
+    }
+
+    @Test
+    public void cursorKeepsItsCommittedReplacementSelectedWhenAnObserverThrows() {
+        var selected = number(1);
+        var root = BinaryExpression.newBuilder().withArguments(selected, number(2)).build();
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(selected, cursor.next());
+
+        var failure = new IllegalStateException("observer");
+        var subscription = root.vmf().changes().addLocalListener(change -> { throw failure; });
+        var replacement = number(3);
+        try {
+            Assert.assertSame(failure, Assert.assertThrows(IllegalStateException.class, () -> cursor.set(replacement)));
+        } finally {
+            subscription.unsubscribe();
+        }
+        Assert.assertSame(replacement, root.getArguments().get(0));
+        Assert.assertSame(root, replacement.getParent());
+        Assert.assertTrue(cursor.isAddSupported());
+        cursor.set(null);
+        Assert.assertNull(root.getArguments().get(0));
+        Assert.assertNull(replacement.getParent());
+    }
+
+    @Test
+    public void cursorRejectsARestoredSingularSlotIncludingItsOwnSelectedNull() {
+        for (boolean clearFirst : List.of(false, true)) {
+            var selected = number(1);
+            var root = binary("+", selected, null);
+            var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+            Assert.assertSame(root, cursor.next());
+            Assert.assertSame(selected, cursor.next());
+            if (clearFirst) cursor.set(null);
+            var expected = root.getLeft();
+
+            var transientChild = number(2);
+            root.setLeft(transientChild);
+            root.setLeft(expected);
+
+            var attempted = number(3);
+            Assert.assertThrows(ConcurrentModificationException.class, () -> cursor.set(attempted));
+            Assert.assertSame(expected, root.getLeft());
+            Assert.assertNull(transientChild.getParent());
+            Assert.assertNull(attempted.getParent());
+        }
+    }
+
+    @Test
+    public void cursorIgnoresASingularNoOpAndAnotherSlotMutation() {
+        var selected = number(1);
+        var root = binary("+", selected, number(2));
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(selected, cursor.next());
+
+        var sibling = number(3);
+        root.setLeft(selected);
+        root.setRight(sibling);
+        var replacement = number(4);
+        cursor.set(replacement);
+        Assert.assertSame(replacement, root.getLeft());
+        Assert.assertSame(sibling, root.getRight());
+        Assert.assertNull(selected.getParent());
+    }
+
+    @Test
+    public void cursorRejectsEditsBelowADetachedSingularOrListAncestor() {
+        for (boolean list : List.of(false, true)) {
+            var first = number(1);
+            var second = number(2);
+            var branch = BinaryExpression.newBuilder().withArguments(first, second).build();
+            var root = BinaryExpression.newInstance();
+            if (list) root.getArguments().add(branch);
+            else root.setLeft(branch);
+
+            var trace = new ArrayList<String>();
+            var cursor = VIterator.of(root, recordTraversal(trace, root), VIterator.IterationStrategy.CONTAINMENT_TREE);
+            Assert.assertSame(root, cursor.next());
+            Assert.assertSame(branch, cursor.next());
+            Assert.assertSame(first, cursor.next());
+            Assert.assertTrue(cursor.hasNext());
+            var events = List.copyOf(trace);
+
+            if (list) root.getArguments().clear();
+            else root.setLeft(null);
+            var attempted = number(3);
+            Assert.assertThrows(ConcurrentModificationException.class, () -> cursor.set(attempted));
+            Assert.assertThrows(ConcurrentModificationException.class, () -> cursor.add(attempted));
+            Assert.assertFalse(cursor.isAddSupported());
+            Assert.assertEquals(events, trace);
+            Assert.assertEquals(2, branch.getArguments().size());
+            Assert.assertSame(first, branch.getArguments().get(0));
+            Assert.assertNull(attempted.getParent());
+
+            // Read traversal continues in the frame already entered.
+            Assert.assertSame(second, cursor.next());
+            Assert.assertFalse(cursor.hasNext());
+            Assert.assertEquals(List.of("enter root", "enter child", "enter child", "exit child",
+                    "enter child", "exit child", "exit child", "exit root"), trace);
+        }
+    }
+
+    @Test
+    public void cursorRejectsADescendantEditAfterRestoringItsSingularAncestor() {
+        var leaf = number(1);
+        var branch = binary("+", leaf, null);
+        var root = binary("*", branch, null);
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(branch, cursor.next());
+        Assert.assertSame(leaf, cursor.next());
+
+        var temporaryOwner = binary("-", branch, null);
+        root.setLeft(branch);
+        Assert.assertNull(temporaryOwner.getLeft());
+        Assert.assertSame(branch, root.getLeft());
+
+        Assert.assertThrows(ConcurrentModificationException.class, () -> cursor.set(number(2)));
+        Assert.assertSame(leaf, branch.getLeft());
+        Assert.assertSame(branch, leaf.getParent());
+    }
+
+    @Test
+    public void cursorCanEditDescendantsOfARetainedOccurrenceAfterACursorInsertion() {
+        var leaf = number(1);
+        var branch = binary("+", leaf, null);
+        var tail = number(2);
+        var root = BinaryExpression.newBuilder().withArguments(branch, number(9), tail).build();
+        root.getArguments().set(1, branch);
+        var cursor = root.vmf().content().iterator(VIterator.IterationStrategy.CONTAINMENT_TREE);
+        Assert.assertSame(root, cursor.next());
+        Assert.assertSame(branch, cursor.next());
+        Assert.assertTrue(cursor.hasNext());
+        cursor.set(number(3));
+        cursor.add(number(4));
+
+        Assert.assertSame(branch, root.getArguments().get(2));
+        Assert.assertSame(leaf, cursor.next());
+        var replacement = number(5);
+        cursor.set(replacement);
+        Assert.assertSame(replacement, branch.getLeft());
+        Assert.assertSame(branch, cursor.next());
+        Assert.assertSame(tail, cursor.next());
+        Assert.assertFalse(cursor.hasNext());
     }
 
     @Test

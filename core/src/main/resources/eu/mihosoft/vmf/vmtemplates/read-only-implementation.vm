@@ -182,15 +182,19 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
     ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).__vmf_toString(sb, identityMap);
   }
 
+#if($type.isEqualsAndHashCode() || $type.isEqualsMethodDelegated())
   @Override
   public boolean equals(Object o) {
     return this.mutableObject.equals(o);
   }
+#end
 
+#if($type.isEqualsAndHashCode() || $type.isEqualsMethodDelegated() || $type.isHashCodeMethodDelegated())
   @Override
   public int hashCode() {
     return this.mutableObject.hashCode();
   }
+#end
 
   @Override
   public boolean _vmf_equals(Object o) {
@@ -293,6 +297,16 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
           public ${type.readOnlyInterface.typeName} shallowCopy() {
             return ${type.readOnlyImplementation.typeName}.
               this._vmf_shallowCopy(new java.util.IdentityHashMap<>());
+          }
+
+          @Override
+          public boolean equals(Object o) {
+            return ${type.readOnlyImplementation.typeName}.this._vmf_equals(o);
+          }
+
+          @Override
+          public int hashCode() {
+            return ${type.readOnlyImplementation.typeName}.this._vmf_hashCode();
           }
         };
       }
