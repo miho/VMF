@@ -140,8 +140,8 @@ How the runners reach the generated code (for users, the [language mappings](../
   lists, sets and maps are `vmf.ReadOnlyList`, `vmf.ReadOnlySet` and `vmf.ReadOnlyMap`. Sets through `add`,
   `addAll`, `remove`, maps through `put`, `putAll`, `remove`, keyed lookups through the generated
   `find<Property>By<Key>`. `asReadOnly()` returns a live view typed by the generated `ReadOnly<Type>` interface,
-  without setters or list edits. Reflection through `vmfType` (`properties`, `annotations`, `property(name)`). Validation through `validate()`
-  (`modelCode`, `modelPath`).
+  without setters or list edits. Reflection through `vmfType` (`properties`, `annotations`, `property(name)`).
+  Validation through `validate()` (`modelCode`, `modelPath`).
 - Java also edits sets through `java.util.Set`, reference sets through `RefSet` and `OrderedRefSet`, and maps
   through `java.util.Map`; keyed lookups return `Optional`. C# edits sets and maps through `Add`, `AddRange`,
   `Remove`, `Put`, `PutAll`, and calls `Find<Property>By<Key>`.
