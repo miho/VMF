@@ -84,6 +84,7 @@ public sealed partial class ModelChanges
         PrepareJournalEdit(recorders, change);
         var notification = new ModelPropertyNotification(change);
         HashSet<ModelChanges>? delivered = groups.Length > 1 ? new(ReferenceEqualityComparer.Instance) : null;
+        HashSet<ModelChanges>? merged = null;
         Exception? failure = null;
         int raw = 0;
         foreach (var registration in groups)
@@ -92,7 +93,8 @@ public sealed partial class ModelChanges
             {
                 failure = direct.Ordinary.NotifyAt(raw++, notification, failure);
             }
-            failure = NotifyRecordingRelay(registration.Group, recorders, change, relationship, delivered, failure);
+            failure = NotifyRecordingRelay(registration.Group, recorders, change, relationship, delivered, failure,
+                delivery: DeliveryFor(groups, registration.Group, change, ref merged));
         }
         while (raw < direct.Ordinary.Count)
         {

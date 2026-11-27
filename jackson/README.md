@@ -32,7 +32,7 @@ var schema = VMFJsonSchemaGenerator.newInstance(mode)
         .withReferences(true).generateSchema(MyModel.class);
 ```
 
-The default mapper reads and writes contained models and immutable values as ordinary nested objects and arrays. For a property declared as `Set<Label>` with immutable `Label` elements, an existing JSON array such as `[{"text":"A"},{"text":"A"}]` produces two distinct labels. Field renames and type aliases apply in either mode.
+The default mapper reads and writes contained models and immutable values as ordinary nested objects and arrays. It cannot represent a non-containment reference to a mutable object and rejects a model that has one when writing. Choose another `VMFJacksonModule.ReferenceMode` to change that: `withReferences(true)` (`ReferenceMode.IDS`) writes such references as ids, and `withReferences(ReferenceMode.OMIT)` writes the containment tree without them. For a property declared as `Set<Label>` with immutable `Label` elements, an existing JSON array such as `[{"text":"A"},{"text":"A"}]` produces two distinct labels. Field renames and type aliases apply in either mode.
 
 Enable references when several fields must point to the same restored instance. In this document, `current` and the first entry of `history` share a label. The second entry is another label with the same text.
 

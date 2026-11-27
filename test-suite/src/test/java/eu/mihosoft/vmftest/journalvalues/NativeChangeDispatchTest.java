@@ -125,7 +125,9 @@ public class NativeChangeDispatchTest {
         changes.start();
         try {
             entry.getRelatedIds().add(FIRST);
-            assertEquals(List.of("local first", "local second", "recursive second", "recursive first"), delivered);
+            // The object's local and recursive listeners receive a change together, in the order they were
+            // added (portable contract E7), before the raw list listener adds the second value.
+            assertEquals(List.of("local first", "recursive first", "local second", "recursive second"), delivered);
             assertEquals(2, changes.all().size());
             assertEquals(List.of(FIRST), changes.all().get(0).listChange().orElseThrow().added().elements());
             assertEquals(List.of(SECOND), changes.all().get(1).listChange().orElseThrow().added().elements());

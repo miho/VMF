@@ -126,11 +126,12 @@ final class CreationJournalConformance {
                 var watchRight = right.vmf().changes().addPropertyListener("inset", change -> b.setAnchor(a));
                 try (var recorder = JournalRecorder.start(working, binding, "cross-definitions", 0)) {
                     left.setInset(a);
-                    var nativeHistory = working.vmf().changes().all();
-                    check(nativeHistory.stream().map(change -> ((ArchiveNode) change.object()).getName())
-                            .collect(java.util.stream.Collectors.toList()).equals(tracked
-                                    ? List.of("right", "b", "left") : List.of("right", "left")),
-                            "native attachment callbacks still record before the initiating attachment");
+                    var nativeHistory = working.vmf().changes().all().stream()
+                            .map(change -> ((ArchiveNode) change.object()).getName())
+                            .collect(java.util.stream.Collectors.toList());
+                    // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+                    check(nativeHistory.equals(tracked ? List.of("left", "right", "b") : List.of("left", "right")),
+                            "native history records the initiating attachment first: " + nativeHistory);
                     journal = recorder.finish();
                 } finally {
                     watchLeft.unsubscribe();
@@ -208,8 +209,9 @@ final class CreationJournalConformance {
                 try (var recorder = JournalRecorder.start(working, binding, "observer-dependencies", 0)) {
                     left.setInset(outer);
                     var history = working.vmf().changes().all();
-                    check(history.size() == 2 && history.get(0).object() == right && history.get(1).object() == left,
-                            "independent and dependent creations retain native callback order");
+                    // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+                    check(history.size() == 2 && history.get(0).object() == left && history.get(1).object() == right,
+                            "independent and dependent creations record the triggering edit first");
                     Files.writeString(path, VMFJournalCodec.write(recorder.finish(), VMFDocumentFormat.JSON));
                 } finally {
                     listener.unsubscribe();
@@ -264,8 +266,9 @@ final class CreationJournalConformance {
                             default: throw new AssertionError(edge);
                         }
                         var history = root.vmf().changes().all();
+                        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
                         check(history.stream().map(change -> change.propertyName()).collect(java.util.stream.Collectors.toList())
-                                .equals(ownedByEdge ? List.of("name", edge) : List.of("name", "inset", edge)),
+                                .equals(ownedByEdge ? List.of(edge, "name") : List.of(edge, "name", "inset")),
                                 "native callback history order");
                         Files.writeString(path, VMFJournalCodec.write(recorder.finish(), VMFDocumentFormat.JSON));
                     } finally {

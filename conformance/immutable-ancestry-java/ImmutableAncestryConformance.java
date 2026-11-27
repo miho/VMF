@@ -17,7 +17,7 @@ import java.util.List;
 public final class ImmutableAncestryConformance {
     private static final String PACKAGE = "eu.mihosoft.vmf.conformance.immutableancestry";
     private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(VMFJacksonModule
-            .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+            .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
     private static final List<String> BINDINGS = new ArrayList<>();
     private static int hooks;
 

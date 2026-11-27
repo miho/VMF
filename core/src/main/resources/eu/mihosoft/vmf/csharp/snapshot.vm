@@ -101,6 +101,10 @@ public static class ModelSnapshot
     public static string WriteWithoutReferences(object root) =>
         global::Vmf.Runtime.SnapshotJson.WriteWithoutReferences(UnwrapReadOnly(root) ?? root, Registry);
 
+    /// <summary>Writes typed values without graph IDs, rejecting or omitting references to mutable models.</summary>
+    public static string WriteWithoutReferences(object root, global::Vmf.Runtime.ReferenceMode references) =>
+        global::Vmf.Runtime.SnapshotJson.WriteWithoutReferences(UnwrapReadOnly(root) ?? root, Registry, references);
+
     public static T ReadWithoutReferences<T>(string json) where T : class =>
         global::Vmf.Runtime.SnapshotJson.ReadWithoutReferences<T>(json, Registry);
 
@@ -108,6 +112,12 @@ public static class ModelSnapshot
         ReadOnlyModels.TryGetValue(root, out var model)
             ? global::Vmf.Runtime.SnapshotJson.WritePlain(model, model.GetType(), Registry)
             : global::Vmf.Runtime.SnapshotJson.WritePlain(root, Registry);
+
+    /// <summary>Writes plain JSON, rejecting or omitting references to mutable models.</summary>
+    public static string WritePlain<T>(T root, global::Vmf.Runtime.ReferenceMode references) where T : class =>
+        ReadOnlyModels.TryGetValue(root, out var model)
+            ? global::Vmf.Runtime.SnapshotJson.WritePlain(model, model.GetType(), Registry, references)
+            : global::Vmf.Runtime.SnapshotJson.WritePlain(root, Registry, references);
 
     public static T ReadPlain<T>(string json) where T : class =>
         global::Vmf.Runtime.SnapshotJson.ReadPlain<T>(json, Registry);
@@ -130,6 +140,9 @@ public static class ModelSnapshot
     public static string WriteXmlWithoutReferences(object root) =>
         global::Vmf.Runtime.SnapshotXml.WriteWithoutReferences(UnwrapReadOnly(root) ?? root, Registry);
 
+    public static string WriteXmlWithoutReferences(object root, global::Vmf.Runtime.ReferenceMode references) =>
+        global::Vmf.Runtime.SnapshotXml.WriteWithoutReferences(UnwrapReadOnly(root) ?? root, Registry, references);
+
     public static string WriteXmlWithoutReferences(object root, string rootAlias) =>
         global::Vmf.Runtime.SnapshotXml.WriteWithoutReferences(UnwrapReadOnly(root) ?? root, Registry, rootAlias);
 
@@ -140,6 +153,11 @@ public static class ModelSnapshot
         ReadOnlyModels.TryGetValue(root, out var model)
             ? global::Vmf.Runtime.SnapshotXml.WritePlain(model, model.GetType(), Registry)
             : global::Vmf.Runtime.SnapshotXml.WritePlain(root, Registry);
+
+    public static string WritePlainXml<T>(T root, global::Vmf.Runtime.ReferenceMode references) where T : class =>
+        ReadOnlyModels.TryGetValue(root, out var model)
+            ? global::Vmf.Runtime.SnapshotXml.WritePlain(model, model.GetType(), Registry, references)
+            : global::Vmf.Runtime.SnapshotXml.WritePlain(root, Registry, references);
 
     public static string WritePlainXml<T>(T root, string rootAlias) where T : class =>
         ReadOnlyModels.TryGetValue(root, out var model)
@@ -164,6 +182,9 @@ public static class ModelSnapshot
     public static string WriteYamlWithoutReferences(object root) =>
         global::Vmf.Runtime.SnapshotYaml.WriteWithoutReferences(UnwrapReadOnly(root) ?? root, Registry);
 
+    public static string WriteYamlWithoutReferences(object root, global::Vmf.Runtime.ReferenceMode references) =>
+        global::Vmf.Runtime.SnapshotYaml.WriteWithoutReferences(UnwrapReadOnly(root) ?? root, Registry, references);
+
     public static T ReadYamlWithoutReferences<T>(string yaml) where T : class =>
         global::Vmf.Runtime.SnapshotYaml.ReadWithoutReferences<T>(yaml, Registry);
 
@@ -171,6 +192,11 @@ public static class ModelSnapshot
         ReadOnlyModels.TryGetValue(root, out var model)
             ? global::Vmf.Runtime.SnapshotYaml.WritePlain(model, model.GetType(), Registry)
             : global::Vmf.Runtime.SnapshotYaml.WritePlain(root, Registry);
+
+    public static string WritePlainYaml<T>(T root, global::Vmf.Runtime.ReferenceMode references) where T : class =>
+        ReadOnlyModels.TryGetValue(root, out var model)
+            ? global::Vmf.Runtime.SnapshotYaml.WritePlain(model, model.GetType(), Registry, references)
+            : global::Vmf.Runtime.SnapshotYaml.WritePlain(root, Registry, references);
 
     public static T ReadPlainYaml<T>(string yaml) where T : class =>
         global::Vmf.Runtime.SnapshotYaml.ReadPlain<T>(yaml, Registry);

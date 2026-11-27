@@ -60,11 +60,11 @@ public sealed class NamedRoleContainmentTests
 
         string Write() => (format, references) switch
         {
-            ("json", false) => ModelSnapshot.WriteWithoutReferences(built),
+            ("json", false) => ModelSnapshot.WriteWithoutReferences(built, global::Vmf.Runtime.ReferenceMode.Omit),
             ("json", true) => ModelSnapshot.Write(built),
-            ("xml", false) => ModelSnapshot.WriteXmlWithoutReferences(built),
+            ("xml", false) => ModelSnapshot.WriteXmlWithoutReferences(built, global::Vmf.Runtime.ReferenceMode.Omit),
             ("xml", true) => ModelSnapshot.WriteXml(built),
-            ("yaml", false) => ModelSnapshot.WriteYamlWithoutReferences(built),
+            ("yaml", false) => ModelSnapshot.WriteYamlWithoutReferences(built, global::Vmf.Runtime.ReferenceMode.Omit),
             ("yaml", true) => ModelSnapshot.WriteYaml(built),
             _ => throw new ArgumentException(nameof(format))
         };

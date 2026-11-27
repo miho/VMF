@@ -31,6 +31,9 @@ import eu.mihosoft.vcollections.VListChange;
 import eu.mihosoft.vcollections.VMappedList;
 import eu.mihosoft.vcollections.VMap;
 import eu.mihosoft.vcollections.VSet;
+import eu.mihosoft.vcollections.VListChangeEvent;
+import eu.mihosoft.vcollections.VMapChangeEvent;
+import eu.mihosoft.vcollections.VSetChangeEvent;
 import eu.mihosoft.vmf.runtime.core.*;
 import vjavax.observer.Subscription;
 import vjavax.observer.collection.CollectionChangeEvent;
@@ -62,6 +65,9 @@ public class ChangesImpl implements Changes {
     private VList<Change> transactionChanges;
 
     private final VList<Change> all = VList.newInstance(new ArrayList<>());
+    // The delivery stamp of each entry of all(), in the same order (H4).
+    private final List<Long> historyStamps = new ArrayList<>();
+    private long registrationSequence;
     private final VList<Change> unmodifiableAll = VMappedList.newUnmodifiableInstance(all, Function.identity());
     private final VList<Transaction> transactions
             = VList.newInstance(new ArrayList<>());
@@ -76,8 +82,13 @@ public class ChangesImpl implements Changes {
     private final Map<Object, Subscription> localCollectionSubscriptions = new IdentityHashMap<>();
     private Set<Object> preparedMemberships;
 
-    private final PropertyChangeListener objListener;
-    private final PropertyChangeListener nonRecursiveObjListener;
+    // The relays this observer registers with the property supports of the objects it observes. Each runs the next
+    // relay handler of the event, nearest observer first (E8, DeliveryOrder).
+    private final Map<VObjectInternal, PropertyRelay> recursivePropertyRelays = new IdentityHashMap<>();
+    private PropertyRelay localPropertyRelay;
+    // This observer's relay handlers for property events.
+    private final Consumer<Object> recursivePropertyHandler;
+    private final Consumer<Object> localPropertyHandler;
 
     private boolean modelVersioningEnabled;
     private Subscription modelVersioningSubscription;
@@ -87,6 +98,8 @@ public class ChangesImpl implements Changes {
     private boolean recording;
     private boolean recursiveObservationActive;
     private boolean localObservationActive;
+    // Whether the local relay was registered on the object before the recursive relay (E7).
+    private boolean localRelayFirst;
 
     private long timestamp;
     private final AtomicLong modelVersionNumber = new AtomicLong(0);
@@ -130,13 +143,27 @@ public class ChangesImpl implements Changes {
 
     @SuppressWarnings({"deprecation"})
     public ChangesImpl() {
-        objListener = new VMFPropertyChangeSupport.PreparingListener() {
-            @Override public void prepare(PropertyChangeEvent event) {
-                if (capturesProperty(event)) journalCapture.accept(ChangesImpl.this.propertyChange(event));
-            }
-            @Override public void propertyChange(PropertyChangeEvent event) { observePropertyChange(event); }
-        };
-        nonRecursiveObjListener = evt -> firePropertyChange(evt, localPropertyNames, nonRecursiveChangeListeners);
+        recursivePropertyHandler = event -> observePropertyChange((PropertyChangeEvent) event);
+        localPropertyHandler = event -> firePropertyChange((PropertyChangeEvent) event, localPropertyNames,
+                nonRecursiveChangeListeners);
+    }
+
+    /** The relay this observer registers with an object's property support (E8). */
+    private final class PropertyRelay implements VMFPropertyChangeSupport.PreparingListener {
+        private final DeliveryOrder.Handler handler;
+
+        PropertyRelay(DeliveryOrder.Handler handler) {
+            this.handler = handler;
+        }
+
+        @Override public void prepare(PropertyChangeEvent event) {
+            DeliveryOrder.prepare(handler, event);
+            if (handler.recursive && capturesProperty(event)) journalCapture.accept(ChangesImpl.this.propertyChange(event));
+        }
+
+        @Override public void propertyChange(PropertyChangeEvent event) {
+            DeliveryOrder.deliver(handler, event);
+        }
     }
 
     private boolean capturesProperty(PropertyChangeEvent event) {
@@ -195,7 +222,7 @@ public class ChangesImpl implements Changes {
     private Set<ScopeEvent> overlappingScopeEvents;
 
     private boolean deferringHistory;
-    private ArrayDeque<Change> deferredHistory;
+    private ArrayDeque<Object[]> deferredHistory;
     private long historyGeneration;
 
     private static Set<String> exactPropertyNames(List<Registration> listeners) {
@@ -227,15 +254,17 @@ public class ChangesImpl implements Changes {
     }
 
     private void firePropertyChange(PropertyChangeEvent evt, Set<String> propertyNames, List<Registration> listeners) {
+        if (isSilentRelay(evt.getSource(), listeners)) return;
+        long stamp = DeliveryOrder.stamp(evt);
         String name = evt.getPropertyName();
         boolean firstDelivery = firstDelivery(evt.getSource(), evt);
-        if (needsChange(propertyNames, name)) {
+        if (needsDelivery(evt.getSource(), propertyNames, listeners, name)) {
             var change = propertyChange(evt);
             // A newly opened journal checkpoint already includes properties assigned
             // before this delivery began. Their live notifications may still reach this relay.
             boolean record = firstDelivery && recording
                     && (!requiresPreparedProperty(evt) || isJournalDelivery(change));
-            fireChange(change, record, listeners);
+            fireChange(change, record, deliveryTargets(evt.getSource(), listeners), stamp);
         }
     }
 
@@ -245,15 +274,17 @@ public class ChangesImpl implements Changes {
 
     private void fireListChange(VObject object, String name, CollectionChangeEvent<Object, VList<Object>, VListChange<Object>> evt,
                                 Set<String> propertyNames, List<Registration> listeners, boolean referenceSet) {
+        if (isSilentRelay(object, listeners)) return;
+        long stamp = DeliveryOrder.stamp(evt);
         boolean firstDelivery = firstDelivery(object, evt);
-        if (needsChange(propertyNames, name)) {
+        if (needsDelivery(object, propertyNames, listeners, name)) {
             var change = listChange(object, name, evt, referenceSet);
             // A recorder opened during opposite delivery starts from the already committed list.
             boolean record = firstDelivery && recording
                     && (!(evt.source() instanceof ObservableModelList
                         && ((ObservableModelList<?>) evt.source()).hasReciprocalCollectionOpposite())
                         || isJournalDelivery(change));
-            fireChange(change, record, listeners);
+            fireChange(change, record, deliveryTargets(object, listeners), stamp);
         }
     }
 
@@ -322,7 +353,7 @@ public class ChangesImpl implements Changes {
 
     private static Throwable notifyListeners(List<Registration> listeners, Change change) {
         int count = listeners.size();
-        if (count == 0) return null;
+        if (count == 0 || isRecordingOnlyClear(change)) return null;
         if (count == 1) {
             return notifyListener(listeners.get(0).listener, change, null);
         }
@@ -334,6 +365,17 @@ public class ChangesImpl implements Changes {
         return failure;
     }
 
+    /**
+     * Clearing a single-valued reference whose opposite is a list first removes the owner from that list, which
+     * already reports the cleared reference to listeners. The setter's follow-up change only serves recording.
+     */
+    private static boolean isRecordingOnlyClear(Change change) {
+        if (!(change instanceof PropChangeImpl)) return false;
+        var property = (PropChangeImpl) change;
+        return property.newValue() == null
+                && ChangeInternal.CHANGE_TYPE_SCALAR_AFTER_OPPOSITE_REMOVAL.equals(property.getInternalChangeInfo());
+    }
+
     private static Throwable notifyListener(ChangeListener listener, Change change, Throwable failure) {
         try {
             listener.onChange(change);
@@ -343,14 +385,14 @@ public class ChangesImpl implements Changes {
         return failure;
     }
 
-    private void fireChange(Change change, boolean record, List<Registration> listeners) {
+    private void fireChange(Change change, boolean record, List<Registration> listeners, long stamp) {
         if (!record || !isPrimaryChange(change)) {
             ObserverFailures.rethrow(notifyListeners(listeners, change));
             return;
         }
         long generation = historyGeneration;
         if (listeners.isEmpty()) {
-            ObserverFailures.rethrow(recordChange(change, generation, null));
+            ObserverFailures.rethrow(recordChange(change, generation, null, stamp));
             return;
         }
         boolean scalarEdit = change instanceof MapChangeImpl || change instanceof SetChangeImpl;
@@ -361,13 +403,13 @@ public class ChangesImpl implements Changes {
         if (scalarEdit) {
             // Scalars and map entries already changed. Record them before edits made by their observers.
             if (deferringHistory) {
-                deferChange(change);
+                deferChange(change, stamp);
                 ObserverFailures.rethrow(notifyListeners(listeners, change));
                 return;
             }
             deferringHistory = true;
             try {
-                ObserverFailures.rethrow(appendHistory(change, generation, notifyListeners(listeners, change)));
+                ObserverFailures.rethrow(appendHistory(change, generation, notifyListeners(listeners, change), stamp));
             } finally {
                 deferringHistory = false;
             }
@@ -376,7 +418,7 @@ public class ChangesImpl implements Changes {
         // A removed subtree stays observable through its detach notification.
         // Preserve the native ordering of edits made there before the removal.
         var failure = notifyListeners(listeners, change);
-        ObserverFailures.rethrow(recordChange(change, generation, failure));
+        ObserverFailures.rethrow(recordChange(change, generation, failure, stamp));
     }
 
     private static boolean isPrimaryChange(Change change) {
@@ -388,7 +430,7 @@ public class ChangesImpl implements Changes {
         return !ChangeInternal.isCrossRefChange(change);
     }
 
-    private Throwable recordChange(Change change, long generation, Throwable failure) {
+    private Throwable recordChange(Change change, long generation, Throwable failure, long stamp) {
         if (!recording || generation != historyGeneration) return failure;
         if (change instanceof PropChangeImpl) {
             var property = (PropChangeImpl) change;
@@ -404,34 +446,43 @@ public class ChangesImpl implements Changes {
             OppositeReferenceRemoval.record((ListChangeImpl) change, this, generation);
         }
         if (deferringHistory) {
-            deferChange(change);
+            deferChange(change, stamp);
             return failure;
         }
         deferringHistory = true;
         try {
-            return appendHistory(change, generation, failure);
+            return appendHistory(change, generation, failure, stamp);
         } finally {
             deferringHistory = false;
         }
     }
 
-    private void deferChange(Change change) {
+    private void deferChange(Change change, long stamp) {
         if (deferredHistory == null) deferredHistory = new ArrayDeque<>();
-        deferredHistory.addLast(change);
+        deferredHistory.addLast(new Object[]{change, stamp});
     }
 
-    private Throwable appendHistory(Change change, long generation, Throwable failure) {
-        if (recording && generation == historyGeneration) failure = addHistory(change, failure);
+    private Throwable appendHistory(Change change, long generation, Throwable failure, long stamp) {
+        if (recording && generation == historyGeneration) failure = addHistory(change, failure, stamp);
         while (deferredHistory != null && !deferredHistory.isEmpty()) {
-            Change nested = deferredHistory.removeFirst();
-            if (recording) failure = addHistory(nested, failure);
+            Object[] nested = deferredHistory.removeFirst();
+            if (recording) failure = addHistory((Change) nested[0], failure, (Long) nested[1]);
         }
         return failure;
     }
 
-    private Throwable addHistory(Change change, Throwable failure) {
+    /**
+     * Adds a change in delivery order (H4): before the changes of the current group whose events were stamped
+     * later. Those were made by listeners while this change was delivered to other observers first.
+     */
+    private Throwable addHistory(Change change, Throwable failure, long stamp) {
+        int index = all.size();
+        if (stamp > 0) {
+            while (index > currentTransactionStartIndex && historyStamps.get(index - 1) > stamp) index--;
+        }
         try {
-            all.add(change);
+            all.add(index, change);
+            historyStamps.add(index, stamp);
         } catch (RuntimeException | Error ex) {
             return ObserverFailures.add(failure, ex);
         }
@@ -442,11 +493,48 @@ public class ChangesImpl implements Changes {
         this.model = model;
     }
 
+    /** Whether both relays observe the object itself: the local one and the recursive one. */
+    private boolean bothRelaysObserveModel() {
+        return localObservationActive && recursiveObservationActive;
+    }
+
+    /** The relay of the object itself that was registered first; it delivers for both scopes (E7). */
+    private boolean isDeliveringRelay(List<Registration> listeners) {
+        return localRelayFirst ? listeners == nonRecursiveChangeListeners : listeners == changeListeners;
+    }
+
+    /**
+     * When both relays observe the object, the one registered first calls the listeners of both scopes, in the
+     * order they were added, and the other one stays silent for the object's own events (E7).
+     */
+    private boolean isSilentRelay(Object source, List<Registration> listeners) {
+        return source == model && bothRelaysObserveModel() && !isDeliveringRelay(listeners);
+    }
+
+    /** The listeners an event of this relay reaches (E7). */
+    private List<Registration> deliveryTargets(Object source, List<Registration> listeners) {
+        if (source != model || !bothRelaysObserveModel()) return listeners;
+        var merged = new ArrayList<Registration>(changeListeners.size() + nonRecursiveChangeListeners.size());
+        merged.addAll(changeListeners);
+        merged.addAll(nonRecursiveChangeListeners);
+        merged.sort(Comparator.comparingLong(registration -> registration.sequence));
+        return merged;
+    }
+
+    /** Whether a relay creates a change for the property; the delivering relay serves both scopes. */
+    private boolean needsDelivery(Object source, Set<String> propertyNames, List<Registration> listeners, String name) {
+        if (source == model && bothRelaysObserveModel()) {
+            return needsChange(recursivePropertyNames, name) || needsChange(localPropertyNames, name);
+        }
+        return needsChange(propertyNames, name);
+    }
+
     @Override
     public void start() {
 
         clear();
 
+        if (!recording) DeliveryOrder.recordingChanged(true);
         recording = true;
 
         updateRecursiveObservation();
@@ -461,9 +549,14 @@ public class ChangesImpl implements Changes {
         }
         recursiveObservationActive = shouldObserve;
         if (shouldObserve) {
+            localRelayFirst = localObservationActive;
             observeSubtree((VObjectInternal) model, true);
         } else {
-            observedObjects.forEach(object -> object.removePropertyChangeListener(objListener));
+            recursivePropertyRelays.forEach((object, relay) -> {
+                object.removePropertyChangeListener(relay);
+                DeliveryOrder.detach(relay.handler);
+            });
+            recursivePropertyRelays.clear();
             observedObjects.clear();
             recursiveCollectionSubscriptions.values().forEach(Subscription::unsubscribe);
             recursiveCollectionSubscriptions.clear();
@@ -511,18 +604,26 @@ public class ChangesImpl implements Changes {
 
     /** Visits only live parent/child edges, with parents and list elements in containment order. */
     private void observeSubtree(VObjectInternal root, boolean attach) {
+        var position = attach ? new DeliveryOrder.Position(model) : null;
         var pending = new ArrayDeque<VObjectInternal>();
         pending.push(root);
         while (!pending.isEmpty()) {
             VObjectInternal object = pending.pop();
             if (attach) {
                 if (!observedObjects.add(object)) continue;
-                subscribeCollections(object, true);
-                object.addPropertyChangeListener(objListener);
+                subscribeCollections(object, true, position);
+                var relay = new PropertyRelay(
+                        DeliveryOrder.attach(object, this, model, true, recursivePropertyHandler, position));
+                recursivePropertyRelays.put(object, relay);
+                object.addPropertyChangeListener(relay);
             } else {
                 if (!observedObjects.remove(object)) continue;
                 unsubscribeCollections(object, recursiveCollectionSubscriptions);
-                object.removePropertyChangeListener(objListener);
+                var relay = recursivePropertyRelays.remove(object);
+                if (relay != null) {
+                    object.removePropertyChangeListener(relay);
+                    DeliveryOrder.detach(relay.handler);
+                }
             }
 
             int[] children = object._vmf_getChildrenIndices();
@@ -548,23 +649,29 @@ public class ChangesImpl implements Changes {
     }
 
     @SuppressWarnings("unchecked")
-    private void registerChangeListenerNonRecursive(VObject vObj, PropertyChangeListener objListener) {
-        subscribeCollections((VObjectInternal) vObj, false);
+    private void registerChangeListenerNonRecursive(VObject vObj) {
+        var position = new DeliveryOrder.Position(model);
+        subscribeCollections((VObjectInternal) vObj, false, position);
 
         VObjectInternal obj = (VObjectInternal) vObj;
-        obj.addPropertyChangeListener(objListener);
+        localPropertyRelay = new PropertyRelay(DeliveryOrder.attach(obj, this, model, false, localPropertyHandler, position));
+        obj.addPropertyChangeListener(localPropertyRelay);
     }
 
     @SuppressWarnings("unchecked")
-    private void unregisterChangeListenerNonRecursive(VObject vObj, PropertyChangeListener objListener) {
+    private void unregisterChangeListenerNonRecursive(VObject vObj) {
         unsubscribeCollections((VObjectInternal) vObj, localCollectionSubscriptions);
 
         VObjectInternal obj = (VObjectInternal) vObj;
-        obj.removePropertyChangeListener(objListener);
+        if (localPropertyRelay != null) {
+            obj.removePropertyChangeListener(localPropertyRelay);
+            DeliveryOrder.detach(localPropertyRelay.handler);
+            localPropertyRelay = null;
+        }
     }
 
     @SuppressWarnings({"deprecation", "unchecked"})
-    private void subscribeCollections(VObjectInternal owner, boolean recursive) {
+    private void subscribeCollections(VObjectInternal owner, boolean recursive, DeliveryOrder.Position position) {
         Map<Object, Subscription> subscriptions = recursive ? recursiveCollectionSubscriptions : localCollectionSubscriptions;
         int[] types = owner._vmf_getPropertyTypes();
         for (int id = 0; id < types.length; id++) {
@@ -575,28 +682,36 @@ public class ChangesImpl implements Changes {
                 var preparation = recursive && MembershipPreparation.available() ? MembershipPreparation.observe(map, event -> {
                     if (recording && journalCapture != null) journalCapture.accept(new MapChangeImpl(owner, name, event));
                 }) : Optional.<Subscription>empty();
-                var relay = map.addChangeListener(event -> {
+                Consumer<VMapChangeEvent<Object, Object>> handler = event -> {
+                    var scope = recursive ? changeListeners : nonRecursiveChangeListeners;
+                    if (isSilentRelay(owner, scope)) return;
+                    long stamp = DeliveryOrder.stamp(event);
                     boolean first = firstDelivery(owner, event);
-                    if (needsChange(recursive ? recursivePropertyNames : localPropertyNames, name)) {
+                    if (needsDelivery(owner, recursive ? recursivePropertyNames : localPropertyNames, scope, name)) {
                         var change = new MapChangeImpl(owner, name, event);
-                        fireChange(change, recordsMembership(map, change, first),
-                                recursive ? changeListeners : nonRecursiveChangeListeners);
+                        fireChange(change, recordsMembership(map, change, first), deliveryTargets(owner, scope), stamp);
                     }
-                });
+                };
+                var relay = relay(map, recursive, position, handler,
+                        attached -> map.addChangeListener(event -> DeliveryOrder.deliver(attached, event)));
                 subscriptions.put(map, prepareMembership(map, preparation, relay));
             } else if (types[id] == VObjectInternal.VMF_TYPE_SET) {
                 var set = (VSet<Object>) owner._vmf_getPropertyValueById(id);
                 var preparation = recursive && MembershipPreparation.available() ? MembershipPreparation.observe(set, event -> {
                     if (recording && journalCapture != null) journalCapture.accept(new SetChangeImpl(owner, name, event));
                 }) : Optional.<Subscription>empty();
-                var relay = set.addChangeListener(event -> {
+                Consumer<VSetChangeEvent<Object>> handler = event -> {
+                    var scope = recursive ? changeListeners : nonRecursiveChangeListeners;
+                    if (isSilentRelay(owner, scope)) return;
+                    long stamp = DeliveryOrder.stamp(event);
                     boolean first = firstDelivery(owner, event);
-                    if (needsChange(recursive ? recursivePropertyNames : localPropertyNames, name)) {
+                    if (needsDelivery(owner, recursive ? recursivePropertyNames : localPropertyNames, scope, name)) {
                         var change = new SetChangeImpl(owner, name, event);
-                        fireChange(change, recordsMembership(set, change, first),
-                                recursive ? changeListeners : nonRecursiveChangeListeners);
+                        fireChange(change, recordsMembership(set, change, first), deliveryTargets(owner, scope), stamp);
                     }
-                });
+                };
+                var relay = relay(set, recursive, position, handler,
+                        attached -> set.addChangeListener(event -> DeliveryOrder.deliver(attached, event)));
                 subscriptions.put(set, prepareMembership(set, preparation, relay));
             } else {
                 var list = (VList<Object>) owner._vmf_getPropertyValueById(id);
@@ -607,7 +722,7 @@ public class ChangesImpl implements Changes {
                 if (recursive && isContainmentProperty(owner, id)) {
                     var containment = ReferenceCollections.containment(list);
                     if (!referenceSet && list instanceof ContainmentList) {
-                        subscription = ((ContainmentList<Object>) list).observe(
+                        subscription = listRelay(list, true, position,
                                 event -> observeContainmentListChange(owner, propertyId, list, name, event, false),
                                 event -> {
                                     if (recording && journalCapture != null) {
@@ -615,7 +730,7 @@ public class ChangesImpl implements Changes {
                                     }
                                 });
                     } else if (list instanceof ObservableModelList && containment != null) {
-                        subscription = ((ObservableModelList<Object>) list).observe(
+                        subscription = listRelay(list, true, position,
                                 event -> observeContainmentListChange(owner, propertyId, list, name, event, referenceSet),
                                 event -> {
                                     // The owning set's relay runs after ownership repair. Its installed membership
@@ -628,14 +743,15 @@ public class ChangesImpl implements Changes {
                                     }
                                 });
                     } else {
-                        subscription = list.addChangeListener(event -> observeContainmentListChange(owner, propertyId, list, name, event, referenceSet));
+                        subscription = listRelay(list, true, position,
+                                event -> observeContainmentListChange(owner, propertyId, list, name, event, referenceSet), null);
                     }
                 } else if (recursive && list instanceof ObservableModelList) {
                     var observable = (ObservableModelList<Object>) list;
                     boolean capturePositional = observable.isOrdinary() || observable.hasReciprocalCollectionOpposite()
                             || !referenceSet && Arrays.stream(owner._vmf_getIndicesOfPropertiesWithModelElementTypes())
                                     .noneMatch(index -> index == propertyId);
-                    subscription = observable.observe(
+                    subscription = listRelay(list, true, position,
                             event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners, referenceSet),
                             event -> {
                                 if (recording && journalCapture != null
@@ -645,13 +761,57 @@ public class ChangesImpl implements Changes {
                                 }
                             });
                 } else if (recursive) {
-                    subscription = list.addChangeListener(event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners, referenceSet));
+                    subscription = listRelay(list, true, position,
+                            event -> fireListChange(owner, name, event, recursivePropertyNames, changeListeners, referenceSet), null);
                 } else {
-                    subscription = list.addChangeListener(event -> fireListChange(owner, name, event, localPropertyNames, nonRecursiveChangeListeners, referenceSet));
+                    subscription = listRelay(list, false, position,
+                            event -> fireListChange(owner, name, event, localPropertyNames, nonRecursiveChangeListeners, referenceSet), null);
                 }
                 subscriptions.put(list, subscription);
             }
         }
+    }
+
+    /**
+     * Registers a relay slot with a dispatcher and adds this observer's handler to the dispatcher's relay handlers.
+     * The dispatcher calls the slots in registration order; each slot runs the next handler, nearest observer
+     * first (E8).
+     */
+    @SuppressWarnings("unchecked")
+    private <E> Subscription relay(Object dispatcher, boolean recursive, DeliveryOrder.Position position,
+                                   Consumer<E> handler, Function<DeliveryOrder.Handler, Subscription> register) {
+        var attached = DeliveryOrder.attach(dispatcher, this, model, recursive, event -> handler.accept((E) event), position);
+        Subscription slot;
+        try {
+            slot = register.apply(attached);
+        } catch (RuntimeException | Error ex) {
+            DeliveryOrder.detach(attached);
+            throw ex;
+        }
+        return () -> {
+            DeliveryOrder.detach(attached);
+            slot.unsubscribe();
+        };
+    }
+
+    /** A list relay; VMF's own lists also let the slot take the dispatch order in their prepare phase. */
+    @SuppressWarnings("unchecked")
+    private Subscription listRelay(VList<Object> list, boolean recursive, DeliveryOrder.Position position,
+                                   Consumer<CollectionChangeEvent<Object, VList<Object>, VListChange<Object>>> handler,
+                                   Consumer<VListChangeEvent<Object>> capture) {
+        return relay(list, recursive, position, handler, attached -> {
+            Consumer<VListChangeEvent<Object>> prepare = event -> {
+                DeliveryOrder.prepare(attached, event);
+                if (capture != null) capture.accept(event);
+            };
+            if (list instanceof ContainmentList) {
+                return ((ContainmentList<Object>) list).observe(event -> DeliveryOrder.deliver(attached, event), prepare);
+            }
+            if (list instanceof ObservableModelList) {
+                return ((ObservableModelList<Object>) list).observe(event -> DeliveryOrder.deliver(attached, event), prepare);
+            }
+            return list.addChangeListener(event -> DeliveryOrder.deliver(attached, event));
+        });
     }
 
     private boolean recordsMembership(Object collection, Change change, boolean first) {
@@ -843,6 +1003,7 @@ public class ChangesImpl implements Changes {
             // A publication listener can record additional edits while stop is in progress.
             // Keep those edits in all(), without leaving a group pending after recording ends.
             currentTransactionStartIndex = all.size();
+            if (recording) DeliveryOrder.recordingChanged(false);
             recording = false;
             releasePendingEvent();
             disableModelVersioning();
@@ -867,6 +1028,7 @@ public class ChangesImpl implements Changes {
         if (deferredHistory != null) deferredHistory.clear();
         currentTransactionStartIndex = 0;
         all.clear();
+        historyStamps.clear();
         transactions.clear();
     }
 
@@ -886,6 +1048,7 @@ public class ChangesImpl implements Changes {
     private final class Registration implements Subscription {
         final ChangeListener listener;
         final boolean recursive;
+        final long sequence = ++registrationSequence;
 
         Registration(ChangeListener listener, boolean recursive) {
             this.listener = listener;
@@ -913,8 +1076,11 @@ public class ChangesImpl implements Changes {
         localPropertyNames = exactPropertyNames(nonRecursiveChangeListeners);
         boolean needsLocalObservation = !nonRecursiveChangeListeners.isEmpty();
         if (needsLocalObservation == localObservationActive) return;
-        if (needsLocalObservation) registerChangeListenerNonRecursive(model, nonRecursiveObjListener);
-        else unregisterChangeListenerNonRecursive(model, nonRecursiveObjListener);
+        if (needsLocalObservation) {
+            localRelayFirst = !recursiveObservationActive;
+            registerChangeListenerNonRecursive(model);
+        }
+        else unregisterChangeListenerNonRecursive(model);
         localObservationActive = needsLocalObservation;
     }
 

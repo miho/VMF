@@ -26,12 +26,17 @@ package eu.mihosoft.vmf.gradle.plugin
 
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.plugins.JavaPluginExtension
+import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.Property
+import org.gradle.api.file.ConfigurableFileCollection
 
 import org.gradle.api.file.FileCollection
 import org.gradle.api.plugins.JavaPlugin
 
+import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.OutputDirectories
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.SourceSet
 import org.gradle.api.tasks.TaskAction
@@ -140,9 +145,11 @@ class VMFSourceVirtualDirectoryImpl implements VMFSourceVirtualDirectory, HasPub
 }
 
 class VMFPluginExtension {
-    // vmf version
-    // String version  = "0.1.13"
-    // String version  = "0.2-SNAPSHOT"
+    /**
+     * Languages to generate besides Java: 'csharp' and 'typescript'. The sources of a source set are written to
+     * build/generated-src/vmf-&lt;source set&gt;-&lt;language&gt;; Java is always generated.
+     */
+    List<String> targets = []
 }
 
 class VMFPlugin implements Plugin<Project> {
@@ -250,6 +257,10 @@ class VMFPlugin implements Plugin<Project> {
                         final File outputDirectory = new File(outputDirectoryName);
                         sourceSet.getJava().srcDir(outputDirectory);
 
+                        // the sources of the other target languages, next to the Java sources
+                        final File csharpDirectory = new File(outputDirectoryName + "-csharp")
+                        final File typescriptDirectory = new File(outputDirectoryName + "-typescript")
+
                         final String outputDirectoryNameModelDef =
                                 project.layout.buildDirectory.get().asFile.absolutePath + "/vmf-modeldef-compiled/vmf-" + sourceSet.getName();
                         final File outputDirectoryModelDef = new File(outputDirectoryNameModelDef);
@@ -295,6 +306,15 @@ class VMFPlugin implements Plugin<Project> {
                                 vmfTask._sourceDirectorySet.set(sourceDirectorySetVMF)
                                 vmfTask._outputDirectoryModelDef = outputDirectoryModelDef;
                                 vmfTask._vmfClassPath = vmfClassPath;
+                                // read lazily: the 'vmf' block is evaluated after the plugin is applied
+                                vmfTask._targets.set(project.provider { CompileVMFTask.targetsOf(extension.targets) })
+                                vmfTask._csharpOutputFolder = csharpDirectory
+                                vmfTask._typescriptOutputFolder = typescriptDirectory
+                                vmfTask._targetOutputFolders.from(project.provider {
+                                    CompileVMFTask.targetsOf(extension.targets).collect { target ->
+                                        target == 'csharp' ? csharpDirectory : typescriptDirectory
+                                    }
+                                })
                                 vmfTask.dependsOn(compileVMFModelDefTask)
                             }
                         });
@@ -318,6 +338,9 @@ class VMFPlugin implements Plugin<Project> {
                                 }
                                 outputDirectoryModelDef.listFiles().each {
                                     f -> f.deleteDir()
+                                }
+                                [csharpDirectory, typescriptDirectory].each { directory ->
+                                    directory.listFiles().each { f -> f.deleteDir() }
                                 }
                             }
                         }
@@ -377,6 +400,38 @@ class CompileVMFTask extends DefaultTask {
 
     @InputFiles
     FileCollection _vmfClassPath
+
+    /** Languages to generate besides Java: 'csharp', 'typescript'. */
+    @Input
+    final ListProperty<String> _targets = project.objects.listProperty(String)
+
+    @Internal
+    File _csharpOutputFolder
+
+    @Internal
+    File _typescriptOutputFolder
+
+    /** The output folders of the requested languages besides Java. */
+    @OutputDirectories
+    final ConfigurableFileCollection _targetOutputFolders = project.objects.fileCollection()
+
+    /** The requested languages besides Java, in lower case and without repeats; unknown names fail the build. */
+    static List<String> targetsOf(Collection<?> requested) {
+        List<String> result = []
+        for (Object entry : requested) {
+            String name = String.valueOf(entry).trim().toLowerCase(Locale.ROOT)
+            if (name == 'java') {
+                continue
+            }
+            if (name != 'csharp' && name != 'typescript') {
+                throw new GradleException("Unknown VMF target '" + entry + "': use 'csharp' or 'typescript'")
+            }
+            if (!result.contains(name)) {
+                result.add(name)
+            }
+        }
+        return result
+    }
 
     // Class<?> vmfClass;
 
@@ -459,6 +514,20 @@ class CompileVMFTask extends DefaultTask {
                     classLoader,
                     vmfModelPath
             )
+
+            for (String target : _targets.get()) {
+                File folder = target == 'csharp' ? _csharpOutputFolder : _typescriptOutputFolder
+                println(" -> generating " + target + " code for vmf model in package: " + vmfModelPath)
+                def targetType
+                try {
+                    targetType = classLoader.loadClass("eu.mihosoft.vmf.GenerationTarget")
+                } catch (ClassNotFoundException e) {
+                    throw new GradleException("This VMF version generates Java only; '" + target
+                            + "' needs a VMF version with C# and TypeScript support", e)
+                }
+                vmfClass.generate(Enum.valueOf(targetType, target.toUpperCase(Locale.ROOT)), folder, classLoader,
+                        vmfModelPath)
+            }
         }
     }
 

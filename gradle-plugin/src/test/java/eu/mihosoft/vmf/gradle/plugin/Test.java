@@ -54,6 +54,20 @@ public class Test {
     }
 
     @org.junit.Test
+    public void targetsSelectTheLanguagesBesidesJava() {
+        assertEquals(java.util.Arrays.asList("csharp", "typescript"),
+                CompileVMFTask.targetsOf(java.util.Arrays.asList("CSharp", "java", " typescript ", "csharp")));
+        Project project = ProjectBuilder.builder().build();
+        project.getPlugins().apply("eu.mihosoft.vmf");
+        assertTrue(project.getExtensions().getByType(VMFPluginExtension.class).getTargets().isEmpty());
+    }
+
+    @org.junit.Test(expected = org.gradle.api.GradleException.class)
+    public void unknownTargetsFail() {
+        CompileVMFTask.targetsOf(java.util.Collections.singletonList("kotlin"));
+    }
+
+    @org.junit.Test
     public void vmfConfigurationPresentTest() {
         Project project = ProjectBuilder.builder().build();
         project.getPlugins().apply("eu.mihosoft.vmf");

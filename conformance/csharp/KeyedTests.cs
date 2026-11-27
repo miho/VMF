@@ -89,8 +89,9 @@ public class KeyedTests
         Assert.Empty(source.Products);
         var history = owner.VmfChanges.History.OfType<ModelCollectionChange>().Where(edit => edit.PropertyName == property).ToArray();
         Assert.Equal(mode == "transfer" ? 1 : 2, history.Length);
+        // The triggering edit is recorded before the edit its listener made (portable contract H4).
         Assert.Same(mode == "transfer" ? incoming : mode == "identity" ? owner.Assignments[0] : replacement,
-            Assert.Single(history[0].Added).Value);
+            Assert.Single(history[mode == "transfer" ? 0 : 1].Added).Value);
         var journal = recorder.Finish();
 
         var formats = new (string Name, Func<ChangeJournal, string> Write, Func<string, ChangeJournal> Read)[]

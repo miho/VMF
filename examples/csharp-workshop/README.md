@@ -57,10 +57,15 @@ and `ModelSnapshot.WritePlain(inventory)`. In TypeScript, use
 `ModelSnapshot.writePlain(inventory, ExternalInventory)`.
 
 Plain mode uses the supplied root type and the model's declared containment
-types. The C# and TypeScript plain writers reject populated non-owning
-references and subtypes that need a discriminator. Use reference-aware
-snapshots for those graphs. Java's default mapper retains its existing
-polymorphism and reference behavior.
+types. The C# and TypeScript plain writers reject subtypes that need a
+discriminator. All three writers reject a populated non-owning reference to a
+mutable model object unless you ask them to leave it out: Java
+`withReferences(VMFJacksonModule.ReferenceMode.OMIT)`, C#
+`ModelSnapshot.WritePlain(model, ReferenceMode.Omit)` (and the
+`WriteWithoutReferences`, XML and YAML variants), TypeScript
+`ModelSnapshot.writePlain(model, Type, "omit")`. Use reference-aware snapshots
+to keep the references. Java's default mapper retains its existing
+polymorphism behavior.
 
 ## Generate your own model
 
@@ -97,11 +102,25 @@ Java Jackson.
 ## Supported C# and TypeScript declarations
 
 Both targets support mutable models, single inheritance, named model-bounded
-generic specializations, string, boolean, and 32-bit integer properties,
-ordered identity containment, single-valued non-owning references, and
-unbounded unordered identity reference sets. Reciprocal containment is
-supported on types outside an inheritance hierarchy. Multiplicity validation
-runs over containment.
+generic specializations, string, boolean, 32- and 64-bit integer, and double
+properties, scalar lists, single-valued and ordered list containment including
+recursive types and container properties declared on base types, single-valued
+and ordered list references with or without an opposite, unbounded unordered
+identity reference sets, literal scalar defaults, content equality, and deep
+copies. Both reject containment cycles. Multiplicity validation runs over
+containment. The [portable contract](../../conformance/portable/CONTRACT.md)
+scenarios check this shared behavior on Java, C#, and TypeScript.
+
+TypeScript represents `long` as `bigint`. Every model object offers
+`vmfChanges` for local and recursive listeners and for recording edits that
+can be undone and redone. A TypeScript class extends one model supertype and
+implements further interface-only ones; `instanceof` works for all of them.
+`asReadOnly()` returns a live read-only view typed by a generated
+`ReadOnly<Type>` interface. `@Immutable` types are classes created with all
+their values (`new Type({ ... })`) and frozen; snapshots write them by value.
+`vmfType` lists a type's properties and annotations. TypeScript has no
+equality modes: JavaScript compares objects by identity, and content equality
+is the `contentEquals` method.
 
 The C# backend also generates live read-only projections of these mutable
 models and standalone immutable types with scalar properties and single

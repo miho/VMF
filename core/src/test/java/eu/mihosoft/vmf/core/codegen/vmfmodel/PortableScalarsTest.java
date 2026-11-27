@@ -110,8 +110,9 @@ public class PortableScalarsTest {
         assertFalse(required.getValueType().isPrimitive());
 
         var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(ts.getMessage().contains(".long has unsupported type long"));
-        assertTrue(ts.getMessage().contains(".boxedChar has unsupported type java.lang.Character"));
+        assertFalse(ts.getMessage(), ts.getMessage().contains(".long has unsupported type"));
+        assertFalse(ts.getMessage(), ts.getMessage().contains(".double has unsupported type"));
+        assertTrue(ts.getMessage(), ts.getMessage().contains(".boxedChar has unsupported type java.lang.Character"));
     }
 
     @Test

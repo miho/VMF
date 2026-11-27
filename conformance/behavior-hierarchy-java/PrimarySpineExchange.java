@@ -62,7 +62,7 @@ public final class PrimarySpineExchange {
 
     private static ObjectMapper snapshot(boolean references) {
         return new ObjectMapper().registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                .withModelWireTypeAliases(SpineFlow.class).withReferences(references));
+                .withModelWireTypeAliases(SpineFlow.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static String exchange(ObjectMapper mapper, Path directory, String suffix, Object model, boolean writing) throws IOException {

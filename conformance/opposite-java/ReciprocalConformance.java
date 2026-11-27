@@ -288,8 +288,13 @@ final class ReciprocalConformance {
                             : List.of("source callback", "nested returned", "b assign", "destination")),
                     "native source, inverse, and destination delivery keep their respective phases");
             var history = graph.vmf().changes().all();
-            check(history.size() == 3 && history.get(0).listChange().orElseThrow().added().elements().get(0) == e
-                            && history.get(1).listChange().orElseThrow().removed().elements().get(0) == b
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+            // A raw list listener edits before any model relay sees the triggering edit, so its edits are recorded
+            // first; raw collection listeners are outside the portable contract.
+            int removal = scope.equals("direct") ? 1 : 0;
+            int replacement = scope.equals("direct") ? 0 : 1;
+            check(history.size() == 3 && history.get(removal).listChange().orElseThrow().removed().elements().get(0) == b
+                            && history.get(replacement).listChange().orElseThrow().added().elements().get(0) == e
                             && history.get(2).object() == (scalar ? b : c),
                     "native history keeps both reentrant source edits and the original destination history shape");
             verifyReentrantSourceState(graph);

@@ -156,9 +156,8 @@ public class GraphCapabilitiesTest {
         assertEquals("parent", children.getOppositeName());
         assertEquals("children", property(model, "DetailedNode", "parent").getOppositeName());
 
-        var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(ts.getMessage().contains("introduces a containment type cycle"));
-        assertTrue(ts.getMessage().contains("uses an opposite on a type that participates in inheritance"));
+        // TypeScript checks containment cycles at run time and supports opposites declared on base types.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
@@ -195,10 +194,11 @@ public class GraphCapabilitiesTest {
         assertEquals(3, priority.getUpperBound());
 
         var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(ts.getMessage().contains(".optional needs an ordered identity set of model objects for containment"));
-        assertTrue(ts.getMessage().contains(".primary needs an ordered identity set of model objects for containment"));
-        assertTrue(ts.getMessage().contains(".trail needs a single-valued reference or an unbounded unordered identity reference set"));
-        assertTrue(ts.getMessage().contains(".priority needs a single-valued reference or an unbounded unordered identity reference set"));
+        assertFalse(ts.getMessage(), ts.getMessage().contains(".optional "));
+        assertFalse(ts.getMessage(), ts.getMessage().contains(".primary "));
+        assertFalse(ts.getMessage(), ts.getMessage().contains(".trail "));
+        assertTrue(ts.getMessage(), ts.getMessage().contains(
+                ".priority needs a single-valued reference, an ordered reference list, or an unbounded unordered"));
     }
 
     @Test
@@ -220,8 +220,8 @@ public class GraphCapabilitiesTest {
         var values = property(collection, "PlainContainmentList", "values");
         assertEquals(Property.Kind.CONTAINMENT, values.getKind());
         assertTrue(values.allowsNullElements());
-        var ordinary = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(collection, "TypeScript"));
-        assertTrue(ordinary.getMessage().contains(".values needs an ordered identity set of model objects for containment"));
+        // A child has one container, so TypeScript treats every ordered containment list as an identity list.
+        PortableCapabilities.validate(collection, "TypeScript");
     }
 
     private static ResolvedModel model(Class<?>... declarations) {

@@ -28,7 +28,7 @@ final class ImmutablePortSettingsExchange {
 
         for (var format : Map.of("json", new ObjectMapper(), "yaml", new YAMLMapper(), "xml", new XmlMapper()).entrySet()) {
             var mapper = format.getValue().registerModule(VMFJacksonModule
-                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
             var explicit = builder.withLabel(null).withMode(PortMode.DIAGNOSTIC).build();
             var file = directory.resolve((writing ? "java" : "csharp") + "-immutable-port." + format.getKey()).toFile();
             if (writing) mapper.writeValue(file, explicit);
@@ -37,7 +37,7 @@ final class ImmutablePortSettingsExchange {
                     "Explicit values survive the " + format.getKey() + " snapshot");
         }
         var omitted = new ObjectMapper().registerModule(VMFJacksonModule
-                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false))
+                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT))
                 .readValue("{}", PortSettings.class);
         check(omitted.getLabel().equals("115200") && omitted.getMode() == PortMode.NORMAL,
                 "Absent fields receive the declared defaults");

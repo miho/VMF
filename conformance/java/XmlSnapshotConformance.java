@@ -255,7 +255,7 @@ final class XmlSnapshotConformance {
 
     private static VMFJacksonModule module(boolean references) {
         return VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                .withModelWireTypeAliases(Catalog.class).withReferences(references);
+                .withModelWireTypeAliases(Catalog.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT);
     }
 
     private static Path file(Path directory, String author, String kind) {

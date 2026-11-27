@@ -176,9 +176,11 @@ public class ScalarCollectionsTest {
     public void typeScriptRetainsItsScalarCollectionAndMapGate() {
         ResolvedModel model = model(ScalarCollectionBase.class, ScalarCollectionChild.class);
         var exception = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(exception.getMessage().contains(".samples needs a scalar with upper bound 1"));
-        assertTrue(exception.getMessage().contains(".levels needs a scalar with upper bound 1"));
-        assertTrue(exception.getMessage().contains(".settings uses map properties"));
+        String message = exception.getMessage();
+        assertFalse(message, message.contains(".samples "));
+        assertTrue(message, message.contains(".actions needs an ordered scalar list"));
+        assertTrue(message, message.contains(".levels needs an ordered scalar list"));
+        assertTrue(message, message.contains(".settings uses map properties"));
     }
 
     @Test

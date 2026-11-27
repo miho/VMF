@@ -45,7 +45,7 @@ public final class RoleContestExchange {
         for (boolean references : new boolean[]{true, false}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
                     .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                    .withModelWireTypeAliases(ContestArchive.class).withReferences(references));
+                    .withModelWireTypeAliases(ContestArchive.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String suffix = references ? "-role-contest-reference.json" : "-role-contest-by-value.json";
             String expected = mapper.writeValueAsString(graph);
             String wire = expected;

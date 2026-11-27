@@ -122,7 +122,7 @@ public final class LegacyObjectConformance {
             case XML: result = new XmlMapper(); break;
             default: result = new ObjectMapper();
         }
-        return result.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+        return result.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void check(boolean condition, String detail) {

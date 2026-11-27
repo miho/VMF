@@ -28,7 +28,7 @@ public final class QualifiedBindingExchange {
         var archive = QualifiedBindingArchive.newBuilder().withLocal(local).withShared(shared).withSelected(shared).build();
         for (boolean references : new boolean[] {false, true}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String expected = mapper.writeValueAsString(archive);
             Path file = exchange.resolve((writing ? "java" : "csharp") + "-qualified-bindings-" + references + ".json");
             if (writing) Files.writeString(file, expected);

@@ -7,7 +7,7 @@ namespace Vmf.Runtime;
 
 public static partial class SnapshotJson
 {
-    private sealed class SnapshotWriter(SnapshotRegistry registry, Profile profile)
+    private sealed class SnapshotWriter(SnapshotRegistry registry, Profile profile, ReferenceMode referenceMode)
     {
         private readonly Dictionary<object, Definition> definitions = new(ReferenceEqualityComparer.Instance);
         private readonly List<Definition> mutableOrder = new();
@@ -93,6 +93,17 @@ public static partial class SnapshotJson
             {
                 string fieldPath = ChildPath(path, property.WireName);
                 object? field = property.Get(value);
+                if (profile != Profile.References && property.IsReference && HasMutableTarget(property, field, fieldPath))
+                {
+                    // A document without reference IDs cannot represent this edge.
+                    if (referenceMode == ReferenceMode.Omit) continue;
+                    if (profile == Profile.TypedValues)
+                    {
+                        throw Invalid(fieldPath, property.HasUniqueMembers
+                            ? "Mutable reference sets require reference-aware JSON"
+                            : "A mutable model reference requires reference-aware JSON or ReferenceMode.Omit");
+                    }
+                }
                 if (profile == Profile.TypedValues && property.IsReference
                     && !ProjectReferenceByValue(property, field, fieldPath, out field)) continue;
                 if (property.IsMap)
@@ -147,6 +158,20 @@ public static partial class SnapshotJson
             }
             projected = members;
             return hasImmutableMember || registry.IsImmutableModelType(property.ValueType);
+        }
+
+        private bool HasMutableTarget(SnapshotProperty property, object? value, string path)
+        {
+            if (value is null) return false;
+            if (!property.IsCollection) return !IsImmutableTarget(value, property, path);
+            if (value is not IEnumerable collection) throw Invalid(path, "Expected a model collection");
+            int index = 0;
+            foreach (object? member in collection)
+            {
+                if (member is not null && !IsImmutableTarget(member, property, IndexPath(path, index))) return true;
+                index++;
+            }
+            return false;
         }
 
         private bool IsImmutableTarget(object value, SnapshotProperty property, string path)

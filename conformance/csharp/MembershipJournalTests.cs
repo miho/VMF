@@ -139,7 +139,8 @@ public class MembershipJournalTests
         working.Counts.Add(1);
         working.Messages.Add("outer");
 
-        Assert.Equal([1, 0, 1, 0], working.VmfChanges.History.Cast<ModelCollectionChange>()
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal([0, 1, 0, 1], working.VmfChanges.History.Cast<ModelCollectionChange>()
             .Select(change => change.Added[0].Index!.Value));
         var journal = recorder.Finish();
         Assert.Equal(1, journal.WireVersion);

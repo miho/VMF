@@ -104,7 +104,7 @@ final class SecondaryScalarConformance {
             case YAML: mapper = new YAMLMapper(); break;
             default: mapper = new ObjectMapper();
         }
-        return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+        return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void check(boolean condition, String detail) {

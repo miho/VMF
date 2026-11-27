@@ -5,29 +5,44 @@ export type ModelConstructor<T extends object> = abstract new (...args: never[])
 
 interface SnapshotMember {
     readonly wireName: string;
+    /** The model property name; defaults to the wire name. */
+    readonly name?: string;
     readonly get: (owner: object) => unknown;
 }
 
+export type ScalarType = "string" | "boolean" | "int32" | "int64" | "float64";
+
 interface SnapshotScalar extends SnapshotMember {
     readonly kind: "scalar";
-    readonly scalarType: "string" | "boolean" | "int32";
+    readonly scalarType: ScalarType;
     readonly nullable?: boolean;
     readonly set: (owner: object, value: unknown) => void;
+}
+
+interface SnapshotScalarList extends SnapshotMember {
+    readonly kind: "scalarList";
+    readonly scalarType: ScalarType;
+    /** True if the list may hold null elements. */
+    readonly nullable?: boolean;
+    readonly add: (owner: object, value: unknown) => void;
 }
 
 interface SnapshotSingle extends SnapshotMember {
     readonly kind: "containment" | "reference";
     readonly modelType: () => ModelConstructor<object>;
     readonly set: (owner: object, value: unknown) => void;
+    /** The opposite property of a reference that keeps both ends consistent. */
+    readonly opposite?: string;
 }
 
 interface SnapshotCollection extends SnapshotMember {
-    readonly kind: "containmentList" | "referenceSet";
+    readonly kind: "containmentList" | "referenceSet" | "referenceList";
     readonly modelType: () => ModelConstructor<object>;
     readonly add: (owner: object, value: object) => void;
+    readonly opposite?: string;
 }
 
-export type SnapshotProperty = SnapshotScalar | SnapshotSingle | SnapshotCollection;
+export type SnapshotProperty = SnapshotScalar | SnapshotScalarList | SnapshotSingle | SnapshotCollection;
 
 /** The explicit native factory and wire properties of a closed, concrete model type. */
 export interface SnapshotType {
@@ -36,6 +51,10 @@ export interface SnapshotType {
     readonly create: () => object;
     readonly properties: readonly SnapshotProperty[];
     readonly writeType?: boolean;
+    /** True for an `@Immutable` type: its objects are values, created with all their properties. */
+    readonly immutable?: boolean;
+    /** Creates an immutable object from property values by model property name. */
+    readonly createWith?: (values: Readonly<Record<string, unknown>>) => object;
 }
 
 /** An allowlist of concrete model types and optional aliases independent of native class names. */
@@ -80,6 +99,11 @@ export class SnapshotRegistry {
             this.#typesByName.set(alias, type);
             this.#outputAliases.set(canonical, alias);
         }
+    }
+
+    /** The registered concrete types in registration order. */
+    get types(): readonly SnapshotType[] {
+        return [...this.#typesByClass.values()];
     }
 
     typeForClass(runtimeType: ModelConstructor<object>, path: string): SnapshotType {

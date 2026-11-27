@@ -359,8 +359,9 @@ final class CollectionObservationConformance {
             subscription.unsubscribe();
             changes.stop();
         }
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
         check(properties(observed).equals(List.of("trail", "featured"))
-                && properties(history).equals(List.of("featured", "trail")), "reference collection dispatch and history order differ");
+                && properties(history).equals(List.of("trail", "featured")), "reference collection dispatch and history order");
         var listChange = observed.get(0);
         var list = listChange.listChange().orElseThrow();
         var values = list.added().elements();

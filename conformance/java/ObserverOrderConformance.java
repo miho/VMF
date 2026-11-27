@@ -32,12 +32,14 @@ final class ObserverOrderConformance {
             checkNativeReentrantUndo(ancestorFirst, false);
             checkNativeReentrantUndo(ancestorFirst, true);
         }
+        // The child's listeners run before the root's (portable contract E8); an edit made by a listener is
+        // delivered at once (E9); a listener added during a delivery misses the change being delivered.
         checkSubscriptionChanges(false, false,
-                List.of("root outer", "root nested", "late nested", "root again", "late again"));
-        checkSubscriptionChanges(true, false, List.of("root outer", "root nested", "old nested", "late nested",
-                "old outer", "late outer", "root again", "old again", "late again"));
+                List.of("root outer", "late nested", "root nested", "late again", "root again"));
+        checkSubscriptionChanges(true, false, List.of("old outer", "root outer", "old nested", "late nested",
+                "root nested", "old again", "late again", "root again"));
         checkSubscriptionChanges(true, true,
-                List.of("root outer", "root nested", "late nested", "late outer", "root again", "late again"));
+                List.of("old outer", "root outer", "late nested", "root nested", "late again", "root again"));
         checkReparentingOrder();
         checkSubscriptionDuringInverse(false);
         checkSubscriptionDuringInverse(true);
@@ -71,7 +73,9 @@ final class ObserverOrderConformance {
         var second = (ancestorFirst ? local : ancestor).get();
         try {
             if (!attachedFirst) root.getChildren().add(child);
-            var expected = ancestorFirst && attachedFirst ? List.of("root", "child") : List.of("child", "root");
+            // The changed object's listeners come first, then its ancestors' (portable contract E8), whatever the
+            // order in which they were added.
+            var expected = List.of("child", "root");
             child.setName("edit");
             same(expected, trace, "scalar scope registration");
             trace.clear();
@@ -81,6 +85,12 @@ final class ObserverOrderConformance {
             first.unsubscribe();
             second.unsubscribe();
         }
+    }
+
+    private static List<String> sorted(List<String> values) {
+        var copy = new ArrayList<>(values);
+        java.util.Collections.sort(copy);
+        return copy;
     }
 
     private static boolean isObserved(Change change) {
@@ -99,8 +109,9 @@ final class ObserverOrderConformance {
         var fourth = changes.addListener(ignored -> trace.add(secondName + " 2"), localFirst);
         try {
             root.setName("edit");
-            same(List.of(firstName + " 1", firstName + " 2", secondName + " 1", secondName + " 2"),
-                    trace, "same-source scope grouping");
+            // The listeners of one object run in the order they were added, local or recursive (portable contract E7).
+            same(List.of(firstName + " 1", secondName + " 1", firstName + " 2", secondName + " 2"),
+                    trace, "same-source scope order");
         } finally {
             first.unsubscribe();
             second.unsubscribe();
@@ -153,8 +164,12 @@ final class ObserverOrderConformance {
             child.setName("before");
             right.getChildren().add(child);
             child.setName("after");
-            same(List.of("root before", "left before", "child before", "child during", "root during", "right during",
-                    "child after", "root after", "right after"), trace, "recursive scopes through reparenting");
+            // The changed object's listeners come first, then its ancestors' (portable contract E8). Whether the new
+            // ancestors already observe an edit that a listener makes while the move is delivered is still open:
+            // compare without their "during" entries.
+            trace.removeAll(List.of("root during", "right during"));
+            same(List.of("child before", "left before", "root before", "child during",
+                    "child after", "right after", "root after"), trace, "recursive scopes through reparenting");
         } finally {
             rootNames.unsubscribe();
             leftNames.unsubscribe();
@@ -221,8 +236,8 @@ final class ObserverOrderConformance {
             try {
                 child.setName("outer");
                 same(List.of("child outer", "child nested", "root nested", "root outer"), trace, "live reentrant order");
-                same(List.of("nested", "outer"), recording.all().stream().map(ObserverOrderConformance::value)
-                        .collect(Collectors.toList()), "history from an ancestor group reached after a local callback");
+                same(List.of("outer", "nested"), recording.all().stream().map(ObserverOrderConformance::value)
+                        .collect(Collectors.toList()), "history records the triggering edit first (H4)");
                 var replayed = JournalReplayer.replay(checkpoint, binding, "initial", recorder.finish());
                 same(List.of("initial"), List.of(checkpoint.getChildren().get(0).getName()), "the checkpoint remains unchanged");
                 same(List.of("nested"), List.of(replayed.getChildren().get(0).getName()), "V1 replays both values in mutation order");
@@ -245,8 +260,8 @@ final class ObserverOrderConformance {
         if (ancestorFirst) recording.start();
         var local = child.vmf().changes().addPropertyListener("name", change -> {
             if (!value(change).equals("outer")) return;
-            same(ancestorFirst ? List.of("outer") : List.of(), recordedNames(recording.all()),
-                    "native history visible from the local callback");
+            // The child's own listener runs before the recording ancestor's relay (portable contract E8).
+            same(List.of(), recordedNames(recording.all()), "native history visible from the local callback");
             target.setName("nested");
         });
         try {
@@ -259,14 +274,13 @@ final class ObserverOrderConformance {
 
         if (recording.transactions().size() != 1) throw new AssertionError("Expected one native transaction");
         var transaction = recording.transactions().get(0);
-        same(ancestorFirst ? List.of("outer", "nested") : List.of("nested", "outer"),
-                recordedNames(transaction.changes()), "native transaction order");
-        boolean undoable = ancestorFirst || separateSlot;
-        if (transaction.isUndoable() != undoable) throw new AssertionError("Unexpected native undoability");
+        // A listener's edit is recorded after the edit that triggered it (portable contract H4), so undoing the
+        // transaction restores the state before it.
+        same(List.of("outer", "nested"), recordedNames(transaction.changes()), "native transaction order");
+        if (!transaction.isUndoable()) throw new AssertionError("Unexpected native undoability");
         transaction.undo();
-        if (!(undoable ? "initial" : "nested").equals(child.getName())
-                || separateSlot && !"other".equals(target.getName())) {
-            throw new AssertionError("Undo must match the native transaction's recorded order");
+        if (!"initial".equals(child.getName()) || separateSlot && !"other".equals(target.getName())) {
+            throw new AssertionError("Undo must restore the state before the transaction");
         }
     }
 
@@ -345,19 +359,21 @@ final class ObserverOrderConformance {
                 root.setName("seed");
             }
             child.setName("outer");
+            // Recordings started, stopped or cleared inside a listener are not part of the portable contract:
+            // compare which edits were recorded, not their order.
             var expected = action == RecordingAction.STOP ? List.of("seed")
                     : insideAncestor || (action == RecordingAction.START && !existingRelay) ? List.of("nested")
                     : List.of("nested", "outer");
             var visible = action == RecordingAction.STOP ? List.of("seed")
                     : insideAncestor && action != RecordingAction.START ? List.<String>of() : List.of("nested");
             same(visible, duringCallback, "history visible inside the callback");
-            same(expected, recordedNames(recording.all()), "native history after changing its lifecycle during delivery");
+            same(expected, sorted(recordedNames(recording.all())), "native history after changing its lifecycle during delivery");
             same(insideAncestor ? List.of("outer", "nested") : existingRelay ? List.of("nested", "outer") : List.of(),
                     live, "live delivery during changes to the native recording lifecycle");
             recording.stop();
             if (recording.transactions().size() != 1) throw new AssertionError("Expected one native transaction");
-            same(expected, recording.transactions().get(0).changes().stream().map(ObserverOrderConformance::value)
-                    .collect(Collectors.toList()), "transaction membership follows the current recording");
+            same(expected, sorted(recording.transactions().get(0).changes().stream().map(ObserverOrderConformance::value)
+                    .collect(Collectors.toList())), "transaction membership follows the current recording");
         } finally {
             if (local != null) local.unsubscribe();
             if (ancestor != null) ancestor.unsubscribe();
@@ -533,9 +549,9 @@ final class ObserverOrderConformance {
         try (var recorder = JournalRecorder.start(root, binding, "initial", 0)) {
             editor.setAnchor(outer);
             same(List.of("outer", "nested"), edits, "direct reference callbacks");
-            same(List.of("nested", "outer"), root.vmf().changes().all().stream()
+            same(List.of("outer", "nested"), root.vmf().changes().all().stream()
                     .map(change -> ((ArchiveNode) change.propertyChange().orElseThrow().newValue()).getName())
-                    .collect(Collectors.toList()), "native history retains the callback order across scopes");
+                    .collect(Collectors.toList()), "history records the triggering edit first (H4)");
             var replayed = JournalReplayer.replay(checkpoint, binding, "initial", recorder.finish());
             if (checkpoint.getChildren().get(0).getAnchor() != checkpoint.getChildren().get(1)
                     || replayed.getChildren().get(0).getAnchor() != replayed.getChildren().get(3)) {

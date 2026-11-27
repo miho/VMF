@@ -49,7 +49,10 @@ and TypeScript from the same annotated model interfaces. It verifies model
 behavior and exchanges both reference-aware VMF snapshots and plain external
 JSON across the three targets. The [C# conformance suite](conformance/README.md)
 also verifies native read-only projections, immutable snapshot identity,
-and cross-runtime scalar and validation behavior.
+and cross-runtime scalar and validation behavior. The
+[portable contract](conformance/portable/CONTRACT.md) states the behavior every
+target shares; `./gradlew :vmf:verifyPortableContract` runs its scenarios on
+Java, C#, and TypeScript.
 
 ## Using VMF
 

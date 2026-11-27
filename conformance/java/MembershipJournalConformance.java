@@ -140,11 +140,13 @@ final class MembershipJournalConformance {
                 causalLists.getCounts().add(1);
                 causalLists.getMessages().add("outer");
                 var history = causalLists.vmf().changes().all();
+                // A model listener's edit is recorded after its cause (portable contract H4). The raw list
+                // listener edits before any model relay sees the counts event; raw listeners are outside the contract.
                 check(history.size() == 4 && history.get(0).listChange().orElseThrow().added().indices()[0] == 1
                         && history.get(1).listChange().orElseThrow().added().indices()[0] == 0
-                        && history.get(2).listChange().orElseThrow().added().indices()[0] == 1
-                        && history.get(3).listChange().orElseThrow().added().indices()[0] == 0,
-                        "Scalar list native history retains listener completion order");
+                        && history.get(2).listChange().orElseThrow().added().indices()[0] == 0
+                        && history.get(3).listChange().orElseThrow().added().indices()[0] == 1,
+                        "Scalar list native history order");
             });
         } finally {
             direct.unsubscribe();

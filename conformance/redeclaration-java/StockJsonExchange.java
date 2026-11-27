@@ -95,7 +95,7 @@ final class StockJsonExchange {
             default: mapper = new ObjectMapper(); break;
         }
         return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                .withReferences(false));
+                .withReferences(VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void check(boolean condition, String message) {

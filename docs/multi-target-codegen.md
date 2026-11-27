@@ -28,6 +28,8 @@ Semantic parity means the same model operations produce the same observable grap
 [VMF collection behavior](collection-properties.md) and [model validation](model-validation.md) define the first compatibility cases. [TypeScript type erasure](https://www.typescriptlang.org/docs/handbook/2/basic-types.html#erased-types), [ECMAScript safe integers](https://tc39.es/ecma262/multipage/numbers-and-dates.html#sec-number.max_safe_integer), [Rust reference cycles](https://doc.rust-lang.org/book/ch15-06-reference-cycles.html), and [Python type hints](https://docs.python.org/3/library/typing.html) explain some target-specific constraints. Treat snapshot and journal interoperability as explicit capabilities with their own cross-runtime tests.
 
 Qualify each portable capability using the same model declarations and scenarios.
+The [portable contract](../conformance/portable/CONTRACT.md) lists the rules every target shares, the
+details each language may handle its own way, and the scenarios that check them on Java, C#, and TypeScript.
 Use the equivalent traversal strategy in each runtime when comparing graph walks.
 The [graph traversal contract](observing-models.md#traversing-a-model-graph)
 identifies the Java and C# entry points and their native defaults.

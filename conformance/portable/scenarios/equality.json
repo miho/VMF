@@ -1,0 +1,433 @@
+{
+  "model": "equality",
+  "scenarios": [
+    {
+      "id": "same-scalars-are-equal",
+      "from": "EqualsTest.testEquals1",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "m1", "type": "Model", "with": {"name": "name1"}},
+        {"new": "m2", "type": "Model", "with": {"name": "name1"}},
+        {"equal": ["m1", "m2"]},
+        {"notSame": ["m1", "m2"]}
+      ]
+    },
+    {
+      "id": "different-scalars-are-not-equal",
+      "from": "EqualsTest.testEquals2",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "m1", "type": "Model", "with": {"name": "name1"}},
+        {"new": "m2", "type": "Model", "with": {"name": "name2"}},
+        {"notEqual": ["m1", "m2"]},
+        {"new": "m3", "type": "Model"},
+        {"notEqual": ["m1", "m3"]}
+      ]
+    },
+    {
+      "id": "references-do-not-count",
+      "from": "EqualsTest.testEquals3",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "r1", "type": "Reference", "with": {"name": "ref name 1"}},
+        {"new": "r2", "type": "Reference", "with": {"name": "ref name 2"}},
+        {"new": "m1", "type": "Model", "with": {"name": "name1", "reference": {"obj": "r1"}}},
+        {"new": "m2", "type": "Model", "with": {"name": "name1"}},
+        {"equal": ["m1", "m2"]},
+        {"set": "m2.reference", "obj": "r2"},
+        {"equal": ["m1", "m2"]}
+      ]
+    },
+    {
+      "id": "contained-children-count",
+      "from": "EqualsTest.testEquals4",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "c", "type": "Child", "with": {"name": "child name"}},
+        {"new": "m1", "type": "Model", "with": {"name": "name1", "child": {"obj": "c"}}},
+        {"new": "m2", "type": "Model", "with": {"name": "name1"}},
+        {"notEqual": ["m1", "m2"]}
+      ]
+    },
+    {
+      "id": "equal-children-make-equal-owners",
+      "from": "EqualsTest.testEquals5",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"name": "child name"}},
+        {"new": "c2", "type": "Child", "with": {"name": "child name"}},
+        {"new": "m1", "type": "Model", "with": {"name": "name1", "child": {"obj": "c1"}}},
+        {"new": "m2", "type": "Model", "with": {"name": "name1", "child": {"obj": "c2"}}},
+        {"equal": ["m1", "m2"]},
+        {"set": "c2.name", "value": "changed"},
+        {"notEqual": ["m1", "m2"]}
+      ]
+    },
+    {
+      "id": "container-does-not-count",
+      "from": "EqualsTest.testEquals6",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"name": "child name"}},
+        {"new": "c2", "type": "Child", "with": {"name": "child name"}},
+        {"new": "m1", "type": "Model", "with": {"name": "name1", "child": {"obj": "c1"}}},
+        {"new": "m2", "type": "Model", "with": {"name": "name2", "child": {"obj": "c2"}}},
+        {"equal": ["c1", "c2"]},
+        {"new": "c3", "type": "Child", "with": {"name": "child name"}},
+        {"equal": ["c1", "c3"]}
+      ]
+    },
+    {
+      "id": "different-children-are-not-equal",
+      "from": "EqualsTest.testEquals7",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"name": "child name 1"}},
+        {"new": "c2", "type": "Child", "with": {"name": "child name 2"}},
+        {"notEqual": ["c1", "c2"]}
+      ]
+    },
+    {
+      "id": "lists-of-different-length",
+      "from": "EqualsTest.testEqualsListsOfDifferentLength",
+      "rules": ["Q1", "Q3"],
+      "steps": [
+        {"new": "a1", "type": "ListChild", "with": {"name": "a"}},
+        {"new": "b1", "type": "ListChild", "with": {"name": "b"}},
+        {"new": "a2", "type": "ListChild", "with": {"name": "a"}},
+        {"new": "two", "type": "ListModel", "with": {"name": "list", "children": [{"obj": "a1"}, {"obj": "b1"}]}},
+        {"new": "one", "type": "ListModel", "with": {"name": "list", "children": [{"obj": "a2"}]}},
+        {"new": "none", "type": "ListModel", "with": {"name": "list"}},
+        {"notEqual": ["two", "one", "none"]},
+        {"notEqual": ["one", "none"]},
+        {"copy": "one", "as": "oneCopy"},
+        {"copy": "two", "as": "twoCopy"},
+        {"copy": "none", "as": "noneCopy"},
+        {"equal": ["one", "oneCopy"]},
+        {"equal": ["two", "twoCopy"]},
+        {"equal": ["none", "noneCopy"]}
+      ]
+    },
+    {
+      "id": "list-order-counts",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "a1", "type": "ListChild", "with": {"name": "a"}},
+        {"new": "b1", "type": "ListChild", "with": {"name": "b"}},
+        {"new": "a2", "type": "ListChild", "with": {"name": "a"}},
+        {"new": "b2", "type": "ListChild", "with": {"name": "b"}},
+        {"new": "ab", "type": "ListModel", "with": {"children": [{"obj": "a1"}, {"obj": "b1"}], "tags": ["x", "y"]}},
+        {"new": "ba", "type": "ListModel", "with": {"children": [{"obj": "b2"}, {"obj": "a2"}], "tags": ["x", "y"]}},
+        {"notEqual": ["ab", "ba"]},
+        {"remove": "ba.children", "obj": "b2"},
+        {"add": "ba.children", "obj": "b2"},
+        {"equal": ["ab", "ba"]},
+        {"set": "ba.tags[0]", "value": "y"},
+        {"set": "ba.tags[1]", "value": "x"},
+        {"notEqual": ["ab", "ba"]}
+      ]
+    },
+    {
+      "id": "references-inside-lists-do-not-count",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "r", "type": "Reference", "with": {"name": "r"}},
+        {"new": "a1", "type": "ListChild", "with": {"name": "a", "reference": {"obj": "r"}}},
+        {"new": "a2", "type": "ListChild", "with": {"name": "a"}},
+        {"new": "l1", "type": "ListModel", "with": {"children": [{"obj": "a1"}]}},
+        {"new": "l2", "type": "ListModel", "with": {"children": [{"obj": "a2"}]}},
+        {"equal": ["l1", "l2"]}
+      ]
+    },
+    {
+      "id": "equality-is-reflexive-symmetric-transitive",
+      "from": "EqualsTest.testEqualsContract1, testEqualsContract3",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"name": "child name 1"}},
+        {"new": "c2", "type": "Child", "with": {"name": "child name 1"}},
+        {"new": "c3", "type": "Child", "with": {"name": "child name 1"}},
+        {"new": "x", "type": "Model", "with": {"name": "name1", "child": {"obj": "c1"}}},
+        {"new": "y", "type": "Model", "with": {"name": "name1", "child": {"obj": "c2"}}},
+        {"new": "z", "type": "Model", "with": {"name": "name1", "child": {"obj": "c3"}}},
+        {"equal": ["x", "x"]},
+        {"equal": ["x", "y", "z"]},
+        {"equal": ["y", "z"]}
+      ]
+    },
+    {
+      "id": "different-types-are-not-equal",
+      "from": "EqualsTest.testEqualsContract2",
+      "rules": ["Q2"],
+      "steps": [
+        {"new": "m", "type": "Model", "with": {"name": "name1"}},
+        {"new": "o", "type": "OtherModel", "with": {"name": "name1"}},
+        {"new": "r", "type": "Reference", "with": {"name": "name1"}},
+        {"notEqual": ["m", "o", "r"]},
+        {"notEqual": ["o", "r"]}
+      ]
+    },
+    {
+      "id": "deep-copy-is-equal-and-independent",
+      "from": "EqualsTest.testEqualContainmentEq, SetterIdentityTest.deepCopyCopiesContainedChildren",
+      "rules": ["Q3"],
+      "steps": [
+        {"new": "c1", "type": "ListChild", "with": {"name": "Child 1"}},
+        {"new": "c2", "type": "ListChild", "with": {"name": "Child 2"}},
+        {"new": "l", "type": "ListModel", "with": {"name": "my name1", "children": [{"obj": "c1"}, {"obj": "c2"}], "tags": ["t"]}},
+        {"copy": "l", "as": "k"},
+        {"equal": ["l", "k"]},
+        {"notSame": ["l", "k"]},
+        {"let": "k1", "path": "k.children[0]"},
+        {"notSame": ["k1", "c1"]},
+        {"check": "k1.parent", "obj": "k"},
+        {"check": "c1.parent", "obj": "l"},
+        {"set": "k1.name", "value": "changed"},
+        {"add": "k.tags", "value": "u"},
+        {"check": "c1.name", "value": "Child 1"},
+        {"check": "l.tags", "values": ["t"]},
+        {"notEqual": ["l", "k"]}
+      ]
+    },
+    {
+      "id": "copy-of-contained-object-is-detached",
+      "rules": ["Q3"],
+      "steps": [
+        {"new": "c1", "type": "ListChild", "with": {"name": "Child 1"}},
+        {"new": "l", "type": "ListModel", "with": {"children": [{"obj": "c1"}]}},
+        {"copy": "c1", "as": "k"},
+        {"check": "k.parent", "obj": null},
+        {"check": "c1.parent", "obj": "l"},
+        {"equal": ["k", "c1"]}
+      ]
+    },
+    {
+      "id": "copy-redirects-internal-references",
+      "rules": ["Q3"],
+      "steps": [
+        {"new": "c1", "type": "ListChild", "with": {"name": "Child 1"}},
+        {"new": "c2", "type": "ListChild", "with": {"name": "Child 2"}},
+        {"new": "l", "type": "ListModel", "with": {"children": [{"obj": "c1"}, {"obj": "c2"}]}},
+        {"set": "c1.sibling", "obj": "c2"},
+        {"copy": "l", "as": "k"},
+        {"let": "k1", "path": "k.children[0]"},
+        {"let": "k2", "path": "k.children[1]"},
+        {"check": "k1.sibling", "obj": "k2"},
+        {"check": "c1.sibling", "obj": "c2"}
+      ]
+    },
+    {
+      "id": "copy-copies-referenced-objects",
+      "rules": ["Q3"],
+      "steps": [
+        {"new": "r", "type": "Reference", "with": {"name": "shared"}},
+        {"new": "c", "type": "Child", "with": {"name": "child"}},
+        {"new": "m", "type": "Model", "with": {"name": "m", "reference": {"obj": "r"}, "child": {"obj": "c"}}},
+        {"copy": "m", "as": "k"},
+        {"notSame": ["k.reference", "r"]},
+        {"equal": ["k.reference", "r"]},
+        {"notSame": ["k.child", "c"]},
+        {"check": "k.child.parent", "obj": "k"},
+        {"check": "m.reference", "obj": "r"}
+      ]
+    },
+    {
+      "id": "equal-but-distinct-objects",
+      "model": "identity",
+      "from": "SetterIdentityTest.structurallyEqualObjectsAreEqualButDistinct",
+      "rules": ["Q1", "Q4"],
+      "steps": [
+        {"new": "one", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "anotherOne", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "four", "type": "NumberExpression", "with": {"value": 4}},
+        {"equal": ["one", "anotherOne"]},
+        {"notSame": ["one", "anotherOne"]},
+        {"notEqual": ["one", "four"]}
+      ]
+    },
+    {
+      "id": "structural-equality-covers-children",
+      "model": "identity",
+      "from": "SetterIdentityTest.structuralEqualsCoversContainedChildren",
+      "rules": ["Q1"],
+      "steps": [
+        {"new": "n1", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "n2", "type": "NumberExpression", "with": {"value": 2}},
+        {"new": "m1", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "m2", "type": "NumberExpression", "with": {"value": 2}},
+        {"new": "o1", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "o4", "type": "NumberExpression", "with": {"value": 4}},
+        {"new": "sum", "type": "BinaryExpression", "with": {"operator": "+", "left": {"obj": "n1"}, "right": {"obj": "n2"}}},
+        {"new": "sameSum", "type": "BinaryExpression", "with": {"operator": "+", "left": {"obj": "m1"}, "right": {"obj": "m2"}}},
+        {"new": "otherSum", "type": "BinaryExpression", "with": {"operator": "+", "left": {"obj": "o1"}, "right": {"obj": "o4"}}},
+        {"equal": ["sum", "sameSum"]},
+        {"notEqual": ["sum", "otherSum"]}
+      ]
+    },
+    {
+      "id": "setter-replaces-equal-reference",
+      "model": "identity",
+      "from": "SetterIdentityTest.setterReplacesStructurallyEqualReference",
+      "rules": ["Q4", "T4"],
+      "steps": [
+        {"new": "holder", "type": "Holder"},
+        {"new": "first", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "second", "type": "NumberExpression", "with": {"value": 1}},
+        {"set": "holder.value", "obj": "first"},
+        {"set": "holder.value", "obj": "second"},
+        {"check": "holder.value", "obj": "second"}
+      ]
+    },
+    {
+      "id": "setter-replaces-equal-reference-with-event",
+      "model": "identity",
+      "from": "SetterIdentityTest.setterReplacesStructurallyEqualReference",
+      "requires": ["events"],
+      "rules": ["Q4", "E1", "E2"],
+      "steps": [
+        {"new": "holder", "type": "Holder"},
+        {"new": "first", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "second", "type": "NumberExpression", "with": {"value": 1}},
+        {"set": "holder.value", "obj": "first"},
+        {"listen": "holder", "as": "L", "scope": "local"},
+        {"set": "holder.value", "obj": "second"},
+        {"events": "L", "are": [{"on": "holder", "prop": "value", "kind": "set", "oldObj": "first", "newObj": "second"}]},
+        {"set": "holder.value", "obj": "second"},
+        {"events": "L", "count": 0}
+      ]
+    },
+    {
+      "id": "contained-setter-replaces-equal-child",
+      "model": "identity",
+      "from": "SetterIdentityTest.containedSetterReplacesStructurallyEqualChild",
+      "rules": ["Q4", "C3"],
+      "steps": [
+        {"new": "e", "type": "BinaryExpression"},
+        {"new": "first", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "second", "type": "NumberExpression", "with": {"value": 1}},
+        {"set": "e.left", "obj": "first"},
+        {"set": "e.left", "obj": "second"},
+        {"check": "e.left", "obj": "second"},
+        {"check": "first.parent", "obj": null},
+        {"check": "second.parent", "obj": "e"}
+      ]
+    },
+    {
+      "id": "moving-child-removes-by-identity",
+      "model": "identity",
+      "from": "SetterIdentityTest.movingChildOutOfListRemovesByIdentity",
+      "rules": ["Q4", "C2"],
+      "steps": [
+        {"new": "a", "type": "BinaryExpression"},
+        {"new": "b", "type": "BinaryExpression"},
+        {"new": "first", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "second", "type": "NumberExpression", "with": {"value": 1}},
+        {"add": "a.arguments", "obj": "first"},
+        {"add": "a.arguments", "obj": "second"},
+        {"set": "b.left", "obj": "second"},
+        {"check": "a.arguments", "objs": ["first"]},
+        {"check": "first.parent", "obj": "a"},
+        {"check": "second.parent", "obj": "b"}
+      ]
+    },
+    {
+      "id": "removing-child-removes-by-identity",
+      "model": "identity",
+      "rules": ["Q4", "C3"],
+      "steps": [
+        {"new": "a", "type": "BinaryExpression"},
+        {"new": "first", "type": "NumberExpression", "with": {"value": 1}},
+        {"new": "second", "type": "NumberExpression", "with": {"value": 1}},
+        {"add": "a.arguments", "objs": ["first", "second"]},
+        {"remove": "a.arguments", "obj": "second"},
+        {"check": "a.arguments", "objs": ["first"]},
+        {"check": "second.parent", "obj": null},
+        {"check": "first.parent", "obj": "a"}
+      ]
+    },
+    {
+      "id": "instance-equality-mode",
+      "model": "equalitymodes",
+      "from": "EqualsTest.testEqualsInstance, testEqualInstanceEq",
+      "requires": ["equality-modes"],
+      "rules": ["N1"],
+      "steps": [
+        {"new": "t1", "type": "Target", "with": {"name": "ref name 1"}},
+        {"new": "t2", "type": "Target", "with": {"name": "ref name 2"}},
+        {"new": "m1", "type": "InstanceEq", "with": {"name": "my name1", "value": 3, "reference": {"obj": "t1"}}},
+        {"new": "m2", "type": "InstanceEq", "with": {"name": "my name1", "value": 3, "reference": {"obj": "t2"}}},
+        {"nativeNotEqual": ["m1", "m2"]},
+        {"nativeEqual": ["m1", "m1"]},
+        {"equal": ["m1", "m2"]}
+      ]
+    },
+    {
+      "id": "identity-equality-in-every-mode",
+      "model": "equalitymodes",
+      "requires": ["identity-equality"],
+      "rules": ["N1", "N3", "Q1"],
+      "steps": [
+        {"new": "t", "type": "Target", "with": {"name": "t"}},
+        {"new": "a1", "type": "AllEq", "with": {"name": "a", "value": 3, "reference": {"obj": "t"}}},
+        {"new": "a2", "type": "AllEq", "with": {"name": "a", "value": 3, "reference": {"obj": "t"}}},
+        {"nativeNotEqual": ["a1", "a2"]},
+        {"nativeEqual": ["a1", "a1"]},
+        {"equal": ["a1", "a2"]},
+        {"new": "d1", "type": "DefaultEq", "with": {"name": "d"}},
+        {"new": "d2", "type": "DefaultEq", "with": {"name": "d"}},
+        {"nativeNotEqual": ["d1", "d2"]},
+        {"equal": ["d1", "d2"]},
+        {"new": "i1", "type": "InstanceEq", "with": {"name": "i", "value": 1}},
+        {"new": "i2", "type": "InstanceEq", "with": {"name": "i", "value": 1}},
+        {"nativeNotEqual": ["i1", "i2"]},
+        {"equal": ["i1", "i2"]}
+      ]
+    },
+    {
+      "id": "default-equality-mode-is-identity",
+      "model": "equality",
+      "requires": ["equality-modes"],
+      "rules": ["N1", "N2", "Q1"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"name": "c"}},
+        {"new": "c2", "type": "Child", "with": {"name": "c"}},
+        {"nativeNotEqual": ["c1", "c2"]},
+        {"nativeEqual": ["c1", "c1"]},
+        {"equal": ["c1", "c2"]}
+      ]
+    },
+    {
+      "id": "all-equality-mode",
+      "model": "equalitymodes",
+      "from": "EqualsTest.testEqualsAll",
+      "requires": ["equality-modes"],
+      "rules": ["N1"],
+      "steps": [
+        {"new": "m1", "type": "AllEq", "with": {"name": "my name1", "value": 3}},
+        {"new": "m2", "type": "AllEq", "with": {"name": "my name1", "value": 3}},
+        {"nativeEqual": ["m1", "m2"]},
+        {"new": "t", "type": "Target", "with": {"name": "ref name 2"}},
+        {"set": "m1.reference", "obj": "t"},
+        {"nativeNotEqual": ["m1", "m2"]}
+      ]
+    },
+    {
+      "id": "model-default-equality-mode",
+      "model": "equalitymodes",
+      "from": "EqualsTest (model-wide @VMFModel(equality = CONTAINMENT_AND_EXTERNAL))",
+      "requires": ["equality-modes"],
+      "rules": ["N1"],
+      "steps": [
+        {"new": "t1", "type": "Target", "with": {"name": "t1"}},
+        {"new": "t2", "type": "Target", "with": {"name": "t2"}},
+        {"new": "x1", "type": "DefaultEqChild", "with": {"name": "x"}},
+        {"new": "x2", "type": "DefaultEqChild", "with": {"name": "x"}},
+        {"new": "d1", "type": "DefaultEq", "with": {"name": "a", "reference": {"obj": "t1"}, "children": [{"obj": "x1"}]}},
+        {"new": "d2", "type": "DefaultEq", "with": {"name": "a", "reference": {"obj": "t2"}, "children": [{"obj": "x2"}]}},
+        {"nativeEqual": ["d1", "d2"]},
+        {"set": "x2.name", "value": "y"},
+        {"nativeNotEqual": ["d1", "d2"]}
+      ]
+    }
+  ]
+}

@@ -138,7 +138,7 @@ final class TraitConformance {
             for (String format : List.of("json", "xml", "yaml")) {
                 var mapper = switchMapper(format).registerModule(
                         VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                                .withModelWireTypeAliases(BadgeShowcase.class).withReferences(references));
+                                .withModelWireTypeAliases(BadgeShowcase.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
                 String suffix = references ? "reference" : "values";
                 var file = directory.resolve(author + "-named-role-ownership-" + suffix + "." + format);
                 if (writing) {
@@ -354,7 +354,7 @@ final class TraitConformance {
             for (String format : List.of("json", "xml", "yaml")) {
                 ObjectMapper mapper = switchMapper(format).registerModule(
                         VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                                .withModelWireTypeAliases(BadgeShowcase.class).withReferences(references));
+                                .withModelWireTypeAliases(BadgeShowcase.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
                 String suffix = references ? "reference" : "values";
                 var file = directory.resolve(author + "-keyed-unordered-" + suffix + "." + format);
                 if (writing) mapper.writeValue(file.toFile(), keyedUnorderedSnapshot(references));
@@ -769,7 +769,7 @@ final class TraitConformance {
     private static ObjectMapper mapper(boolean references) {
         return new ObjectMapper().registerModule(
                 VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                        .withModelWireTypeAliases(BadgeShowcase.class).withReferences(references));
+                        .withModelWireTypeAliases(BadgeShowcase.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void rejects(Class<? extends RuntimeException> expected, Runnable edit) {

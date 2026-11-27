@@ -81,7 +81,7 @@ final class DefaultConformance {
 
     private static ObjectMapper mapper(boolean references) {
         return new ObjectMapper().registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                .withReferences(references));
+                .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void reject(Runnable edit, String description) {

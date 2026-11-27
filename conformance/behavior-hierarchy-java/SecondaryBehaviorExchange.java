@@ -58,7 +58,7 @@ public final class SecondaryBehaviorExchange {
         for (boolean references : new boolean[]{true, false}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
                     .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                    .withModelWireTypeAliases(SecondaryBehaviorFleet.class).withReferences(references));
+                    .withModelWireTypeAliases(SecondaryBehaviorFleet.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String suffix = references ? "-secondary-behavior-reference.json" : "-secondary-behavior-by-value.json";
             String expected = mapper.writeValueAsString(graph);
             String wire = expected;

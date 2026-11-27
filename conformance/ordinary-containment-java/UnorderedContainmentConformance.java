@@ -161,8 +161,9 @@ final class UnorderedContainmentConformance {
             var history = rootChanges.all().stream().map(change -> ((Shelf) change.object()).getName()
                     + (change.referenceSetChange().orElseThrow().added().isEmpty() ? ":remove" : ":add"))
                     .collect(java.util.stream.Collectors.toList());
-            check(history.equals(List.of("source:remove", "target:remove", "third:add", "target:add")),
-                    "native history keeps its nested-first membership order");
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+            check(history.equals(List.of("source:remove", "target:add", "target:remove", "third:add")),
+                    "native history records the target's attachment before the callback's move: " + history);
             return recorder.finish();
         } finally {
             reentry.unsubscribe();

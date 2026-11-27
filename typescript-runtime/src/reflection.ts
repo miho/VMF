@@ -1,0 +1,90 @@
+/** A key/value pair of an `@Annotation`. Keys starting with "vmf:" are reserved for VMF. */
+export interface ModelAnnotation {
+    readonly key: string;
+    readonly value: string;
+}
+
+/** A property of a model type and its annotations in declaration order. */
+export interface ModelProperty {
+    readonly name: string;
+    readonly annotations: readonly ModelAnnotation[];
+    /** The values of the annotations with this key, in declaration order. */
+    annotationValues(key: string): readonly string[];
+}
+
+/**
+ * The reflection of a model type: its properties in VMF property order (supertypes first, then by
+ * `@PropertyOrder` or alphabetically) and its annotations in declaration order.
+ */
+export interface ModelType {
+    /** The qualified name of the model type. */
+    readonly name: string;
+    /** True for `@Immutable` types, whose objects cannot change after construction. */
+    readonly immutable: boolean;
+    readonly properties: readonly ModelProperty[];
+    readonly annotations: readonly ModelAnnotation[];
+    property(name: string): ModelProperty | undefined;
+    annotationValues(key: string): readonly string[];
+}
+
+/** Annotations as generated: [key, value] pairs. */
+export type AnnotationPairs = readonly (readonly [string, string])[];
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+type AnyClass = Function;
+
+const declared = new WeakMap<AnyClass, ModelType>();
+let unwrap: (value: object) => object = value => value;
+
+/** @internal Generated code declares every model class with its reflection data. */
+export function declareModelType(type: AnyClass, name: string, immutable: boolean, annotations: AnnotationPairs,
+                                 properties: readonly (readonly [string, AnnotationPairs])[]): void {
+    const propertyList = Object.freeze(properties.map(([propertyName, pairs]) => {
+        const propertyAnnotations = annotationList(pairs);
+        return Object.freeze({
+            name: propertyName,
+            annotations: propertyAnnotations,
+            annotationValues: (key: string) => valuesOf(propertyAnnotations, key),
+        });
+    }));
+    const typeAnnotations = annotationList(annotations);
+    declared.set(type, Object.freeze({
+        name,
+        immutable,
+        properties: propertyList,
+        annotations: typeAnnotations,
+        property: (propertyName: string) => propertyList.find(property => property.name === propertyName),
+        annotationValues: (key: string) => valuesOf(typeAnnotations, key),
+    }));
+}
+
+/** @internal Lets read-only views report the type of the object they show. */
+export function __vmfUseViews(lookup: (value: object) => object): void {
+    unwrap = lookup;
+}
+
+/** The reflection of a model object, an immutable value or a read-only view. */
+export function modelTypeOf(value: object): ModelType {
+    const type = findModelType(value);
+    if (type === undefined) {
+        throw new TypeError("Expected a VMF model object.");
+    }
+    return type;
+}
+
+/** @internal The reflection of a model object, or undefined for other values. */
+export function findModelType(value: unknown): ModelType | undefined {
+    if (typeof value !== "object" || value === null) {
+        return undefined;
+    }
+    const model = unwrap(value);
+    return declared.get(Object.getPrototypeOf(model)?.constructor);
+}
+
+function annotationList(pairs: AnnotationPairs): readonly ModelAnnotation[] {
+    return Object.freeze(pairs.map(([key, value]) => Object.freeze({ key, value })));
+}
+
+function valuesOf(annotations: readonly ModelAnnotation[], key: string): readonly string[] {
+    return Object.freeze(annotations.filter(annotation => annotation.key === key).map(annotation => annotation.value));
+}

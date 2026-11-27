@@ -163,7 +163,7 @@ final class StockDevComConformance {
         if (format.equals("xml")) mapper = new XmlMapper();
         else if (format.equals("yaml")) mapper = new YAMLMapper();
         else mapper = new ObjectMapper();
-        return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+        return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void check(boolean condition, String detail) {

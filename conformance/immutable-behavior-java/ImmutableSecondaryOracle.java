@@ -57,7 +57,7 @@ public final class ImmutableSecondaryOracle {
         var envelope = HookedValueEnvelope.newBuilder().withFirst(data).withSecond(value).build();
         for (boolean references : List.of(false, true)) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                    .withReferences(references));
+                    .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             var copy = mapper.readValue(mapper.writeValueAsString(envelope.asReadOnly()), HookedValueEnvelope.class);
             check(copy.getFirst() instanceof HookedComposed && copy.getFirst().getScale() == 5
                             && copy.getSecond().getName().equals("composed")

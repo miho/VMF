@@ -101,7 +101,8 @@ public class ContainmentObservationTests
         using var recorder = JournalRecorder<ArchiveNode>.Start(root, ModelSnapshot.Registry, binding, "initial", 0);
         destination.Children.Add(moving);
         Assert.Equal(3, root.VmfChanges.History.Count);
-        Assert.Same(nested, Assert.Single(Assert.IsType<ModelCollectionChange>(root.VmfChanges.History[0]).Added).Value);
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Same(nested, Assert.Single(Assert.IsType<ModelCollectionChange>(root.VmfChanges.History[1]).Added).Value);
         var journal = recorder.Finish();
         Assert.Equal([JournalListEditKind.Remove, JournalListEditKind.Set, JournalListEditKind.Add],
             Assert.Single(journal.Transactions).Operations.Select(op => Assert.IsType<JournalListEdit>(op).Kind));
@@ -181,7 +182,8 @@ public class ContainmentObservationTests
 
         Assert.Equal(["source removed", "recursive name during removal", "child detached", "child attached",
             "destination added", "recursive name after move"], order);
-        Assert.Equal(["name:during removal", "source:children", "destination:children", "name:after move"],
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(["source:children", "name:during removal", "destination:children", "name:after move"],
             changes.History.Select(Describe));
         Assert.True(Assert.Single(changes.Transactions).Undo());
         Assert.Same(child, Assert.Single(source.Children));

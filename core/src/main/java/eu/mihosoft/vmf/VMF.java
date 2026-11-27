@@ -152,6 +152,37 @@ public class VMF {
      * @throws IOException if the code generation fails due to I/O related problems
      * @throws IllegalArgumentException if the specified model is empty
      */
+    /**
+     * Generates code for a target language from the compiled model interfaces of a package.
+     *
+     * @param target the language to generate
+     * @param outputDir output directory for the generated code
+     * @param classLoader the class loader that contains the compiled model interfaces
+     * @param packageName the package of the model interfaces (ends with '.vmfmodel')
+     * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the model is empty or uses features the target does not support
+     */
+    public static void generate(GenerationTarget target, File outputDir, ClassLoader classLoader, String packageName)
+            throws IOException {
+        Collection<Class<?>> interfaces = listClassesInPackage(classLoader, packageName);
+        generate(target, new FileResourceSet(outputDir), interfaces.toArray(new Class[interfaces.size()]));
+    }
+
+    /**
+     * Generates code for a target language from model source files.
+     *
+     * @param target the language to generate
+     * @param outputDir output directory for the generated code
+     * @param classLoader the class loader that contains the dependencies of the model interfaces
+     * @param sourceFiles source files that contain the interface definitions (one package ending with '.vmfmodel')
+     * @throws IOException if the code generation fails due to I/O related problems
+     * @throws IllegalArgumentException if the model is empty or uses features the target does not support
+     */
+    public static void generate(GenerationTarget target, File outputDir, URLClassLoader classLoader,
+                                File... sourceFiles) throws IOException {
+        generate(target, new FileResourceSet(outputDir), classLoader, sourceFiles);
+    }
+
     public static void generate(File outputDir, String packageName) throws IOException {
         Collection<Class<?>> interfaces = listClassesInPackage(
                 Thread.currentThread().getContextClassLoader(), packageName);

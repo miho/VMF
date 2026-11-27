@@ -300,8 +300,9 @@ final class ObservationConformance {
             same(List.of("first current", "first second", "second second", "second current"), deliveries,
                     "reference dispatch also completes nested callbacks before later initiating observers");
             check(history.size() == 2, "record both property edits exactly once");
-            assertSnapshot(history.get(0), owner, "second", null, nested);
-            assertSnapshot(history.get(1), owner, "current", previous, outer);
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+            assertSnapshot(history.get(0), owner, "current", previous, outer);
+            assertSnapshot(history.get(1), owner, "second", null, nested);
         } finally {
             first.unsubscribe();
             second.unsubscribe();

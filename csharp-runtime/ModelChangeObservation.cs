@@ -50,6 +50,8 @@ public sealed partial class ModelChanges
         internal List<IContainment> Containments { get; } = [];
         internal ObservationRegistration[] Groups { get; set; } = [];
         internal bool HasObservedCollections { get; set; }
+        // The containment link of a node that a recursive group walked into; it names the current container (E8).
+        internal ContainmentLink? ContainerLink { get; set; }
     }
 
     private readonly record struct ObservationRegistration(ObserverGroup Group, long Order,
@@ -68,9 +70,24 @@ public sealed partial class ModelChanges
         internal ModelChanges Stream { get; } = stream;
         internal object Owner => owner;
 
+        /// <summary>The stream's other group: the local one for the recursive one and the other way round.</summary>
+        internal ObserverGroup Peer => ReferenceEquals(this, Stream.local) ? Stream.recursive : Stream.local;
+
+        /// <summary>The listeners of this group and its peer, in the order they were added (E7).</summary>
+        internal ModelListeners<ModelChange>.Subscription[] MergeListeners(ObserverGroup peer)
+        {
+            var mine = listeners.Snapshot;
+            var theirs = peer.listeners.Snapshot;
+            if (theirs.Length == 0) return mine;
+            if (mine.Length == 0) return theirs;
+            ModelListeners<ModelChange>.Subscription[] both = [.. mine, .. theirs];
+            // Stable: listeners keep the order in which they were added.
+            return both.OrderBy(subscription => subscription.Order).ToArray();
+        }
+
         internal IDisposable AddListener(Action<ModelChange> callback)
         {
-            var subscription = listeners.Add(callback);
+            var subscription = listeners.Add(callback, order: NextObservationOrder());
             Refresh();
             return new ScopeSubscription(this, subscription);
         }
@@ -87,7 +104,7 @@ public sealed partial class ModelChanges
                 else
                 {
                     observed.Add(owner);
-                    AddGroup(owner);
+                    AddGroup(owner, new FartherObservers(owner));
                 }
             }
             else
@@ -121,18 +138,24 @@ public sealed partial class ModelChanges
             }
         }
 
-        internal Exception? Notify(ModelChange change, IContainment? relationship, Exception? failure)
+        internal Exception? Notify(ModelChange change, IContainment? relationship, Exception? failure,
+            ModelListeners<ModelChange>.Subscription[]? delivery = null)
         {
-            failure = NotifyListeners(change, failure);
+            failure = NotifyListeners(change, failure, delivery);
             ReconcileChange(change, relationship);
             return failure;
         }
 
-        internal Exception? NotifyListeners(ModelChange change, Exception? failure)
+        /// <param name="delivery">The listeners to call instead of this group's own (E7), if not null.</param>
+        internal Exception? NotifyListeners(ModelChange change, Exception? failure,
+            ModelListeners<ModelChange>.Subscription[]? delivery = null)
         {
+            // Stamped before any listener can react, so that edits made by listeners are recorded after it (H4).
+            change.EnsureDeliveryStamp();
+            if (change is ReciprocalReferenceChange { RecordingOnly: true }) return failure;
             // The source takes a group snapshot when publishing. A group's listener list is
             // taken only at its turn, so a preceding group can change later subscriptions.
-            return ModelListeners<ModelChange>.Notify(listeners.Snapshot, change, recursiveOnly: false, failure);
+            return ModelListeners<ModelChange>.Notify(delivery ?? listeners.Snapshot, change, recursiveOnly: false, failure);
         }
 
         internal void ReconcileChange(ModelChange change, IContainment? relationship)
@@ -158,9 +181,10 @@ public sealed partial class ModelChanges
 
             foreach (object child in added)
             {
-                if (ReferenceEquals(relationship.GetChildLink(child).CurrentCollection, relationship)
-                    && IsPresent(relationship, child))
+                var link = relationship.GetChildLink(child);
+                if (ReferenceEquals(link.CurrentCollection, relationship) && IsPresent(relationship, child))
                 {
+                    RememberContainerLink(child, link);
                     ObserveSubtree(child, attach: true);
                 }
             }
@@ -183,6 +207,7 @@ public sealed partial class ModelChanges
         private void ObserveSubtree(object root, bool attach)
         {
             if (observed.Contains(root) == attach) return;
+            var farther = attach ? new FartherObservers(owner) : null;
             var pending = new Stack<object>();
             pending.Push(root);
             while (pending.TryPop(out object? node))
@@ -190,7 +215,7 @@ public sealed partial class ModelChanges
                 if (attach)
                 {
                     if (!observed.Add(node)) continue;
-                    AddGroup(node);
+                    AddGroup(node, farther!);
                 }
                 else
                 {
@@ -204,8 +229,10 @@ public sealed partial class ModelChanges
                     IContainment relationship = state.Containments[index];
                     foreach (object child in relationship.Children.Reverse())
                     {
-                        if (ReferenceEquals(relationship.GetChildLink(child).CurrentCollection, relationship))
+                        var link = relationship.GetChildLink(child);
+                        if (ReferenceEquals(link.CurrentCollection, relationship))
                         {
+                            if (attach) RememberContainerLink(child, link);
                             pending.Push(child);
                         }
                     }
@@ -213,11 +240,24 @@ public sealed partial class ModelChanges
             }
         }
 
-        private void AddGroup(object node)
+        private void AddGroup(object node, FartherObservers farther)
         {
             var state = GetObservationNode(node);
             state.HasObservedCollections = true;
-            state.Groups = [.. state.Groups, new ObservationRegistration(this, NextObservationOrder(), projectedRelays)];
+            var registration = new ObservationRegistration(this, NextObservationOrder(), projectedRelays);
+            // A change reaches the nearest observers first (portable contract E8): the changed object's own groups,
+            // then its container's, and so on, whatever the order in which they started to observe. The groups are
+            // ordered by distance, so the farther ones form the tail: find where it starts.
+            var groups = state.Groups;
+            int index = 0;
+            int end = groups.Length;
+            while (index < end)
+            {
+                int middle = (index + end) >>> 1;
+                if (farther.Contains(groups[middle].Group.Owner)) end = middle;
+                else index = middle + 1;
+            }
+            state.Groups = [.. groups.AsSpan(0, index), registration, .. groups.AsSpan(index)];
         }
 
         private void RemoveGroup(object node)
@@ -238,4 +278,35 @@ public sealed partial class ModelChanges
     }
 
     private static IEnumerable<object> Members(object? member) => member is null ? [] : [member];
+
+    private static void RememberContainerLink(object child, ContainmentLink link) =>
+        GetObservationNode(child).ContainerLink ??= link;
+
+    /// <summary>The current container of a node that a recursive group walked into.</summary>
+    private static object? ContainerOf(object node) =>
+        (node as IModelGraphAccess)?.VmfContainmentLink.Owner
+        ?? (ObservationNodes.TryGetValue(node, out var state) ? state.ContainerLink?.Owner : null);
+
+    /// <summary>
+    /// The observers farther away than the observer of one owner: those whose owner contains it (E8). One instance
+    /// serves all objects of a subtree that the observer starts to observe at once.
+    /// </summary>
+    private sealed class FartherObservers(object owner)
+    {
+        private HashSet<object>? ancestors;
+
+        internal bool Contains(object other)
+        {
+            if (ReferenceEquals(other, owner)) return false;
+            if (ancestors is null)
+            {
+                ancestors = new(ReferenceEqualityComparer.Instance);
+                for (object? current = ContainerOf(owner); current is not null; current = ContainerOf(current))
+                {
+                    ancestors.Add(current);
+                }
+            }
+            return ancestors.Contains(other);
+        }
+    }
 }

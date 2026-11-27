@@ -1,0 +1,40 @@
+// Packages of the C# and TypeScript runtimes that generated code depends on. Both carry VMF's version.
+// Publishing them (NuGet, npm) is a release step and not done here.
+
+def runtimePackages = layout.buildDirectory.dir('target-runtimes')
+
+tasks.register('packCSharpRuntime', Exec) {
+    group = 'vmf'
+    description = 'Packs the C# runtime (Vmf.Runtime) as a NuGet package in build/target-runtimes.'
+    def output = runtimePackages.get().asFile
+    def runtimeVersion = project.version.toString()
+    workingDir rootProject.file('csharp-runtime')
+    commandLine 'dotnet', 'pack', 'Vmf.Runtime.csproj', '--configuration', 'Release', '--nologo',
+            '--output', output.absolutePath, "-p:Version=${runtimeVersion}"
+    inputs.files fileTree(rootProject.file('csharp-runtime')) { exclude 'bin/**', 'obj/**' }
+    inputs.property 'version', runtimeVersion
+    outputs.file new File(output, "Vmf.Runtime.${runtimeVersion}.nupkg")
+}
+
+def npmCommand = System.getProperty('os.name').startsWith('Windows') ? 'npm.cmd' : 'npm'
+
+tasks.register('packTypeScriptRuntime', Exec) {
+    group = 'vmf'
+    description = 'Packs the TypeScript runtime (@vmf/runtime) as an npm package in build/target-runtimes.'
+    dependsOn 'buildWorkshopTypeScriptRuntime'
+    def output = runtimePackages.get().asFile
+    def runtimeVersion = project.version.toString()
+    def manifest = rootProject.file('typescript-runtime/package.json')
+    workingDir rootProject.file('typescript-runtime')
+    commandLine npmCommand, 'pack', '--pack-destination', output.absolutePath
+    inputs.files manifest, rootProject.file('typescript-runtime/dist')
+    inputs.property 'version', runtimeVersion
+    outputs.file new File(output, "vmf-runtime-${runtimeVersion}.tgz")
+    doFirst {
+        def declared = new groovy.json.JsonSlurper().parse(manifest).version
+        if (declared != runtimeVersion) {
+            throw new GradleException("typescript-runtime/package.json has version ${declared}, VMF is ${runtimeVersion}")
+        }
+        output.mkdirs()
+    }
+}

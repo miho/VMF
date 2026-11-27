@@ -53,6 +53,25 @@ and remember to reference the VMF jar files in the dependency section:
 
 A full example can be found in the test suite folder of the VMF project.
 
+### Generating C# and TypeScript
+
+The plugin can also generate C# and TypeScript from the same model interfaces:
+
+```xml
+<configuration>
+	<targets>
+		<target>csharp</target>
+		<target>typescript</target>
+	</targets>
+</configuration>
+```
+
+Java is always generated. The other languages go next to the Java sources, to
+`target/generated-sources/csharp-vmf` and `target/generated-sources/typescript-vmf` (`generated-test-sources`
+for the `vmf-test` goal); `csharpDirectory` and `typescriptDirectory` choose other folders. The build fails if
+a model uses features a language does not support; the [language mappings](../docs/targets/) describe the
+generated code and its runtime.
+
 ## Getting Help
 
 The Apache Maven Help Plugin can be used to get a full description of the available goals and the usage of the VMF Maven Plugin:

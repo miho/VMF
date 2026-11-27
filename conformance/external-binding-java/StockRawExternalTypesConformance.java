@@ -31,7 +31,7 @@ final class StockRawExternalTypesConformance {
             for (String extension : List.of("json", "yaml")) {
                 var mapper = extension.equals("json") ? new ObjectMapper() : new YAMLMapper();
                 mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                        .withReferences(references));
+                        .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
                 var source = exchange.resolve(producer + "stock-raw-lists-" + references + "." + extension);
                 if (write) Files.writeString(source, mapper.writeValueAsString(original));
                 var restored = mapper.readValue(source.toFile(), Model.class);

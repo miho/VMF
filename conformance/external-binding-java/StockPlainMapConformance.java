@@ -167,7 +167,7 @@ final class StockPlainMapConformance {
             default: mapper = new ObjectMapper(); break;
         }
         return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                .withReferences(references).withTypeAlias("external-type-model-02", ExternalTypeModel02.class.getName()));
+                .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT).withTypeAlias("external-type-model-02", ExternalTypeModel02.class.getName()));
     }
 
     private static void check(boolean condition, String message) {

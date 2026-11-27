@@ -18,6 +18,8 @@ public sealed partial class ModelChanges
     private readonly ObserverGroup recursive;
     private readonly ModelReflectionRegistry.ModelBinding? readOnlyBinding;
     private readonly Queue<PendingChange> pending = new();
+    // The delivery stamp of each History entry, in the same order (H4).
+    private readonly List<long> historyStamps = new();
     private int transactionStart;
     private int scalarRecordingRelayDepth;
     private long recordingGeneration;
@@ -123,6 +125,7 @@ public sealed partial class ModelChanges
         recordingGeneration++;
         pending.Clear();
         transactionStart = 0;
+        historyStamps.Clear();
         ModelObserverFailures.Rethrow(History.RemoveAll()?.Notify(null));
         ModelObserverFailures.Rethrow(Transactions.RemoveAll()?.Notify(null));
     }
@@ -212,14 +215,16 @@ public sealed partial class ModelChanges
         {
             foreach (var recorder in recorders)
             {
-                if (recorder.CanRecord) recorder.Pending = recorder.Stream.Enqueue(change);
+                if (recorder.CanRecord) recorder.Pending = recorder.Stream.Enqueue(change, change);
             }
         }
 
         Exception? failure = null;
+        HashSet<ModelChanges>? merged = null;
         foreach (var registration in groups)
         {
-            failure = registration.Group.Notify(change, relationship, failure);
+            failure = registration.Group.Notify(change, relationship, failure,
+                DeliveryFor(groups, registration.Group, change, ref merged));
         }
         if (recorders is not null)
         {
@@ -234,7 +239,7 @@ public sealed partial class ModelChanges
                     }
                     var recorded = change is ReciprocalReferenceChange opposite
                         ? opposite.ForHistory(recorder.Stream, recorder.RecordingGeneration) : change;
-                    if (recorded is not null) recorder.Pending = recorder.Stream.Enqueue(recorded);
+                    if (recorded is not null) recorder.Pending = recorder.Stream.Enqueue(recorded, change);
                 }
                 if (recorder.Pending is not null) recorder.Pending.IsReady = true;
             }
@@ -247,17 +252,19 @@ public sealed partial class ModelChanges
         ModelChange change, IContainment? relationship)
     {
         HashSet<ModelChanges>? delivered = groups.Length > 1 ? new(ReferenceEqualityComparer.Instance) : null;
+        HashSet<ModelChanges>? merged = null;
         Exception? failure = null;
         foreach (var registration in groups)
         {
-            failure = NotifyRecordingRelay(registration.Group, recorders, change, relationship, delivered, failure);
+            failure = NotifyRecordingRelay(registration.Group, recorders, change, relationship, delivered, failure,
+                delivery: DeliveryFor(groups, registration.Group, change, ref merged));
         }
         ModelObserverFailures.Rethrow(failure);
     }
 
     private static Exception? NotifyRecordingRelay(ObserverGroup group, List<Recording>? recorders,
         ModelChange change, IContainment? relationship, HashSet<ModelChanges>? delivered, Exception? failure,
-        bool reconcileAfterRecording = false)
+        bool reconcileAfterRecording = false, ModelListeners<ModelChange>.Subscription[]? delivery = null)
     {
         var stream = group.Stream;
         // Native recording uses the state at the relay. A portable checkpoint only covers later commits.
@@ -267,7 +274,7 @@ public sealed partial class ModelChanges
         PendingChange? pending = null;
         if (record && change.RecordBeforeObservers)
         {
-            pending = stream.Enqueue(change);
+            pending = stream.Enqueue(change, change);
             stream.scalarRecordingRelayDepth++;
         }
 
@@ -275,8 +282,8 @@ public sealed partial class ModelChanges
         {
             try
             {
-                failure = reconcileAfterRecording ? group.NotifyListeners(change, failure)
-                    : group.Notify(change, relationship, failure);
+                failure = reconcileAfterRecording ? group.NotifyListeners(change, failure, delivery)
+                    : group.Notify(change, relationship, failure, delivery);
             }
             finally
             {
@@ -290,7 +297,7 @@ public sealed partial class ModelChanges
                     removal.Record(stream, generation, collection);
                 }
                 var recorded = change is ReciprocalReferenceChange opposite ? opposite.ForHistory(stream, generation) : change;
-                if (recorded is not null) pending = stream.Enqueue(recorded);
+                if (recorded is not null) pending = stream.Enqueue(recorded, change);
             }
             if (pending is not null)
             {
@@ -308,11 +315,48 @@ public sealed partial class ModelChanges
     private static bool RecordingOwnsCommit(ModelChanges stream, List<Recording>? recorders) =>
         recorders?.Exists(recorder => ReferenceEquals(recorder.Stream, stream) && recorder.CanRecord) == true;
 
-    private PendingChange Enqueue(ModelChange change)
+    /// <summary>Queues a change for history; it is ordered by the stamp of the delivered change it records.</summary>
+    private PendingChange Enqueue(ModelChange change, ModelChange delivered)
     {
-        var entry = new PendingChange(change);
+        var entry = new PendingChange(change, delivered.EnsureDeliveryStamp());
         pending.Enqueue(entry);
         return entry;
+    }
+
+    /// <summary>
+    /// Records a change in delivery order (portable contract H4): before the changes of the pending transaction
+    /// that first reached an observer after it. Listeners made those while this change was being delivered.
+    /// </summary>
+    private ModelHistory<ModelChange>.Notification? InsertHistory(ModelChange change, long stamp)
+    {
+        int index = History.Count;
+        while (index > transactionStart && historyStamps[index - 1] > stamp) index--;
+        historyStamps.Insert(index, stamp);
+        return History.Insert(index, change);
+    }
+
+    /// <summary>
+    /// The listeners a group calls for a change (portable contract E7). When both groups of a stream observe the
+    /// changed object itself, the first of them calls the listeners of both, in the order they were added, and
+    /// the other one calls none. Null: the group calls its own listeners. <paramref name="merged"/> records the
+    /// streams of one change that already delivered; it is created when a stream first merges.
+    /// </summary>
+    private static ModelListeners<ModelChange>.Subscription[]? DeliveryFor(ObservationRegistration[] groups,
+        ObserverGroup group, ModelChange change, ref HashSet<ModelChanges>? merged)
+    {
+        if (!ReferenceEquals(group.Owner, change.Source)) return null;
+        var peer = group.Peer;
+        bool peerObserves = false;
+        foreach (var registration in groups)
+        {
+            if (!ReferenceEquals(registration.Group, peer)) continue;
+            peerObserves = true;
+            break;
+        }
+        if (!peerObserves) return null;
+        merged ??= new(ReferenceEqualityComparer.Instance);
+        if (!merged.Add(group.Stream)) return [];
+        return group.MergeListeners(peer);
     }
 
     private Exception? AppendReadyHistory(Exception? failure)
@@ -327,7 +371,7 @@ public sealed partial class ModelChanges
             while (pending.TryPeek(out var entry) && entry.IsReady)
             {
                 pending.Dequeue();
-                var notification = History.Append(entry.Change);
+                var notification = InsertHistory(entry.Change, entry.Stamp);
                 if (notification is not null) failure = notification.Notify(failure);
             }
             return failure;
@@ -338,9 +382,10 @@ public sealed partial class ModelChanges
         }
     }
 
-    private sealed class PendingChange(ModelChange change)
+    private sealed class PendingChange(ModelChange change, long stamp)
     {
         internal ModelChange Change { get; } = change;
+        internal long Stamp { get; } = stamp;
         internal bool IsReady { get; set; }
     }
 

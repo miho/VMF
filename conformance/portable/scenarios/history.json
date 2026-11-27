@@ -1,0 +1,170 @@
+{
+  "model": "events",
+  "scenarios": [
+    {
+      "id": "undo-and-redo-scalar-and-list-edits",
+      "requires": ["history"],
+      "rules": ["H1", "H2", "H3"],
+      "steps": [
+        {"new": "o", "type": "ObserveMyProperties", "with": {"name": "start", "values": [1]}},
+        {"copy": "o", "as": "before"},
+        {"record": "o"},
+        {"set": "o.name", "value": "a"},
+        {"set": "o.name", "value": "b"},
+        {"add": "o.values", "value": 2},
+        {"remove": "o.values", "at": 0},
+        {"recorded": "o", "count": 4},
+        {"copy": "o", "as": "after"},
+        {"undoAll": "o"},
+        {"equal": ["o", "before"]},
+        {"redoAll": "o"},
+        {"equal": ["o", "after"]},
+        {"check": "o.values", "values": [2]}
+      ]
+    },
+    {
+      "id": "containment-edit-is-one-recorded-change",
+      "from": "UndoRedoWithContainmentTest.unoRedoWithListContainmentTestViaListAdd",
+      "requires": ["history"],
+      "rules": ["H1"],
+      "steps": [
+        {"new": "p", "type": "ParentListContainment"},
+        {"new": "c", "type": "ChildListContainment"},
+        {"record": "p"},
+        {"add": "p.children", "obj": "c"},
+        {"recorded": "p", "count": 1}
+      ]
+    },
+    {
+      "id": "edit-through-container-property-is-recorded-by-owner",
+      "from": "UndoRedoWithContainmentTest.unoRedoWithListContainmentTestViaSetParent, unoRedoWithSingleContainmentTest2",
+      "requires": ["history"],
+      "rules": ["H1"],
+      "steps": [
+        {"new": "p", "type": "ParentListContainment"},
+        {"new": "c", "type": "ChildListContainment"},
+        {"record": "p"},
+        {"set": "c.parent", "obj": "p"},
+        {"recorded": "p", "count": 1},
+        {"new": "q", "type": "ParentSingleContainment"},
+        {"new": "d", "type": "ChildSingleContainment"},
+        {"record": "q"},
+        {"set": "d.parent", "obj": "q"},
+        {"recorded": "q", "count": 1}
+      ]
+    },
+    {
+      "id": "undo-restores-both-sides-of-containment",
+      "requires": ["history"],
+      "rules": ["H2", "H3"],
+      "steps": [
+        {"new": "p", "type": "ParentSingleContainment"},
+        {"new": "c", "type": "ChildSingleContainment"},
+        {"record": "p"},
+        {"set": "p.child", "obj": "c"},
+        {"undoAll": "p"},
+        {"check": "p.child", "obj": null},
+        {"check": "c.parent", "obj": null},
+        {"redoAll": "p"},
+        {"check": "p.child", "obj": "c"},
+        {"check": "c.parent", "obj": "p"}
+      ]
+    },
+    {
+      "id": "undo-of-a-move-restores-the-previous-owner",
+      "model": "tree",
+      "requires": ["history"],
+      "rules": ["H2", "H3"],
+      "steps": [
+        {"new": "root", "type": "Node", "with": {"name": "root"}},
+        {"new": "p1", "type": "Node", "with": {"name": "p1"}},
+        {"new": "p2", "type": "Node", "with": {"name": "p2"}},
+        {"new": "c0", "type": "Node", "with": {"name": "c0"}},
+        {"new": "c", "type": "Node", "with": {"name": "c"}},
+        {"add": "root.children", "objs": ["p1", "p2"]},
+        {"add": "p1.children", "objs": ["c", "c0"]},
+        {"record": "root"},
+        {"add": "p2.children", "obj": "c"},
+        {"check": "p1.children", "objs": ["c0"]},
+        {"undoAll": "root"},
+        {"check": "p2.children", "size": 0},
+        {"check": "p1.children", "objs": ["c", "c0"]},
+        {"check": "c.parent", "obj": "p1"},
+        {"redoAll": "root"},
+        {"check": "p1.children", "objs": ["c0"]},
+        {"check": "p2.children", "objs": ["c"]},
+        {"check": "c.parent", "obj": "p2"}
+      ]
+    },
+    {
+      "id": "create-and-undo-a-tree",
+      "model": "tree",
+      "from": "FSMTest.fsmCreateAndUndoTest, LargeFlowModelTest.createAndUndoTest",
+      "requires": ["history"],
+      "rules": ["H1", "H2", "H3"],
+      "steps": [
+        {"new": "root", "type": "Node", "with": {"name": "root"}},
+        {"copy": "root", "as": "empty"},
+        {"record": "root"},
+        {"new": "a", "type": "Node"},
+        {"new": "b", "type": "Node"},
+        {"new": "c", "type": "Node"},
+        {"add": "root.children", "obj": "a"},
+        {"set": "a.name", "value": "a"},
+        {"add": "a.children", "obj": "b"},
+        {"set": "b.name", "value": "b"},
+        {"add": "root.children", "obj": "c"},
+        {"add": "c.children", "obj": "b"},
+        {"set": "root.name", "value": "renamed"},
+        {"copy": "root", "as": "built"},
+        {"undoAll": "root"},
+        {"equal": ["root", "empty"]},
+        {"check": "a.parent", "obj": null},
+        {"redoAll": "root"},
+        {"equal": ["root", "built"]},
+        {"check": "b.parent", "obj": "c"}
+      ]
+    },
+    {
+      "id": "edits-made-by-listeners-are-recorded-after-their-cause",
+      "model": "tree",
+      "requires": ["events", "history"],
+      "rules": ["H4", "H2", "H3", "E9"],
+      "steps": [
+        {"new": "p", "type": "Node", "with": {"name": "p"}},
+        {"new": "c", "type": "Node"},
+        {"add": "p.children", "obj": "c"},
+        {"listen": "c", "as": "C1", "scope": "local",
+          "react": {"when": {"prop": "name", "new": "a"}, "do": {"set": "c.name", "value": "b"}}},
+        {"record": "p"},
+        {"set": "c.name", "value": "a"},
+        {"check": "c.name", "value": "b"},
+        {"recorded": "p", "count": 2},
+        {"unlisten": "C1"},
+        {"undoAll": "p"},
+        {"check": "c.name", "value": null},
+        {"redoAll": "p"},
+        {"check": "c.name", "value": "b"}
+      ]
+    },
+    {
+      "id": "edits-made-by-ancestor-listeners-are-recorded-after-their-cause",
+      "model": "tree",
+      "requires": ["events", "history"],
+      "rules": ["H4", "H2", "E8", "E9"],
+      "steps": [
+        {"new": "p", "type": "Node", "with": {"name": "p"}},
+        {"new": "c", "type": "Node"},
+        {"add": "p.children", "obj": "c"},
+        {"record": "p"},
+        {"listen": "p", "as": "P", "react": {"when": {"prop": "name", "new": "a"}, "do": {"set": "c.name", "value": "b"}}},
+        {"set": "c.name", "value": "a"},
+        {"check": "c.name", "value": "b"},
+        {"recorded": "p", "count": 2},
+        {"unlisten": "P"},
+        {"undoAll": "p"},
+        {"check": "c.name", "value": null}
+      ]
+    }
+  ]
+}

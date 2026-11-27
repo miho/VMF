@@ -118,9 +118,15 @@ public class ScalarDefaultsTest {
         }
         var csharp = assertThrows(IllegalArgumentException.class, () -> CSharpCapabilities.validate(unsupported));
         assertTrue(csharp.getMessage(), csharp.getMessage().contains(".executable uses declared default expressions"));
+        var typescriptExpressions = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(unsupported, "TypeScript"));
+        assertTrue(typescriptExpressions.getMessage(),
+                typescriptExpressions.getMessage().contains(".executable uses declared default expressions"));
+        // TypeScript accepts literal defaults of its scalar types and still rejects the narrower Java types.
         var typescript = assertThrows(IllegalArgumentException.class,
                 () -> PortableCapabilities.validate(model(ScalarDefaultLiterals.class), "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".enabled uses declared default expressions"));
+        assertFalse(typescript.getMessage(), typescript.getMessage().contains(".enabled uses declared default expressions"));
+        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".byteDefault has unsupported type"));
     }
 
     @Test

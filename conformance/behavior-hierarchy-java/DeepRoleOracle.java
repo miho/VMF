@@ -49,7 +49,7 @@ public final class DeepRoleOracle {
         var archive = DeepRoleArchive.newBuilder().withItems(deep, peer, labeled, peerLabel).withSelected(peer).build();
         for (boolean references : new boolean[] {false, true}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String expected = mapper.writeValueAsString(archive);
             Path path = exchange.resolve((writing ? "java" : "csharp") + "-deep-roles-" + references + ".json");
             if (writing) Files.writeString(path, expected);

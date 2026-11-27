@@ -24,32 +24,72 @@ public static partial class SnapshotJson
     public static string Write(object root, Type rootType, SnapshotRegistry registry) =>
         Write(root, rootType, registry, Profile.References);
 
-    /// <summary>Writes VMF JSON by value with type discriminators and without reference IDs.</summary>
-    /// <remarks>Mutable singular references and ordinary reference sequences containing a mutable member are omitted.
-    /// Mutable identity reference sets and mutable model-reference keys require a reference-aware snapshot.</remarks>
-    public static string WriteWithoutReferences(object root, SnapshotRegistry registry)
+    /// <summary>Writes a snapshot with the given treatment of references to mutable model objects.</summary>
+    /// <remarks><see cref="ReferenceMode.Ids"/> writes a reference-aware snapshot; the other modes write typed values
+    /// as <see cref="WriteWithoutReferences(object, SnapshotRegistry, ReferenceMode)"/> does.</remarks>
+    public static string Write(object root, SnapshotRegistry registry, ReferenceMode references)
     {
         ArgumentNullException.ThrowIfNull(root);
-        return Write(root, root.GetType(), registry, Profile.TypedValues);
+        return references == ReferenceMode.Ids ? Write(root, registry) : WriteWithoutReferences(root, registry, references);
+    }
+
+    /// <summary>Writes VMF JSON by value with type discriminators and without reference IDs.</summary>
+    /// <remarks>A model with a non-containment reference to a mutable object cannot be written this way; use
+    /// <see cref="ReferenceMode.Omit"/> to leave such references out.</remarks>
+    public static string WriteWithoutReferences(object root, SnapshotRegistry registry) =>
+        WriteWithoutReferences(root, registry, ReferenceMode.Reject);
+
+    /// <summary>Writes VMF JSON by value; <paramref name="references"/> is <see cref="ReferenceMode.Reject"/> or
+    /// <see cref="ReferenceMode.Omit"/>.</summary>
+    public static string WriteWithoutReferences(object root, SnapshotRegistry registry, ReferenceMode references)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        return Write(root, root.GetType(), registry, Profile.TypedValues, references);
     }
 
     /// <summary>Writes a typed value snapshot for the declared root contract.</summary>
     public static string WriteWithoutReferences(object root, Type rootType, SnapshotRegistry registry) =>
-        Write(root, rootType, registry, Profile.TypedValues);
+        Write(root, rootType, registry, Profile.TypedValues, ReferenceMode.Reject);
+
+    /// <summary>Writes a typed value snapshot for the declared root contract with the given reference mode.</summary>
+    public static string WriteWithoutReferences(object root, Type rootType, SnapshotRegistry registry,
+        ReferenceMode references) =>
+        Write(root, rootType, registry, Profile.TypedValues, references);
 
     /// <summary>Writes plain JSON using the exact expected model types and no graph metadata.</summary>
     public static string WritePlain<T>(T root, SnapshotRegistry registry) where T : class =>
-        Write(root, typeof(T), registry, Profile.Plain);
+        Write(root, typeof(T), registry, Profile.Plain, ReferenceMode.Reject);
+
+    /// <summary>Writes plain JSON; <paramref name="references"/> is <see cref="ReferenceMode.Reject"/> or
+    /// <see cref="ReferenceMode.Omit"/>.</summary>
+    public static string WritePlain<T>(T root, SnapshotRegistry registry, ReferenceMode references) where T : class =>
+        Write(root, typeof(T), registry, Profile.Plain, references);
 
     /// <summary>Writes plain JSON when the expected root type is available at runtime.</summary>
-    public static string WritePlain(object root, Type rootType, SnapshotRegistry registry)
+    public static string WritePlain(object root, Type rootType, SnapshotRegistry registry) =>
+        WritePlain(root, rootType, registry, ReferenceMode.Reject);
+
+    /// <summary>Writes plain JSON when the expected root type is available at runtime, with the given reference mode.</summary>
+    public static string WritePlain(object root, Type rootType, SnapshotRegistry registry, ReferenceMode references)
     {
         ArgumentNullException.ThrowIfNull(rootType);
-        return Write(root, rootType, registry, Profile.Plain);
+        return Write(root, rootType, registry, Profile.Plain, references);
     }
 
-    private static string Write(object root, Type expectedType, SnapshotRegistry registry, Profile profile)
+    private static string Write(object root, Type expectedType, SnapshotRegistry registry, Profile profile) =>
+        Write(root, expectedType, registry, profile, ReferenceMode.Ids);
+
+    private static string Write(object root, Type expectedType, SnapshotRegistry registry, Profile profile,
+        ReferenceMode references)
     {
+        if (profile != Profile.References && references == ReferenceMode.Ids)
+        {
+            throw new ArgumentException("A snapshot without reference IDs rejects or omits references.", nameof(references));
+        }
+        if (!Enum.IsDefined(references))
+        {
+            throw new ArgumentOutOfRangeException(nameof(references));
+        }
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(registry);
 
@@ -57,7 +97,7 @@ public static partial class SnapshotJson
         if (!expectedType.IsInstanceOfType(root))
             throw new JsonException($"Root type '{root.GetType()}' is not assignable to '{expectedType}'.");
 
-        return new SnapshotWriter(registry, profile).Write(root, expectedType);
+        return new SnapshotWriter(registry, profile, references).Write(root, expectedType);
     }
 
     public static T Read<T>(string json, SnapshotRegistry registry) where T : class =>

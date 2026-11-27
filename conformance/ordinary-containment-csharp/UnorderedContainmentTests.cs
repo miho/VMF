@@ -203,7 +203,8 @@ public class UnorderedContainmentTests
         Assert.True(redirected);
         Assert.Equal(["source remove", "detach source", "attach target", "target callback",
             "target remove", "detach target", "attach third", "third add"], trace);
-        Assert.Equal(["source:remove", "target:remove", "third:add", "target:add"],
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(["source:remove", "target:add", "target:remove", "third:add"],
             working.VmfChanges.History.OfType<ModelCollectionChange>().Select(edit => EditName(edit, ":")));
         CheckRedirected(working);
         var journal = recorder.Finish();

@@ -46,7 +46,7 @@ public final class AbstractRoleBehaviorExchange {
         for (boolean references : new boolean[]{true, false}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
                     .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                    .withModelWireTypeAliases(FlowProgram.class).withReferences(references));
+                    .withModelWireTypeAliases(FlowProgram.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String suffix = references ? "-abstract-flow-role-reference.json" : "-abstract-flow-role-by-value.json";
             String expected = mapper.writeValueAsString(graph);
             String wire = expected;

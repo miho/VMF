@@ -1,0 +1,123 @@
+// Portable VMF contract: one set of scenario files, one small runner per target language.
+// See conformance/portable/README.md.
+
+def portable = rootProject.layout.projectDirectory.dir('conformance/portable')
+def portableBuild = portable.dir('build')
+def portableModels = portable.dir('models')
+def portableScenarios = portable.dir('scenarios')
+def portableRuntime = evaluationDependsOn(':vmf-runtime').sourceSets.main.runtimeClasspath
+def portableJackson = configurations.detachedConfiguration(
+        dependencies.create("com.fasterxml.jackson.core:jackson-databind:${commonProps.getProperty('deps.jackson.version')}"))
+def portableFilter = providers.gradleProperty('portableFilter').orElse('')
+def portableTypeScript = portable.dir('typescript')
+def portableOutput = { String target ->
+    target == 'typescript' ? portableTypeScript.dir('build/generated') : portableBuild.dir("generated/${target}")
+}
+
+def compilePortableGenerator = tasks.register('compilePortableGenerator', JavaCompile) {
+    source portable.file('java/GeneratePortableModels.java')
+    classpath = sourceSets.main.runtimeClasspath
+    destinationDirectory = portableBuild.dir('classes/generator')
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def portableGeneration = [:]
+['java', 'csharp', 'typescript'].each { target ->
+    portableGeneration[target] = tasks.register("generatePortable${target.capitalize()}", JavaExec) {
+        group = 'vmf'
+        description = "Generates the portable contract models for ${target}."
+        dependsOn compilePortableGenerator
+        classpath = files(portableBuild.dir('classes/generator')) + sourceSets.main.runtimeClasspath
+        mainClass = 'eu.mihosoft.vmf.portable.GeneratePortableModels'
+        args target, portableOutput(target).asFile.absolutePath,
+                portableModels.asFile.absolutePath,
+                portableBuild.file("generated/${target}-unsupported.txt").asFile.absolutePath
+        inputs.dir portableModels
+        inputs.files sourceSets.main.runtimeClasspath
+        outputs.dir portableOutput(target)
+        outputs.file portableBuild.file("generated/${target}-unsupported.txt")
+    }
+}
+
+// vmf-jackson writes and reads the JSON snapshots; the Workshop build already compiles it.
+def portableVmfJackson = tasks.named('compileWorkshopJackson', JavaCompile)
+def portableJsonClasspath = files(portableVmfJackson.flatMap { it.destinationDirectory }) +
+        files({ portableVmfJackson.get().classpath })
+
+def compilePortableJava = tasks.register('compilePortableJava', JavaCompile) {
+    dependsOn portableGeneration['java'], portableVmfJackson
+    source portableBuild.dir('generated/java'), portable.file('java/PortableRunner.java')
+    classpath = portableRuntime + portableJackson + portableJsonClasspath
+    destinationDirectory = portableBuild.dir('classes/java')
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def runPortableJava = tasks.register('runPortableJava', JavaExec) {
+    group = 'verification'
+    description = 'Runs the portable contract scenarios against generated Java code.'
+    dependsOn compilePortableJava
+    classpath = files(portableBuild.dir('classes/java')) + portableRuntime + portableJackson + portableJsonClasspath
+    mainClass = 'eu.mihosoft.vmf.portable.PortableRunner'
+    argumentProviders.add({
+        [portableScenarios.asFile.absolutePath,
+         portableBuild.file('generated/java-unsupported.txt').asFile.absolutePath,
+         portable.file('expected-failures/java.txt').asFile.absolutePath,
+         portableBuild.file('results/java.json').asFile.absolutePath,
+         portableFilter.get()]
+    } as CommandLineArgumentProvider)
+}
+
+def runPortableCSharp = tasks.register('runPortableCSharp', Exec) {
+    group = 'verification'
+    description = 'Runs the portable contract scenarios against generated C# code.'
+    dependsOn portableGeneration['csharp']
+    workingDir portable.dir('csharp').asFile
+    commandLine 'dotnet', 'run', '--project', 'PortableRunner.csproj', '--configuration', 'Release', '--',
+            portableScenarios.asFile.absolutePath,
+            portableBuild.file('generated/csharp-unsupported.txt').asFile.absolutePath,
+            portable.file('expected-failures/csharp.txt').asFile.absolutePath,
+            portableBuild.file('results/csharp.json').asFile.absolutePath
+    argumentProviders.add({ [portableFilter.get()] } as CommandLineArgumentProvider)
+}
+
+def portableTsc = portableTypeScript.file('node_modules/typescript/bin/tsc').asFile.absolutePath
+def portableNpm = System.getProperty('os.name').startsWith('Windows') ? 'npm.cmd' : 'npm'
+
+def installPortableTypeScript = tasks.register('installPortableTypeScript', Exec) {
+    workingDir portableTypeScript.asFile
+    commandLine portableNpm, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'
+    if (gradle.startParameter.offline) {
+        args '--offline'
+    }
+    inputs.files portableTypeScript.file('package.json'), portableTypeScript.file('package-lock.json')
+    outputs.dir portableTypeScript.dir('node_modules')
+}
+
+def compilePortableTypeScript = tasks.register('compilePortableTypeScript', Exec) {
+    dependsOn portableGeneration['typescript'], installPortableTypeScript, tasks.named('buildWorkshopTypeScriptRuntime')
+    workingDir portableTypeScript.asFile
+    commandLine 'node', portableTsc, '-p', portableTypeScript.file('tsconfig.json').asFile.absolutePath
+}
+
+def runPortableTypeScript = tasks.register('runPortableTypeScript', Exec) {
+    group = 'verification'
+    description = 'Runs the portable contract scenarios against generated TypeScript code.'
+    dependsOn compilePortableTypeScript
+    workingDir portableTypeScript.asFile
+    commandLine 'node', 'runner.mjs',
+            portableScenarios.asFile.absolutePath,
+            portableBuild.file('generated/typescript-unsupported.txt').asFile.absolutePath,
+            portable.file('expected-failures/typescript.txt').asFile.absolutePath,
+            portableBuild.file('results/typescript.json').asFile.absolutePath
+    argumentProviders.add({ [portableFilter.get()] } as CommandLineArgumentProvider)
+}
+
+tasks.register('verifyPortableContract') {
+    group = 'verification'
+    description = 'Runs the portable contract scenarios for every target and fails on unexpected results.'
+    dependsOn runPortableJava, runPortableCSharp, runPortableTypeScript
+}

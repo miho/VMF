@@ -108,11 +108,11 @@ final class CollectionRedeclarationConformance {
         if (!ancestorFirst) recording.start();
         try {
             editCollection(property, basis);
-            check(visible.equals(ancestorFirst ? List.of(property) : List.of()),
-                    "Native membership history visibility follows relay order");
+            // The basis' own listener runs before the recording ancestor (portable contract E8); the nested edit
+            // is recorded after its cause (H4).
+            check(visible.equals(List.of()), "Native membership history visibility in the basis' own callback");
             var names = recording.all().stream().map(edit -> edit.propertyName()).collect(Collectors.toList());
-            check(names.equals(ancestorFirst ? List.of(property, "name") : List.of("name", property)),
-                    "Native map and set edits use the same relay order as scalar edits");
+            check(names.equals(List.of(property, "name")), "Native map and set edits use the same order as scalar edits");
         } finally {
             observer.unsubscribe();
             recording.stop();
@@ -162,11 +162,12 @@ final class CollectionRedeclarationConformance {
             var late = ancestorFirst ? null : recording.addRecursiveListener(change -> trace.add("ancestor " + change.propertyName()));
             try {
                 editCollection(property, basis);
-                check(visible.equals(ancestorFirst ? List.of(property) : List.of()), "Native collection visibility follows relay order");
-                check(trace.equals(ancestorFirst ? List.of("ancestor " + property, "local " + property, "ancestor name")
-                        : List.of("local " + property, "ancestor name", "ancestor " + property)), "Collection callback ordering");
+                // The basis' own listener runs before the recording ancestor (portable contract E8), and the nested
+                // edit is delivered at once (E9) but recorded after its cause (H4).
+                check(visible.equals(List.of()), "Native collection visibility in the basis' own callback");
+                check(trace.equals(List.of("local " + property, "ancestor name", "ancestor " + property)), "Collection callback ordering");
                 var nativeNames = recording.all().stream().map(edit -> edit.propertyName()).collect(Collectors.toList());
-                check(nativeNames.equals(ancestorFirst ? List.of(property, "name") : List.of("name", property)), "Native collection relay order");
+                check(nativeNames.equals(List.of(property, "name")), "Native collection history order");
             } finally {
                 local.unsubscribe();
                 if (early != null) early.unsubscribe();

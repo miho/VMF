@@ -13,7 +13,7 @@ public class ObserverOrderTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(false, false)]
-    public void AncestorOrderFollowsRegistrationOnTheSource(bool ancestorFirst, bool attachedFirst)
+    public void ChangedObjectListenersPrecedeAncestorsWhateverTheRegistrationOrder(bool ancestorFirst, bool attachedFirst)
     {
         var root = new ArchiveNode();
         var child = new ArchiveNode();
@@ -23,7 +23,9 @@ public class ObserverOrderTests
         using var second = ancestorFirst ? SubscribeToChild() : SubscribeToAncestor();
         if (!attachedFirst) root.Children.Add(child);
 
-        string[] expected = ancestorFirst && attachedFirst ? ["root", "child"] : ["child", "root"];
+        // The changed object's listeners come first, then its ancestors' (portable contract E8), whatever the order
+        // in which they were added.
+        string[] expected = ["child", "root"];
         child.Name = "edit";
         Assert.Equal(expected, trace);
         trace.Clear();
@@ -39,7 +41,7 @@ public class ObserverOrderTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public void SameSourceGroupsDeliverAllTheirOwnListenersBeforeTheNextScope(bool localFirst)
+    public void ListenersOfOneObjectRunInRegistrationOrderAcrossScopes(bool localFirst)
     {
         var root = new ArchiveNode();
         var trace = new List<string>();
@@ -50,9 +52,10 @@ public class ObserverOrderTests
 
         root.Name = "edit";
 
+        // The listeners of one object run in the order they were added, local or recursive (portable contract E7).
         string[] expected = localFirst
-            ? ["local 1", "local 2", "recursive 1", "recursive 2"]
-            : ["recursive 1", "recursive 2", "local 1", "local 2"];
+            ? ["local 1", "recursive 1", "local 2", "recursive 2"]
+            : ["recursive 1", "local 1", "recursive 2", "local 2"];
         Assert.Equal(expected, trace);
 
         IDisposable Add(bool local, int index) => root.VmfChanges.AddListener(
@@ -88,12 +91,14 @@ public class ObserverOrderTests
             child.Name = "outer";
             child.Name = "again";
 
+            // The child's listeners run before the root's (portable contract E8); an edit made by a listener is
+            // delivered at once (E9); a listener added during a delivery misses the change being delivered.
             string[] expected = (initiallyActive, replaceOld) switch
             {
-                (false, false) => ["root outer", "root nested", "late nested", "root again", "late again"],
-                (true, false) => ["root outer", "root nested", "old nested", "late nested", "old outer", "late outer",
-                    "root again", "old again", "late again"],
-                _ => ["root outer", "root nested", "late nested", "late outer", "root again", "late again"],
+                (false, false) => ["root outer", "late nested", "root nested", "late again", "root again"],
+                (true, false) => ["old outer", "root outer", "old nested", "late nested", "root nested", "old again",
+                    "late again", "root again"],
+                _ => ["old outer", "root outer", "late nested", "root nested", "late again", "root again"],
             };
             Assert.Equal(expected, trace);
         }
@@ -123,8 +128,12 @@ public class ObserverOrderTests
         right.Children.Add(child);
         child.Name = "after";
 
-        Assert.Equal(["root before", "left before", "child before", "child during", "root during", "right during",
-            "child after", "root after", "right after"], trace);
+        // The changed object's listeners come first, then its ancestors' (portable contract E8). Whether the new
+        // ancestors already observe an edit that a listener makes while the move is delivered is still open:
+        // compare without their "during" entries.
+        trace.RemoveAll(entry => entry is "root during" or "right during");
+        Assert.Equal(["child before", "left before", "root before", "child during", "child after", "right after",
+            "root after"], trace);
     }
 
     [Theory]
@@ -168,7 +177,7 @@ public class ObserverOrderTests
     }
 
     [Fact]
-    public void ReentrantCrossScopeCallbacksKeepNativeRelayOrderAndPortableMutationOrder()
+    public void ReentrantCrossScopeCallbacksRecordTheTriggeringEditFirst()
     {
         var root = new ArchiveNode { Name = "root" };
         var child = new ArchiveNode { Name = "initial" };
@@ -188,7 +197,8 @@ public class ObserverOrderTests
         child.Name = "outer";
         var history = root.VmfChanges.History;
         Assert.Equal(["child outer", "child nested", "root nested", "root outer"], trace);
-        Assert.Equal(["nested", "outer"], history.Select(change => change.NewValue));
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(["outer", "nested"], history.Select(change => change.NewValue));
         var journal = JournalJson.Read(JournalJson.Write(recorder.Finish()));
         var operations = Assert.Single(journal.Transactions).Operations.Cast<JournalSet>().ToArray();
         Assert.Equal([("initial", "outer"), ("outer", "nested")],
@@ -253,10 +263,13 @@ public class ObserverOrderTests
         string[] visible = action == RecordingAction.Stop ? ["seed"]
             : insideAncestor && action != RecordingAction.Start ? [] : ["nested"];
         Assert.Equal(visible, duringCallback);
-        Assert.Equal(expected, RecordedValues(recording));
+        // Recordings started, stopped or cleared inside a listener are not part of the portable contract: compare
+        // which edits were recorded, not their order.
+        Assert.Equal(expected, RecordedValues(recording).Order(StringComparer.Ordinal));
         Assert.Equal(insideAncestor ? ["outer", "nested"] : existingRelay ? ["nested", "outer"] : [], live);
         recording.Stop();
-        Assert.Equal(expected, Assert.Single(recording.Transactions).Changes.Select(change => change.NewValue));
+        Assert.Equal(expected, Assert.Single(recording.Transactions).Changes
+            .Select(change => Assert.IsType<string>(change.NewValue)).Order(StringComparer.Ordinal));
     }
 
     [Fact]
@@ -398,7 +411,7 @@ public class ObserverOrderTests
     [InlineData(false, true)]
     [InlineData(true, false)]
     [InlineData(true, true)]
-    public void NativeReentrantScalarUndoFollowsRecordedRelayOrder(bool ancestorFirst, bool separateSlot)
+    public void ListenerEditsAreRecordedAfterTheirCauseSoUndoRestoresTheStart(bool ancestorFirst, bool separateSlot)
     {
         var root = new ArchiveNode { Name = "root" };
         var child = new ArchiveNode { Name = "initial" };
@@ -411,8 +424,8 @@ public class ObserverOrderTests
         using (child.VmfChanges.AddPropertyListener("name", change =>
         {
             if (change.NewValue is not "outer") return;
-            Assert.Equal(ancestorFirst ? ["outer"] : Array.Empty<string>(),
-                recording.History.Select(edit => edit.NewValue));
+            // The child's own listener runs before the recording ancestor's group (portable contract E8).
+            Assert.Empty(recording.History);
             target.Name = "nested";
         }))
         {
@@ -422,19 +435,17 @@ public class ObserverOrderTests
 
         recording.Stop();
         var native = Assert.Single(recording.Transactions);
-        Assert.Equal(ancestorFirst ? ["outer", "nested"] : ["nested", "outer"],
-            native.Changes.Select(change => change.NewValue));
-        Assert.Equal(ancestorFirst || separateSlot, native.CanUndo);
-        Assert.Equal(ancestorFirst || separateSlot, native.Undo());
-        Assert.Equal(separateSlot || ancestorFirst ? "initial" : "nested", child.Name);
+        // A listener's edit is recorded after the edit that triggered it (portable contract H4), so undoing the
+        // transaction restores the state before it.
+        Assert.Equal(["outer", "nested"], native.Changes.Select(change => change.NewValue));
+        Assert.True(native.CanUndo);
+        Assert.True(native.Undo());
+        Assert.Equal("initial", child.Name);
         Assert.Equal(separateSlot ? "other" : child.Name, target.Name);
-        if (ancestorFirst || separateSlot)
-        {
-            Assert.True(native.CanRedo);
-            Assert.True(native.Redo());
-            Assert.Equal(separateSlot ? "outer" : "nested", child.Name);
-            Assert.Equal("nested", target.Name);
-        }
+        Assert.True(native.CanRedo);
+        Assert.True(native.Redo());
+        Assert.Equal(separateSlot ? "outer" : "nested", child.Name);
+        Assert.Equal("nested", target.Name);
     }
 
     [Fact]
@@ -510,9 +521,10 @@ public class ObserverOrderTests
 
         editor.Anchor = outer;
         Assert.Equal(["outer", "nested"], edits);
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
         Assert.Collection(root.VmfChanges.History,
-            change => Assert.Same(nested, change.NewValue),
-            change => Assert.Same(outer, change.NewValue));
+            change => Assert.Same(outer, change.NewValue),
+            change => Assert.Same(nested, change.NewValue));
         var journal = JournalJson.Read(JournalJson.Write(recorder.Finish()));
         var fresh = ModelSnapshot.Read<ArchiveNode>(checkpoint);
         var replayed = JournalReplayer.Replay(fresh, binding, "initial", journal, ModelSnapshot.Registry);

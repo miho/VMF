@@ -44,7 +44,8 @@ final class JournalEditCapture {
         preparedEdits.put(PreparedEditKey.from(change), capture);
     }
 
-    void finishNativeDelivery(Change change) {
+    /** Keeps the operations of a delivered change at its position in native history. */
+    void finishNativeDelivery(Change change, int index) {
         var prepared = preparedEdits.remove(PreparedEditKey.from(change));
         if (prepared == null) {
             materializePendingIntroductions(change);
@@ -52,7 +53,7 @@ final class JournalEditCapture {
         } else {
             prepared.materialize(this);
         }
-        operations.add(prepared);
+        operations.add(Math.min(index, operations.size()), prepared);
     }
 
     boolean preparedDelivery(Change change) {

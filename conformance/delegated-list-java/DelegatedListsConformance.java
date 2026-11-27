@@ -14,7 +14,7 @@ import java.util.List;
 
 public final class DelegatedListsConformance {
     private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(VMFJacksonModule
-            .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+            .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
 
     private DelegatedListsConformance() { }
 

@@ -38,6 +38,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
@@ -48,6 +49,7 @@ import org.apache.maven.plugin.logging.Log;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.project.MavenProject;
 
+import eu.mihosoft.vmf.GenerationTarget;
 import eu.mihosoft.vmf.VMF;
 
 /**
@@ -115,6 +117,18 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 	@Parameter(defaultValue = "${project}", required = true, readonly = true)
 	protected MavenProject project;
 
+	/** Languages to generate besides Java: {@code csharp} and {@code typescript}. */
+	@Parameter(property = "vmf.targets")
+	private List<String> targets;
+
+	/** The folder for generated C# sources; by default {@code csharp-vmf} next to the Java target folder. */
+	@Parameter(property = "vmf.csharpDirectory")
+	private File csharpDirectory;
+
+	/** The folder for generated TypeScript sources; by default {@code typescript-vmf} next to the Java target folder. */
+	@Parameter(property = "vmf.typescriptDirectory")
+	private File typescriptDirectory;
+
 	@Override
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		Log log = getLog();
@@ -133,6 +147,7 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 			log.info("Nothing to do, no source files found in " + sourceDirectory);
 			return;
 		}
+		List<GenerationTarget> additionalTargets = getAdditionalTargets();
 		// get target directory
 		File targetDirectory = getTargetDirectory();
 		// create non-existant target directory
@@ -160,6 +175,12 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 				// log some infos for user
 				log.info("Generating Java classes from vmf model for package in " + packageFile.getParent());
 				VMF.generate(targetDirectory, modelClassLoader, sourceFileArray);
+				for (GenerationTarget target : additionalTargets) {
+					File directory = getDirectory(target);
+					log.info("Generating " + target.name().toLowerCase(Locale.ROOT) + " sources from vmf model for package in "
+							+ packageFile.getParent() + " to " + directory);
+					VMF.generate(target, directory, modelClassLoader, sourceFileArray);
+				}
 			}
 		} catch (DependencyResolutionRequiredException e) {
 			throw new MojoExecutionException("Cannot resolve the project classpath for VMF model generation", e);
@@ -176,6 +197,49 @@ public abstract class AbstractVMFMojo extends AbstractMojo {
 			log.error(e);
 			throw new MojoExecutionException(sb.toString(), e);
 		}
+	}
+
+	/** The languages to generate besides Java, without repeats; unknown names fail the build. */
+	List<GenerationTarget> getAdditionalTargets() throws MojoExecutionException {
+		List<GenerationTarget> result = new ArrayList<>();
+		for (String entry : targets == null ? Collections.<String>emptyList() : targets) {
+			GenerationTarget target;
+			switch (entry.trim().toLowerCase(Locale.ROOT)) {
+				case "java":
+					continue;
+				case "csharp":
+					target = GenerationTarget.CSHARP;
+					break;
+				case "typescript":
+					target = GenerationTarget.TYPESCRIPT;
+					break;
+				default:
+					throw new MojoExecutionException("Unknown VMF target '" + entry + "': use csharp or typescript");
+			}
+			if (!result.contains(target)) {
+				result.add(target);
+			}
+		}
+		return result;
+	}
+
+	/** The output folder of a language besides Java. */
+	File getDirectory(GenerationTarget target) {
+		File configured = target == GenerationTarget.CSHARP ? csharpDirectory : typescriptDirectory;
+		return configured != null ? configured
+				: new File(getTargetDirectory().getParentFile(), target.name().toLowerCase(Locale.ROOT) + "-vmf");
+	}
+
+	void setTargets(List<String> targets) {
+		this.targets = targets;
+	}
+
+	void setCSharpDirectory(File directory) {
+		this.csharpDirectory = directory;
+	}
+
+	void setTypeScriptDirectory(File directory) {
+		this.typescriptDirectory = directory;
 	}
 
 	private URLClassLoader createModelClassLoader() throws IOException, DependencyResolutionRequiredException {
