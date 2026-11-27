@@ -23,6 +23,11 @@ ${type.declaration} {
 #foreach($brand in $type.brands)
     ${brand}
 #end
+#if($type.hasInstance)
+    static ${type.staticOverride}[Symbol.hasInstance](value: unknown): boolean {
+        return vmf.isInstance(value, this);
+    }
+#end
 #foreach($field in $type.fields)
 
     ${field}

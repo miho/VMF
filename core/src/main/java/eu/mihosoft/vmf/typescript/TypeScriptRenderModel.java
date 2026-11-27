@@ -444,13 +444,18 @@ final class TypeScriptRenderModel {
             String input = property.isCollection() ? "Iterable<" + elementType(property) + ">" : stored;
             inputs.add("        readonly " + member + "?: " + input + ";");
             if (inherited.contains(property.getName())) {
+                Property earlier = effectiveProperty(base, property.getName()).orElseThrow();
+                String field = "__vmfValue_" + member;
                 // A redeclaration can change the literal default the base class would store.
-                if (!property.isCollection() && !initialValue(property)
-                        .equals(initialValue(effectiveProperty(base, property.getName()).orElseThrow()))) {
-                    String field = "__vmfValue_" + member;
+                if (!property.isCollection() && !initialValue(property).equals(initialValue(earlier))) {
                     assignments.add("if (values." + member + " === undefined) {\n"
                             + "            (this as { " + field + ": " + stored + " })." + field + " = "
                             + initialValue(property) + ";\n        }");
+                }
+                // A narrowed reference keeps the base class's field; the constructor only accepts the narrower type.
+                if (!sameValueType(earlier.getValueType(), property.getValueType())) {
+                    getters.add("override get " + member + "(): " + stored + " {\n        return this." + field
+                            + " as " + stored + ";\n    }");
                 }
                 continue;
             }

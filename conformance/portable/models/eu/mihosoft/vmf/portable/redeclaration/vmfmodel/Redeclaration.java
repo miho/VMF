@@ -45,6 +45,46 @@ interface Release extends Version {
     int getMajor();
 }
 
+// Immutable types with two immutable supertypes (the first supertype's default wins), and an immutable subtype
+// that narrows the reference it inherits.
+@Immutable
+interface LeftRank {
+    @DefaultValue("5")
+    int getRank();
+}
+
+@Immutable
+interface RightRank {
+    @DefaultValue("11")
+    int getRank();
+
+    String getNote();
+}
+
+@Immutable
+interface LiteralRank extends LeftRank, RightRank {
+}
+
+@Immutable
+interface ValueTag {
+    String getTitle();
+}
+
+@Immutable
+interface ColorTag extends ValueTag {
+    String getColor();
+}
+
+@Immutable
+interface FrozenChoice {
+    ValueTag getCurrent();
+}
+
+@Immutable
+interface FrozenColorChoice extends FrozenChoice {
+    ColorTag getCurrent();
+}
+
 // A port's node and wires are relationship ends that each kind of port declares itself.
 @InterfaceOnly
 interface Port {

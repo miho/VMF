@@ -46,6 +46,59 @@
       ]
     },
     {
+      "id": "several-immutable-supertypes",
+      "requires": ["views"],
+      "rules": ["T1", "T7", "V3"],
+      "from": "C# conformance hierarchy models (LiteralRank)",
+      "steps": [
+        {"new": "l", "type": "LiteralRank"},
+        {"instanceOf": "l", "type": "LeftRank"},
+        {"instanceOf": "l", "type": "RightRank"},
+        {"check": "l.rank", "value": 5},
+        {"check": "l.note", "value": null},
+        {"new": "m", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"check": "m.rank", "value": 7},
+        {"check": "m.note", "value": "n"},
+        {"new": "m2", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"equal": ["m", "m2"]},
+        {"notEqual": ["l", "m"]}
+      ]
+    },
+    {
+      "id": "immutable-subtype-narrows-a-reference",
+      "requires": ["views"],
+      "rules": ["T7", "V3"],
+      "from": "C# conformance covariance models (FrozenColorChoice)",
+      "steps": [
+        {"new": "c", "type": "ColorTag", "with": {"title": "t", "color": "red"}},
+        {"new": "f", "type": "FrozenColorChoice", "with": {"current": {"obj": "c"}}},
+        {"instanceOf": "f", "type": "FrozenChoice"},
+        {"check": "f.current", "obj": "c"},
+        {"check": "f.current.color", "value": "red"},
+        {"check": "f.current.title", "value": "t"},
+        {"new": "e", "type": "FrozenColorChoice"},
+        {"check": "e.current", "value": null}
+      ]
+    },
+    {
+      "id": "immutable-supertypes-in-documents",
+      "requires": ["json", "views"],
+      "rules": ["T1", "T7", "J1"],
+      "steps": [
+        {"new": "m", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"write": "m", "as": "md"},
+        {"document": "md", "is": {"note": "n", "rank": 7}},
+        {"read": "md", "type": "LiteralRank", "as": "m2"},
+        {"equal": ["m", "m2"]},
+        {"new": "c", "type": "ColorTag", "with": {"title": "t", "color": "red"}},
+        {"new": "f", "type": "FrozenColorChoice", "with": {"current": {"obj": "c"}}},
+        {"write": "f", "as": "fd"},
+        {"read": "fd", "type": "FrozenColorChoice", "as": "f2"},
+        {"equal": ["f", "f2"]},
+        {"check": "f2.current.color", "value": "red"}
+      ]
+    },
+    {
       "id": "relationship-ends-declared-by-each-subtype",
       "from": "vflow (2017)",
       "rules": ["T7", "C1", "C2", "C3", "C4"],

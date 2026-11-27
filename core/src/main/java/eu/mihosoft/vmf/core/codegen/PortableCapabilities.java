@@ -593,8 +593,6 @@ public final class PortableCapabilities {
         if (sameScalarSlot(property, inherited) || PortableInheritance.sameStorageSlot(property, inherited, parent, application)) {
             return true;
         }
-        // An immutable class keeps the values of its immutable base, which a subclass cannot narrow.
-        if (type.isImmutable() && parent.isImmutable()) return false;
         return supportsCovariantReference(model, type, parent, property, inherited)
                 || supportsRelationshipGetter(model, type, parent, property, inherited);
     }
@@ -615,7 +613,7 @@ public final class PortableCapabilities {
             if (chain.contains(name) || !seen.add(name)) continue;
             var secondary = model.findType(name).orElse(null);
             if (secondary == null) continue;
-            if (!secondary.isInterfaceOnly() && !secondary.isImmutable()
+            if (!secondary.isInterfaceOnly()
                     && (!secondary.getEffectiveMethods().isEmpty() || secondary.getConstructionHook().isPresent())) {
                 diagnostics.add(type.getQualifiedName() + " needs a data-only secondary supertype instead of "
                         + secondary.getQualifiedName());
@@ -1011,10 +1009,9 @@ public final class PortableCapabilities {
                 }
                 break;
             case CONTAINER:
-                if (property.isCollection() || !isSupportedSingularBound(property, profile)
-                        || profile == Profile.TYPESCRIPT && property.getLowerBound() != 0) {
-                    diagnostics.add(name + " needs " + (profile == Profile.CSHARP
-                            ? "a single-valued container" : "an optional single-valued container"));
+                // A required container (lower bound 1) is reported by validation while the object is uncontained.
+                if (property.isCollection() || !isSupportedSingularBound(property, profile)) {
+                    diagnostics.add(name + " needs a single-valued container");
                 }
                 if (property.isSharedContainer()) {
                     if (valueType.getKind() != ValueType.Kind.MODEL || !valueType.getArguments().isEmpty()
@@ -1136,20 +1133,17 @@ public final class PortableCapabilities {
 
     /** Properties that several supertypes provide must agree, because the class declares them once. */
     /**
-     * A TypeScript immutable class extends at most one immutable class and implements getter-only traits. Its
-     * values are scalars, ordered scalar lists, and immutable values or ordered lists of them.
+     * A TypeScript immutable class extends its first immutable supertype and implements the other immutable
+     * supertypes and getter-only traits. Its values are scalars, ordered scalar lists, and immutable values or
+     * ordered lists of them.
      */
     private static void checkTypeScriptImmutable(ResolvedModel model, Type type, List<String> diagnostics) {
         String name = type.getQualifiedName();
-        boolean primary = false;
         for (String parentName : type.getSuperTypes()) {
             var parent = model.findType(parentName);
             if (parent.isEmpty() || parent.get().isGetterOnlyTrait()) continue;
-            if (parent.get().isImmutable() && !parent.get().isInterfaceOnly() && !primary) {
-                primary = true;
-                continue;
-            }
-            diagnostics.add(name + " can extend one immutable type and getter-only traits, found "
+            if (parent.get().isImmutable() && !parent.get().isInterfaceOnly()) continue;
+            diagnostics.add(name + " can extend immutable types and getter-only traits, found "
                     + parent.get().getQualifiedName());
         }
         if (!type.getTypeParameters().isEmpty()) {
