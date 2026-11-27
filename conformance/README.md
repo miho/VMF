@@ -7,6 +7,11 @@ SDK that can build and run .NET 8.
 ./gradlew :vmf:verifyCSharpConformance
 ```
 
+The cross-language rules are the [portable contract](portable/CONTRACT.md);
+this suite tests the C# implementation in much more detail.
+[TEST-AREAS.md](TEST-AREAS.md) assigns its tests to areas and says which areas
+the contract covers.
+
 Gradle generates Java and C# model classes from the same Java interface
 declarations. The generated Java classes, running on the Java VMF runtime,
 are the behavioral reference for the shared cases. The gate runs the Java
