@@ -73,7 +73,7 @@ final class TypeScriptSnapshotRenderModel {
         String data = "name: " + literal(name) + ", ";
         if (property.getKind() == Property.Kind.SCALAR) {
             data += "scalarType: \"" + scalarKind(value) + "\""
-                    + (property.isCollection() ? "" : ", nullable: " + !value.isPrimitive());
+                    + ", nullable: " + (property.isCollection() ? property.allowsNullElements() : !value.isPrimitive());
         } else {
             data += "modelType: () => " + source.runtimeTypeName(value);
             if (property.getKind() == Property.Kind.REFERENCE && !property.getOppositeName().isEmpty()) {

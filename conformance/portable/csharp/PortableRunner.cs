@@ -22,7 +22,7 @@ public static class PortableRunner
 
     private static readonly HashSet<string> Capabilities = new(StringComparer.Ordinal)
     {
-        "core", "views", "events", "history", "reflection", "equality-modes",
+        "core", "views", "events", "history", "reflection", "equality-modes", "json",
     };
 
     public static int Main(string[] args)
@@ -257,7 +257,8 @@ internal sealed class Execution(string model)
     [
         "new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual", "nativeEqual",
         "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf", "listen", "unlisten",
-        "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations",
+        "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write", "read",
+        "document",
     ];
 
     private static readonly Dictionary<string, ModelReflectionRegistry> Registries = new(StringComparer.Ordinal);
@@ -268,6 +269,7 @@ internal sealed class Execution(string model)
     private readonly Dictionary<string, List<Event>> events = new(StringComparer.Ordinal);
     private readonly Dictionary<string, IDisposable> subscriptions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, List<ModelChange>> undone = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> documents = new(StringComparer.Ordinal);
     private int step;
 
     private string Namespace => PortableRunner.BaseNamespace + char.ToUpperInvariant(model[0]) + model[1..];
@@ -504,9 +506,98 @@ internal sealed class Execution(string model)
             case "annotations":
                 CheckAnnotations(Json.Text(node["annotations"]), node["are"]!.AsArray());
                 break;
+            case "write":
+            {
+                object root = Resolve(Json.Text(node["write"])) ?? throw new ScenarioFailure("cannot write null");
+                bool plain = node["plain"] is JsonNode flag && flag.GetValue<bool>();
+                MethodInfo write = plain
+                    ? SnapshotMethod("WritePlain", 1).MakeGenericMethod(root.GetType())
+                    : SnapshotMethod("Write", 1);
+                documents[Json.Text(node["as"])] = (string)Invoke(write, root)!;
+                break;
+            }
+            case "read":
+            {
+                Type type = ModelType(Json.Text(node["type"]));
+                bool plain = node["plain"] is JsonNode flag && flag.GetValue<bool>();
+                MethodInfo read = SnapshotMethod(plain ? "ReadPlain" : "Read", 1).MakeGenericMethod(type);
+                Put(Json.Text(node["as"]), Invoke(read, Document(node["read"])));
+                break;
+            }
+            case "document":
+            {
+                string name = Json.Text(node["document"]);
+                JsonNode? actual = JsonNode.Parse(Document(node["document"]));
+                if (!SameJson(actual, node["is"]))
+                {
+                    throw new ScenarioFailure(name + ": expected " + Json.Show(node["is"]) + ", written "
+                        + Json.Show(actual));
+                }
+                break;
+            }
             default:
                 throw new ScenarioFailure("unsupported operation " + operation);
         }
+    }
+
+    /// <summary>A written document by name, or a literal {"json": ...} document from the scenario.</summary>
+    private string Document(JsonNode? source)
+    {
+        if (source is JsonValue)
+        {
+            string name = Json.Text(source);
+            return documents.TryGetValue(name, out var text) ? text
+                : throw new ScenarioFailure("unknown document '" + name + "'");
+        }
+        return source?["json"]?.ToJsonString() ?? throw new ScenarioFailure("missing document");
+    }
+
+    private MethodInfo SnapshotMethod(string name, int parameters)
+    {
+        Type snapshot = assembly.GetType(Namespace + ".ModelSnapshot")
+            ?? throw new ScenarioFailure("no ModelSnapshot in " + Namespace);
+        return snapshot.GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .First(method => method.Name == name && method.GetParameters().Length == parameters);
+    }
+
+    private static object? Invoke(MethodInfo method, params object?[] arguments)
+    {
+        try
+        {
+            return method.Invoke(null, arguments);
+        }
+        catch (TargetInvocationException error) when (error.InnerException is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error.InnerException).Throw();
+            throw;
+        }
+    }
+
+    /// <summary>JSON equality: objects ignore key order, numbers compare by value.</summary>
+    private static bool SameJson(JsonNode? actual, JsonNode? expected)
+    {
+        if (expected is null || actual is null) return expected is null && actual is null;
+        if (expected is JsonObject expectedObject)
+        {
+            return actual is JsonObject actualObject && actualObject.Count == expectedObject.Count
+                && expectedObject.All(field => actualObject.TryGetPropertyValue(field.Key, out var value)
+                    && SameJson(value, field.Value));
+        }
+        if (expected is JsonArray expectedArray)
+        {
+            return actual is JsonArray actualArray && actualArray.Count == expectedArray.Count
+                && expectedArray.Select((item, index) => SameJson(actualArray[index], item)).All(same => same);
+        }
+        var left = expected.AsValue();
+        var right = actual as JsonValue;
+        if (right is null) return false;
+        if (left.GetValueKind() == JsonValueKind.Number || right.GetValueKind() == JsonValueKind.Number)
+        {
+            return left.GetValueKind() == right.GetValueKind()
+                && decimal.Parse(left.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture)
+                    == decimal.Parse(right.ToJsonString(), NumberStyles.Float, CultureInfo.InvariantCulture);
+        }
+        return left.ToJsonString() == right.ToJsonString();
     }
 
     private void Put(string label, object? value)

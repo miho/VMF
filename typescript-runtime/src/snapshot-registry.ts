@@ -22,6 +22,8 @@ interface SnapshotScalar extends SnapshotMember {
 interface SnapshotScalarList extends SnapshotMember {
     readonly kind: "scalarList";
     readonly scalarType: ScalarType;
+    /** True if the list may hold null elements. */
+    readonly nullable?: boolean;
     readonly add: (owner: object, value: unknown) => void;
 }
 

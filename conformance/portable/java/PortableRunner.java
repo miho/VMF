@@ -9,6 +9,7 @@ import eu.mihosoft.vcollections.VListChangeEvent;
 import eu.mihosoft.vmf.runtime.core.Annotation;
 import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.Property;
+import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.runtime.core.VObject;
 import vjavax.observer.Subscription;
 
@@ -47,7 +48,7 @@ public final class PortableRunner {
     static final String TARGET = "java";
     static final String BASE_PACKAGE = "eu.mihosoft.vmf.portable.";
     static final Set<String> CAPABILITIES = Set.of(
-            "core", "views", "events", "history", "reflection", "equality-modes");
+            "core", "views", "events", "history", "reflection", "equality-modes", "json");
 
     private PortableRunner() {
     }
@@ -265,13 +266,14 @@ public final class PortableRunner {
         static final List<String> OPERATIONS = List.of("new", "set", "add", "insert", "remove", "clear", "check",
                 "let", "equal", "notEqual", "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly",
                 "instanceOf", "notInstanceOf", "listen", "unlisten", "events", "record", "recorded", "undoAll",
-                "redoAll", "properties", "annotations");
+                "redoAll", "properties", "annotations", "write", "read", "document");
 
         final String model;
         final Map<String, Object> labels = new LinkedHashMap<>();
         final Map<String, List<Event>> events = new HashMap<>();
         final Map<String, Subscription> subscriptions = new HashMap<>();
         final Map<String, List<Change>> undone = new HashMap<>();
+        final Map<String, String> documents = new HashMap<>();
         int step;
 
         Execution(String model) {
@@ -452,9 +454,98 @@ public final class PortableRunner {
                 case "annotations":
                     checkAnnotations(node.get("annotations").asText(), node.get("are"));
                     break;
+                case "write": {
+                    Object root = resolve(node.get("write").asText());
+                    documents.put(node.get("as").asText(),
+                            mapper(modelInterface(root), node.path("plain").asBoolean(false)).writeValueAsString(root));
+                    break;
+                }
+                case "read": {
+                    Class<?> type = modelClass(node.get("type").asText());
+                    labels.put(node.get("as").asText(), mapper(type, node.path("plain").asBoolean(false))
+                            .readValue(document(node.get("read")), type));
+                    break;
+                }
+                case "document": {
+                    String name = node.get("document").asText();
+                    JsonNode actual = new ObjectMapper().readTree(document(node.get("document")));
+                    if (!sameJson(actual, node.get("is"))) {
+                        throw new ScenarioFailure(name + ": expected " + node.get("is") + ", written " + actual);
+                    }
+                    break;
+                }
                 default:
                     throw new ScenarioFailure("unsupported operation " + operation);
             }
+        }
+
+        // ---------------------------------------------------------------------------------------- JSON
+
+        /** A written document by name, or a literal {"json": ...} document from the scenario. */
+        String document(JsonNode source) throws IOException {
+            if (source.isTextual()) {
+                String text = documents.get(source.asText());
+                if (text == null) {
+                    throw new ScenarioFailure("unknown document '" + source.asText() + "'");
+                }
+                return text;
+            }
+            return new ObjectMapper().writeValueAsString(source.get("json"));
+        }
+
+        static ObjectMapper mapper(Class<?> modelType, boolean plain) {
+            VMFJacksonModule module = VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL);
+            @SuppressWarnings("unchecked")
+            Class<? extends VObject> vmfType = (Class<? extends VObject>) modelType;
+            return new ObjectMapper().registerModule(plain ? module
+                    : module.withModelWireTypeAliases(vmfType).withReferences(true));
+        }
+
+        Class<?> modelInterface(Object value) {
+            for (Class<?> candidate = value.getClass(); candidate != null; candidate = candidate.getSuperclass()) {
+                for (Class<?> type : candidate.getInterfaces()) {
+                    if (type.getName().startsWith(BASE_PACKAGE + model + ".") && !type.getSimpleName().startsWith("ReadOnly")) {
+                        return type;
+                    }
+                }
+            }
+            throw new ScenarioFailure("not a model object: " + value);
+        }
+
+        /** JSON equality: objects ignore key order, numbers compare by value. */
+        static boolean sameJson(JsonNode actual, JsonNode expected) {
+            if (expected.isNumber() || actual.isNumber()) {
+                if (!expected.isNumber() || !actual.isNumber()) {
+                    return false;
+                }
+                return expected.isIntegralNumber() && actual.isIntegralNumber()
+                        ? expected.bigIntegerValue().equals(actual.bigIntegerValue())
+                        : expected.decimalValue().compareTo(actual.decimalValue()) == 0;
+            }
+            if (expected.isObject()) {
+                if (!actual.isObject() || actual.size() != expected.size()) {
+                    return false;
+                }
+                for (Iterator<Map.Entry<String, JsonNode>> fields = expected.fields(); fields.hasNext(); ) {
+                    Map.Entry<String, JsonNode> field = fields.next();
+                    if (!actual.has(field.getKey()) || !sameJson(actual.get(field.getKey()), field.getValue())) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            if (expected.isArray()) {
+                if (!actual.isArray() || actual.size() != expected.size()) {
+                    return false;
+                }
+                for (int i = 0; i < expected.size(); i++) {
+                    if (!sameJson(actual.get(i), expected.get(i))) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+            return expected.equals(actual);
         }
 
         // ---------------------------------------------------------------------------------------- object access
@@ -488,7 +579,10 @@ public final class PortableRunner {
                 throws Exception {
             String name = "with" + Character.toUpperCase(property.charAt(0)) + property.substring(1);
             List<String> attempts = new ArrayList<>();
-            for (Method method : builderType.getMethods()) {
+            // Prefer array (varargs) overloads; their component type converts the elements exactly.
+            List<Method> methods = new ArrayList<>(Arrays.asList(builderType.getMethods()));
+            methods.sort((a, b) -> Boolean.compare(!takesArray(a), !takesArray(b)));
+            for (Method method : methods) {
                 if (!method.getName().equals(name) || method.getParameterCount() != 1) {
                     continue;
                 }
@@ -506,8 +600,19 @@ public final class PortableRunner {
                             Array.set(argument, i, element);
                         }
                     } else if (value.isArray() && List.class.isAssignableFrom(parameter)) {
+                        Class<?> element = Object.class;
+                        java.lang.reflect.Type generic = method.getGenericParameterTypes()[0];
+                        if (generic instanceof java.lang.reflect.ParameterizedType) {
+                            java.lang.reflect.Type argumentType =
+                                    ((java.lang.reflect.ParameterizedType) generic).getActualTypeArguments()[0];
+                            if (argumentType instanceof Class) {
+                                element = (Class<?>) argumentType;
+                            }
+                        }
                         List<Object> list = new ArrayList<>();
-                        value.forEach(element -> list.add(toJava(element, Object.class)));
+                        for (JsonNode item : value) {
+                            list.add(toJava(item, element));
+                        }
                         argument = list;
                     } else if (!value.isArray() && !parameter.isArray()) {
                         argument = toJava(value, parameter);
@@ -525,6 +630,10 @@ public final class PortableRunner {
                 return;
             }
             throw new ScenarioFailure("no builder method " + name + " accepts " + value + " (tried " + attempts + ")");
+        }
+
+        static boolean takesArray(Method method) {
+            return method.getParameterCount() == 1 && method.getParameterTypes()[0].isArray();
         }
 
         Object resolve(String path) {

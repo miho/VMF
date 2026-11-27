@@ -1,0 +1,185 @@
+{
+  "model": "documents",
+  "scenarios": [
+    {
+      "id": "defaults-and-empty-lists",
+      "requires": ["json"],
+      "rules": ["J1"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"write": "c", "as": "d"},
+        {"document": "d", "is": {"active": false, "entry_count": 0, "highlights": [], "ratio": 0.0, "sections": [],
+          "serial": 0, "serials": [], "tags": []}}
+      ]
+    },
+    {
+      "id": "scalar-values",
+      "requires": ["json"],
+      "rules": ["J1"],
+      "steps": [
+        {"new": "c", "type": "Catalog", "with": {"title": "Grüße ✓", "count": 3, "serial": 9007199254740993,
+          "ratio": 0.5, "active": true, "optional": 7, "tags": ["a", "b"],
+          "serials": [1, -9223372036854775808, 9223372036854775807]}},
+        {"write": "c", "as": "d"},
+        {"document": "d", "is": {"active": true, "entry_count": 3, "highlights": [], "optional": 7, "ratio": 0.5,
+          "sections": [], "serial": 9007199254740993, "serials": [1, -9223372036854775808, 9223372036854775807],
+          "tags": ["a", "b"], "title": "Grüße ✓"}},
+        {"read": "d", "type": "Catalog", "as": "copy"},
+        {"equal": ["c", "copy"]},
+        {"check": "copy.serial", "value": 9007199254740993},
+        {"check": "copy.serials", "values": [1, -9223372036854775808, 9223372036854775807]},
+        {"check": "copy.title", "value": "Grüße ✓"}
+      ]
+    },
+    {
+      "id": "containment-references-and-subtypes",
+      "requires": ["json"],
+      "rules": ["J1", "J2", "J3"],
+      "steps": [
+        {"new": "t", "type": "Tool", "with": {"name": "hammer", "size": 2}},
+        {"new": "p", "type": "Part", "with": {"name": "nail", "code": "N1"}},
+        {"new": "i", "type": "Item", "with": {"name": "plain"}},
+        {"new": "s1", "type": "Section", "with": {"name": "s1", "items": [{"obj": "t"}, {"obj": "p"}]}},
+        {"new": "s2", "type": "Section", "with": {"name": "s2", "items": [{"obj": "i"}]}},
+        {"new": "m", "type": "Section", "with": {"name": "main"}},
+        {"new": "c", "type": "Catalog", "with": {"main": {"obj": "m"}, "sections": [{"obj": "s1"}, {"obj": "s2"}],
+          "favorite": {"obj": "p"}, "highlights": [{"obj": "i"}, {"obj": "t"}, {"obj": "i"}]}},
+        {"write": "c", "as": "d"},
+        {"document": "d", "is": {"active": false, "entry_count": 0, "favorite": "2", "highlights": ["3", "1", "3"],
+          "main": {"items": [], "name": "main"}, "ratio": 0.0,
+          "sections": [
+            {"items": [
+              {"@vmf-type": "tool", "@vmf-id": "1", "name": "hammer", "size": 2},
+              {"@vmf-type": "eu.mihosoft.vmf.portable.documents.Part", "@vmf-id": "2", "code": "N1", "name": "nail"}
+            ], "name": "s1"},
+            {"items": [{"@vmf-type": "eu.mihosoft.vmf.portable.documents.Item", "@vmf-id": "3", "name": "plain"}],
+              "name": "s2"}
+          ],
+          "serial": 0, "serials": [], "tags": []}},
+        {"read": "d", "type": "Catalog", "as": "copy"},
+        {"equal": ["c", "copy"]},
+        {"let": "nail", "path": "copy.sections[0].items[1]"},
+        {"same": ["copy.favorite", "nail"]},
+        {"instanceOf": "nail", "type": "Part"},
+        {"instanceOf": "copy.sections[0].items[0]", "type": "Tool"},
+        {"check": "copy.highlights", "objs": ["copy.sections[1].items[0]", "copy.sections[0].items[0]",
+          "copy.sections[1].items[0]"]}
+      ]
+    },
+    {
+      "id": "read-a-document-from-another-writer",
+      "requires": ["json"],
+      "rules": ["J4"],
+      "steps": [
+        {"read": {"json": {"title": "t", "ratio": 2, "serial": 9007199254740993, "highlights": ["7", "7"],
+          "favorite": "7",
+          "sections": [{"name": "s", "items": [{"@vmf-type": "tool", "@vmf-id": "7", "name": "h", "size": 3}]}]}},
+          "type": "Catalog", "as": "c"},
+        {"let": "h", "path": "c.sections[0].items[0]"},
+        {"instanceOf": "h", "type": "Tool"},
+        {"check": "h.size", "value": 3},
+        {"same": ["c.favorite", "h"]},
+        {"check": "c.highlights", "objs": ["h", "h"]},
+        {"check": "c.serial", "value": 9007199254740993},
+        {"check": "c.ratio", "value": 2.0},
+        {"check": "c.count", "value": 0},
+        {"check": "c.tags", "size": 0},
+        {"check": "c.main", "obj": null}
+      ]
+    },
+    {
+      "id": "recursive-tree-round-trip",
+      "model": "tree",
+      "requires": ["json"],
+      "rules": ["J1", "J2"],
+      "steps": [
+        {"new": "r", "type": "Node", "with": {"name": "r"}},
+        {"new": "a", "type": "Node", "with": {"name": "a"}},
+        {"new": "b", "type": "Node", "with": {"name": "b"}},
+        {"add": "r.children", "obj": "a"},
+        {"add": "a.children", "obj": "b"},
+        {"write": "r", "as": "d"},
+        {"document": "d", "is": {"name": "r", "children": [{"name": "a", "children": [{"name": "b", "children": []}]}]}},
+        {"read": "d", "type": "Node", "as": "copy"},
+        {"equal": ["r", "copy"]},
+        {"check": "copy.children[0].children[0].parent.parent", "obj": "copy"}
+      ]
+    },
+    {
+      "id": "plain-json-round-trip",
+      "model": "values",
+      "requires": ["json"],
+      "rules": ["J5"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"value": 1}},
+        {"new": "c2", "type": "Child2", "with": {"value": 4}},
+        {"new": "a", "type": "AClass", "with": {"name": "n", "ids": ["x", "y"], "children": [{"obj": "c1"}],
+          "child": {"obj": "c2"}}},
+        {"write": "a", "as": "d", "plain": true},
+        {"document": "d", "is": {"child": {"value": 4}, "children": [{"value": 1}], "ids": ["x", "y"], "name": "n"}},
+        {"read": "d", "type": "AClass", "as": "copy", "plain": true},
+        {"equal": ["a", "copy"]}
+      ]
+    },
+    {
+      "id": "plain-json-read",
+      "model": "values",
+      "requires": ["json"],
+      "rules": ["J5"],
+      "steps": [
+        {"read": {"json": {"name": "n", "ids": ["x"], "children": [{"value": 1}, {"value": 2}], "child": {"value": 4}}},
+          "type": "AClass", "as": "a", "plain": true},
+        {"check": "a.children[1].value", "value": 2},
+        {"check": "a.child.value", "value": 4},
+        {"check": "a.ids", "values": ["x"]}
+      ]
+    },
+    {
+      "id": "plain-json-rejects-references",
+      "requires": ["json"],
+      "rules": ["J5"],
+      "steps": [
+        {"new": "i", "type": "Item", "with": {"name": "x"}},
+        {"new": "s", "type": "Section", "with": {"items": [{"obj": "i"}]}},
+        {"new": "c", "type": "Catalog", "with": {"sections": [{"obj": "s"}], "favorite": {"obj": "i"}}},
+        {"write": "c", "as": "d", "plain": true, "fails": true}
+      ]
+    },
+    {
+      "id": "rejects-references-outside-the-document",
+      "requires": ["json"],
+      "rules": ["J6"],
+      "steps": [
+        {"new": "i", "type": "Item"},
+        {"new": "c", "type": "Catalog", "with": {"favorite": {"obj": "i"}}},
+        {"write": "c", "as": "d", "fails": true}
+      ]
+    },
+    {
+      "id": "rejects-unknown-types",
+      "requires": ["json"],
+      "rules": ["J4"],
+      "steps": [
+        {"read": {"json": {"sections": [{"items": [{"@vmf-type": "nope", "name": "x"}]}]}}, "type": "Catalog",
+          "as": "c", "fails": true}
+      ]
+    },
+    {
+      "id": "rejects-unresolved-references",
+      "requires": ["json"],
+      "rules": ["J4"],
+      "steps": [
+        {"read": {"json": {"favorite": "9"}}, "type": "Catalog", "as": "c", "fails": true}
+      ]
+    },
+    {
+      "id": "rejects-duplicate-ids",
+      "requires": ["json"],
+      "rules": ["J4"],
+      "steps": [
+        {"read": {"json": {"sections": [{"items": [{"@vmf-type": "tool", "@vmf-id": "1", "name": "a"},
+          {"@vmf-type": "tool", "@vmf-id": "1", "name": "b"}]}]}}, "type": "Catalog", "as": "c", "fails": true}
+      ]
+    }
+  ]
+}

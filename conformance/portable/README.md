@@ -5,9 +5,9 @@ One set of scenario files, one small runner per target language. The rules are i
 
 ```
 conformance/portable/
-  CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N optional modules)
+  CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J optional modules)
   models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>)
-  scenarios/*.json            111 scenarios, each citing the rules it checks and the Java test it came from
+  scenarios/*.json            123 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
   java/                       model generation helper and the Java runner
   csharp/                     the C# runner
@@ -87,6 +87,9 @@ Values: `"obj": label` or `"objs": [labels]` for model objects (compared by iden
 | `{"undoAll": path}`, `{"redoAll": path}` | stop recording, undo all in reverse order; redo them in order (H2, H3) |
 | `{"properties": path, "are": [names]}` | reflected property names in order (F1) |
 | `{"annotations": path, "are": [[key, value]]}` | annotations of an object, or of a property if the path ends in one (F2) |
+| `{"write": path, "as": d, "plain": true?}` | write a snapshot document (J), plain without metadata |
+| `{"read": d or {"json": ...}, "type": T, "as": l, "plain": true?}` | read a written or a literal document |
+| `{"document": d, "is": json}` | compare a written document; key order is ignored, numbers compare by value |
 
 Any edit step may carry `"fails": true`: the edit must be rejected, and the runner checks that every object
 reachable from a label is unchanged afterwards.
@@ -109,27 +112,28 @@ How the runners reach the generated code:
 
 - Java: `<Type>.newInstance()` and `newBuilder()`, properties through `vmf().reflect()`, `vmf().content()` for
   equality and copies, `vmf().changes()` for listeners and recording, `Change.undo()` and
-  `Change.apply(change.object())` for undo and redo.
+  `Change.apply(change.object())` for undo and redo, vmf-jackson (`VMFJacksonModule` with
+  `withModelWireTypeAliases(...)` and `withReferences(true)`, or without both for plain documents).
 - C#: constructors and `NewBuilder()`, properties through `<namespace>.ModelSnapshot.Reflection` (model names,
   declared order), lists through their public `Add`, `Insert`, `RemoveAt`, `Clear` and indexer,
   `ContentEquals`/`ContentHashCode`, `Reflection.DeepCopy`, `ModelChanges.For(x)` with `History`,
   `ModelChange.Undo()` and `Redo()`. Interface-only types are abstract classes; several supertypes become
-  `I<Name>` interfaces.
+  `I<Name>` interfaces. Documents through `ModelSnapshot.Write`, `Read<T>`, `WritePlain<T>` and `ReadPlain<T>`.
 - TypeScript: `new` on the classes listed in `ModelSnapshot.registry` (interface-only types are abstract and
   not registered), then plain property assignment for initial values; properties and list objects by model
   name; `instanceof` also for interface-only supertypes a class implements besides its base class;
   `contentEquals`, `contentHashCode` and `deepCopy` on every model object; `vmfChanges.addListener(listener,
   "local" | "recursive")` (returns a function that removes the listener), `vmfChanges.start()` and `history`,
-  whose entries have `undo()` and `redo()`. `long` values are `bigint`; the runner parses large JSON integers
-  exactly.
+  whose entries have `undo()` and `redo()`. Documents through `ModelSnapshot.write`, `read`, `writePlain` and
+  `readPlain`. `long` values are `bigint`; the runner parses large JSON integers exactly.
 
 ## Current results
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 15 of 15 | 111 of 111 | none |
-| C# | 15 of 15 | 111 of 111 | none |
-| TypeScript | 14 of 15 | 94 of 94 (claims core, events and history; 17 scenarios of views, reflection and equality modes skipped) | none |
+| Java | 16 of 16 | 122 of 123 | its plain JSON omits single references and reference lists (as vmf-jackson documents) instead of rejecting them |
+| C# | 16 of 16 | 123 of 123 | none |
+| TypeScript | 15 of 16 | 106 of 106 (claims core, events, history and json; 17 scenarios of views, reflection and equality modes skipped) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java).
@@ -158,6 +162,7 @@ behavior.
 | FSMTest, LargeFlowModelTest (create and undo) | undo of a whole construction | history | `history.json` |
 | PropertyOrderTest (5), AnnotationsTest (4) | reflection | reflection | `reflection.json` (4 and 2 of them) |
 | SetterIdentityTest (16, 2026) | equal but distinct objects | core Q4, C | `equality.json` (6) |
+| WorkshopSnapshots, VMFJacksonModule tests | snapshot documents | json | `json.json` (12) |
 | OneToOneReassignmentTest (11), OneToManyReassignmentTest (13, 2026) | reference takeover | core R2 | `references.json` (6) |
 | ContainmentCycleTest (6, 2026) | cycle rejection | core C5 | `containment.json` (3) |
 | ReadOnlyExternalListTest (6, 2026) | live read-only lists | views | `views.json` (2) |

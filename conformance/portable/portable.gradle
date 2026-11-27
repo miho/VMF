@@ -41,10 +41,15 @@ def portableGeneration = [:]
     }
 }
 
+// vmf-jackson writes and reads the JSON snapshots; the Workshop build already compiles it.
+def portableVmfJackson = tasks.named('compileWorkshopJackson', JavaCompile)
+def portableJsonClasspath = files(portableVmfJackson.flatMap { it.destinationDirectory }) +
+        files({ portableVmfJackson.get().classpath })
+
 def compilePortableJava = tasks.register('compilePortableJava', JavaCompile) {
-    dependsOn portableGeneration['java']
+    dependsOn portableGeneration['java'], portableVmfJackson
     source portableBuild.dir('generated/java'), portable.file('java/PortableRunner.java')
-    classpath = portableRuntime + portableJackson
+    classpath = portableRuntime + portableJackson + portableJsonClasspath
     destinationDirectory = portableBuild.dir('classes/java')
     javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
     options.release = 11
@@ -55,7 +60,7 @@ def runPortableJava = tasks.register('runPortableJava', JavaExec) {
     group = 'verification'
     description = 'Runs the portable contract scenarios against generated Java code.'
     dependsOn compilePortableJava
-    classpath = files(portableBuild.dir('classes/java')) + portableRuntime + portableJackson
+    classpath = files(portableBuild.dir('classes/java')) + portableRuntime + portableJackson + portableJsonClasspath
     mainClass = 'eu.mihosoft.vmf.portable.PortableRunner'
     argumentProviders.add({
         [portableScenarios.asFile.absolutePath,

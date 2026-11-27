@@ -8,8 +8,8 @@ import {
 } from "./snapshot-registry.js";
 import { childPath, JsonNumber, type JsonValue, parseJson, requireValidText } from "./wire-json.js";
 
-type ScalarProperty = Extract<SnapshotProperty, { kind: "scalar" }>;
-type Scalar = string | number | boolean;
+type ScalarProperty = Extract<SnapshotProperty, { kind: "scalar" | "scalarList" }>;
+type Scalar = string | number | boolean | bigint;
 type Encoded = Scalar | Encoded[] | { [key: string]: Encoded };
 const snapshotFields = new Set([typeField, idField]);
 
@@ -25,7 +25,12 @@ type Field =
     | { name: string; kind: "containment"; value: Definition }
     | { name: string; kind: "containmentList"; value: Definition[] }
     | { name: string; kind: "reference"; value: object }
-    | { name: string; kind: "referenceSet"; value: object[] };
+    | { name: string; kind: "referenceSet"; value: object[] }
+    | { name: string; kind: "scalarList"; value: (Scalar | null)[] }
+    | { name: string; kind: "referenceList"; value: object[] };
+
+const minInt64 = -(2n ** 63n);
+const maxInt64 = 2n ** 63n - 1n;
 
 interface ReferenceUse {
     readonly target: object;
@@ -77,7 +82,7 @@ function write(root: object, rootType: ModelConstructor<object>, registry: Snaps
             ids.set(node, ids.size + 1);
         }
     }
-    return JSON.stringify(encode(definition, registry, references, ids));
+    return stringify(encode(definition, registry, references, ids));
 }
 
 function capture(instance: object, expectedType: ModelConstructor<object>, path: string, registry: SnapshotRegistry,
@@ -99,13 +104,33 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
         const fieldPath = childPath(path, name);
         const value = property.get(instance);
         switch (property.kind) {
-            case "scalarList":
-            case "referenceList":
-                throw unsupported(fieldPath, property.kind);
-            case "scalar":
-                if (property.scalarType === "int64") {
-                    throw unsupported(fieldPath, "int64");
+            case "scalarList": {
+                const items = [...(value as Iterable<unknown>)].map((item, index) => {
+                    const itemPath = childPath(fieldPath, index);
+                    if (item === null || item === undefined) {
+                        if (!allowsNull(property)) {
+                            throw invalid(itemPath, `Expected a JSON value of type '${property.scalarType}'`);
+                        }
+                        return null;
+                    }
+                    return requireScalar(item, property, itemPath);
+                });
+                fields.push({ name, kind: property.kind, value: items });
+                break;
+            }
+            case "referenceList": {
+                const members = [...(value as Iterable<unknown>)].map((item, index) =>
+                    requireModel(item, property.modelType(), childPath(fieldPath, index)));
+                if (members.length > 0) {
+                    requireReferences(references, fieldPath);
                 }
+                if (references) {
+                    members.forEach((target, index) => uses.push({ target, path: childPath(fieldPath, index) }));
+                    fields.push({ name, kind: property.kind, value: members });
+                }
+                break;
+            }
+            case "scalar":
                 if (value === null || value === undefined) {
                     if (!allowsNull(property)) {
                         throw invalid(fieldPath, `Expected a JSON value of type '${property.scalarType}'`);
@@ -196,6 +221,12 @@ function encode(node: Definition, registry: SnapshotRegistry, references: boolea
             case "referenceSet":
                 result[name] = value.map(member => ids.get(member)!).sort((left, right) => left - right).map(String);
                 break;
+            case "scalarList":
+                result[name] = value as Encoded[];
+                break;
+            case "referenceList":
+                result[name] = value.map(member => String(ids.get(member)!));
+                break;
         }
     }
     return result;
@@ -252,12 +283,23 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
         const fieldPath = childPath(path, property.wireName);
         switch (property.kind) {
             case "scalarList":
-            case "referenceList":
-                throw unsupported(fieldPath, property.kind);
-            case "scalar":
-                if (property.scalarType === "int64") {
-                    throw unsupported(fieldPath, "int64");
+                array(value, fieldPath).forEach((item, index) =>
+                    property.add(result, readScalar(item, property, childPath(fieldPath, index))));
+                break;
+            case "referenceList": {
+                const members = array(value, fieldPath);
+                if (members.length > 0) {
+                    requireReferences(references, fieldPath);
                 }
+                const modelType = property.modelType();
+                members.forEach((member, index) => {
+                    const memberPath = childPath(fieldPath, index);
+                    pending.push({ id: readId(member, memberPath), path: memberPath, type: modelType,
+                        assign: target => property.add(result, target) });
+                });
+                break;
+            }
+            case "scalar":
                 property.set(result, readScalar(value, property, fieldPath));
                 break;
             case "containment":
@@ -345,6 +387,9 @@ function readScalar(value: JsonValue, property: ScalarProperty, path: string): S
     if (property.scalarType === "float64" && value instanceof JsonNumber) {
         return requireScalar(Number(value.text), property, path);
     }
+    if (property.scalarType === "int64" && value instanceof JsonNumber && isIntegerToken(value.text)) {
+        return requireScalar(BigInt(value.text), property, path);
+    }
     return requireScalar(value, property, path);
 }
 
@@ -361,6 +406,9 @@ function requireScalar(value: unknown, property: ScalarProperty, path: string): 
         return value === 0 ? 0 : value;
     }
     if (property.scalarType === "float64" && typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+    if (property.scalarType === "int64" && typeof value === "bigint" && value >= minInt64 && value <= maxInt64) {
         return value;
     }
     throw invalid(path, `Expected a JSON value of type '${property.scalarType}'`);
@@ -391,8 +439,19 @@ function nativeType(value: object, path: string): ModelConstructor<object> {
     return constructor as ModelConstructor<object>;
 }
 
-function unsupported(path: string, kind: string): TypeError {
-    return new TypeError(`Snapshot JSON does not support ${kind} properties yet at ${path}.`);
+/** JSON text for an encoded snapshot; 64-bit integers are written exactly. */
+function stringify(value: Encoded): string {
+    if (typeof value === "bigint") {
+        return value.toString();
+    }
+    if (Array.isArray(value)) {
+        return "[" + value.map(stringify).join(",") + "]";
+    }
+    if (typeof value === "object" && value !== null) {
+        return "{" + Object.entries(value).map(([key, member]) => JSON.stringify(key) + ":" + stringify(member)).join(",")
+            + "}";
+    }
+    return JSON.stringify(value);
 }
 
 function invalid(path: string, message: string): TypeError {

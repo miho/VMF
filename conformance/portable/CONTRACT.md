@@ -19,6 +19,7 @@ every target, Java included, runs the same scenarios ([README](README.md)).
 | history | H (recording, undo, redo) | optional |
 | reflection | F (property order, annotations) | optional |
 | equality-modes | N (`@VMFEquals` and `@VMFModel(equality = ...)` for the language's own equality) | optional |
+| json | J (snapshot documents that every target writes and reads alike) | optional |
 
 A target claims the modules it implements. Scenarios of modules it does not claim are skipped and reported
 as skipped, not as passed.
@@ -129,6 +130,26 @@ back to the container (its opposite).
   `ALL` also takes references into account. `@VMFModel(equality = ...)` sets the mode for the whole
   model; `@VMFEquals` overrides it per type.
 
+## JSON (optional)
+
+A snapshot document is the JSON form of a model and its containment tree. Documents written by one target
+are read by every other target.
+
+- **J1** Each model object is a JSON object; its properties are fields named by their wire name (the model
+  name, or the value of `vmf:jackson:rename`). Primitive values and lists are always written, an empty list
+  as `[]`; an absent single value (`null`) is omitted. Integers are exact, including all 64 bits of `long`;
+  doubles are JSON numbers, and readers accept `2` as well as `2.0`. Field order carries no meaning.
+- **J2** Contained objects are nested where they are contained. A reference is written as the `@vmf-id` of its
+  target, a string. Writers number the referenced objects `"1"`, `"2"`, ... in the order in which they occur in
+  the document; reference lists keep their order and repeats.
+- **J3** An object whose declared type has subtypes carries `@vmf-type`: the type's wire alias
+  (`vmf:wire:type`) or its qualified name.
+- **J4** Readers restore an equal model with the same references from any document that follows J1 to J3,
+  and reject unknown type names, unresolved ids and duplicate ids.
+- **J5** A plain document is the same without `@vmf-id` and `@vmf-type`. A model with a non-empty reference
+  cannot be written as a plain document: the writer rejects it.
+- **J6** Writers reject a reference to an object outside the written containment tree.
+
 ## Deliberately unspecified
 
 These differ between languages, or between implementations of one language, and must not be tested
@@ -144,6 +165,7 @@ across targets:
   index-based replacement in containment lists, and `null` entries in containment lists
 - recordings that cover only one side of a moved object (the previous owner is not covered)
 - whether a deep copy shares or copies immutable values
+- plain documents for models whose subtypes occur where a property declares their supertype
 - `toString` formats and concrete hash code values; threading
 
 ## Not part of the cross-language contract
@@ -154,6 +176,5 @@ custom external value types, cursors and traversal APIs, reflection writes, jour
 formats, XML and YAML, model diff, validation, maps and sets, generic model types. Each of these can become a
 module of its own with its own rules and scenarios once two targets need it.
 
-The JSON interchange (reference-aware snapshots and plain JSON) is checked separately by the Workshop
-exchange between Java, C# and TypeScript (`:vmf:verifyTypeScriptWorkshop`); a JSON module with scenarios is
-the next candidate.
+The Workshop example additionally exchanges files between Java, C# and TypeScript
+(`:vmf:verifyTypeScriptWorkshop`); the JSON module states and checks the format those files share.

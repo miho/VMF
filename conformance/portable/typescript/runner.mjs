@@ -7,10 +7,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as vmf from "@vmf/runtime";
 
 const TARGET = "typescript";
-const CAPABILITIES = new Set(["core", "events", "history"]);
+const CAPABILITIES = new Set(["core", "events", "history", "json"]);
 const OPERATIONS = ["new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual",
     "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf",
-    "listen", "unlisten", "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations"];
+    "listen", "unlisten", "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write",
+    "read", "document"];
 const generated = join(dirname(fileURLToPath(import.meta.url)), "build", "js", "build", "generated", "eu", "mihosoft",
     "vmf", "portable");
 
@@ -239,6 +240,48 @@ function merged(received) {
     return result;
 }
 
+/** JSON text that keeps bigint values exact. */
+function stringifyJson(value) {
+    if (typeof value === "bigint") {
+        return value.toString();
+    }
+    if (Array.isArray(value)) {
+        return `[${value.map(stringifyJson).join(",")}]`;
+    }
+    if (typeof value === "object" && value !== null) {
+        return `{${Object.entries(value).map(([key, member]) => `${JSON.stringify(key)}:${stringifyJson(member)}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+}
+
+/** JSON equality: objects ignore key order, numbers compare by value. */
+function sameJson(actual, expected) {
+    const numeric = value => typeof value === "number" || typeof value === "bigint";
+    if (numeric(expected) || numeric(actual)) {
+        if (!numeric(expected) || !numeric(actual)) {
+            return false;
+        }
+        if (typeof expected === "bigint" || typeof actual === "bigint") {
+            return Number.isInteger(Number(expected)) && Number.isInteger(Number(actual))
+                && BigInt(expected) === BigInt(actual);
+        }
+        return expected === actual;
+    }
+    if (Array.isArray(expected)) {
+        return Array.isArray(actual) && actual.length === expected.length
+            && expected.every((item, index) => sameJson(actual[index], item));
+    }
+    if (typeof expected === "object" && expected !== null) {
+        if (typeof actual !== "object" || actual === null || Array.isArray(actual)) {
+            return false;
+        }
+        const keys = Object.keys(expected);
+        return keys.length === Object.keys(actual).length
+            && keys.every(key => Object.hasOwn(actual, key) && sameJson(actual[key], expected[key]));
+    }
+    return actual === expected;
+}
+
 function sameObjects(actual, expected, unordered) {
     if (actual.length !== expected.length) {
         return false;
@@ -280,6 +323,7 @@ class Execution {
     events = new Map();
     subscriptions = new Map();
     undone = new Map();
+    documents = new Map();
     step = 0;
 
     constructor(module) {
@@ -433,9 +477,44 @@ class Execution {
                 }
                 this.undone.delete(node.redoAll);
                 break;
+            case "write": {
+                const root = this.resolve(node.write);
+                const snapshot = this.module.ModelSnapshot;
+                this.documents.set(node.as, node.plain === true ? snapshot.writePlain(root, root.constructor)
+                    : snapshot.write(root));
+                break;
+            }
+            case "read": {
+                const type = this.module[node.type];
+                if (typeof type !== "function") {
+                    throw new ScenarioFailure(`unknown type ${node.type}`);
+                }
+                const snapshot = this.module.ModelSnapshot;
+                const text = this.document(node.read);
+                this.labels.set(node.as, node.plain === true ? snapshot.readPlain(text, type) : snapshot.read(text, type));
+                break;
+            }
+            case "document": {
+                const actual = parseJson(this.document(node.document));
+                if (!sameJson(actual, node.is)) {
+                    throw new ScenarioFailure(`${node.document}: expected ${stringifyJson(node.is)}, written ${stringifyJson(actual)}`);
+                }
+                break;
+            }
             default:
                 throw new ScenarioFailure(`unsupported operation ${operation}`);
         }
+    }
+
+    /** A written document by name, or a literal {"json": ...} document from the scenario. */
+    document(source) {
+        if (typeof source === "string") {
+            if (!this.documents.has(source)) {
+                throw new ScenarioFailure(`unknown document '${source}'`);
+            }
+            return this.documents.get(source);
+        }
+        return stringifyJson(source.json);
     }
 
     // ------------------------------------------------------------------------------------------------ events
