@@ -1,3 +1,5 @@
+import type { ExternalCodec } from "./json-values.js";
+
 export const typeField = "@vmf-type";
 export const idField = "@vmf-id";
 
@@ -13,17 +15,30 @@ interface SnapshotMember {
 /**
  * The scalar types of the portable contract. byte (int8), short (int16) and float (float32) are numbers and char
  * a string of one UTF-16 code unit (rule T6); documents keep them within the range of the narrower type.
+ * External values: "uuid" is a canonical UUID string, "object" an untyped JSON-like value and "external" a host
+ * value written and read by its codec.
  */
-export type ScalarType = "string" | "boolean" | "int8" | "int16" | "int32" | "int64" | "float32" | "float64" | "char";
+export type ScalarType = "string" | "boolean" | "int8" | "int16" | "int32" | "int64" | "float32" | "float64" | "char"
+    | "uuid" | "object" | "external";
 
-interface SnapshotScalar extends SnapshotMember {
+/** The value semantics of a scalar property beyond its scalar type. */
+interface ScalarValues {
+    /** The allowed values of an enum-like string type (a union of string literals). */
+    readonly literals?: readonly string[];
+    /** The codec of an "external" scalar type, from the installed model bindings. */
+    readonly codec?: () => ExternalCodec<unknown>;
+}
+
+interface SnapshotScalar extends SnapshotMember, ScalarValues {
     readonly kind: "scalar";
     readonly scalarType: ScalarType;
     readonly nullable?: boolean;
+    /** Writes `null` instead of leaving the field out, so that readers do not restore a non-null declared default. */
+    readonly writeNull?: boolean;
     readonly set: (owner: object, value: unknown) => void;
 }
 
-interface SnapshotScalarList extends SnapshotMember {
+interface SnapshotScalarList extends SnapshotMember, ScalarValues {
     readonly kind: "scalarList";
     readonly scalarType: ScalarType;
     /** True if the list may hold null elements. */

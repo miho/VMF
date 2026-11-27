@@ -72,8 +72,7 @@ final class TypeScriptSnapshotRenderModel {
         String valueType = source.typeName(value);
         String data = "name: " + literal(name) + ", ";
         if (property.getKind() == Property.Kind.SCALAR) {
-            data += "scalarType: \"" + scalarKind(value) + "\""
-                    + ", nullable: " + (property.isCollection() ? property.allowsNullElements() : !value.isPrimitive());
+            data += source.scalarData(property);
         } else {
             data += "modelType: () => " + source.runtimeTypeName(value);
             if (property.getKind() == Property.Kind.REFERENCE && !property.getOppositeName().isEmpty()) {
@@ -84,10 +83,6 @@ final class TypeScriptSnapshotRenderModel {
                 "data", data, "getter", "get: owner => " + member,
                 "mutator", type.isImmutable() ? (property.isCollection() ? "add" : "set") + ": vmf.rejectEdit"
                         : prepareMutator(property, member, valueType));
-    }
-
-    private static String scalarKind(ValueType value) {
-        return value.getKind().name().toLowerCase(Locale.ROOT);
     }
 
     private static String propertyKind(Property property) {

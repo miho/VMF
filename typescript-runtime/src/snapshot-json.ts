@@ -6,11 +6,12 @@ import {
     type SnapshotType,
     typeField,
 } from "./snapshot-registry.js";
+import { canonicalUuid, fromWire, toWire, type WireValue } from "./json-values.js";
 import { childPath, JsonNumber, type JsonValue, parseJson, requireValidText } from "./wire-json.js";
 
 type ScalarProperty = Extract<SnapshotProperty, { kind: "scalar" | "scalarList" }>;
 type Scalar = string | number | boolean | bigint;
-type Encoded = Scalar | Encoded[] | { [key: string]: Encoded };
+type Encoded = Scalar | WireValue | Encoded[] | { [key: string]: Encoded };
 const snapshotFields = new Set([typeField, idField]);
 
 interface Definition {
@@ -27,13 +28,13 @@ class ImmutableValue {
 }
 
 type Field =
-    | { name: string; kind: "scalar"; value: Scalar }
+    | { name: string; kind: "scalar"; value: Encoded }
     | { name: string; kind: "containment"; value: Definition }
     | { name: string; kind: "containmentList"; value: Definition[] }
     | { name: string; kind: "reference"; value: object }
     | { name: string; kind: "value"; value: Definition }
     | { name: string; kind: "referenceSet"; value: object[] }
-    | { name: string; kind: "scalarList"; value: (Scalar | null)[] }
+    | { name: string; kind: "scalarList"; value: Encoded[] }
     | { name: string; kind: "referenceList"; value: (object | ImmutableValue)[] };
 
 const minInt64 = -(2n ** 63n);
@@ -139,7 +140,7 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                         }
                         return null;
                     }
-                    return requireScalar(item, property, itemPath);
+                    return writeScalar(item, property, itemPath);
                 });
                 fields.push({ name, kind: property.kind, value: items });
                 break;
@@ -170,8 +171,11 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                     if (!allowsNull(property)) {
                         throw invalid(fieldPath, `Expected a JSON value of type '${property.scalarType}'`);
                     }
+                    if (property.writeNull === true) {
+                        fields.push({ name, kind: property.kind, value: null });
+                    }
                 } else {
-                    fields.push({ name, kind: property.kind, value: requireScalar(value, property, fieldPath) });
+                    fields.push({ name, kind: property.kind, value: writeScalar(value, property, fieldPath) });
                 }
                 break;
             case "containment":
@@ -500,9 +504,29 @@ function isIntegerToken(text: string): boolean {
     return /^-?[0-9]+$/.test(text);
 }
 
-function readScalar(value: JsonValue, property: ScalarProperty, path: string): Scalar | null {
+function readScalar(value: JsonValue, property: ScalarProperty, path: string): unknown {
     if (value === null && allowsNull(property)) {
         return null;
+    }
+    switch (property.scalarType) {
+        case "object":
+            return fromWire(value, path);
+        case "uuid":
+            if (typeof value === "string") {
+                return requireScalar(value, property, path);
+            }
+            break;
+        case "external": {
+            const codec = property.codec!();
+            const json = fromWire(value, path);
+            try {
+                return codec.read(json);
+            } catch (error) {
+                throw invalid(path, `Could not read the external value (${describe(error)})`);
+            }
+        }
+        default:
+            break;
     }
     if (isIntegral(property.scalarType) && value instanceof JsonNumber && isIntegerToken(value.text)) {
         return requireScalar(Number(value.text), property, path);
@@ -516,10 +540,43 @@ function readScalar(value: JsonValue, property: ScalarProperty, path: string): S
     return requireScalar(value, property, path);
 }
 
+/** The document form of a non-null scalar value. */
+function writeScalar(value: unknown, property: ScalarProperty, path: string): Encoded {
+    switch (property.scalarType) {
+        case "object":
+            return toWire(value, path);
+        case "external": {
+            const codec = property.codec!();
+            let json: unknown;
+            try {
+                json = codec.write(value);
+            } catch (error) {
+                throw invalid(path, `Could not write the external value (${describe(error)})`);
+            }
+            if (json === null || json === undefined) {
+                throw invalid(path, "An external codec must write a JSON value other than null");
+            }
+            return toWire(json, path);
+        }
+        default:
+            return requireScalar(value, property, path);
+    }
+}
+
 function requireScalar(value: unknown, property: ScalarProperty, path: string): Scalar {
     if (property.scalarType === "string" && typeof value === "string") {
         requireValidText(value, path);
+        if (property.literals !== undefined && !property.literals.includes(value)) {
+            throw invalid(path, `Expected one of ${property.literals.map(literal => JSON.stringify(literal)).join(", ")}`);
+        }
         return value;
+    }
+    if (property.scalarType === "uuid" && typeof value === "string") {
+        try {
+            return canonicalUuid(value)!;
+        } catch {
+            throw invalid(path, "Expected a UUID of 8-4-4-4-12 hexadecimal digits");
+        }
     }
     if (property.scalarType === "boolean" && typeof value === "boolean") {
         return value;
@@ -548,6 +605,10 @@ function allowsNull(property: ScalarProperty): boolean {
     return property.nullable ?? property.scalarType === "string";
 }
 
+function describe(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 function requireReferences(references: boolean, path: string): void {
     if (!references) {
         throw invalid(path, "Plain JSON cannot represent a non-owning reference");
@@ -573,6 +634,9 @@ function nativeType(value: object, path: string): ModelConstructor<object> {
 function stringify(value: Encoded): string {
     if (typeof value === "bigint") {
         return value.toString();
+    }
+    if (value instanceof JsonNumber) {
+        return value.text;
     }
     if (Array.isArray(value)) {
         return "[" + value.map(stringify).join(",") + "]";

@@ -18,3 +18,8 @@ export {
     isReadOnlyView, readOnly, ReadOnlyList, ReadOnlyModelChanges, ReadOnlySet, ReadOnlyView, rejectEdit, unwrapReadOnly,
 } from "./views.js";
 export type { CollectionView, ListView, ReadOnlyOf } from "./views.js";
+export { canonicalUuid, untyped } from "./json-values.js";
+export type { ExternalCodec, JsonLike } from "./json-values.js";
+export {
+    behaviorOf, declareBehavior, defaultBehaviorOf, ModelBindingSlot, replaceBehavior, unboundBehavior,
+} from "./bindings.js";

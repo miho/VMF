@@ -383,6 +383,7 @@ public final class ResolvedModel {
         private final ScalarDefault scalarDefault;
         private final CollectionDefault collectionDefault;
         private final ReferenceSetDefault referenceSetDefault;
+        private final String defaultExpression;
         private final List<PropertyConstraint> constraints;
         private final List<Feature> features;
         private final List<MetadataAnnotation> annotations;
@@ -393,7 +394,7 @@ public final class ResolvedModel {
                  boolean ordered, boolean unique,
                  String oppositeName, boolean getterOnly, boolean ignoredForEquals, boolean ignoredForToString,
                  boolean declaredDefault, ScalarDefault scalarDefault, CollectionDefault collectionDefault,
-                 ReferenceSetDefault referenceSetDefault,
+                 ReferenceSetDefault referenceSetDefault, String defaultExpression,
                  List<PropertyConstraint> constraints, List<Feature> features, List<MetadataAnnotation> annotations) {
             this.name = name;
             this.wireName = wireName;
@@ -417,6 +418,7 @@ public final class ResolvedModel {
             this.scalarDefault = scalarDefault;
             this.collectionDefault = collectionDefault;
             this.referenceSetDefault = referenceSetDefault;
+            this.defaultExpression = defaultExpression;
             this.constraints = List.copyOf(constraints);
             this.features = List.copyOf(features);
             this.annotations = List.copyOf(annotations);
@@ -540,6 +542,11 @@ public final class ResolvedModel {
         /** A closed model construction recipe for the default member of an identity reference set. */
         public Optional<ReferenceSetDefault> getReferenceSetDefault() {
             return Optional.ofNullable(referenceSetDefault);
+        }
+
+        /** The declared Java default expression as written, when the property declares one. */
+        public Optional<String> getDefaultExpression() {
+            return Optional.ofNullable(defaultExpression);
         }
 
         public List<PropertyConstraint> getConstraints() {

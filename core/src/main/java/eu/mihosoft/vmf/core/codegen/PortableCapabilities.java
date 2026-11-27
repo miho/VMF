@@ -111,8 +111,12 @@ public final class PortableCapabilities {
         if (profile == Profile.CSHARP && (!type.getEffectiveMethods().isEmpty() || type.getConstructionHook().isPresent())) {
             validateBehavior(model, type, diagnostics);
         }
+        if (profile == Profile.TYPESCRIPT && (!type.getEffectiveMethods().isEmpty() || type.getConstructionHook().isPresent())) {
+            TypeScriptCapabilities.validateBehavior(model, type, diagnostics);
+        }
         for (var feature : type.getFeatures()) {
             if (profile == Profile.CSHARP && feature == Feature.DELEGATION) continue;
+            if (profile == Profile.TYPESCRIPT && feature == Feature.DELEGATION) continue;
             if (feature == Feature.CUSTOM_EQUALITY && profile == Profile.CSHARP && type.isStructuralEquality()) {
                 continue;
             }
@@ -524,7 +528,8 @@ public final class PortableCapabilities {
             } else if (profile == Profile.TYPESCRIPT && parameter.getBound() == null) {
                 // An immutable value can fill a scalar slot: a single value or an ordinary list.
                 if (!isScalarSlot(owner, argument) && !(isImmutableType(model, argument)
-                        && acceptsScalarParameter(parent, parameter.getName(), false))) return false;
+                        && acceptsScalarParameter(parent, parameter.getName(), false))
+                        && !TypeScriptCapabilities.supportsExternalType(model, argument)) return false;
             } else if (argument.getModelType() == null) {
                 return false;
             }
@@ -587,16 +592,39 @@ public final class PortableCapabilities {
                 && sameScalarSlot(property, inherited)) return true;
         if (type.getSuperTypes().size() > 1) {
             return PortableInheritance.sameInheritedContract(type, property, inherited, parent, application)
-                    || supportsCovariantTraitGetter(model, type, parent, property, inherited);
+                    || supportsCovariantTraitGetter(model, type, parent, property, inherited)
+                    || narrowsTypeScriptObjectGetter(model, property, inherited);
         }
         if (type.isInterfaceOnly() && property.isGetterOnly() != inherited.isGetterOnly()) return false;
         if (sameScalarSlot(property, inherited) || PortableInheritance.sameStorageSlot(property, inherited, parent, application)) {
             return true;
         }
+        if (narrowsTypeScriptObjectGetter(model, property, inherited)) return true;
         // An immutable class keeps the values of its immutable base, which a subclass cannot narrow.
         if (type.isImmutable() && parent.isImmutable()) return false;
         return supportsCovariantReference(model, type, parent, property, inherited)
                 || supportsRelationshipGetter(model, type, parent, property, inherited);
+    }
+
+    /**
+     * A getter-only untyped value (Object) of a mutable interface-only type that a subtype declares again as a single
+     * value or plain reference. The interface-only class leaves the getter abstract, so every implementation must
+     * declare the property itself.
+     */
+    private static boolean narrowsTypeScriptObjectGetter(ResolvedModel model, Property property, Property inherited) {
+        if (inherited.getKind() != Property.Kind.SCALAR || inherited.isCollection() || !inherited.isGetterOnly()
+                || !TypeScriptCapabilities.isUnboundObject(model, inherited.getValueType())
+                || property.isCollection() || !property.getWireName().equals(inherited.getWireName())
+                || !(property.getKind() == Property.Kind.SCALAR || property.getKind() == Property.Kind.REFERENCE
+                    && property.getOppositeName().isEmpty() && property.getValueType().getKind() == ValueType.Kind.MODEL)) {
+            return false;
+        }
+        Type owner = model.findType(inherited.getDeclaringType()).orElse(null);
+        if (owner == null || !owner.isInterfaceOnly() || owner.isImmutable()) return false;
+        return model.getTypes().stream().filter(candidate -> !candidate.isInterfaceOnly()
+                        && assignable(model, candidate, owner.getName()))
+                .allMatch(candidate -> findProperty(candidate, inherited.getName())
+                        .filter(declared -> !declared.getDeclaringType().equals(owner.getName())).isPresent());
     }
 
     /**
@@ -916,11 +944,14 @@ public final class PortableCapabilities {
             if ((executableDefault || collectionDefault || literalCollectionDefault || referenceDefault)
                     && feature == Feature.DEFAULT_VALUE) continue;
             if (profile == Profile.TYPESCRIPT && feature == Feature.DEFAULT_VALUE
-                    && property.getKind() == Property.Kind.SCALAR && !property.isCollection()
-                    && property.getScalarDefault().isPresent()) continue;
+                    && TypeScriptCapabilities.acceptsDefault(model, property)) continue;
             if (profile == Profile.CSHARP && feature == Feature.VALUE_CONSTRAINT) continue;
             if (feature == Feature.READ_ONLY && property.isSharedContainer()) continue;
             diagnostics.add(name + " uses " + feature.getDescription());
+        }
+
+        if (profile == Profile.TYPESCRIPT) {
+            TypeScriptCapabilities.validateDefault(property, name, diagnostics);
         }
 
         if (property.isGetterOnly() && !owner.isImmutable() && !owner.isInterfaceOnly()
@@ -942,9 +973,16 @@ public final class PortableCapabilities {
                 && (property.isCollection()
                     ? property.isOrdered() && !property.isUnique() && property.allowsNullElements()
                     : property.getLowerBound() == 0 && property.getUpperBound() == 1);
-        if (valueType.getKind() == ValueType.Kind.EXTERNAL && !external && !objectGetter && !objectValue
-                || (profile == Profile.TYPESCRIPT && !TYPESCRIPT_TYPES.contains(valueType.getKind()))) {
+        // TypeScript maps UUID, annotated host types and untyped Object values (see TypeScriptCapabilities).
+        boolean typescriptExternal = profile == Profile.TYPESCRIPT
+                && (TypeScriptCapabilities.supportsExternalProperty(model, property)
+                    || TypeScriptCapabilities.supportsObjectProperty(model, owner, property));
+        if (valueType.getKind() == ValueType.Kind.EXTERNAL && !external && !objectGetter && !objectValue && !typescriptExternal
+                || (profile == Profile.TYPESCRIPT && !TYPESCRIPT_TYPES.contains(valueType.getKind()) && !typescriptExternal)) {
             diagnostics.add(name + " has unsupported type " + valueType.getSourceType());
+        }
+        if (typescriptExternal) {
+            TypeScriptCapabilities.validateMapping(model, valueType, name, diagnostics);
         }
 
         switch (property.getKind()) {

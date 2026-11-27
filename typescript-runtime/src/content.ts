@@ -1,6 +1,7 @@
 import { ScalarList } from "./collections.js";
+import { hashJsonLike, sameJsonLike } from "./json-values.js";
 import { ReferenceList, ReferenceSlot } from "./relationships.js";
-import { type ModelConstructor, SnapshotRegistry, type SnapshotType } from "./snapshot-registry.js";
+import { type ModelConstructor, SnapshotRegistry, type SnapshotProperty, type SnapshotType } from "./snapshot-registry.js";
 import { unwrapReadOnly } from "./views.js";
 
 /**
@@ -21,12 +22,12 @@ export function contentEquals(left: unknown, right: unknown, registry: SnapshotR
         const b = property.get(right);
         switch (property.kind) {
             case "scalar":
-                if (a !== b) {
+                if (!sameScalar(property, a, b)) {
                     return false;
                 }
                 break;
             case "scalarList":
-                if (!sameItems(a, b, (x, y) => x === y)) {
+                if (!sameItems(a, b, (x, y) => sameScalar(property, x, y))) {
                     return false;
                 }
                 break;
@@ -55,11 +56,11 @@ export function contentHashCode(model: object, registry: SnapshotRegistry): numb
         const value = property.get(model);
         switch (property.kind) {
             case "scalar":
-                hash = mix(hash, scalarHash(value));
+                hash = mix(hash, valueHash(property, value));
                 break;
             case "scalarList":
                 for (const item of value as Iterable<unknown>) {
-                    hash = mix(hash, scalarHash(item));
+                    hash = mix(hash, valueHash(property, item));
                 }
                 break;
             case "containment":
@@ -184,6 +185,37 @@ function sameItems(left: unknown, right: unknown, same: (a: unknown, b: unknown)
     const a = [...(left as Iterable<unknown>)];
     const b = [...(right as Iterable<unknown>)];
     return a.length === b.length && a.every((item, index) => same(item, b[index]));
+}
+
+type ScalarProperty = Extract<SnapshotProperty, { kind: "scalar" | "scalarList" }>;
+
+/** Scalars by value; untyped values as JSON trees; external values by their codec's equality, else `===`. */
+function sameScalar(property: ScalarProperty, left: unknown, right: unknown): boolean {
+    left = left ?? null;
+    right = right ?? null;
+    if (property.scalarType === "object") {
+        return sameJsonLike(left, right);
+    }
+    if (property.scalarType === "external" && left !== null && right !== null) {
+        const equals = property.codec!().equals;
+        return equals !== undefined ? left === right || equals(left, right) : left === right;
+    }
+    return left === right;
+}
+
+function valueHash(property: ScalarProperty, value: unknown): number {
+    if (property.scalarType === "object") {
+        return hashJsonLike(value);
+    }
+    if (property.scalarType === "external" && value !== null && value !== undefined) {
+        const codec = property.codec!();
+        if (codec.hashCode !== undefined) {
+            return codec.hashCode(value) | 0;
+        }
+        // Without a hash, values that the codec's equality relates must not hash differently.
+        return codec.equals !== undefined || typeof value === "object" ? 0 : scalarHash(value);
+    }
+    return scalarHash(value);
 }
 
 function scalarHash(value: unknown): number {

@@ -27,6 +27,7 @@ import eu.mihosoft.vmf.core.codegen.ResolvedModel;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Property;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Type;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.ValueType;
+import eu.mihosoft.vmf.core.codegen.TypeScriptCapabilities;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -68,6 +69,21 @@ final class TypeScriptRenderModel {
     private final Map<String, Set<String>> storage = new HashMap<>();
     /** Concrete types that other classes implement besides their base class; their brand is a public symbol. */
     private final Set<String> symbolBrands = new java.util.TreeSet<>();
+    /** External types: UUID, untyped values, literal unions and host types with their imports. */
+    private final TypeScriptExternals externals;
+    /** Delegated methods and construction hooks. */
+    private final TypeScriptBehaviorRenderModel behaviors;
+    /** Mutable classes whose declared defaults are applied after the construction hook, as in Java. */
+    private final Set<String> deferredDefaults = new HashSet<>();
+    /** Bound defaults by declaring type and property: the TypeScript type of the value. */
+    private final Map<String, Map<String, String>> boundDefaults = new java.util.TreeMap<>();
+    /** External types whose document codec the bindings supply, by member name. */
+    private final Map<String, String> codecs = new java.util.TreeMap<>();
+    private final Set<String> emittedNames;
+    private final List<String> behaviorDeclarations;
+    private final List<String> behaviorInterfaces;
+    /** The type that prepareType currently prepares. */
+    private Type preparing;
 
     TypeScriptRenderModel(ResolvedModel model) {
         this.model = model;
@@ -75,7 +91,7 @@ final class TypeScriptRenderModel {
                 .map(part -> namespacePart(part, model.getNamespace()))
                 .collect(Collectors.joining("/")) + "/model.g.ts";
 
-        Set<String> emittedNames = new HashSet<>();
+        emittedNames = new HashSet<>();
         emittedNames.add("ModelSnapshot");
         for (Type type : model.getTypes()) {
             String emitted = typeIdentifier(type.getName(), type.getQualifiedName());
@@ -91,6 +107,9 @@ final class TypeScriptRenderModel {
             }
         }
 
+        behaviors = new TypeScriptBehaviorRenderModel(model, this, emittedNames);
+        externals = new TypeScriptExternals(model, emittedNames);
+
         List<Type> ordered = parentFirst(model);
         for (Type type : ordered) {
             prepareStorage(type);
@@ -100,11 +119,114 @@ final class TypeScriptRenderModel {
                 }
             }
         }
+        prepareDeferredDefaults(ordered);
         types = ordered.stream().map(this::prepareType).collect(Collectors.toUnmodifiableList());
         readOnlyTypes = ordered.stream().filter(type -> !type.isImmutable()).map(this::prepareReadOnly)
                 .collect(Collectors.toUnmodifiableList());
         modelTypes = ordered.stream().map(this::modelTypeDeclaration).collect(Collectors.toUnmodifiableList());
         snapshots = new TypeScriptSnapshotRenderModel(this, ordered, model.polymorphicWireTypeNames());
+        behaviorDeclarations = behaviors.getDeclarations(ordered);
+        behaviorInterfaces = behaviors.getInterfaces();
+        if (needsBindings() && (!emittedNames.add("ModelBindings") || !emittedNames.add("installModelBindings"))) {
+            throw invalidName(model.getNamespace(), "ModelBindings", "conflicts with another TypeScript declaration");
+        }
+    }
+
+    /**
+     * A construction hook runs before the declared defaults, as in Java: the hook sees the zero values, and the
+     * defaults replace what it set. Every class of a base class family with a hook therefore starts with zero
+     * values and applies its defaults in __vmfApplyDefaults(), which the constructor of the concrete class calls
+     * after the hook.
+     */
+    private void prepareDeferredDefaults(List<Type> ordered) {
+        Set<String> roots = new HashSet<>();
+        for (Type type : ordered) {
+            if (!type.isInterfaceOnly() && !type.isImmutable() && behaviors.hasHook(type)) {
+                roots.add(familyRoot(type).getName());
+            }
+        }
+        for (Type type : ordered) {
+            if (!type.isImmutable() && !type.isGetterOnlyTrait() && roots.contains(familyRoot(type).getName())) {
+                deferredDefaults.add(type.getName());
+            }
+        }
+    }
+
+    private Type familyRoot(Type type) {
+        Type base = primaryType(type);
+        return base == null ? type : familyRoot(base);
+    }
+
+    /** True if the model needs host code: external codecs, bound defaults or behaviors. */
+    boolean needsBindings() {
+        return !codecs.isEmpty() || !boundDefaults.isEmpty() || !behaviors.getBindings().isEmpty();
+    }
+
+    /** The imports of external types from their modules. */
+    List<String> getExternalImports() {
+        return externals.getImports();
+    }
+
+    /** The type aliases of external types that are unions of string literals. */
+    List<String> getExternalAliases() {
+        return externals.getAliases();
+    }
+
+    /** The behavior interfaces of the types that declare delegated methods or construction hooks. */
+    List<String> getBehaviorInterfaces() {
+        return behaviorInterfaces;
+    }
+
+    /** vmf.declareBehavior calls for the classes with delegated methods. */
+    List<String> getBehaviorDeclarations() {
+        return behaviorDeclarations;
+    }
+
+    /** The ModelBindings interface, the binding slot and the behavior factories, or nothing if none is needed. */
+    Map<String, Object> getBindings() {
+        if (!needsBindings()) {
+            return Map.of();
+        }
+        List<String> members = new ArrayList<>();
+        List<String> required = new ArrayList<>();
+        if (!codecs.isEmpty()) {
+            members.add("    /** Document codecs of the external value types: how documents write and read their values. */");
+            members.add("    readonly externals: {");
+            codecs.forEach((key, type) -> {
+                members.add("        readonly " + key + ": vmf.ExternalCodec<" + type + ">;");
+                required.add("externals." + key);
+            });
+            members.add("    };");
+        }
+        if (!boundDefaults.isEmpty()) {
+            members.add("    /** Declared defaults bound with " + TypeScriptCapabilities.BIND_DEFAULT_ANNOTATION
+                    + ": called for each new object. */");
+            members.add("    readonly defaults: {");
+            boundDefaults.forEach((owner, properties) -> {
+                members.add("        readonly " + owner + ": {");
+                properties.forEach((property, type) -> {
+                    members.add("            readonly " + property + ": () => " + type + ";");
+                    required.add("defaults." + owner + "." + property);
+                });
+                members.add("        };");
+            });
+            members.add("    };");
+        }
+        var behaviorBindings = behaviors.getBindings();
+        if (!behaviorBindings.isEmpty()) {
+            members.add("    /** Default behaviors: each object gets its own, created when it first needs it. */");
+            members.add("    readonly behaviors: {");
+            behaviorBindings.forEach((owner, type) -> {
+                members.add("        readonly " + owner + ": " + type + ";");
+                required.add("behaviors." + owner);
+            });
+            members.add("    };");
+        }
+        return Map.of("members", List.copyOf(members),
+                "slot", "const __vmfBindings = new vmf.ModelBindingSlot<ModelBindings>(" + quoted(model.getNamespace())
+                        + ", [" + required.stream().map(TypeScriptRenderModel::quoted).collect(Collectors.joining(", "))
+                        + "]);",
+                "factories", behaviors.getFactories());
     }
 
     private static List<Type> parentFirst(ResolvedModel model) {
@@ -283,6 +405,7 @@ final class TypeScriptRenderModel {
     }
 
     private Map<String, Object> prepareType(Type type) {
+        preparing = type;
         String name = typeNames.get(type.getName());
         Set<String> parameterNames = new HashSet<>();
         List<String> parameters = new ArrayList<>();
@@ -347,12 +470,19 @@ final class TypeScriptRenderModel {
         String owner = apply(name, parameters);
         // Properties of supertypes besides the base class are declared on the class itself.
         Set<String> abstracted = abstractSlots.get(type.getName());
+        boolean deferred = deferredDefaults.contains(type.getName());
+        List<String> defaults = new ArrayList<>();
         for (Property property : type.getEffectiveProperties()) {
             String member = propertyName(type, property);
             if (inherited.contains(property.getName())) {
                 // A redeclaration can change the literal default of the inherited storage.
                 if (!type.isGetterOnlyTrait() && !type.isImmutable()) {
-                    redeclaredDefault(base, property, member).ifPresent(properties::add);
+                    if (deferred) {
+                        redeclaredDefault(base, property, member).ifPresent(unused ->
+                                defaults.add("this.__vmfValue_" + member + " = " + initialValue(property) + ";"));
+                    } else {
+                        redeclaredDefault(base, property, member).ifPresent(properties::add);
+                    }
                 }
                 continue;
             }
@@ -366,6 +496,10 @@ final class TypeScriptRenderModel {
                 continue;
             }
             properties.add(prepareMember(owner, member, property, override));
+            if (deferred && property.getKind() == Property.Kind.SCALAR && !property.isCollection()
+                    && !initialValue(property).equals(zeroValue(property))) {
+                defaults.add("this.__vmfValue_" + member + " = " + initialValue(property) + ";");
+            }
             if (property.getKind() == Property.Kind.CONTAINMENT) {
                 containments.add(Map.of("name", member, "many", property.isCollection()));
             }
@@ -390,12 +524,16 @@ final class TypeScriptRenderModel {
         result.put("staticOverride", base != null ? "override " : "");
         result.put("hasBase", hasBase);
         result.put("readOnlyType", readOnlyType);
+        List<String> methods = behaviors.methods(type, base, members);
         if (type.isGetterOnlyTrait()) {
             result.put("kind", "trait");
-            result.put("members", traitMembers(type, base, inherited, hasBase, readOnlyType));
+            List<String> traitMembers = new ArrayList<>(traitMembers(type, base, inherited, hasBase, readOnlyType));
+            traitMembers.addAll(methods);
+            result.put("members", traitMembers);
         } else if (type.isImmutable()) {
             result.put("kind", "immutable");
             prepareImmutable(type, base, inherited, result);
+            result.put("methods", methods);
         } else {
             result.put("kind", "model");
             result.put("hasValidation", hasValidation);
@@ -403,8 +541,35 @@ final class TypeScriptRenderModel {
             result.put("properties", List.copyOf(properties));
             result.put("containments", List.copyOf(containments));
             result.put("multiplicities", List.copyOf(multiplicities));
+            result.put("construct", deferred && !type.isInterfaceOnly() ? construct(type, name, hasBase) : "");
+            result.put("applyDefaults", deferred && (base == null || !defaults.isEmpty())
+                    ? applyDefaults(base != null, defaults) : "");
+            result.put("methods", methods);
+            result.put("replace", behaviors.replace(type, base));
         }
         return result;
+    }
+
+    /** The constructor of a class whose family has a construction hook: hook first, then the declared defaults. */
+    private String construct(Type type, String name, boolean hasBase) {
+        String hook = behaviors.hookCall(type);
+        return "constructor() {\n"
+                + (hasBase ? "        super();\n" : "")
+                + "        if (new.target === " + name + ") {\n"
+                + (hook.isEmpty() ? "" : "            " + hook + "\n")
+                + "            this.__vmfApplyDefaults();\n"
+                + "        }\n"
+                + "    }";
+    }
+
+    private static String applyDefaults(boolean override, List<String> assignments) {
+        StringBuilder text = new StringBuilder("/** @internal Applies the declared defaults; constructors call it after the"
+                + " construction hook. */\n    " + (override ? "override " : "") + "__vmfApplyDefaults(): void {\n");
+        if (override) {
+            text.append("        super.__vmfApplyDefaults();\n");
+        }
+        assignments.forEach(assignment -> text.append("        ").append(assignment).append("\n"));
+        return text.append("    }").toString();
     }
 
     /** A getter-only trait is an abstract contract that mutable and immutable classes implement. */
@@ -456,9 +621,13 @@ final class TypeScriptRenderModel {
             }
             String field = "__vmfValue_" + member;
             fields.add("/** @internal */\n    readonly " + field + ": " + stored + ";");
+            boolean uuid = isUuid(property.getValueType());
             assignments.add(property.isCollection()
-                    ? "this." + field + " = vmf.ReadOnlyList.of(values." + member + " ?? []);"
-                    : "this." + field + " = values." + member + " !== undefined ? values." + member + " : "
+                    ? "this." + field + " = vmf.ReadOnlyList.of(" + (uuid ? "[...(values." + member
+                        + " ?? [])].map(value => vmf.canonicalUuid(value)" + (property.allowsNullElements() ? "" : "!")
+                        + ")" : "values." + member + " ?? []") + ");"
+                    : "this." + field + " = values." + member + " !== undefined ? "
+                        + (uuid ? "vmf.canonicalUuid(values." + member + ")" : "values." + member) + " : "
                         + initialValue(property) + ";");
             getters.add("get " + member + "(): " + stored + " {\n        return this." + field + ";\n    }");
         }
@@ -635,13 +804,20 @@ final class TypeScriptRenderModel {
                         + accessor(member, target, "this.__vmfRef_" + member + ".value",
                                 "vmf.setReference(this, value, " + name + ", " + oppositeName + ");"));
             }
-            case SCALAR:
+            case SCALAR: {
+                ValueType value = property.getValueType();
                 if (property.isCollection()) {
                     String element = target + (property.allowsNullElements() ? " | null" : "");
-                    return field("readonly " + member + " = new vmf.ScalarList<" + element + ">(this, " + name + ");");
+                    String normalize = isUuid(value) ? (property.allowsNullElements() ? ", vmf.canonicalUuid"
+                            : ", value => vmf.canonicalUuid(value)!") : isUntyped(value) ? ", vmf.untyped" : "";
+                    return field("readonly " + member + " = new vmf.ScalarList<" + element + ">(this, " + name
+                            + normalize + ");");
                 }
-                return valueAccessor(member, target + (property.getValueType().isPrimitive() ? "" : " | null"),
-                        initialValue(property));
+                String write = isUuid(value) ? "vmf.canonicalUuid(value)" : isUntyped(value) ? "vmf.untyped(value)" : "value";
+                return valueAccessor(member, target + (value.isPrimitive() ? "" : " | null"),
+                        deferredDefaults.contains(preparing.getName()) ? zeroValue(property) : initialValue(property),
+                        write);
+            }
             default:
                 throw new IllegalStateException("Unsupported property kind " + property.getKind());
         }
@@ -649,13 +825,18 @@ final class TypeScriptRenderModel {
 
     /** A single value stored in a field and changed through {@code vmf.setValue}, which reports the change. */
     private static Map<String, Object> valueAccessor(String member, String type, String initial) {
+        return valueAccessor(member, type, initial, "value");
+    }
+
+    /** {@code write} checks and normalizes the new value, for UUIDs and untyped values. */
+    private static Map<String, Object> valueAccessor(String member, String type, String initial, String write) {
         return field("/** @internal */\n"
                 + "    __vmfValue_" + member + ": " + type + " = " + initial + ";\n\n"
                 + "    get " + member + "(): " + type + " {\n"
                 + "        return this.__vmfValue_" + member + ";\n"
                 + "    }\n\n"
                 + "    set " + member + "(value: " + type + ") {\n"
-                + "        vmf.setValue(this, " + quoted(member) + ", value);\n"
+                + "        vmf.setValue(this, " + quoted(member) + ", " + write + ");\n"
                 + "    }");
     }
 
@@ -716,11 +897,76 @@ final class TypeScriptRenderModel {
         return false;
     }
 
-    private static String initialValue(Property property) {
+    /**
+     * The value a new object starts with: the declared literal default, the value of a bound default from the
+     * installed bindings, the member of a literal union that the default names, or the zero value.
+     */
+    private String initialValue(Property property) {
         if (property.hasDeclaredDefault() && property.getScalarDefault().isPresent()) {
             ResolvedModel.ScalarDefault declared = property.getScalarDefault().get();
             return declared.isNull() ? "null" : literal(declared.getKind(), declared.getValue());
         }
+        if (TypeScriptCapabilities.bindsDefault(property)) {
+            return boundDefault(property);
+        }
+        var literal = TypeScriptCapabilities.literalDefault(model, property);
+        if (literal.isPresent()) {
+            return quoted(literal.get());
+        }
+        return zeroValue(property);
+    }
+
+    /** A bound default: the declaring type's binding computes the value for each new object. */
+    private String boundDefault(Property property) {
+        String owner = property.getDeclaringType();
+        String key = "defaults." + owner + "." + property.getName();
+        boundDefaults.computeIfAbsent(owner, unused -> new java.util.TreeMap<>()).put(property.getName(),
+                typeName(property.getValueType()) + (property.getValueType().isPrimitive() ? "" : " | null"));
+        String call = "__vmfBindings.use(" + quoted(key) + ", bindings => bindings." + key + ")()";
+        return isUuid(property.getValueType()) ? "vmf.canonicalUuid(" + call + ")" : call;
+    }
+
+    /** True if documents write null for the property instead of leaving it out: its default is not null. */
+    boolean writesNull(Property property) {
+        return !property.isCollection() && !property.getValueType().isPrimitive()
+                && (property.getScalarDefault().filter(value -> !value.isNull()).isPresent()
+                    || TypeScriptCapabilities.bindsDefault(property)
+                    || TypeScriptCapabilities.literalDefault(model, property).isPresent());
+    }
+
+    /** The scalar type of a scalar property in the snapshot registry, with the value semantics of externals. */
+    String scalarData(Property property) {
+        ValueType value = property.getValueType();
+        String kind = value.getKind().name().toLowerCase(java.util.Locale.ROOT);
+        String extra = "";
+        if (value.getKind() == ValueType.Kind.EXTERNAL) {
+            var mapping = externals.mapping(value);
+            kind = mapping.getScalarType();
+            if (mapping.getLiterals() != null) {
+                extra = ", literals: [" + mapping.getLiterals().stream().map(TypeScriptRenderModel::quoted)
+                        .collect(Collectors.joining(", ")) + "]";
+            }
+            if (mapping.needsCodec()) {
+                codecs.put(mapping.getKey(), mapping.getTypeName());
+                String key = "externals." + mapping.getKey();
+                extra = ", codec: () => __vmfBindings.use(" + quoted(key) + ", bindings => bindings." + key + ")";
+            }
+        }
+        return "scalarType: \"" + kind + "\", nullable: "
+                + (property.isCollection() ? property.allowsNullElements() : !value.isPrimitive()) + extra
+                + (writesNull(property) ? ", writeNull: true" : "");
+    }
+
+    private static boolean isUuid(ValueType value) {
+        return TypeScriptCapabilities.UUID.equals(value.getExternalType());
+    }
+
+    private boolean isUntyped(ValueType value) {
+        return value.getKind() == ValueType.Kind.EXTERNAL && TypeScriptCapabilities.isUnboundObject(model, value);
+    }
+
+    /** The zero value of a property: false, 0, 0n or U+0000 for primitives, else null. */
+    private static String zeroValue(Property property) {
         ValueType value = property.getValueType();
         if (!value.isPrimitive()) {
             return "null";
@@ -839,6 +1085,8 @@ final class TypeScriptRenderModel {
             case MODEL:
                 return apply(typeNames.get(value.getModelType()), value.getArguments().stream().map(this::typeName)
                         .collect(Collectors.toList()));
+            case EXTERNAL:
+                return externals.mapping(value).getTypeName();
             default:
                 throw new IllegalStateException("Unsupported TypeScript type " + value.getKind());
         }

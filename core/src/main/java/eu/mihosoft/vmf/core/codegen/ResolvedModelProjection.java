@@ -315,7 +315,7 @@ final class ResolvedModelProjection {
                 collection, allowsNullElements, prop.getLowerBound(), prop.getUpperBound(), prop.isOrdered(),
                 prop.isUnique(), oppositeName(prop), getterOnly, prop.isIgnoredForEquals(),
                 prop.isIgnoredForToString(), hasDefault, scalarDefault, collectionDefault, referenceSetDefault,
-                prop.getConstraints(), propertyFeatures(prop), annotations);
+                hasDefault ? defaultSource : null, prop.getConstraints(), propertyFeatures(prop), annotations);
     }
 
     private static List<MetadataAnnotation> propertyAnnotations(Prop prop, Property.Kind kind) {

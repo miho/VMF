@@ -3,8 +3,11 @@ import { __vmfEffect as effect, edit } from "./changes.js";
 /** An ordered list of scalar values; the same value may occur several times. */
 export class ScalarList<T> implements Iterable<T> {
     readonly #items: T[] = [];
+    readonly #normalize: (value: T) => T;
 
-    constructor(readonly owner: object, readonly property: string) {
+    /** `normalize` checks a value before it enters the list and returns the form the list keeps. */
+    constructor(readonly owner: object, readonly property: string, normalize: (value: T) => T = value => value) {
+        this.#normalize = normalize;
     }
 
     get count(): number {
@@ -25,17 +28,20 @@ export class ScalarList<T> implements Iterable<T> {
     }
 
     add(value: T): boolean {
+        value = this.#normalize(value);
         edit(this.owner, () => this.#insert(this.count, value));
         return true;
     }
 
     insert(index: number, value: T): void {
         requireIndex(index, this.count);
+        value = this.#normalize(value);
         edit(this.owner, () => this.#insert(index, value));
     }
 
     set(index: number, value: T): T {
         requireIndex(index, this.count - 1);
+        value = this.#normalize(value);
         const previous = this.#items[index];
         if (Object.is(previous, value)) {
             return previous;
