@@ -131,11 +131,12 @@ final class TypeScriptSnapshotRenderModel {
                     + ", value as " + valueType + " | null); }";
         }
         if (property.isCollection()) {
-            String element = valueType + (property.getKind() == Property.Kind.SCALAR && property.allowsNullElements()
-                    ? " | null" : "");
+            String element = property.getKind() == Property.Kind.SCALAR && property.allowsNullElements()
+                    ? TypeScriptRenderModel.orNull(valueType) : valueType;
             return "add: (owner, value) => { " + member + ".add(value as " + element + "); }";
         }
-        String cast = "value as " + valueType + (property.getValueType().isPrimitive() ? "" : " | null");
+        String cast = "value as " + (property.getValueType().isPrimitive() ? valueType
+                : TypeScriptRenderModel.orNull(valueType));
         return "set: (owner, value) => { " + member + " = " + cast + "; }";
     }
 

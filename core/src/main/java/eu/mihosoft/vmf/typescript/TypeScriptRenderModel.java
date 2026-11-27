@@ -777,12 +777,17 @@ final class TypeScriptRenderModel {
             return (property.isOrdered() ? "vmf.ListView<" : "vmf.CollectionView<") + elementType(property) + ">";
         }
         ValueType value = property.getValueType();
-        return typeName(value) + (value.isPrimitive() ? "" : " | null");
+        return value.isPrimitive() ? typeName(value) : orNull(typeName(value));
     }
 
     private String elementType(Property property) {
-        return typeName(property.getValueType())
-                + (property.getKind() == Property.Kind.SCALAR && property.allowsNullElements() ? " | null" : "");
+        String type = typeName(property.getValueType());
+        return property.getKind() == Property.Kind.SCALAR && property.allowsNullElements() ? orNull(type) : type;
+    }
+
+    /** A type that also holds null; untyped values (unknown) include null already. */
+    static String orNull(String type) {
+        return type.equals("unknown") ? type : type + " | null";
     }
 
     /** Map values may be null. */
@@ -810,7 +815,7 @@ final class TypeScriptRenderModel {
         if (property.getKind() == Property.Kind.SCALAR) {
             return property.isCollection()
                     ? (property.isOrdered() ? "vmf.ListView<" : "vmf.CollectionView<") + elementType(property) + ">"
-                    : typeName(value) + (value.isPrimitive() ? "" : " | null");
+                    : value.isPrimitive() ? typeName(value) : orNull(typeName(value));
         }
         String element = readOnlyTypeName(value);
         if (!property.isCollection()) {
@@ -840,7 +845,8 @@ final class TypeScriptRenderModel {
         if (initial.equals(initialValue(earlier))) {
             return Optional.empty();
         }
-        String type = typeName(property.getValueType()) + (property.getValueType().isPrimitive() ? "" : " | null");
+        String type = property.getValueType().isPrimitive() ? typeName(property.getValueType())
+                : orNull(typeName(property.getValueType()));
         return Optional.of(field("/** @internal */\n    override __vmfValue_" + member + ": " + type + " = "
                 + initial + ";"));
     }
@@ -922,7 +928,7 @@ final class TypeScriptRenderModel {
                     return field(scalarCollection(member, property, target));
                 }
                 String write = isUuid(value) ? "vmf.canonicalUuid(value)" : isUntyped(value) ? "vmf.untyped(value)" : "value";
-                return valueAccessor(member, target + (value.isPrimitive() ? "" : " | null"),
+                return valueAccessor(member, value.isPrimitive() ? target : orNull(target),
                         deferredDefaults.contains(preparing.getName()) ? zeroValue(property) : initialValue(property),
                         write);
             }
@@ -989,7 +995,7 @@ final class TypeScriptRenderModel {
         String normalize = isUuid(value) ? (property.allowsNullElements() ? "normalize: vmf.canonicalUuid"
                 : "normalize: value => vmf.canonicalUuid(value)!") : isUntyped(value) ? "normalize: vmf.untyped" : "";
         if (property.allowsNullElements()) {
-            return "readonly " + member + " = new vmf.ScalarList<" + target + " | null>(this, " + name
+            return "readonly " + member + " = new vmf.ScalarList<" + orNull(target) + ">(this, " + name
                     + (normalize.isEmpty() ? "" : ", { " + normalize + " }") + ");";
         }
         List<String> options = new ArrayList<>();
@@ -1114,7 +1120,8 @@ final class TypeScriptRenderModel {
         String owner = property.getDeclaringType();
         String key = "defaults." + owner + "." + property.getName();
         boundDefaults.computeIfAbsent(owner, unused -> new java.util.TreeMap<>()).put(property.getName(),
-                typeName(property.getValueType()) + (property.getValueType().isPrimitive() ? "" : " | null"));
+                property.getValueType().isPrimitive() ? typeName(property.getValueType())
+                        : orNull(typeName(property.getValueType())));
         String call = "__vmfBindings.use(" + quoted(key) + ", bindings => bindings." + key + ")()";
         return isUuid(property.getValueType()) ? "vmf.canonicalUuid(" + call + ")" : call;
     }
