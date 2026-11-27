@@ -4,7 +4,7 @@ Java is the reference target: the rules of the [portable contract](../../conform
 restate what VMF's Java code does. This page says how each rule appears in the generated Java API. Rule ids
 (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, equality-modes, json.
+Claimed modules: core, views, events, history, reflection, equality-modes, json, validation.
 
 ## Generating
 
@@ -97,3 +97,15 @@ Catalog copy = mapper.readValue(json, Catalog.class);
 Without `withReferences(true)` the documents are plain (J5): references to mutable objects are rejected, or
 left out with `withReferences(VMFJacksonModule.ReferenceMode.OMIT)`. References to immutable values are
 written by value in every mode.
+
+## Validation (L)
+
+| Rule | Java |
+|---|---|
+| validate | `x.vmf().content().validate()` returns a `ValidationReport`; `isValid()`, `getIssues()` |
+| an issue | `ValidationIssue` with `getCode()` (`"vmf.range"`), `getPath()` (`"/segments/0/start"`), `getMessage()`, `getSeverity()`, `getObject()`, `getProperty()` |
+
+Declared constraints report errors. `ModelValidator.builder()` adds application rules and can follow references
+(`withFollowReferences(true)`); both are outside the contract. A pattern outside the portable subset (L5) is declared
+`@Pattern(value = "...", portable = false)` and checked as written; C# and TypeScript need a counterpart for it.
+Adding an element beyond the upper bound of a scalar list throws.

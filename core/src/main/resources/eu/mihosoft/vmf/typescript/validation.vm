@@ -1,0 +1,9 @@
+#if($type.emitValidation)
+
+    /** @internal Checks this object's effective properties and queues the objects it contains. */
+    ${type.validationModifier}__vmfValidateInto(${type.validationParameters}): void {
+#foreach($statement in $type.validation)
+        ${statement}
+#end
+    }
+#end

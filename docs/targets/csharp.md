@@ -3,7 +3,7 @@
 How the rules of the [portable contract](../../conformance/portable/CONTRACT.md) appear in the generated C#
 API. Rule ids (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, equality-modes, json.
+Claimed modules: core, views, events, history, reflection, equality-modes, json, validation.
 
 ## Generating
 
@@ -100,3 +100,18 @@ each with `Name` and `Annotations`, and the type's `Annotations`.
 `Vmf.Runtime.ReferenceMode` is `Ids`, `Reject` or `Omit`; documents without ids reject references to mutable
 objects unless `Omit` is given. References to immutable values are written by value in every mode. XML and YAML
 variants of these methods exist but are not part of the contract.
+
+## Validation (L)
+
+| Rule | C# |
+|---|---|
+| validate | `x.Validate()` returns an `IReadOnlyList<ValidationIssue>`; an empty list means valid |
+| an issue | `ValidationIssue` with `ModelCode` (`"vmf.range"`) and `ModelPath` (`"/segments/0/start"`) as the contract defines them, `Code` (`"range"`), `Path` (the member path `"Segments[0].Start"`), `Message` and `Severity` |
+| with application rules | `ModelValidator.NewBuilder(ModelSnapshot.Reflection).Build().Validate(x)` returns a `ValidationReport` whose `Issues` carry the model code and path as `Code` and `Path` |
+
+Declared constraints report errors. `ModelValidator` can add rules and follow references
+(`WithFollowReferences()`); both are outside the contract. `long` ranges are exact, and `float` and `double`
+values are compared by their shortest decimal representation, as in Java (L3). A Java-only pattern
+(`@Pattern(value = "...", portable = false)`) needs one `@Annotation(key = "vmf:pattern:csharp", value = "...")`
+with a .NET regular expression; the generator rejects the model without it. Adding an element beyond the upper
+bound of a scalar list throws, as in Java.

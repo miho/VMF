@@ -86,9 +86,7 @@ public final class PortableCapabilities {
 
     private static void validateType(ResolvedModel model, Type type, Profile profile, List<String> diagnostics) {
         String name = type.getQualifiedName();
-        if (profile == Profile.CSHARP) {
-            type.getEffectiveProperties().forEach(property -> validatePatternBindings(name, property, diagnostics));
-        }
+        type.getEffectiveProperties().forEach(property -> validatePatternBindings(name, property, profile, diagnostics));
         if (type.isImmutable()) {
             if (type.isInterfaceOnly()) {
                 diagnostics.add(name + " needs a concrete immutable declaration");
@@ -180,13 +178,16 @@ public final class PortableCapabilities {
         }
     }
 
-    private static void validatePatternBindings(String owner, Property property, List<String> diagnostics) {
+    /** A Java-only pattern needs one counterpart in the target's dialect: vmf:pattern:csharp or vmf:pattern:typescript. */
+    private static void validatePatternBindings(String owner, Property property, Profile profile,
+                                                List<String> diagnostics) {
         for (var constraint : property.getConstraints()) {
             if (constraint.isPortable()) continue;
-            var bindings = constraint.getPatternBindings("csharp");
+            var bindings = constraint.getPatternBindings(profile == Profile.CSHARP ? "csharp" : "typescript");
             if (bindings.size() == 1 && !bindings.get(0).isBlank()) continue;
             diagnostics.add(owner + "." + property.getName() + (bindings.isEmpty() ? " uses a Java-only @Pattern"
-                    : " needs one CLR pattern binding for each Java-only @Pattern"));
+                    : " needs one " + (profile == Profile.CSHARP ? "CLR" : "TypeScript")
+                        + " pattern binding for each Java-only @Pattern"));
         }
     }
 
@@ -916,7 +917,8 @@ public final class PortableCapabilities {
             if (profile == Profile.TYPESCRIPT && feature == Feature.DEFAULT_VALUE
                     && property.getKind() == Property.Kind.SCALAR && !property.isCollection()
                     && property.getScalarDefault().isPresent()) continue;
-            if (profile == Profile.CSHARP && feature == Feature.VALUE_CONSTRAINT) continue;
+            // Both targets check declared value constraints; validatePatternBindings covers Java-only patterns.
+            if (feature == Feature.VALUE_CONSTRAINT) continue;
             if (feature == Feature.READ_ONLY && property.isSharedContainer()) continue;
             diagnostics.add(name + " uses " + feature.getDescription());
         }

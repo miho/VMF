@@ -7,7 +7,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as vmf from "@vmf/runtime";
 
 const TARGET = "typescript";
-const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "identity-equality", "json"]);
+const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "identity-equality", "json",
+    "validation"]);
 /** Modules that do not apply to the language, with the reason. */
 const NOT_APPLICABLE = new Map([
     ["equality-modes", "JavaScript compares objects by identity only (===, Map, Set); TypeScript follows N3"],
@@ -15,7 +16,7 @@ const NOT_APPLICABLE = new Map([
 const OPERATIONS = ["new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual",
     "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf",
     "listen", "unlisten", "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write",
-    "read", "document", "calls"];
+    "read", "document", "calls", "validate"];
 const generated = join(dirname(fileURLToPath(import.meta.url)), "build", "js", "build", "generated", "eu", "mihosoft",
     "vmf", "portable");
 
@@ -576,6 +577,9 @@ class Execution {
                 }
                 break;
             }
+            case "validate":
+                this.checkIssues(node.validate, node.issues);
+                break;
             default:
                 throw new ScenarioFailure(`unsupported operation ${operation}`);
         }
@@ -590,6 +594,21 @@ class Execution {
             return this.documents.get(source);
         }
         return stringifyJson(source.json);
+    }
+
+    // ------------------------------------------------------------------------------------------------ validation
+
+    /** Validates an object and compares the issues, model code and model path in reported order, with the expected ones. */
+    checkIssues(path, expected) {
+        const model = this.resolve(path);
+        if (!isModel(model) || typeof model.validate !== "function") {
+            throw new ScenarioFailure(`cannot validate ${this.render(model)}`);
+        }
+        const actual = model.validate().map(issue => `${issue.modelCode} ${issue.modelPath}`);
+        const wanted = expected.map(issue => `${issue.code} ${issue.path}`);
+        if (actual.length !== wanted.length || actual.some((issue, index) => issue !== wanted[index])) {
+            throw new ScenarioFailure(`${path}: expected issues ${JSON.stringify(wanted)}, found ${JSON.stringify(actual)}`);
+        }
     }
 
     // ------------------------------------------------------------------------------------------------ events

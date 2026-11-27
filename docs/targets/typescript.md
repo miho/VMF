@@ -3,7 +3,7 @@
 How the rules of the [portable contract](../../conformance/portable/CONTRACT.md) appear in the generated
 TypeScript API. Rule ids (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, identity-equality, json. JavaScript has no
+Claimed modules: core, views, events, history, reflection, identity-equality, json, validation. JavaScript has no
 equality that a class can define, so TypeScript follows N3 instead of N2 (see [Equality](#equality-and-copies-q-n)).
 
 ## Generating
@@ -103,6 +103,26 @@ property order, each with `name` and `annotations` (`{ key, value }` pairs in de
 
 Large integers are read and written exactly (`bigint`). References to immutable values are written by value
 in every mode.
+
+## Validation (L)
+
+| Rule | TypeScript |
+|---|---|
+| validate | `x.validate()` returns a frozen array of issues for `x` and everything it contains; an empty array means valid |
+| an issue | `{ code, path, message, modelCode, modelPath, severity }` |
+| code and path as the contract defines them (L7) | `modelCode` (`"vmf.range"`) and `modelPath` (`"/segments/0/start"`) |
+| TypeScript code and path | `code` (`"range"`) and `path`, the member path (`"segments[0].start"`) |
+
+Declared constraints report `"error"` issues; the messages are those of C#, for example
+`"a finite number >= 0 and < 10"`. `long` ranges compare `bigint` values exactly. A `float` property holds a
+`number`; its range is checked on the value rounded to float precision (`Math.fround`), the value Java and C# read
+from a document. `@Length` counts code points, not `string.length`. A portable `@Pattern` becomes a `RegExp`
+without flags in which `$` matches only at the very end, and `test` finds a match anywhere in the value (L5). A
+Java-only pattern (`@Pattern(value = "...", portable = false)`) needs one
+`@Annotation(key = "vmf:pattern:typescript", value = "...")` with an ECMAScript regular expression, which is
+searched with the `u` flag; the generator rejects the model without it. Unlike Java and C#, TypeScript accepts an
+element beyond the upper bound of a scalar list; validation reports it (L2). Validation keeps its own stack, so deep
+containment chains do not exhaust the call stack.
 
 ## Not supported
 

@@ -342,8 +342,6 @@ final class TypeScriptRenderModel {
         }
 
         List<Map<String, Object>> properties = new ArrayList<>();
-        List<Map<String, Object>> containments = new ArrayList<>();
-        List<Map<String, Object>> multiplicities = new ArrayList<>();
         String owner = apply(name, parameters);
         // Properties of supertypes besides the base class are declared on the class itself.
         Set<String> abstracted = abstractSlots.get(type.getName());
@@ -366,17 +364,12 @@ final class TypeScriptRenderModel {
                 continue;
             }
             properties.add(prepareMember(owner, member, property, override));
-            if (property.getKind() == Property.Kind.CONTAINMENT) {
-                containments.add(Map.of("name", member, "many", property.isCollection()));
-            }
-            addMultiplicity(property, member, multiplicities);
         }
 
         boolean hasBase = primary != null;
         String extendsClause = (hasBase ? " extends " + typeName(primary) : "")
                 + (implemented.isEmpty() ? "" : " implements " + String.join(", ", implemented));
         String modifier = type.isInterfaceOnly() ? "abstract " : "";
-        boolean hasValidation = !containments.isEmpty() || !multiplicities.isEmpty();
         String readOnlyType = apply(READ_ONLY_PREFIX + name, parameters);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("name", name);
@@ -393,16 +386,16 @@ final class TypeScriptRenderModel {
         if (type.isGetterOnlyTrait()) {
             result.put("kind", "trait");
             result.put("members", traitMembers(type, base, inherited, hasBase, readOnlyType));
-        } else if (type.isImmutable()) {
-            result.put("kind", "immutable");
-            prepareImmutable(type, base, inherited, result);
         } else {
-            result.put("kind", "model");
-            result.put("hasValidation", hasValidation);
-            result.put("emitValidation", !hasBase || hasValidation);
-            result.put("properties", List.copyOf(properties));
-            result.put("containments", List.copyOf(containments));
-            result.put("multiplicities", List.copyOf(multiplicities));
+            // Every class checks the effective properties of its own type (see TypeScriptValidationRenderModel).
+            TypeScriptValidationRenderModel.prepare(type, base, result);
+            if (type.isImmutable()) {
+                result.put("kind", "immutable");
+                prepareImmutable(type, base, inherited, result);
+            } else {
+                result.put("kind", "model");
+                result.put("properties", List.copyOf(properties));
+            }
         }
         return result;
     }
@@ -779,34 +772,6 @@ final class TypeScriptRenderModel {
 
     private static Map<String, Object> field(String declaration) {
         return Map.of("container", false, "declaration", declaration);
-    }
-
-    private static void addMultiplicity(Property property, String name, List<Map<String, Object>> checks) {
-        boolean collection = property.isCollection();
-        if (!collection && property.getValueType().isPrimitive()) {
-            return;
-        }
-        int lower = property.getLowerBound();
-        int upper = property.getUpperBound();
-        boolean checkLower = lower > 0;
-        boolean checkUpper = collection && upper >= 0;
-        if (!checkLower && !checkUpper) {
-            return;
-        }
-
-        String count = collection ? "this." + name + ".count" : "this." + name + " === null ? 0 : 1";
-        String variable = "count" + checks.size();
-        List<String> conditions = new ArrayList<>();
-        if (checkLower) {
-            conditions.add(variable + " < " + lower);
-        }
-        if (checkUpper) {
-            conditions.add(variable + " > " + upper);
-        }
-        String expected = checkLower && checkUpper ? "between " + lower + " and " + upper
-                : checkLower ? "at least " + lower : "at most " + upper;
-        checks.add(Map.of("name", name, "variable", variable, "count", count,
-                "condition", String.join(" || ", conditions), "expected", expected));
     }
 
     String typeName(Type type) {

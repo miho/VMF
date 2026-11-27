@@ -21,6 +21,7 @@ every target, Java included, runs the same scenarios ([README](README.md)).
 | equality-modes | N1, N2 (the language's own equality follows `@VMFEquals` and `@VMFModel(equality = ...)`) | optional |
 | identity-equality | N1, N3 (the language compares objects by identity only) | optional |
 | json | J (snapshot documents that every target writes and reads alike) | optional |
+| validation | L (declared multiplicities and value constraints) | optional |
 
 A target claims the modules it implements. Scenarios of modules it does not claim are skipped and reported
 as skipped, not as passed.
@@ -194,6 +195,44 @@ are read by every other target.
   an explicit option to leave such references out instead; the document then holds the containment tree only.
 - **J6** Writers reject a reference to an object outside the written containment tree.
 
+## Validation (optional)
+
+Validation checks a model against its declared multiplicities (`@Multiplicity`) and value constraints (`@Range`,
+`@Length`, `@Pattern`) and reports each violation as an issue. It does not change the model; a model may be
+invalid while it is being built.
+
+- **L1** Validating an object checks the object and every object contained in it, directly or indirectly, each
+  once. References and container properties are not followed: an object that is only referenced is not checked,
+  and neither is the container of the validated object.
+- **L2** A property whose number of values is below its lower bound or above its upper bound is reported as
+  `vmf.multiplicity`. A single-valued property has no value when it is `null` and one value otherwise; a list
+  has as many values as elements.
+- **L3** `@Range` on a byte, short, int, long, float or double property, primitive or boxed, is reported as
+  `vmf.range` when the value is below `min`, above `max` or equal to a bound declared exclusive. The bounds are
+  decimal numbers and comparisons are exact: an integer is compared with all its digits, the 64 bits of a `long`
+  included; a float or double is compared by its shortest decimal representation (the digits a JSON writer
+  writes), so the double `0.1` is equal to the bound `0.1`. A float property is compared at float precision.
+  NaN and infinities are outside every range.
+- **L4** `@Length` on a string is reported as `vmf.length` when its number of Unicode code points, not UTF-16 code
+  units, is below `min` or above `max` (`max = -1`: no maximum).
+- **L5** `@Pattern` on a string is reported as `vmf.pattern` when the regular expression matches no part of the
+  value. The search is not anchored: `\d` accepts every value that contains a digit. `^` and `$` anchor it, and `$`
+  matches only at the very end of the value, not before a final line break. A portable pattern means the same in
+  every target: printable ASCII; literal characters and escaped metacharacters; `\d` and `\w` (ASCII digits and
+  word characters); `\n`, `\r`, `\t` and `\f`; classes without negation, nesting or intersection; groups `(...)`
+  and `(?:...)`; alternation; the quantifiers `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, also lazy. The generator
+  rejects other patterns unless they are declared `portable = false`. Java checks such a pattern as written; the
+  other targets need an explicit counterpart in their own dialect (see the language mappings) and reject the
+  model without one.
+- **L6** `null` satisfies every range, length and pattern; only a lower bound (L2) requires a value.
+- **L7** An issue has the code `vmf.multiplicity`, `vmf.range`, `vmf.length` or `vmf.pattern` and a path: a JSON
+  pointer (RFC 6901) of model property names and list indices from the validated object to the property, such as
+  `/segments/0/code`. Paths use model property names, not wire names.
+- **L8** Issues are listed depth first: the validated object's issues, then those of each contained object and its
+  contents, contained objects in property order and, within a list, in list order. The issues of one object follow
+  its properties in reflection order (F1); for one property, `vmf.multiplicity` comes first, then `vmf.range`,
+  `vmf.length` and `vmf.pattern`.
+
 ## Deliberately unspecified
 
 These differ between languages, or between implementations of one language, and must not be tested
@@ -210,6 +249,9 @@ across targets:
 - recordings that cover only one side of a moved object (the previous owner is not covered)
 - whether a deep copy shares or copies immutable values
 - plain documents for models whose subtypes occur where a property declares their supertype
+- validation messages, severities and what an issue carries besides its code and path; the order of the issues
+  of a property whose constraints come from several declarations (a redeclared property)
+- whether an edit beyond the upper bound of a scalar list is rejected (Java and C# reject it)
 - `toString` formats and concrete hash code values; threading
 
 ## Not part of the cross-language contract
@@ -217,8 +259,9 @@ across targets:
 Target-specific features may exist but are tested by that target's own tests: builder merge semantics
 (`applyFrom`, `applyTo`, appended collections), behavior delegation (`@DelegateTo`), executable defaults,
 custom external value types, cursors and traversal APIs, reflection writes, journals and their file
-formats, XML and YAML, model diff, validation, maps and sets, generic model types. Each of these can become a
-module of its own with its own rules and scenarios once two targets need it.
+formats, XML and YAML, model diff, validation rules beyond the declared constraints (Java's and C#'s
+`ModelValidator` with application rules or reference following), maps and sets, generic model types. Each of
+these can become a module of its own with its own rules and scenarios once two targets need it.
 
 The Workshop example additionally exchanges files between Java, C# and TypeScript
 (`:vmf:verifyTypeScriptWorkshop`); the JSON module states and checks the format those files share.

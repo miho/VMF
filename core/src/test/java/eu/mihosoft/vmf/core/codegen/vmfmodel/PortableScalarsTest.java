@@ -91,6 +91,19 @@ interface RepeatedLength extends RangeAndText {
     String getLabel();
 }
 
+interface TypeScriptPattern {
+    @Pattern(value = "(?i)abc", portable = false)
+    @Annotation(key = "vmf:pattern:typescript", value = "^[Aa][Bb][Cc]")
+    String getText();
+}
+
+interface AmbiguousTypeScriptPattern {
+    @Pattern(value = "(?i)abc", portable = false)
+    @Annotation(key = "vmf:pattern:typescript", value = "abc")
+    @Annotation(key = "vmf:pattern:typescript", value = "ABC")
+    String getText();
+}
+
 public class PortableScalarsTest {
     @Test
     public void wideScalarKindsPreservePrimitiveAndBoxedTypes() {
@@ -136,8 +149,8 @@ public class PortableScalarsTest {
         assertEquals("^(?:[A-Z]\\d?)$", text.get(1).getPattern());
         assertEquals("^(?:[A-Z]\\d?)(?![\\s\\S])", text.get(1).getSchemaPattern());
 
-        var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(ts.getMessage().contains(".label uses declared value constraints"));
+        // TypeScript checks the same constraints.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
@@ -174,7 +187,23 @@ public class PortableScalarsTest {
         var cs = assertThrows(IllegalArgumentException.class, () -> CSharpCapabilities.validate(model));
         assertTrue(cs.getMessage().contains("ConflictingPattern.text needs one CLR pattern binding"));
         var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(ts.getMessage().contains("ConflictingPattern.text uses declared value constraints"));
+        assertTrue(ts.getMessage(), ts.getMessage().contains("ConflictingPattern.text uses a Java-only @Pattern"));
+        assertFalse(ts.getMessage(), ts.getMessage().contains("declared value constraints"));
+    }
+
+    @Test
+    public void typescriptChecksJavaOnlyPatternsThroughOneBinding() {
+        var model = model(TypeScriptPattern.class);
+        assertEquals(List.of("^[Aa][Bb][Cc]"),
+                property(model, "TypeScriptPattern", "text").getConstraints().get(0).getPatternBindings("typescript"));
+        PortableCapabilities.validate(model, "TypeScript");
+        var cs = assertThrows(IllegalArgumentException.class, () -> CSharpCapabilities.validate(model));
+        assertTrue(cs.getMessage(), cs.getMessage().contains("TypeScriptPattern.text uses a Java-only @Pattern"));
+
+        var ts = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(model(AmbiguousTypeScriptPattern.class), "TypeScript"));
+        assertTrue(ts.getMessage(), ts.getMessage()
+                .contains("AmbiguousTypeScriptPattern.text needs one TypeScript pattern binding for each Java-only @Pattern"));
     }
 
     private static ResolvedModel model(Class<?>... declarations) {
