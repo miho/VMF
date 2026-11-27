@@ -1,0 +1,177 @@
+    public ${type.builder.modifier}static Builder NewBuilder() => new();
+
+    public ${type.builder.modifier}sealed class Builder : global::Vmf.Runtime.IModelBuilder<${type.builder.type}>
+    {
+#if(!$type.builder.copy.isEmpty() && $type.builder.copy.hasCollections)
+        private bool __vmfAppendCollections = true;
+#end
+#foreach($default in $type.builderReferenceDefaults)
+        private readonly global::System.Collections.Generic.IReadOnlyList<${default.element}> ${default.cache} = ${default.accessor}();
+#end
+#foreach($property in $type.builder.properties)
+        private ${property.fieldType} ${property.field}#if($property.containsKey("fieldInitializer"))${property.fieldInitializer}#end;
+#if(!$property.nested.isEmpty())
+        private ${property.nested.type} ${property.nested.field};
+#end
+#end
+#foreach($property in $type.builder.properties)
+
+#if($property.collection)
+        public Builder With${property.name}(${property.inputType} values)
+        {
+            global::System.ArgumentNullException.ThrowIfNull(values);
+            var prepared = ${property.create};
+#if($property.map)
+            foreach (var entry in values) prepared.Add(entry.Key, entry.Value);
+#elseif($property.distinct)
+            foreach (var value in values)
+            {
+                if (!prepared.Add(value))
+                {
+                    throw new global::System.ArgumentException("Duplicate member for ${property.name}.", nameof(values));
+                }
+            }
+#else
+            prepared.AddRange(values);
+#end
+#if(!$property.keyCheck.isEmpty())
+            ${property.keyCheck}
+#end
+            ${property.field} = ${property.stagedValues};
+#if(!$property.nested.isEmpty())
+            ${property.nested.field} = null;
+#end
+            return this;
+        }
+#else
+        public Builder With${property.name}(${property.inputType} value)
+        {
+            ${property.field} = (true, value);
+#if(!$property.nested.isEmpty())
+            ${property.nested.field} = null;
+#end
+            return this;
+        }
+#end
+#if(!$property.nested.isEmpty())
+
+        public Builder With${property.name}${property.nested.suffix}(${property.nested.input} value)
+        {
+#if($property.collection)
+            global::System.ArgumentNullException.ThrowIfNull(value);
+#end
+            ${property.nested.field} = ${property.nested.stage};
+#if(!$property.collection)
+            ${property.field} = (true, null);
+#elseif($property.referenceDefault.isEmpty())
+            ${property.field} = null;
+#else
+            ${property.field} = ${property.create};
+#end
+            return this;
+        }
+#end
+#end
+
+#if(!$type.builder.copy.isEmpty())
+#foreach($property in $type.builder.properties)
+#if($property.collection)
+        private void __vmfImport${property.name}(${property.importType} values)
+        {
+#if($property.keyed)
+            if (!__vmfAppendCollections || ${property.field} is null)
+            {
+                ${property.field} = global::System.Linq.Enumerable.ToList(values);
+#if(!$property.nested.isEmpty())
+                ${property.nested.field} = null;
+#end
+                return;
+            }
+#if($property.orderedKeyed)
+            var prepared = ${property.create};
+            prepared.AddRange(global::Vmf.Runtime.ContainmentKeys.RequireNonNullEntries(${property.field}));
+            prepared.AddRange(global::Vmf.Runtime.ContainmentKeys.RequireNonNullEntries(values));
+            ${property.field} = ${property.stagedValues};
+#else
+            With${property.name}(global::Vmf.Runtime.ContainmentKeys.RequireNonNullEntries(
+                global::System.Linq.Enumerable.Concat(${property.field}, values)));
+#end
+#else
+#if($property.referenceDefault.isEmpty())
+            if (!__vmfAppendCollections || ${property.field} is null)
+            {
+                With${property.name}(values);
+                return;
+            }
+#else
+            if (!__vmfAppendCollections)
+            {
+                With${property.name}(values);
+                return;
+            }
+            if (${property.field} is null)
+            {
+                var staged = ${property.create};
+                staged.AddRange(${property.referenceDefault});
+                staged.AddRange(values);
+                ${property.field} = staged;
+                return;
+            }
+#end
+#if($property.map)
+            ${property.field}.PutAll(values);
+#else
+            ${property.field}.AddRange(values);
+#end
+#if(!$property.nested.isEmpty())
+            ${property.nested.field} = null;
+#end
+#end
+        }
+
+#end
+#end
+#if($type.builder.copy.hasCollections)
+        public Builder AppendCollections(bool value)
+        {
+            __vmfAppendCollections = value;
+            return this;
+        }
+
+#end
+#foreach($input in $type.builder.copy.imports)
+        public Builder ApplyFrom(${input.type} source)
+        {
+            global::System.ArgumentNullException.ThrowIfNull(source);
+#foreach($statement in $input.statements)
+            $statement
+#end
+            return this;
+        }
+
+#end
+        public Builder ApplyTo(${type.builder.type} target)
+        {
+            global::System.ArgumentNullException.ThrowIfNull(target);
+#foreach($statement in $type.builder.copy.preflight)
+            $statement
+#end
+#foreach($statement in $type.builder.copy.apply)
+            $statement
+#end
+            return this;
+        }
+
+#end
+        public ${type.builder.type} Build()
+        {
+#foreach($validation in $type.builder.validations)
+            $validation
+#end
+            var result = new ${type.builder.type}(#if($type.hasReferenceDefaultShell)false#if($type.deferMixedDefaults), false#end#end);
+#foreach($assignment in $type.builder.assignments)
+            $assignment
+#end
+            return result;
+        }
+    }

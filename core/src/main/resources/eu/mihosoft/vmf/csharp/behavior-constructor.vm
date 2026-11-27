@@ -1,0 +1,32 @@
+#if($type.isBase)
+    public ${type.name}() : this(false) { }
+
+    protected ${type.name}(bool deferInitialization)${type.deferredBaseConstructor}
+#else
+    public ${type.name}() : base(true)
+#end
+    {
+#foreach($assignment in $type.constructorAssignments)
+        ${assignment.name} = ${assignment.value};
+#end
+#if($type.isBase)
+        if (deferInitialization) return;
+#end
+#if($type.hierarchicalBehavior.hasHook)
+        ${type.hierarchicalBehavior.hookInvocation};
+#end
+        __vmfApplyDeclaredDefaults();
+    }
+
+    ${type.deferredDefaultsModifier}void __vmfApplyDeclaredDefaults()
+    {
+#if($type.hasBase && !$type.applyEffectiveDefaults)
+        base.__vmfApplyDeclaredDefaults();
+#end
+#foreach($assignment in $type.postHookAssignments)
+        ${assignment.name} = ${assignment.value};
+#end
+#foreach($initialization in $type.redeclaredDefaults)
+        $initialization
+#end
+    }

@@ -1,0 +1,12 @@
+${type.readOnly.declaration}
+#foreach($constraint in $type.readOnly.constraints)
+    $constraint
+#end
+{
+#foreach($property in $type.readOnly.declared)
+    ${property.modifier}${property.type} ${property.name} { get; }
+#end
+#foreach($lookup in $type.readOnly.declaredLookups)
+    ${lookup.modifier}${lookup.returnType} ${lookup.name}(${lookup.keyType} key);
+#end
+}

@@ -1,0 +1,9 @@
+{
+  "public-getter-alone": ["M0", "M1", "R0", "R1"],
+  "early-projected-modeled": ["M0", "R0", "R1", "M1"],
+  "reactivated-modeled": ["M0", "Rnew", "M1"],
+  "inverse-activation": ["inverse", "projected"],
+  "plain-keyed-list-getter": ["M0", "M1", "P0", "R0", "R1", "M2", "C0"],
+  "owning-journal": ["source", "projected", "dest"],
+  "unopposed-journal": ["projected", "root"]
+}

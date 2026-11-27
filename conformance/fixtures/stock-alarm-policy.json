@@ -1,0 +1,5 @@
+{
+  "missing": {"instruments": [{"setpoint": 5, "alarm-enabled": true}]},
+  "configured": {"instruments": [{"setpoint": 5, "alarm-enabled": true, "alarm-limit": 8}]},
+  "inactive": {"instruments": [{"setpoint": 5}]}
+}

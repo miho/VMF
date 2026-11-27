@@ -1,0 +1,18 @@
+    public static global::Vmf.Runtime.ModelTypeCatalog TypeCatalog { get; } = new(
+        new global::Vmf.Runtime.ModelTypeMetadata[]
+        {
+#foreach($type in $modelTypes)
+            new(${type.name}, ${type.wireName}, typeof(${type.runtimeType}),
+                interfaceOnly: ${type.interfaceOnly}, immutable: ${type.immutable},
+                typeParameters: ${type.parameters},
+                directSupertypes: ${type.parents},
+                properties: new global::Vmf.Runtime.ModelFieldMetadata[]
+                {
+#foreach($field in $type.fields)
+                    ${field},
+#end
+                },
+                annotations: ${type.annotations}),
+#end
+        },
+        UnwrapReadOnly);

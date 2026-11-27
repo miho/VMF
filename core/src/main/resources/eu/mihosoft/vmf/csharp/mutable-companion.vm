@@ -1,0 +1,19 @@
+${type.companion.declaration}
+#foreach($constraint in $type.companion.constraints)
+    $constraint
+#end
+{
+#foreach($field in $type.companion.fields)
+    $field
+#end
+#foreach($lookup in $type.companion.lookups)
+    ${lookup.modifier}${lookup.returnType} ${lookup.name}(${lookup.keyType} key);
+#end
+#if($type.immutable)
+    #if($type.companion.hidesProjection)new #end${type.companion.readOnlyType} AsReadOnly() => this;
+    #if($type.companion.hidesProjection)new#end bool ContentEquals(object? other) => ModelSnapshot.Reflection.ContentEquals(this, other);
+    #if($type.companion.hidesProjection)new#end int ContentHashCode();
+#else
+    #if($type.companion.hidesProjection)new #end${type.companion.readOnlyType} AsReadOnly();
+#end
+}

@@ -1,0 +1,146 @@
+#if($type.hierarchicalBehavior.hasParent)
+    public new interface Behavior : ${type.hierarchicalBehavior.baseType}.Behavior${type.hierarchicalBehavior.secondaryBehaviors}
+#else
+    public interface Behavior
+#end
+    {
+#foreach($method in $type.hierarchicalBehavior.localSlots)
+        ${method.returnType} ${method.name}(${method.bindingParameters});
+#end
+#foreach($bridge in $type.hierarchicalBehavior.behaviorBridges)
+        ${bridge.returnType} ${bridge.behaviorType}.${bridge.name}(${bridge.bindingParameters}) =>
+            ${bridge.name}(${bridge.arguments});
+#end
+    }
+
+#if($type.hierarchicalBehavior.hasParent)
+    public new Behavior? BehaviorOverride => (Behavior?)base.BehaviorOverride;
+
+#else
+    private volatile Behavior? __vmfBehaviorOverride;
+
+    public Behavior? BehaviorOverride => __vmfBehaviorOverride;
+
+    protected void __vmfSetBehaviorOverride(Behavior behavior)
+    {
+        global::System.ArgumentNullException.ThrowIfNull(behavior);
+        if (!__vmfAcceptsBehavior(behavior))
+        {
+            throw new global::System.ArgumentException(
+                $"Behavior must implement the contract for {GetType().Name}.", nameof(behavior));
+        }
+        __vmfBehaviorOverride = behavior;
+    }
+
+#end
+    protected ${type.hierarchicalBehavior.acceptModifier}bool __vmfAcceptsBehavior(
+#if($type.hierarchicalBehavior.hasParent)
+        ${type.hierarchicalBehavior.rootType}.Behavior behavior) => behavior is Behavior;
+#else
+        Behavior behavior) => true;
+#end
+
+    public void ReplaceBehavior(Behavior behavior) => __vmfSetBehaviorOverride(behavior);
+
+#foreach($provider in $type.hierarchicalBehavior.providers)
+#if($provider.hide)
+    public new interface ${provider.name}
+#else
+    public interface ${provider.name}
+#end
+    {
+#if(!$provider.hook.isEmpty())
+        void ${provider.hook}(${provider.caller} caller) { }
+#end
+#foreach($method in $provider.slots)
+        ${method.returnType} ${method.name}(${method.bindingParameters});
+#end
+    }
+
+#if(!$provider.shared.isEmpty())
+#if($type.hierarchicalBehavior.reusableRole)
+    internal static ${provider.name} ${provider.accessor}(${type.hierarchicalBehavior.roleContract} caller) =>
+        ${provider.shared}(caller);
+#else
+    private ${provider.name} ${provider.accessor}() => ${provider.shared}(this);
+#end
+
+#else
+    private static partial ${provider.name} ${provider.factory}();
+
+#if($type.hierarchicalBehavior.reusableRole)
+    private sealed class ${provider.state}
+    {
+        internal volatile ${provider.name}? Binding;
+    }
+
+    private static readonly global::System.Runtime.CompilerServices.ConditionalWeakTable<
+        ${type.hierarchicalBehavior.roleContract}, ${provider.state}> ${provider.byOwner} = new();
+
+    internal static ${provider.name} ${provider.accessor}(${type.hierarchicalBehavior.roleContract} caller)
+    {
+        var state = ${provider.byOwner}.GetValue(caller, static _ => new());
+        if (state.Binding is { } current) return current;
+        lock (state)
+        {
+            return state.Binding ??= ${provider.factory}()
+                ?? throw new global::System.InvalidOperationException("The default behavior factory returned null.");
+        }
+    }
+
+#else
+    private readonly object ${provider.lock} = new();
+    private volatile ${provider.name}? ${provider.storage};
+
+    private ${provider.name} ${provider.accessor}()
+    {
+        var current = ${provider.storage};
+        if (current is not null) return current;
+        lock (${provider.lock})
+        {
+            return ${provider.storage} ??= ${provider.factory}()
+                ?? throw new global::System.InvalidOperationException("The default behavior factory returned null.");
+        }
+    }
+
+#end
+#end
+#end
+#if($type.hierarchicalBehavior.hasOwnHook)
+    ${type.hierarchicalBehavior.hookModifier}void __vmfRunBehaviorHook() =>
+        ${type.hierarchicalBehavior.ownHookAccess}.${type.hierarchicalBehavior.ownHook}(this);
+
+#end
+#foreach($method in $type.hierarchicalBehavior.localMethods)
+#if($method.publicForward)
+    public ${method.forwardModifier}${method.returnType} ${method.name}(${method.parameters}) => ${method.bodyName}(${method.parameterArguments});
+
+#end
+#if($method.emitBody)
+    ${method.access} ${method.modifier}${method.returnType} ${method.bodyName}(${method.parameters})
+    {
+        if (BehaviorOverride is { } replacement)
+        {
+#if($method.isVoid)
+            ${method.replacementReceiver}.${method.name}(${method.arguments});
+            return;
+#else
+            return ${method.replacementReceiver}.${method.name}(${method.arguments});
+#end
+        }
+#if(!$method.hasDefaultBinding)
+        throw new global::System.InvalidOperationException("No default C# behavior is bound for ${method.name}.");
+#elseif($method.isVoid)
+        ${method.defaultFactory}.${method.name}(${method.arguments});
+#else
+        return ${method.defaultFactory}.${method.name}(${method.arguments});
+#end
+    }
+#end
+
+#end
+#foreach($bridge in $type.hierarchicalBehavior.resultBridges)
+    ${bridge.returnType} ${bridge.companion}.${bridge.name}(${bridge.parameters}) =>
+        ${bridge.name}(${bridge.parameterArguments});
+
+#end

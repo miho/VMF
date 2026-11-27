@@ -33,16 +33,24 @@ configurations {
 
 repositories {
     mavenCentral()
-//    mavenLocal()
+    mavenLocal {
+        content { includeModule 'eu.mihosoft.vcollections', 'vcollections' }
+    }
+    maven {
+        url = uri('https://central.sonatype.com/repository/maven-snapshots/')
+        content { includeModule 'eu.mihosoft.vcollections', 'vcollections' }
+    }
 }
 
 dependencies {
     testImplementation group: 'junit', name: 'junit', version: '4.13.2'
+    testImplementation project(':vmf-runtime')
 
     // compile group: 'org.apache.velocity', name: 'velocity', version: '1.7'
     // legacyVelocity group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.4'
     // configurations.compile.extendsFrom(configurations.legacyVelocity)
     implementation group: 'eu.mihosoft.ext.velocity.legacy', name: 'velocity-legacy', version: '1.7.5'
+    implementation 'org.apache.velocity:velocity-engine-core:2.4.1'
     implementation group: 'io.github.classgraph', name: 'classgraph', version: '4.8.171'
     implementation group: 'eu.mihosoft.jcompiler', name: 'jcompiler', version: '0.4'
 }
@@ -77,3 +85,5 @@ license {
     exclude '**/*.svg'
 }
 
+apply from: rootProject.file('examples/csharp-workshop/workshop.gradle')
+apply from: rootProject.file('conformance/conformance.gradle')

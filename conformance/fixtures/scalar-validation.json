@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Valid boundaries and matching a substring",
+    "model": {
+      "title": "🛠",
+      "entries": [{"status_label": "prefix-X-42-suffix", "sequence": 9007199254740993, "ratio": 0.1}]
+    },
+    "issues": []
+  },
+  {
+    "name": "Independent violations on inherited and declared properties",
+    "model": {
+      "entries": [{"status_label": "", "sequence": 9007199254740992, "ratio": 0.5}]
+    },
+    "issues": [
+      {"path": "/title", "code": "vmf.multiplicity", "severity": "ERROR"},
+      {"path": "/entries/0/sequence", "code": "vmf.range", "severity": "ERROR"},
+      {"path": "/entries/0/ratio", "code": "vmf.range", "severity": "ERROR"},
+      {"path": "/entries/0/statusLabel", "code": "vmf.length", "severity": "ERROR"},
+      {"path": "/entries/0/statusLabel", "code": "vmf.pattern", "severity": "ERROR"}
+    ]
+  },
+  {
+    "name": "Unicode length, ASCII digit classes, and a strict end anchor",
+    "model": {
+      "title": "a🛠",
+      "entries": [
+        {"status_label": "X-٤٢", "notes": "alpha\n"},
+        {"status_label": "R-62", "notes": "İ"}
+      ]
+    },
+    "issues": [
+      {"path": "/title", "code": "vmf.length", "severity": "ERROR"},
+      {"path": "/entries/0/statusLabel", "code": "vmf.pattern", "severity": "ERROR"},
+      {"path": "/entries/0/notes", "code": "vmf.pattern", "severity": "ERROR"},
+      {"path": "/entries/1/notes", "code": "vmf.pattern", "severity": "ERROR"}
+    ]
+  },
+  {
+    "name": "Required and optional null values",
+    "model": {
+      "title": "中",
+      "entries": [{"status_label": null, "sequence": null, "ratio": null, "notes": null}]
+    },
+    "issues": [{"path": "/entries/0/statusLabel", "code": "vmf.multiplicity", "severity": "ERROR"}]
+  },
+  {
+    "name": "Finite range rejects NaN",
+    "model": {"title": "A", "entries": [{"status_label": "X-12", "ratio": "NaN"}]},
+    "issues": [{"path": "/entries/0/ratio", "code": "vmf.range", "severity": "ERROR"}]
+  },
+  {
+    "name": "Java 11 decimal rounding at an exact floating bound",
+    "model": {
+      "title": "A",
+      "entries": [
+        {"status_label": "X-12", "largeBound": 1e23, "smallFloat": 1.4e-45, "smallDouble": 4.9e-324},
+        {"status_label": "X-13", "largeBound": 1.0000000000000001e23, "smallFloat": 2.8e-45, "smallDouble": 1e-323, "aboveFiniteDouble": 1.7976931348623157e308}
+      ]
+    },
+    "issues": [
+      {"path": "/entries/0/largeBound", "code": "vmf.range", "severity": "ERROR"},
+      {"path": "/entries/1/smallFloat", "code": "vmf.range", "severity": "ERROR"},
+      {"path": "/entries/1/smallDouble", "code": "vmf.range", "severity": "ERROR"},
+      {"path": "/entries/1/aboveFiniteDouble", "code": "vmf.range", "severity": "ERROR"}
+    ]
+  }
+]
