@@ -122,11 +122,8 @@ public class ScalarDefaultsTest {
                 () -> PortableCapabilities.validate(unsupported, "TypeScript"));
         assertTrue(typescriptExpressions.getMessage(),
                 typescriptExpressions.getMessage().contains(".executable uses declared default expressions"));
-        // TypeScript accepts literal defaults of its scalar types and still rejects the narrower Java types.
-        var typescript = assertThrows(IllegalArgumentException.class,
-                () -> PortableCapabilities.validate(model(ScalarDefaultLiterals.class), "TypeScript"));
-        assertFalse(typescript.getMessage(), typescript.getMessage().contains(".enabled uses declared default expressions"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".byteDefault has unsupported type"));
+        // TypeScript accepts literal defaults of all its scalar types, byte, short, float and char included (T6).
+        PortableCapabilities.validate(model(ScalarDefaultLiterals.class), "TypeScript");
     }
 
     @Test

@@ -109,10 +109,8 @@ public class PortableScalarsTest {
         assertTrue(required.isRequired());
         assertFalse(required.getValueType().isPrimitive());
 
-        var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertFalse(ts.getMessage(), ts.getMessage().contains(".long has unsupported type"));
-        assertFalse(ts.getMessage(), ts.getMessage().contains(".double has unsupported type"));
-        assertTrue(ts.getMessage(), ts.getMessage().contains(".boxedChar has unsupported type java.lang.Character"));
+        // T6: TypeScript maps every portable scalar, boxed char included.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
