@@ -172,7 +172,7 @@ final class UntypedListConformance {
         ObjectMapper mapper = format == VMFDocumentFormat.XML ? new XmlMapper()
                 : format == VMFDocumentFormat.YAML ? new YAMLMapper() : new ObjectMapper();
         return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                .withReferences(references));
+                .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void check(boolean condition, String detail) {

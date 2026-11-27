@@ -110,7 +110,7 @@ public final class ExecutableDefaultConformance {
 
     private static void documentValues() throws Exception {
         var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
         var changed = MutableDefaults.newBuilder().withLabel(null).withQuota(73).build();
         var wire = mapper.writeValueAsString(changed);
         var document = mapper.readTree(wire);
@@ -153,7 +153,7 @@ public final class ExecutableDefaultConformance {
         check(ClearedValueDefaults.newBuilder().build().getLabel() == null, "implicit null keeps parent provider dormant");
         events();
         var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
         check(mapper.readValue("{}", ReplacedValueDefaults.class).getLabel().equals("derived-value-12"),
                 "missing field receives effective default");
         events("derived-value-12");

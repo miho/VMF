@@ -41,7 +41,7 @@ public final class ImmutableEqualityOracle {
 
     private static void verifySnapshot(boolean references) {
         var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
         var original = value(107);
         int previousBindings = CodeEquality.created;
         try {

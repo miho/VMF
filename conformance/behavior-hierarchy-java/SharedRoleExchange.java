@@ -48,7 +48,7 @@ public final class SharedRoleExchange {
         for (boolean references : new boolean[]{true, false}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
                     .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                    .withModelWireTypeAliases(SharedArchive.class).withReferences(references));
+                    .withModelWireTypeAliases(SharedArchive.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String suffix = references ? "-shared-behavior-reference.json" : "-shared-behavior-by-value.json";
             String expected = mapper.writeValueAsString(graph);
             String wire = expected;

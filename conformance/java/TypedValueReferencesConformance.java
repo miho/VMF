@@ -60,6 +60,8 @@ final class TypedValueReferencesConformance {
 
         for (String format : FORMATS) {
             var io = mapper(format, false);
+            // The typed-value documents deliberately leave out the non-owning mutable references.
+            var omitting = mapper(format, VMFJacksonModule.ReferenceMode.OMIT);
             var graph = archive.vmf().content().deepCopy();
             var root = (ArchiveRoot) graph;
             rejects(() -> io.writeValueAsString(root), "ordered mutable reference set");
@@ -70,11 +72,11 @@ final class TypedValueReferencesConformance {
             root.getHead().setAnchor(ArchiveNode.newInstance());
             rejects(() -> io.writeValueAsString(keyed), "mutable model-valued key");
 
-            io.writeValue(file(directory, "java", "catalog", format).toFile(), catalog);
-            io.writeValue(file(directory, "java", "archive", format).toFile(), root);
-            io.writeValue(file(directory, "java", "mixed", format).toFile(), mixed);
-            io.writeValue(file(directory, "java", "immutable", format).toFile(), immutable);
-            io.writeValue(file(directory, "java", "collections", format).toFile(), collections);
+            omitting.writeValue(file(directory, "java", "catalog", format).toFile(), catalog);
+            omitting.writeValue(file(directory, "java", "archive", format).toFile(), root);
+            omitting.writeValue(file(directory, "java", "mixed", format).toFile(), mixed);
+            omitting.writeValue(file(directory, "java", "immutable", format).toFile(), immutable);
+            omitting.writeValue(file(directory, "java", "collections", format).toFile(), collections);
             String inline = document(format, INLINE_JSON, INLINE_XML);
             Files.writeString(file(directory, "java", "inline", format), inline);
             verifyInline(io.readValue(inline, ArchiveRoot.class));
@@ -140,6 +142,10 @@ final class TypedValueReferencesConformance {
     }
 
     private static ObjectMapper mapper(String format, boolean references) {
+        return mapper(format, references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.REJECT);
+    }
+
+    private static ObjectMapper mapper(String format, VMFJacksonModule.ReferenceMode references) {
         var mapper = format.equals("xml") ? new XmlMapper() : format.equals("yaml") ? new YAMLMapper() : new ObjectMapper();
         return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
                 .withReferences(references).withModelWireTypeAliases(Catalog.class).withModelWireTypeAliases(BadgeShowcase.class));

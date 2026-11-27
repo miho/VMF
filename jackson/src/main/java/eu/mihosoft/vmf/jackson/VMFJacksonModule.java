@@ -47,10 +47,11 @@ import java.util.regex.Pattern;
  * that map to the classes {@code Person} and {@code Employee} respectively.</p>
  *
  * <p><b>Containment and references.</b> By default the module writes the containment tree of a model:
- * contained objects, external values and immutable values. Non-containment references
- * ({@code @Refers} properties and other model-typed properties that are neither contained nor a
- * container) are not written. With {@link #withReferences(boolean) withReferences(true)} they are
- * written as ids and restored by identity, see {@link #withReferences(boolean)}.</p>
+ * contained objects, external values and immutable values. A non-containment reference to a mutable object
+ * ({@code @Refers} properties and other model-typed properties that are neither contained nor a container)
+ * cannot be represented, and writing such a model fails. With
+ * {@link #withReferences(boolean) withReferences(true)} references are written as ids and restored by
+ * identity; with {@link #withReferences(ReferenceMode) withReferences(ReferenceMode.OMIT)} they are left out.</p>
  *
  * <p>For durable edit history, capture a journal with
  * {@link eu.mihosoft.vmf.runtime.core.journal.JournalRecorder} and persist it with
@@ -87,10 +88,23 @@ public class VMFJacksonModule extends SimpleModule {
         RELEASE, EXPERIMENTAL
     }
 
+    /**
+     * How non-containment references to mutable model objects are written. References to immutable values are
+     * always written by value.
+     */
+    public enum ReferenceMode {
+        /** As the {@code @vmf-id} of their targets, restored by identity when reading. */
+        IDS,
+        /** Not at all: writing a model that has such a reference fails. The default. */
+        REJECT,
+        /** Not at all: such references are left out of the document, which then holds the containment tree only. */
+        OMIT
+    }
+
     private final Map<String, String> typeAliases = new HashMap<>();
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
 
-    private volatile boolean referencesEnabled;
+    private volatile ReferenceMode referenceMode = ReferenceMode.REJECT;
     private volatile boolean rootTypeDiscriminator;
     private volatile ModelRegistry modelRegistry;
     private volatile ModelValidator modelValidator;
@@ -162,21 +176,41 @@ public class VMFJacksonModule extends SimpleModule {
      * <p>Generate a matching JSON schema with
      * {@link VMFJsonSchemaGenerator#withReferences(boolean)} enabled as well.</p>
      *
-     * @param enabled {@code true} to read and write non-containment references
+     * @param enabled {@code true} to read and write non-containment references ({@link ReferenceMode#IDS}),
+     *                {@code false} to reject them when writing ({@link ReferenceMode#REJECT})
      * @return this module
      */
     public VMFJacksonModule withReferences(boolean enabled) {
-        this.referencesEnabled = enabled;
+        return withReferences(enabled ? ReferenceMode.IDS : ReferenceMode.REJECT);
+    }
+
+    /**
+     * Selects how non-containment references to mutable model objects are written. Use
+     * {@link ReferenceMode#OMIT} to write the containment tree of a model that has such references.
+     *
+     * @param mode the reference mode
+     * @return this module
+     */
+    public VMFJacksonModule withReferences(ReferenceMode mode) {
+        this.referenceMode = java.util.Objects.requireNonNull(mode, "mode");
         return this;
     }
 
     /**
+     * Returns how non-containment references to mutable model objects are written.
+     * @return the reference mode
+     */
+    public ReferenceMode getReferenceMode() {
+        return referenceMode;
+    }
+
+    /**
      * Indicates whether non-containment references are read and written.
-     * @return {@code true} if references are enabled
+     * @return {@code true} if the reference mode is {@link ReferenceMode#IDS}
      * @see #withReferences(boolean)
      */
     public boolean isReferencesEnabled() {
-        return referencesEnabled;
+        return referenceMode == ReferenceMode.IDS;
     }
 
     /**
@@ -1245,8 +1279,11 @@ public class VMFJacksonModule extends SimpleModule {
                 if (p.getType().isReferenceSetType()) {
                     var members = (eu.mihosoft.vmf.runtime.core.RefSet<?>) propValue;
                     if (session == null && VMFReferences.isReferenceProperty(p)
-                            && members.stream().anyMatch(value -> !(value instanceof Immutable)))
-                        throw JsonMappingException.from(gen, "Mutable reference collection " + p.getName() + " requires withReferences(true)");
+                            && members.stream().anyMatch(value -> !(value instanceof Immutable))) {
+                        if (module.getReferenceMode() == ReferenceMode.OMIT) continue;
+                        throw JsonMappingException.from(gen, "Mutable reference collection " + p.getName()
+                                + " requires withReferences(true) or ReferenceMode.OMIT");
+                    }
                     // Jackson's XML list wrapper and JSON arrays share the ordinary model-list representation.
                     List<Object> items = new ArrayList<>(members.size());
                     members.forEach(items::add);
@@ -1287,11 +1324,26 @@ public class VMFJacksonModule extends SimpleModule {
                     } else {
                         writeModelValue(gen, p, propValue);
                     }
+                } else if (session == null && VMFReferences.isReferenceProperty(p) && hasMutableTarget(propValue)
+                        && module.getReferenceMode() == ReferenceMode.REJECT) {
+                    // A document without references cannot represent this edge; OMIT leaves it out.
+                    throw JsonMappingException.from(gen, "Mutable reference " + p.getName()
+                            + " requires withReferences(true) or ReferenceMode.OMIT");
                 }
             }
 
             // End writing the object
             gen.writeEndObject();
+        }
+
+        private static boolean hasMutableTarget(Object value) {
+            if (value instanceof List<?>) {
+                for (Object item : (List<?>) value) {
+                    if (item instanceof VObject && !(item instanceof Immutable)) return true;
+                }
+                return false;
+            }
+            return value instanceof VObject && !(value instanceof Immutable);
         }
 
         private static boolean hasOnlyImmutableTargets(List<?> values) {

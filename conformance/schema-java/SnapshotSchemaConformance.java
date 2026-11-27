@@ -103,7 +103,7 @@ final class SnapshotSchemaConformance {
         for (boolean includeReferences : List.of(false, true)) {
             var validator = ModelValidator.builder().build();
             var checkedMapper = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE)
-                    .withReferences(includeReferences).withModelValidator(validator));
+                    .withReferences(includeReferences ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT).withModelValidator(validator));
             var loaded = checkedMapper.readValue(checkedMapper.writeValueAsString(cleared), CheckedOptionalDefaults.class);
             if (loaded.getLabel() != null || loaded.getLimit() != null || loaded.getEnabled() != null
                     || !validator.validate(loaded).isValid()) {
@@ -182,7 +182,7 @@ final class SnapshotSchemaConformance {
         String preferred = "sensor";
         for (boolean references : List.of(false, true)) {
             String name = "catalog-renamed-" + (references ? "references" : "values");
-            var configuredModule = VMFJacksonModule.newInstance(MODE).withReferences(references)
+            var configuredModule = VMFJacksonModule.newInstance(MODE).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT)
                     .withModelWireTypeAliases(Catalog.class).withTypeAlias(previous, canonical).withTypeAlias(preferred, canonical);
             var configured = new ObjectMapper().registerModule(configuredModule);
             if (produce) {
@@ -193,9 +193,9 @@ final class SnapshotSchemaConformance {
                 var catalog = Catalog.newInstance();
                 catalog.getProducts().add(sensor);
                 if (references) catalog.setFeatured(sensor);
-                var unaliased = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE).withReferences(references));
+                var unaliased = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
                 var legacy = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE)
-                        .withReferences(references).withModelWireTypeAliases(Catalog.class).withTypeAlias(previous, canonical));
+                        .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT).withModelWireTypeAliases(Catalog.class).withTypeAlias(previous, canonical));
                 writeCatalogTypeName(directory, name, "snapshot", preferred, configured, catalog);
                 writeCatalogTypeName(directory, name, "canonical", canonical, unaliased, catalog);
                 writeCatalogTypeName(directory, name, "previous", previous, legacy, catalog);
@@ -257,7 +257,7 @@ final class SnapshotSchemaConformance {
             for (var entry : mappers.entrySet()) {
                 String format = entry.getKey();
                 var mapper = entry.getValue().registerModule(VMFJacksonModule.newInstance(MODE)
-                        .withReferences(references).withModelWireTypeAliases(Catalog.class).withRootTypeDiscriminator(true));
+                        .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT).withModelWireTypeAliases(Catalog.class).withRootTypeDiscriminator(true));
                 String author = produce ? "java" : "csharp";
                 var product = directory.resolve(author + "-role-product-" + suffix + "-snapshot." + format);
                 var shelf = directory.resolve(author + "-role-shelf-" + suffix + "-snapshot." + format);
@@ -314,7 +314,7 @@ final class SnapshotSchemaConformance {
         for (boolean references : List.of(false, true)) {
             var standard = mapper(references).treeToValue(samples.get("missing"), InstrumentGroup.class);
             var configured = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE)
-                    .withReferences(references).withModelValidator(validator));
+                    .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT).withModelValidator(validator));
             var diagnostics = validator.validate(standard).getIssues();
             if (diagnostics.size() != 1 || !standard.vmf().content().validate().isValid()) {
                 throw new IllegalStateException("Stock alarm validation did not separate default and configured policies");
@@ -365,6 +365,6 @@ final class SnapshotSchemaConformance {
 
     private static ObjectMapper mapper(boolean references) {
         return new ObjectMapper().registerModule(VMFJacksonModule.newInstance(MODE)
-                .withReferences(references).withModelWireTypeAliases(Catalog.class));
+                .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT).withModelWireTypeAliases(Catalog.class));
     }
 }

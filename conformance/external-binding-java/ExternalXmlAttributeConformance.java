@@ -65,7 +65,7 @@ final class ExternalXmlAttributeConformance {
                     }
                 }))
                 .registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                        .withReferences(references));
+                        .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
         return mapper;
     }
 }

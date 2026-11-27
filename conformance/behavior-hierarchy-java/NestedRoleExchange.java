@@ -52,7 +52,7 @@ public final class NestedRoleExchange {
         var root = NestedRoleArchive.newBuilder().withItems(primary, secondary, inner, outer).withSelected(secondary).build();
         for (boolean references : new boolean[] {false, true}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String wire = mapper.writeValueAsString(root);
             var path = exchange.resolve((writing ? "java" : "csharp") + "-nested-roles-" + references + ".json");
             if (writing) Files.writeString(path, wire);

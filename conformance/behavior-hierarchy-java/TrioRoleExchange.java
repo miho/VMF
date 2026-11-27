@@ -51,7 +51,7 @@ public final class TrioRoleExchange {
         for (boolean references : new boolean[]{true, false}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
                     .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                    .withModelWireTypeAliases(TrioArchive.class).withReferences(references));
+                    .withModelWireTypeAliases(TrioArchive.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String suffix = references ? "-trio-role-reference.json" : "-trio-role-by-value.json";
             String expected = mapper.writeValueAsString(graph);
             String wire = expected;

@@ -29,7 +29,7 @@ final class ImmutableDataBasesExchange {
         for (boolean references : new boolean[]{true, false}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
                     .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                    .withModelWireTypeAliases(JoinedDataEnvelope.class).withReferences(references));
+                    .withModelWireTypeAliases(JoinedDataEnvelope.class).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String suffix = references ? "-joined-reference.json" : "-joined-by-value.json";
             String wire = mapper.writeValueAsString(envelope);
             if (writing) {
@@ -55,7 +55,7 @@ final class ImmutableDataBasesExchange {
 
     private static void verifyGetterOnlyDefaults(Path directory, boolean writing) throws Exception {
         var mapper = new ObjectMapper().registerModule(
-                VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+                VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
         var baseline = mapper.readValue("{}", DescribedValue.class);
         WithDisplayLabel label = baseline;
         WithTooltipText tooltip = baseline;

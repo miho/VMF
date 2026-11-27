@@ -33,7 +33,7 @@ final class SnapshotCollectionConformance {
                 ObjectMapper mapper = format.equals("xml") ? new XmlMapper()
                         : format.equals("yaml") ? new ObjectMapper(new YAMLFactory()) : new ObjectMapper();
                 mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                        .withReferences(references));
+                        .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
                 String prefix = (write ? "java-" : "csharp-") + "hooked-" + (references ? "refs-" : "plain-");
                 for (String state : List.of("omitted", "empty", "populated")) {
                     var document = directory.resolve(prefix + state + "." + format);

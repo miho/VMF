@@ -323,7 +323,7 @@ final class ConfiguredValidationConformance {
         for (boolean references : List.of(true, false)) {
             var defaultsMapper = new ObjectMapper().registerModule(
                     VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                            .withReferences(references).withModelValidator(defaultsRule));
+                            .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT).withModelValidator(defaultsRule));
             defaultsMapper.readValue("{}", DefaultSettings.class);
         }
         check(defaultsCalled.get() == 2, "default checks run once in each JSON profile");
@@ -346,7 +346,7 @@ final class ConfiguredValidationConformance {
                 var calls = new AtomicInteger();
                 var validator = ModelValidator.builder().withGraphRule((model, context) -> calls.incrementAndGet()).build();
                 mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                        .withReferences(references).withModelValidator(validator));
+                        .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT).withModelValidator(validator));
 
                 String scalars = mapper.writeValueAsString(sample);
                 var restored = mapper.readValue(scalars, ScalarSample.class);

@@ -1199,7 +1199,7 @@ public final class OrdinaryContainmentConformance {
             default: mapper = new ObjectMapper();
         }
         return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                .withReferences(references));
+                .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void check(boolean condition, String message) {

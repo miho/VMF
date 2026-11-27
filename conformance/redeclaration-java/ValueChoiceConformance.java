@@ -126,7 +126,8 @@ public final class ValueChoiceConformance {
             case YAML: mapper = new YAMLMapper(); break;
             default: mapper = new ObjectMapper();
         }
-        return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(refs));
+        return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+                .withReferences(refs ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static void check(boolean condition, String detail) {

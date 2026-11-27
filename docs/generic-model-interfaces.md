@@ -108,4 +108,4 @@ var mapper = new ObjectMapper().registerModule(VMFJacksonModule.newInstance(mode
 Catalog catalog = mapper.readValue("{\"items\":[{\"sku\":\"G-27\"}]}", Catalog.class);
 ```
 
-Use the default mapper for inline values. Enable `withReferences(true)` to preserve links such as `featured` pointing at a specific product, or two products sharing the same immutable label. A stored journal identifies the targets of later edits through its binding. [Snapshot formats](../jackson/README.md) · [Change journals](change-journal.md)
+Use the default mapper for inline values. It rejects a model whose mutable references, such as `featured`, are set. Enable `withReferences(true)` to preserve such links, or two products sharing the same immutable label, or choose `withReferences(VMFJacksonModule.ReferenceMode.OMIT)` to leave them out. A stored journal identifies the targets of later edits through its binding. [Snapshot formats](../jackson/README.md) · [Change journals](change-journal.md)

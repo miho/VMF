@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 
 public final class ExactRedeclarationsConformance {
     private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(VMFJacksonModule
-            .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+            .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
 
     private ExactRedeclarationsConformance() { }
 
@@ -56,7 +56,7 @@ public final class ExactRedeclarationsConformance {
                 "Reflection describes the locally redeclared slot once");
         for (boolean references : List.of(false, true)) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             var expected = mapper.writeValueAsString(value);
             var fields = mapper.readTree(expected);
             check(fields.has("name") && !fields.has("label"), "Only the local wire name is used");

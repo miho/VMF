@@ -178,7 +178,7 @@ final class ExternalValueConformance {
             default: mapper = new ObjectMapper();
         }
         return mapper.registerModule(VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
-                .withReferences(references));
+                .withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static Path journalPath(Path directory, String source, VMFDocumentFormat format) {

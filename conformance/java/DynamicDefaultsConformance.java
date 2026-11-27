@@ -85,7 +85,7 @@ final class DynamicDefaultsConformance {
         check(((List<?>) view.getDefault()).get(0) == target.asReadOnly(), "Read-only reference defaults project their members");
 
         var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
         var restored = mapper.readValue(mapper.writeValueAsString(profile), CollectionProfile.class);
         check(restored.getCounts().equals(List.of(2, 1)) && field(restored, "counts").getDefault().equals(List.of()),
                 "Documents store current values without their default override");

@@ -14,7 +14,7 @@ public final class MutableToStringExchange {
     public static void verify(Path exchange, boolean write) throws IOException {
         for (boolean references : new boolean[]{false, true}) {
             var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+                    .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
             String suffix = references ? "-caption-reference.json" : "-caption-by-value.json";
             if (write) {
                 var value = exercise(mapper);

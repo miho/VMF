@@ -17,7 +17,7 @@ import java.util.Map;
 
 public final class CollectionDefaultConformance {
     private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(
-            VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+            VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
 
     private CollectionDefaultConformance() { }
 

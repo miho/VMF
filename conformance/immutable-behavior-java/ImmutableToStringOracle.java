@@ -29,7 +29,7 @@ public final class ImmutableToStringOracle {
 
     private static void verifySnapshots(boolean references) {
         var mapper = new ObjectMapper().registerModule(VMFJacksonModule
-                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+                .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
         var value = TextSummary.newBuilder().withLabel("snapshot").build();
         int previousBindings = TextBinding.created;
         try {

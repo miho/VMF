@@ -1,5 +1,6 @@
 package eu.mihosoft.vmf.jackson.test.references01;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
@@ -9,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -74,8 +76,21 @@ public class IssueExampleTest {
     }
 
     @Test
-    void referencesAreNotWrittenByDefault() throws Exception {
+    void referencesAreRejectedByDefault() {
         VMFJacksonModule module = module();
+        assertFalse(module.isReferencesEnabled());
+        assertEquals(VMFJacksonModule.ReferenceMode.REJECT, module.getReferenceMode());
+
+        ObjectMapper mapper = new ObjectMapper().registerModule(module);
+
+        var error = assertThrows(JsonMappingException.class, () -> mapper.writeValueAsString(document()));
+        assertTrue(error.getMessage().contains("requires withReferences(true) or ReferenceMode.OMIT"),
+                error.getMessage());
+    }
+
+    @Test
+    void referencesCanBeOmitted() throws Exception {
+        VMFJacksonModule module = module().withReferences(VMFJacksonModule.ReferenceMode.OMIT);
         assertFalse(module.isReferencesEnabled());
 
         ObjectMapper mapper = new ObjectMapper().registerModule(module);
@@ -93,6 +108,8 @@ public class IssueExampleTest {
     void referencesCanBeSwitchedOff() {
         VMFJacksonModule module = module().withReferences(true);
         assertTrue(module.isReferencesEnabled());
+        assertEquals(VMFJacksonModule.ReferenceMode.IDS, module.getReferenceMode());
         assertFalse(module.withReferences(false).isReferencesEnabled());
+        assertEquals(VMFJacksonModule.ReferenceMode.REJECT, module.getReferenceMode());
     }
 }

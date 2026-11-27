@@ -21,7 +21,7 @@ import java.util.Set;
 
 public final class ConcreteBasesConformance {
     private static final ObjectMapper MAPPER = new ObjectMapper().registerModule(VMFJacksonModule
-            .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(false));
+            .newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(VMFJacksonModule.ReferenceMode.OMIT));
 
     private ConcreteBasesConformance() { }
 

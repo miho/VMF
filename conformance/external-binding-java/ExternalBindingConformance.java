@@ -266,7 +266,7 @@ final class ExternalBindingConformance {
             default: mapper = new ObjectMapper();
         }
         return mapper.registerModule(distanceModule(hostMetadata)).registerModule(
-                VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references));
+                VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL).withReferences(references ? VMFJacksonModule.ReferenceMode.IDS : VMFJacksonModule.ReferenceMode.OMIT));
     }
 
     private static SimpleModule distanceModule(boolean hostMetadata) {

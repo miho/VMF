@@ -131,12 +131,14 @@ How the runners reach the generated code:
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 16 of 16 | 122 of 123 | its plain JSON omits single references and reference lists (as vmf-jackson documents) instead of rejecting them |
+| Java | 16 of 16 | 123 of 123 | none |
 | C# | 16 of 16 | 123 of 123 | none |
 | TypeScript | 15 of 16 | 106 of 106 (claims core, events, history and json; 17 scenarios of views, reflection and equality modes skipped) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
-(Java and C#), and content equality of `@Immutable` types was identity (Java).
+(Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
+change: Java's plain documents used to leave out references to mutable objects; they now reject them like C#
+and TypeScript, and `VMFJacksonModule.ReferenceMode.OMIT` restores the old behavior.
 
 The TypeScript generator also rejects `@Immutable` types (views module, not claimed yet). Before this contract
 it accepted 2 of the 15 models; supporting the core took about 700 lines of runtime code and 230 lines of
