@@ -6,7 +6,10 @@ export { ScalarList } from "./collections.js";
 export { changesOf, edit, ModelChanges, ModelEdit } from "./changes.js";
 export type { ChangeKind, ListenerScope, ModelChange, ModelChangeListener } from "./changes.js";
 export { contentEquals, contentHashCode, deepCopy } from "./content.js";
-export type { ValidationIssue } from "./validation.js";
+export {
+    checkBoundPattern, checkFloatRange, checkLength, checkMultiplicity, checkPattern, checkRange, validateTree,
+} from "./validation.js";
+export type { ValidatedModel, ValidationIssue, ValidationSeverity, ValidationTask } from "./validation.js";
 export { SnapshotRegistry } from "./snapshot-registry.js";
 export type { ModelConstructor, ScalarType, SnapshotProperty, SnapshotType } from "./snapshot-registry.js";
 export { SnapshotJson } from "./snapshot-json.js";
