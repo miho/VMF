@@ -41,19 +41,22 @@ import java.util.stream.Collectors;
 /** Checks the subset shared by portable model backends before opening any output files. */
 public final class PortableCapabilities {
     private static final Set<String> RESERVED_WIRE_FIELDS = Set.of("@vmf-type", "@vmf-id");
-    private static final Set<ValueType.Kind> BASELINE_TYPES = Set.of(ValueType.Kind.BOOLEAN, ValueType.Kind.INT32,
-            ValueType.Kind.STRING, ValueType.Kind.MODEL, ValueType.Kind.PARAMETER);
+    private static final Set<ValueType.Kind> TYPESCRIPT_TYPES = Set.of(ValueType.Kind.BOOLEAN, ValueType.Kind.INT32,
+            ValueType.Kind.INT64, ValueType.Kind.FLOAT64, ValueType.Kind.STRING, ValueType.Kind.MODEL,
+            ValueType.Kind.PARAMETER);
     private static final Set<String> OBJECT_METHODS = Set.of("equals", "hashCode", "toString", "clone", "finalize");
 
     enum Profile {
-        BASELINE, CSHARP
+        /** The TypeScript generator: the portable core contract without language-specific extras. */
+        TYPESCRIPT,
+        CSHARP
     }
 
     private PortableCapabilities() {
     }
 
     public static void validate(ResolvedModel model, String targetName) {
-        validate(model, targetName, Profile.BASELINE);
+        validate(model, targetName, Profile.TYPESCRIPT);
     }
 
     static void validate(ResolvedModel model, String targetName, Profile profile) {
@@ -75,7 +78,6 @@ public final class PortableCapabilities {
                 validateProperty(model, type, property, profile, diagnostics);
             }
         }
-        if (profile == Profile.BASELINE) checkContainmentCycles(model, diagnostics);
         if (!diagnostics.isEmpty()) {
             throw new IllegalArgumentException("Unsupported declarations for the " + targetName + " target:\n - "
                     + String.join("\n - ", diagnostics));
@@ -88,7 +90,7 @@ public final class PortableCapabilities {
             type.getEffectiveProperties().forEach(property -> validatePatternBindings(name, property, diagnostics));
         }
         if (type.isImmutable()) {
-            if (profile == Profile.BASELINE) {
+            if (profile == Profile.TYPESCRIPT) {
                 diagnostics.add(name + " uses an immutable type");
             } else if (type.isInterfaceOnly()) {
                 diagnostics.add(name + " needs a concrete immutable declaration");
@@ -107,10 +109,12 @@ public final class PortableCapabilities {
             if (feature == Feature.CUSTOM_EQUALITY && profile == Profile.CSHARP && type.isStructuralEquality()) {
                 continue;
             }
+            // TypeScript has no language equality to configure; content equality is always generated.
+            if (feature == Feature.CUSTOM_EQUALITY && profile == Profile.TYPESCRIPT) continue;
             diagnostics.add(name + " uses " + feature.getDescription());
         }
         if (type.getSuperTypeApplications().size() > 1) {
-            if (profile == Profile.BASELINE) {
+            if (profile == Profile.TYPESCRIPT) {
                 diagnostics.add(name + " extends more than one model type");
             } else {
                 PortableInheritance.checkCSharpComposition(model, type, diagnostics);
@@ -815,12 +819,15 @@ public final class PortableCapabilities {
             }
             if ((executableDefault || collectionDefault || literalCollectionDefault || referenceDefault)
                     && feature == Feature.DEFAULT_VALUE) continue;
-            if (profile == Profile.CSHARP && (feature == Feature.VALUE_CONSTRAINT
-                    || feature == Feature.READ_ONLY && property.isSharedContainer())) continue;
+            if (profile == Profile.TYPESCRIPT && feature == Feature.DEFAULT_VALUE
+                    && property.getKind() == Property.Kind.SCALAR && !property.isCollection()
+                    && property.getScalarDefault().isPresent()) continue;
+            if (profile == Profile.CSHARP && feature == Feature.VALUE_CONSTRAINT) continue;
+            if (feature == Feature.READ_ONLY && property.isSharedContainer()) continue;
             diagnostics.add(name + " uses " + feature.getDescription());
         }
 
-        if (property.isGetterOnly() && (profile == Profile.BASELINE || (!owner.isImmutable() && !owner.isInterfaceOnly()))
+        if (property.isGetterOnly() && (profile == Profile.TYPESCRIPT || (!owner.isImmutable() && !owner.isInterfaceOnly()))
                 && !property.getFeatures().contains(Feature.READ_ONLY)) {
             diagnostics.add(name + " uses " + Feature.READ_ONLY.getDescription());
         }
@@ -840,15 +847,17 @@ public final class PortableCapabilities {
                     ? property.isOrdered() && !property.isUnique() && property.allowsNullElements()
                     : property.getLowerBound() == 0 && property.getUpperBound() == 1);
         if (valueType.getKind() == ValueType.Kind.EXTERNAL && !external && !objectGetter && !objectValue
-                || (profile == Profile.BASELINE && !BASELINE_TYPES.contains(valueType.getKind()))) {
+                || (profile == Profile.TYPESCRIPT && !TYPESCRIPT_TYPES.contains(valueType.getKind()))) {
             diagnostics.add(name + " has unsupported type " + valueType.getSourceType());
         }
 
         switch (property.getKind()) {
             case SCALAR:
                 if (property.isCollection()) {
-                    if (profile == Profile.BASELINE) {
-                        diagnostics.add(name + " needs a scalar with upper bound 1");
+                    if (profile == Profile.TYPESCRIPT) {
+                        if (!property.isOrdered() || property.isUnique()) {
+                            diagnostics.add(name + " needs an ordered scalar list");
+                        }
                     } else if (!external && !objectValue && !isScalarSlot(owner, valueType)) {
                         diagnostics.add(name + " needs a concrete portable scalar element type");
                     }
@@ -866,10 +875,11 @@ public final class PortableCapabilities {
                 if (!isSupportedReference(property, profile)) {
                     String forms = profile == Profile.CSHARP
                             ? "a single-valued reference, an ordered reference sequence, or an identity reference set"
-                            : "a single-valued reference or an unbounded unordered identity reference set, both without an opposite";
+                            : "a single-valued reference, an ordered reference list, or an unbounded unordered identity"
+                                + " reference set without an opposite";
                     diagnostics.add(name + " needs " + forms);
                 }
-                if (profile == Profile.CSHARP && !property.getOppositeName().isEmpty()) {
+                if (!property.getOppositeName().isEmpty()) {
                     checkOpposite(model, owner, property, Property.Kind.REFERENCE, profile, name, diagnostics);
                 }
                 break;
@@ -877,7 +887,7 @@ public final class PortableCapabilities {
                 if (valueType.getModelType() == null || !isSupportedContainment(property, profile)) {
                     String forms = profile == Profile.CSHARP
                             ? "a single-valued containment, an ordered collection, or an identity set"
-                            : "an ordered identity set of model objects for containment";
+                            : "a single-valued containment or an ordered collection of model objects";
                     diagnostics.add(name + " needs " + forms);
                 }
                 if (profile == Profile.CSHARP && isImmutableType(model, valueType)) {
@@ -893,11 +903,11 @@ public final class PortableCapabilities {
                 break;
             case CONTAINER:
                 if (property.isCollection() || !isSupportedSingularBound(property, profile)
-                        || profile == Profile.BASELINE && property.getLowerBound() != 0) {
+                        || profile == Profile.TYPESCRIPT && property.getLowerBound() != 0) {
                     diagnostics.add(name + " needs " + (profile == Profile.CSHARP
                             ? "a single-valued container" : "an optional single-valued container"));
                 }
-                if (profile == Profile.CSHARP && property.isSharedContainer()) {
+                if (property.isSharedContainer()) {
                     if (valueType.getKind() != ValueType.Kind.MODEL || !valueType.getArguments().isEmpty()
                             || isImmutableType(model, valueType) || isGetterOnlyTrait(model, valueType)) {
                         diagnostics.add(name + " needs a named mutable model as its shared container type");
@@ -951,9 +961,10 @@ public final class PortableCapabilities {
         if (property.isCollection()) {
             if (!property.isOrdered()) return profile == Profile.CSHARP && property.isUnique()
                     && (property.getEntryKey().isEmpty() || property.getOppositeName().isEmpty());
-            return property.isUnique() || profile == Profile.CSHARP;
+            // A child has one container, so every ordered containment list holds each child once.
+            return true;
         }
-        return profile == Profile.CSHARP && isSupportedSingularBound(property, profile);
+        return isSupportedSingularBound(property, profile);
     }
 
     private static boolean isSupportedSingularBound(Property property, Profile profile) {
@@ -983,12 +994,13 @@ public final class PortableCapabilities {
     }
 
     private static boolean isSupportedReference(Property property, Profile profile) {
-        if (property.getValueType().getModelType() == null
-                || profile == Profile.BASELINE && !property.getOppositeName().isEmpty()) return false;
+        if (property.getValueType().getModelType() == null) return false;
         if (!property.isCollection()) return isSupportedSingularBound(property, profile);
-        if (property.isOrdered()) return profile == Profile.CSHARP;
+        boolean opposite = !property.getOppositeName().isEmpty();
+        // TypeScript reference lists allow repeats unless an opposite keeps each member once.
+        if (property.isOrdered()) return profile == Profile.CSHARP || !property.isUnique() || opposite;
         return property.isUnique() && (profile == Profile.CSHARP
-                || property.getLowerBound() == 0 && property.getUpperBound() == -1);
+                || !opposite && property.getLowerBound() == 0 && property.getUpperBound() == -1);
     }
 
     private static void checkOpposite(ResolvedModel model, Type owner, Property property,
@@ -1002,16 +1014,20 @@ public final class PortableCapabilities {
             return;
         }
         var target = model.findType(property.getValueType().getModelType());
-        var opposite = target.flatMap(type -> type.getProperties().stream()
-                .filter(candidate -> candidate.getName().equals(property.getOppositeName()))
-                .findFirst());
-        if (opposite.isEmpty() || !matchesOpposite(owner, property, opposite.get(), oppositeKind)) {
+        var opposite = target.flatMap(type -> findProperty(type, property.getOppositeName()));
+        if (opposite.isEmpty() || !matchesTypeScriptOpposite(model, owner, property, opposite.get(), oppositeKind)) {
             diagnostics.add(name + " needs a matching reciprocal " + oppositeKind.name().toLowerCase(Locale.ROOT)
                     + " property on a local model type");
-        } else if (participatesInInheritance(model, owner)
-                || participatesInInheritance(model, target.orElseThrow())) {
-            diagnostics.add(name + " uses an opposite on a type that participates in inheritance");
         }
+    }
+
+    /** The opposite names this property back (or is a shared container) and accepts the owner type. */
+    private static boolean matchesTypeScriptOpposite(ResolvedModel model, Type owner, Property property,
+                                                     Property opposite, Property.Kind oppositeKind) {
+        if (opposite.getKind() != oppositeKind) return false;
+        boolean named = property.getName().equals(opposite.getOppositeName())
+                || oppositeKind == Property.Kind.CONTAINER && opposite.isSharedContainer();
+        return named && assignable(model, owner, opposite.getValueType().getModelType());
     }
 
     private static boolean hasSupportedOpposite(ResolvedModel model, Type owner, Property property,
@@ -1251,36 +1267,5 @@ public final class PortableCapabilities {
                 && property.getName().equals(opposite.getOppositeName());
     }
 
-    private static void checkContainmentCycles(ResolvedModel model, List<String> diagnostics) {
-        var visiting = new HashSet<String>();
-        var visited = new HashSet<String>();
-        for (var type : model.getTypes()) {
-            checkContainmentCycles(model, type, visiting, visited, diagnostics);
-        }
-    }
-
-    private static void checkContainmentCycles(ResolvedModel model, Type type, Set<String> visiting,
-                                               Set<String> visited, List<String> diagnostics) {
-        if (visited.contains(type.getName())) return;
-        visiting.add(type.getName());
-
-        for (var property : type.getEffectiveProperties()) {
-            if (property.getKind() != Property.Kind.CONTAINMENT) continue;
-            String expected = property.getValueType().getModelType();
-            if (expected == null) continue;
-            for (var target : model.getTypes()) {
-                if (!target.getName().equals(expected) && !model.isSubtypeOf(target, expected)) continue;
-                if (visiting.contains(target.getName())) {
-                    diagnostics.add(type.getQualifiedName() + "." + property.getName()
-                            + " introduces a containment type cycle through " + target.getQualifiedName());
-                } else {
-                    checkContainmentCycles(model, target, visiting, visited, diagnostics);
-                }
-            }
-        }
-
-        visiting.remove(type.getName());
-        visited.add(type.getName());
-    }
 
 }

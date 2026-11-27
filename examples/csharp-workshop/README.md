@@ -97,11 +97,19 @@ Java Jackson.
 ## Supported C# and TypeScript declarations
 
 Both targets support mutable models, single inheritance, named model-bounded
-generic specializations, string, boolean, and 32-bit integer properties,
-ordered identity containment, single-valued non-owning references, and
-unbounded unordered identity reference sets. Reciprocal containment is
-supported on types outside an inheritance hierarchy. Multiplicity validation
-runs over containment.
+generic specializations, string, boolean, 32- and 64-bit integer, and double
+properties, scalar lists, single-valued and ordered list containment including
+recursive types and container properties declared on base types, single-valued
+and ordered list references with or without an opposite, unbounded unordered
+identity reference sets, literal scalar defaults, content equality, and deep
+copies. Both reject containment cycles. Multiplicity validation runs over
+containment. The [portable contract](../../conformance/portable/CONTRACT.md)
+scenarios check this shared behavior on Java, C#, and TypeScript.
+
+TypeScript represents `long` as `bigint`. It does not yet support several
+model supertypes, immutable types, read-only views, change listeners, or
+recording. Its snapshot JSON does not yet write scalar lists, reference lists,
+or 64-bit integers.
 
 The C# backend also generates live read-only projections of these mutable
 models and standalone immutable types with scalar properties and single

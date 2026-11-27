@@ -99,7 +99,13 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
         const fieldPath = childPath(path, name);
         const value = property.get(instance);
         switch (property.kind) {
+            case "scalarList":
+            case "referenceList":
+                throw unsupported(fieldPath, property.kind);
             case "scalar":
+                if (property.scalarType === "int64") {
+                    throw unsupported(fieldPath, "int64");
+                }
                 if (value === null || value === undefined) {
                     if (!allowsNull(property)) {
                         throw invalid(fieldPath, `Expected a JSON value of type '${property.scalarType}'`);
@@ -245,7 +251,13 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
         }
         const fieldPath = childPath(path, property.wireName);
         switch (property.kind) {
+            case "scalarList":
+            case "referenceList":
+                throw unsupported(fieldPath, property.kind);
             case "scalar":
+                if (property.scalarType === "int64") {
+                    throw unsupported(fieldPath, "int64");
+                }
                 property.set(result, readScalar(value, property, fieldPath));
                 break;
             case "containment":
@@ -330,6 +342,9 @@ function readScalar(value: JsonValue, property: ScalarProperty, path: string): S
     if (property.scalarType === "int32" && value instanceof JsonNumber && isIntegerToken(value.text)) {
         return requireScalar(Number(value.text), property, path);
     }
+    if (property.scalarType === "float64" && value instanceof JsonNumber) {
+        return requireScalar(Number(value.text), property, path);
+    }
     return requireScalar(value, property, path);
 }
 
@@ -344,6 +359,9 @@ function requireScalar(value: unknown, property: ScalarProperty, path: string): 
     if (property.scalarType === "int32" && typeof value === "number" && Number.isInteger(value)
         && value >= -2147483648 && value <= 2147483647) {
         return value === 0 ? 0 : value;
+    }
+    if (property.scalarType === "float64" && typeof value === "number" && Number.isFinite(value)) {
+        return value;
     }
     throw invalid(path, `Expected a JSON value of type '${property.scalarType}'`);
 }
@@ -371,6 +389,10 @@ function nativeType(value: object, path: string): ModelConstructor<object> {
         throw invalid(path, "Expected a native VMF model object");
     }
     return constructor as ModelConstructor<object>;
+}
+
+function unsupported(path: string, kind: string): TypeError {
+    return new TypeError(`Snapshot JSON does not support ${kind} properties yet at ${path}.`);
 }
 
 function invalid(path: string, message: string): TypeError {

@@ -35,6 +35,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -46,15 +47,19 @@ final class TypeScriptRenderModel {
             "(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])");
     private static final Set<String> RESERVED_MEMBERS = Set.of(
             "constructor", "__proto__", "validate", "__vmfValidateInto", "__vmfContainerLink",
+            "contentEquals", "contentHashCode", "deepCopy",
             "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable", "toLocaleString", "toString", "valueOf");
     private static final String BRAND_PREFIX = "__vmfBrand_";
+    private static final String INTERNAL_PREFIX = "__vmf";
 
+    private final ResolvedModel model;
     private final String outputPath;
     private final Map<String, String> typeNames = new LinkedHashMap<>();
     private final List<Map<String, Object>> types;
     private final TypeScriptSnapshotRenderModel snapshots;
 
     TypeScriptRenderModel(ResolvedModel model) {
+        this.model = model;
         outputPath = Arrays.stream(model.getNamespace().split("\\.", -1))
                 .map(part -> namespacePart(part, model.getNamespace()))
                 .collect(Collectors.joining("/")) + "/model.g.ts";
@@ -120,21 +125,21 @@ final class TypeScriptRenderModel {
         Set<String> members = new HashSet<>(RESERVED_MEMBERS);
         for (Property property : type.getEffectiveProperties()) {
             String member = propertyName(type, property);
-            if (!members.add(member) || member.startsWith(BRAND_PREFIX)) {
+            if (!members.add(member) || member.startsWith(INTERNAL_PREFIX)) {
                 throw invalidName(type.getQualifiedName() + "." + property.getName(), member,
                         "conflicts with another TypeScript member");
             }
         }
 
         List<Map<String, Object>> properties = new ArrayList<>();
-        List<String> containments = new ArrayList<>();
+        List<Map<String, Object>> containments = new ArrayList<>();
         List<Map<String, Object>> multiplicities = new ArrayList<>();
         String owner = apply(name, parameters);
         for (Property property : type.getProperties()) {
             String member = propertyName(type, property);
             properties.add(prepareMember(owner, member, property));
             if (property.getKind() == Property.Kind.CONTAINMENT) {
-                containments.add(member);
+                containments.add(Map.of("name", member, "many", property.isCollection()));
             }
             addMultiplicity(property, member, multiplicities);
         }
@@ -156,27 +161,145 @@ final class TypeScriptRenderModel {
 
     private Map<String, Object> prepareMember(String owner, String member, Property property) {
         String target = typeName(property.getValueType());
+        String name = quoted(member);
         switch (property.getKind()) {
             case CONTAINMENT:
-                return field("readonly " + member + " = new vmf.ContainmentList<" + owner + ", "
-                        + target + ">(this, child => child.__vmfContainerLink);");
-            case CONTAINER:
-                return Map.of("container", true, "name", member, "type", target,
-                        "opposite", checkedIdentifier(property.getOppositeName(), owner + "." + member + " opposite"));
-            case REFERENCE:
                 if (property.isCollection()) {
-                    return field("readonly " + member + " = new vmf.ReferenceSet<" + target + ">();");
+                    return field("readonly " + member + " = new vmf.ContainmentList<" + owner + ", "
+                            + target + ">(this, " + name + ", child => child.__vmfContainerLink);");
                 }
-                return field(member + ": " + target + " | null = null;");
+                return field("/** @internal */\n"
+                        + "    readonly __vmfSlot_" + member + " = new vmf.ContainmentSlot<" + owner + ", " + target
+                        + ">(this, " + name + ", child => child.__vmfContainerLink);\n\n"
+                        + accessor(member, target, "this.__vmfSlot_" + member + ".value",
+                                "this.__vmfSlot_" + member + ".set(value);"));
+            case CONTAINER:
+                return prepareContainer(owner, member, property, target);
+            case REFERENCE: {
+                String opposite = property.getOppositeName();
+                if (property.isCollection()) {
+                    if (!property.isOrdered()) {
+                        return field("readonly " + member + " = new vmf.ReferenceSet<" + target + ">();");
+                    }
+                    String arguments = opposite.isEmpty() ? "this" : "this, " + name + ", "
+                            + quoted(checkedIdentifier(opposite, owner + "." + member + " opposite"));
+                    return field("readonly " + member + " = new vmf.ReferenceList<" + target + ">(" + arguments + ");");
+                }
+                if (opposite.isEmpty()) {
+                    return field(member + ": " + target + " | null = null;");
+                }
+                String oppositeName = quoted(checkedIdentifier(opposite, owner + "." + member + " opposite"));
+                return field("/** @internal */\n"
+                        + "    readonly __vmfRef_" + member + " = new vmf.ReferenceSlot<" + target + ">();\n\n"
+                        + accessor(member, target, "this.__vmfRef_" + member + ".value",
+                                "vmf.setReference(this, value, " + name + ", " + oppositeName + ");"));
+            }
             case SCALAR:
-                if (property.getValueType().isPrimitive()) {
-                    String initial = property.getValueType().getKind() == ValueType.Kind.BOOLEAN ? "false" : "0";
-                    return field(member + ": " + target + " = " + initial + ";");
+                if (property.isCollection()) {
+                    String element = target + (property.allowsNullElements() ? " | null" : "");
+                    return field("readonly " + member + " = new vmf.ScalarList<" + element + ">();");
                 }
-                return field(member + ": " + target + " | null = null;");
+                if (property.getValueType().isPrimitive()) {
+                    return field(member + ": " + target + " = " + initialValue(property) + ";");
+                }
+                return field(member + ": " + target + " | null = " + initialValue(property) + ";");
             default:
                 throw new IllegalStateException("Unsupported property kind " + property.getKind());
         }
+    }
+
+    private static String accessor(String member, String type, String read, String write) {
+        return "    get " + member + "(): " + type + " | null {\n"
+                + "        return " + read + ";\n"
+                + "    }\n\n"
+                + "    set " + member + "(value: " + type + " | null) {\n"
+                + "        " + write + "\n"
+                + "    }";
+    }
+
+    /**
+     * A container property reads the owner from the containment link. With a declared opposite it can also be set;
+     * a shared container (no opposite) accepts every containment property that names it as its opposite.
+     */
+    private Map<String, Object> prepareContainer(String owner, String member, Property property, String target) {
+        Type containerType = model.findType(property.getValueType().getModelType()).orElseThrow();
+        List<String> owners = new ArrayList<>();
+        String attach = "";
+        if (property.getOppositeName().isEmpty()) {
+            for (Type candidate : model.getTypes()) {
+                if (!isSubtype(candidate, containerType.getName())) continue;
+                for (Property containment : candidate.getEffectiveProperties()) {
+                    if (containment.getKind() == Property.Kind.CONTAINMENT
+                            && containment.getOppositeName().equals(property.getName())
+                            && !owners.contains(containment.getName())) {
+                        owners.add(containment.getName());
+                    }
+                }
+            }
+        } else {
+            String opposite = checkedIdentifier(property.getOppositeName(), owner + "." + member + " opposite");
+            owners.add(opposite);
+            Property inverse = containerType.getEffectiveProperties().stream()
+                    .filter(candidate -> candidate.getName().equals(opposite)).findFirst().orElseThrow();
+            attach = inverse.isCollection() ? "value." + opposite + ".add(this)" : "value." + opposite + " = this";
+        }
+        return Map.of("container", true, "name", member, "type", target,
+                "ownerType", typeName(containerType),
+                "owners", owners.stream().map(TypeScriptRenderModel::quoted).collect(Collectors.joining(", ")),
+                "settable", !attach.isEmpty(), "attach", attach);
+    }
+
+    private boolean isSubtype(Type type, String superTypeName) {
+        if (type.getName().equals(superTypeName)) return true;
+        for (String parent : type.getSuperTypes()) {
+            Optional<Type> parentType = model.findType(parent);
+            if (parentType.isPresent() && isSubtype(parentType.get(), superTypeName)) return true;
+        }
+        return false;
+    }
+
+    private static String initialValue(Property property) {
+        if (property.hasDeclaredDefault() && property.getScalarDefault().isPresent()) {
+            ResolvedModel.ScalarDefault declared = property.getScalarDefault().get();
+            return declared.isNull() ? "null" : literal(declared.getKind(), declared.getValue());
+        }
+        ValueType value = property.getValueType();
+        if (!value.isPrimitive()) {
+            return "null";
+        }
+        switch (value.getKind()) {
+            case BOOLEAN:
+                return "false";
+            case INT64:
+                return "0n";
+            default:
+                return "0";
+        }
+    }
+
+    private static String literal(ValueType.Kind kind, Object value) {
+        switch (kind) {
+            case STRING:
+                return quoted(String.valueOf(value));
+            case BOOLEAN:
+                return String.valueOf(value);
+            case INT32:
+                return String.valueOf(((Number) value).intValue());
+            case INT64:
+                return ((Number) value).longValue() + "n";
+            case FLOAT64: {
+                double number = ((Number) value).doubleValue();
+                if (Double.isNaN(number)) return "Number.NaN";
+                if (Double.isInfinite(number)) return number > 0 ? "Number.POSITIVE_INFINITY" : "Number.NEGATIVE_INFINITY";
+                return Double.toString(number);
+            }
+            default:
+                throw new IllegalStateException("Unsupported TypeScript default of kind " + kind);
+        }
+    }
+
+    static String quoted(String text) {
+        return TypeScriptSnapshotRenderModel.literal(text);
     }
 
     private static Map<String, Object> field(String declaration) {
@@ -220,7 +343,10 @@ final class TypeScriptRenderModel {
             case BOOLEAN:
                 return "boolean";
             case INT32:
+            case FLOAT64:
                 return "number";
+            case INT64:
+                return "bigint";
             case STRING:
                 return "string";
             case PARAMETER:

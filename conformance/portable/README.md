@@ -11,6 +11,7 @@ conformance/portable/
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
   java/                       model generation helper and the Java runner
   csharp/                     the C# runner
+  typescript/                 the TypeScript runner (runner.mjs) and the project that compiles the generated code
   portable.gradle             generation and run tasks
 ```
 
@@ -19,7 +20,8 @@ conformance/portable/
 ```
 ./gradlew :vmf:runPortableJava          # Java
 ./gradlew :vmf:runPortableCSharp        # C# (.NET 8)
-./gradlew :vmf:verifyPortableContract   # both
+./gradlew :vmf:runPortableTypeScript    # TypeScript (Node.js 22 or newer)
+./gradlew :vmf:verifyPortableContract   # all three
 ./gradlew :vmf:runPortableJava -PportableFilter=containment/   # only matching scenario ids
 ```
 
@@ -99,7 +101,8 @@ list events of the same kind on the same property, and chains of set events (`a 
 1. Make the generator produce the target from `models/` (`GeneratePortableModels <target> ...`).
 2. Write a runner that reads these files and implements the steps above for the modules the target claims.
    The Java runner (`java/PortableRunner.java`, about 1,100 lines) is the reference; the C# runner
-   (`csharp/PortableRunner.cs`, about 1,400 lines) follows it step by step.
+   (`csharp/PortableRunner.cs`, about 1,400 lines) and the TypeScript runner (`typescript/runner.mjs`, about
+   650 lines, core module only) follow it step by step.
 3. Add a `runPortable<Target>` task and `expected-failures/<target>.txt`.
 
 How the runners reach the generated code:
@@ -112,6 +115,10 @@ How the runners reach the generated code:
   `ContentEquals`/`ContentHashCode`, `Reflection.DeepCopy`, `ModelChanges.For(x)` with `History`,
   `ModelChange.Undo()` and `Redo()`. Interface-only types are abstract classes; several supertypes become
   `I<Name>` interfaces.
+- TypeScript: `new` on the classes listed in `ModelSnapshot.registry` (interface-only types are abstract and
+  not registered), then plain property assignment for initial values; properties and list objects by model
+  name; `contentEquals`, `contentHashCode` and `deepCopy` on every model object. `long` values are `bigint`;
+  the runner parses large JSON integers exactly.
 
 ## Current results
 
@@ -119,7 +126,11 @@ How the runners reach the generated code:
 |---|---|---|---|
 | Java | 15 of 15 | 108 of 111 | clearing a many-to-one reference notifies the owner twice; content equality of immutable types is identity (2 scenarios) |
 | C# | 15 of 15 | 110 of 111 | clearing a many-to-one reference notifies the owner twice |
-| TypeScript | 2 of 15 | no runner yet | the generator's baseline profile rejects single and plain-list containment, scalar lists, references with opposites, recursive containment types, `long`/`double`, several supertypes and immutables |
+| TypeScript | 13 of 15 | 71 of 72 core (claims core only; 39 scenarios of optional modules skipped) | a type with several model supertypes (TypeScript classes have one base class) |
+
+The TypeScript generator also rejects `@Immutable` types (views module, not claimed yet). Before this contract
+it accepted 2 of the 15 models; supporting the core took about 700 lines of runtime code and 230 lines of
+generator changes.
 
 ## Where the scenarios come from
 

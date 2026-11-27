@@ -11,18 +11,18 @@ ${type.declaration} {
 #foreach($property in $type.properties)
 #if($property.container)
     get ${property.name}(): ${property.type} | null {
-        const owner = this.__vmfContainerLink.owner;
-        return owner instanceof ${property.type}
-            && this.__vmfContainerLink.collection === owner.${property.opposite} ? owner : null;
+        return vmf.containerOf(this.__vmfContainerLink, ${property.ownerType}, [${property.owners}]) as ${property.type} | null;
     }
+#if($property.settable)
 
     set ${property.name}(value: ${property.type} | null) {
         if (value !== null) {
-            value.${property.opposite}.add(this);
+            ${property.attach};
         } else if (this.${property.name} !== null) {
             this.__vmfContainerLink.detach(this);
         }
     }
+#end
 #else
     ${property.declaration}
 #end
@@ -33,6 +33,20 @@ ${type.declaration} {
         const issues: vmf.ValidationIssue[] = [];
         this.__vmfValidateInto(issues, "");
         return issues;
+    }
+
+    /** True if the other object has the same type, scalar values and contained children. */
+    contentEquals(other: unknown): boolean {
+        return vmf.contentEquals(this, other, ModelSnapshot.registry);
+    }
+
+    contentHashCode(): number {
+        return vmf.contentHashCode(this, ModelSnapshot.registry);
+    }
+
+    /** Copies this object and everything it reaches through containment and references. */
+    deepCopy(): this {
+        return vmf.deepCopy(this, ModelSnapshot.registry);
     }
 #end
 #if($type.emitValidation)
@@ -56,10 +70,14 @@ ${type.declaration} {
             });
         }
 #end
-#foreach($name in $type.containments)
-        for (let index = 0; index < this.${name}.count; index++) {
-            this.${name}.at(index).__vmfValidateInto(issues, path + "${name}[" + index + "].");
+#foreach($containment in $type.containments)
+#if($containment.many)
+        for (let index = 0; index < this.${containment.name}.count; index++) {
+            this.${containment.name}.at(index).__vmfValidateInto(issues, path + "${containment.name}[" + index + "].");
         }
+#else
+        this.${containment.name}?.__vmfValidateInto(issues, path + "${containment.name}.");
+#end
 #end
     }
 #end

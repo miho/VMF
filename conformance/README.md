@@ -13,7 +13,9 @@ are the behavioral reference for the shared cases. The gate runs the Java
 and native .NET tests, plus the Workshop behavior and JSON checks. Test
 results and generated interchange documents are under `conformance/build`.
 The TypeScript regression gate remains
-`:vmf:verifyTypeScriptWorkshop`.
+`:vmf:verifyTypeScriptWorkshop`. The [portable contract](portable/CONTRACT.md)
+and its shared scenarios (`:vmf:verifyPortableContract`) cover the behavior
+all targets share.
 
 GitHub CI runs both target gates on Windows and Linux. The Linux job also
 validates the generated Draft-07 schemas independently with `jsonschema`.

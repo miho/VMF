@@ -140,8 +140,8 @@ across targets:
   thrown by listeners
 - whether a recursive listener sees the container-property event of an object that enters, leaves or
   moves within its subtree during that edit
-- adding an object to the containment list that already holds it, and duplicate entries created by
-  index-based replacement in containment lists
+- adding an object to the containment list that already holds it, duplicate entries created by
+  index-based replacement in containment lists, and `null` entries in containment lists
 - recordings that cover only one side of a moved object (the previous owner is not covered)
 - whether a deep copy shares or copies immutable values
 - `toString` formats and concrete hash code values; threading

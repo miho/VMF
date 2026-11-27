@@ -9,6 +9,10 @@ def portableRuntime = evaluationDependsOn(':vmf-runtime').sourceSets.main.runtim
 def portableJackson = configurations.detachedConfiguration(
         dependencies.create("com.fasterxml.jackson.core:jackson-databind:${commonProps.getProperty('deps.jackson.version')}"))
 def portableFilter = providers.gradleProperty('portableFilter').orElse('')
+def portableTypeScript = portable.dir('typescript')
+def portableOutput = { String target ->
+    target == 'typescript' ? portableTypeScript.dir('build/generated') : portableBuild.dir("generated/${target}")
+}
 
 def compilePortableGenerator = tasks.register('compilePortableGenerator', JavaCompile) {
     source portable.file('java/GeneratePortableModels.java')
@@ -27,12 +31,12 @@ def portableGeneration = [:]
         dependsOn compilePortableGenerator
         classpath = files(portableBuild.dir('classes/generator')) + sourceSets.main.runtimeClasspath
         mainClass = 'eu.mihosoft.vmf.portable.GeneratePortableModels'
-        args target, portableBuild.dir("generated/${target}").asFile.absolutePath,
+        args target, portableOutput(target).asFile.absolutePath,
                 portableModels.asFile.absolutePath,
                 portableBuild.file("generated/${target}-unsupported.txt").asFile.absolutePath
         inputs.dir portableModels
         inputs.files sourceSets.main.runtimeClasspath
-        outputs.dir portableBuild.dir("generated/${target}")
+        outputs.dir portableOutput(target)
         outputs.file portableBuild.file("generated/${target}-unsupported.txt")
     }
 }
@@ -75,8 +79,40 @@ def runPortableCSharp = tasks.register('runPortableCSharp', Exec) {
     argumentProviders.add({ [portableFilter.get()] } as CommandLineArgumentProvider)
 }
 
+def portableTsc = portableTypeScript.file('node_modules/typescript/bin/tsc').asFile.absolutePath
+def portableNpm = System.getProperty('os.name').startsWith('Windows') ? 'npm.cmd' : 'npm'
+
+def installPortableTypeScript = tasks.register('installPortableTypeScript', Exec) {
+    workingDir portableTypeScript.asFile
+    commandLine portableNpm, 'ci', '--ignore-scripts', '--no-audit', '--no-fund'
+    if (gradle.startParameter.offline) {
+        args '--offline'
+    }
+    inputs.files portableTypeScript.file('package.json'), portableTypeScript.file('package-lock.json')
+    outputs.dir portableTypeScript.dir('node_modules')
+}
+
+def compilePortableTypeScript = tasks.register('compilePortableTypeScript', Exec) {
+    dependsOn portableGeneration['typescript'], installPortableTypeScript, tasks.named('buildWorkshopTypeScriptRuntime')
+    workingDir portableTypeScript.asFile
+    commandLine 'node', portableTsc, '-p', portableTypeScript.file('tsconfig.json').asFile.absolutePath
+}
+
+def runPortableTypeScript = tasks.register('runPortableTypeScript', Exec) {
+    group = 'verification'
+    description = 'Runs the portable contract scenarios against generated TypeScript code.'
+    dependsOn compilePortableTypeScript
+    workingDir portableTypeScript.asFile
+    commandLine 'node', 'runner.mjs',
+            portableScenarios.asFile.absolutePath,
+            portableBuild.file('generated/typescript-unsupported.txt').asFile.absolutePath,
+            portable.file('expected-failures/typescript.txt').asFile.absolutePath,
+            portableBuild.file('results/typescript.json').asFile.absolutePath
+    argumentProviders.add({ [portableFilter.get()] } as CommandLineArgumentProvider)
+}
+
 tasks.register('verifyPortableContract') {
     group = 'verification'
     description = 'Runs the portable contract scenarios for every target and fails on unexpected results.'
-    dependsOn runPortableJava, runPortableCSharp
+    dependsOn runPortableJava, runPortableCSharp, runPortableTypeScript
 }

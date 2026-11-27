@@ -66,12 +66,20 @@ final class TypeScriptSnapshotRenderModel {
     }
 
     private static Map<String, String> prepareProperty(TypeScriptRenderModel source, Type type, Property property) {
-        String member = "(owner as " + source.typeName(type) + ")." + TypeScriptRenderModel.propertyName(type, property);
+        String name = TypeScriptRenderModel.propertyName(type, property);
+        String member = "(owner as " + source.typeName(type) + ")." + name;
         ValueType value = property.getValueType();
         String valueType = source.typeName(value);
-        String data = property.getKind() == Property.Kind.SCALAR
-                ? "scalarType: \"" + scalarKind(value) + "\", nullable: " + !value.isPrimitive()
-                : "modelType: () => " + source.runtimeTypeName(value);
+        String data = "name: " + literal(name) + ", ";
+        if (property.getKind() == Property.Kind.SCALAR) {
+            data += "scalarType: \"" + scalarKind(value) + "\""
+                    + (property.isCollection() ? "" : ", nullable: " + !value.isPrimitive());
+        } else {
+            data += "modelType: () => " + source.runtimeTypeName(value);
+            if (property.getKind() == Property.Kind.REFERENCE && !property.getOppositeName().isEmpty()) {
+                data += ", opposite: " + literal(property.getOppositeName());
+            }
+        }
         return Map.of("wireName", literal(property.getWireName()), "kind", propertyKind(property),
                 "data", data, "getter", "get: owner => " + member,
                 "mutator", prepareMutator(property, member, valueType));
@@ -84,11 +92,14 @@ final class TypeScriptSnapshotRenderModel {
     private static String propertyKind(Property property) {
         switch (property.getKind()) {
             case SCALAR:
-                return "scalar";
+                return property.isCollection() ? "scalarList" : "scalar";
             case CONTAINMENT:
-                return "containmentList";
+                return property.isCollection() ? "containmentList" : "containment";
             case REFERENCE:
-                return property.isCollection() ? "referenceSet" : "reference";
+                if (!property.isCollection()) {
+                    return "reference";
+                }
+                return property.isOrdered() ? "referenceList" : "referenceSet";
             default:
                 throw new IllegalStateException("Unsupported snapshot property " + property.getKind());
         }
@@ -96,13 +107,15 @@ final class TypeScriptSnapshotRenderModel {
 
     private static String prepareMutator(Property property, String member, String valueType) {
         if (property.isCollection()) {
-            return "add: (owner, value) => { " + member + ".add(value as " + valueType + "); }";
+            String element = valueType + (property.getKind() == Property.Kind.SCALAR && property.allowsNullElements()
+                    ? " | null" : "");
+            return "add: (owner, value) => { " + member + ".add(value as " + element + "); }";
         }
         String cast = "value as " + valueType + (property.getValueType().isPrimitive() ? "" : " | null");
         return "set: (owner, value) => { " + member + " = " + cast + "; }";
     }
 
-    private static String literal(String text) {
+    static String literal(String text) {
         StringBuilder escaped = new StringBuilder(text.length() + 2).append('"');
         for (int i = 0; i < text.length(); i++) {
             char value = text.charAt(i);
