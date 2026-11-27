@@ -89,7 +89,9 @@ final class ShallowCopyConformance {
         });
         try {
             copy.getMessages().add("edit");
-            check(trace.equals(List.of("source local", "copy recursive", "source recursive")), "shared list callback order");
+            // The source's listeners run together, in the order they were added (portable contract E7); the copy
+            // shares the list but is not an ancestor, so its place relative to the source is not specified.
+            check(trace.equals(List.of("source local", "source recursive", "copy recursive")), "shared list callback order");
         } finally {
             local.unsubscribe();
             copyRecursive.unsubscribe();

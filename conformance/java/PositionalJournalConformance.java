@@ -162,8 +162,8 @@ final class PositionalJournalConformance {
             head.getTrail().add(left);
             check(working.vmf().changes().all().stream()
                             .map(change -> change.listChange().orElseThrow().added().indices()[0])
-                            .collect(java.util.stream.Collectors.toList()).equals(List.of(start + 1, start)),
-                    "native history retains the order of cross-scope callbacks");
+                            .collect(java.util.stream.Collectors.toList()).equals(List.of(start, start + 1)),
+                    "native history records the outer edit before the callback's edit (H4)");
             return recorder.finish();
         } finally {
             local.unsubscribe();
@@ -220,7 +220,8 @@ final class PositionalJournalConformance {
             var history = working.vmf().changes().all().stream().filter(change -> change.propertyName().equals("inset"))
                     .map(change -> (ArchiveNode) change.propertyChange().orElseThrow().newValue())
                     .map(child -> child == null ? "-" : child.getName()).collect(java.util.stream.Collectors.toList());
-            check(history.equals(List.of("-", "-", "nested", "outer")), "Native history retains callback delivery order");
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+            check(history.equals(List.of("-", "outer", "-", "nested")), "Native history records edits in mutation order");
             return recorder.finish();
         } finally {
             local.unsubscribe();
@@ -290,7 +291,9 @@ final class PositionalJournalConformance {
             var history = working.vmf().changes().all().stream()
                     .map(change -> membershipLabel(change.referenceSetChange().orElseThrow()))
                     .collect(java.util.stream.Collectors.toList());
-            check(history.equals(List.of("-first", "+second", "+first")), "Native history retains its callback order");
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+            check(history.equals(List.of("+first", "-first", "+second")),
+                    "Native history records the initiating add first: " + history);
             return recorder.finish();
         } finally {
             subscription.unsubscribe();

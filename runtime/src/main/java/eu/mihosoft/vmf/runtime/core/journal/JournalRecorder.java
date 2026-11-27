@@ -192,10 +192,15 @@ public final class JournalRecorder implements AutoCloseable {
                     failure = new IllegalStateException("Native change history was cleared during recording");
                     return;
                 }
-                for (Change change : event.added().elements()) {
+                List<Change> added = event.added().elements();
+                int[] indices = event.added().indices();
+                for (int i = 0; i < added.size(); i++) {
+                    Change change = added.get(i);
+                    // An edit is recorded before the edits its listeners made, which can reach history first.
+                    int index = i < indices.length ? indices[i] : captured.size();
                     try {
-                        editCapture.finishNativeDelivery(change);
-                        captured.add(change);
+                        editCapture.finishNativeDelivery(change, index);
+                        captured.add(index, change);
                     } catch (RuntimeException ex) {
                         // Propagating through the native listener can interrupt bookkeeping for the edit.
                         failure = ex;

@@ -209,10 +209,16 @@ public final class OrdinaryContainmentConformance {
             check(trace.equals(List.of("source", "nested", "detach", "attach", "adopt")), "native transfer delivery stages");
             var history = working.vmf().changes().all().stream().filter(change -> change.propertyName().equals("children"))
                     .map(change -> change.listChange().orElseThrow()).collect(Collectors.toList());
-            check(history.size() == 3 && history.get(0).added().elements().get(0) == nested
-                            && history.get(1).removed().elements().get(0) == moving
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+            // A raw list listener edits before any model relay sees the triggering edit, so its edits are recorded
+            // first; raw collection listeners are outside the portable contract.
+            boolean direct = scope.equals("direct");
+            int removal = direct ? 1 : 0;
+            int replacement = direct ? 0 : 1;
+            check(history.size() == 3 && history.get(replacement).added().elements().get(0) == nested
+                            && history.get(removal).removed().elements().get(0) == moving
                             && history.get(2).added().elements().get(0) == moving,
-                    "native history retains the nested replacement before the transfer's removal");
+                    "native history orders the transfer's removal, the source callback's replacement, the adoption");
             return recorder.finish();
         } finally {
             sourceObserver.unsubscribe();
@@ -263,8 +269,10 @@ public final class OrdinaryContainmentConformance {
                 try (var recorder = JournalRecorder.start(root, binding, "initial", 0)) {
                     root.getChildren().add(fresh);
                     var history = root.vmf().changes().all();
-                    check(history.size() == 2 && history.get(0).propertyName().equals("name")
-                            && history.get(1).propertyName().equals("children"), "Native callback history order");
+                    // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+                    check(history.size() == 2 && history.get(0).propertyName().equals("children")
+                            && history.get(1).propertyName().equals("name"),
+                            "Native history records the initiating add first: " + history);
                     Files.writeString(file, VMFJournalCodec.write(recorder.finish(), VMFDocumentFormat.JSON));
                 } finally {
                     observer.unsubscribe();
@@ -311,12 +319,14 @@ public final class OrdinaryContainmentConformance {
             else children.add(outer);
             check(notified[0] && changes.all().size() == 2 && outer.getOwner() == null,
                     "The replaced identity was detached and both native events were retained");
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
             var first = changes.all().get(0).listChange().orElseThrow();
             var second = changes.all().get(1).listChange().orElseThrow();
-            check(first.added().elements().get(0) == nested && Arrays.equals(first.added().indices(), new int[] { index })
-                            && second.added().elements().get(0) == outer
-                            && Arrays.equals(second.added().indices(), sort ? new int[] { 0, 2 } : new int[] { 3 }),
-                    "Native history remains nested replacement followed by initiating add or sparse sort");
+            check(first.added().elements().get(0) == outer
+                            && Arrays.equals(first.added().indices(), sort ? new int[] { 0, 2 } : new int[] { 3 })
+                            && second.added().elements().get(0) == nested
+                            && Arrays.equals(second.added().indices(), new int[] { index }),
+                    "Native history records the initiating add or sparse sort before the nested replacement");
             recorder.publishFrame();
             return recorder.finish();
         } finally {
@@ -395,10 +405,11 @@ public final class OrdinaryContainmentConformance {
             check(trace.equals(List.of("left", "middle")), "Owning callbacks remain synchronous");
             check(first.getOwner() == null && middle.getOwner() == null && slots(owner).equals(List.of("right")),
                     "Both exact removed children detach from the live owner");
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
             check(changes.all().size() == 2
-                            && changes.all().get(0).listChange().orElseThrow().removed().elements().get(0) == middle
-                            && changes.all().get(1).listChange().orElseThrow().removed().elements().get(0) == first,
-                    "Native history retains the nested-first order");
+                            && changes.all().get(0).listChange().orElseThrow().removed().elements().get(0) == first
+                            && changes.all().get(1).listChange().orElseThrow().removed().elements().get(0) == middle,
+                    "Native history records the initiating removal first");
             return recorder.finish();
         } finally {
             listener.unsubscribe();
@@ -544,11 +555,17 @@ public final class OrdinaryContainmentConformance {
             check(observations.equals(List.of("before nested edits", "after nested edits"))
                             && slots(owner).equals(List.of("b", "d", "a", "null")) && c.getOwner() == null,
                     "Observer changes remain applied after the initiating callback throws");
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+            // A raw list listener edits before any model relay sees the triggering edit, so its edits are recorded
+            // first; raw collection listeners are outside the portable contract.
+            int range = direct ? 2 : 0;
+            int replacement = direct ? 0 : 1;
+            int append = direct ? 1 : 2;
             check(history.all().size() == 3
-                            && history.all().get(0).listChange().orElseThrow().added().elements().get(0) == d
-                            && history.all().get(1).listChange().orElseThrow().added().elements().get(0) == null
-                            && history.all().get(2).listChange().orElseThrow().added().elements().get(1) == c,
-                    "Native history preserves nested replacement, nested append, initiating range order");
+                            && history.all().get(range).listChange().orElseThrow().added().elements().get(1) == c
+                            && history.all().get(replacement).listChange().orElseThrow().added().elements().get(0) == d
+                            && history.all().get(append).listChange().orElseThrow().added().elements().get(0) == null,
+                    "Native history orders the initiating range and the nested replacement and append");
             recorder.publishFrame();
             return recorder.finish();
         } finally {

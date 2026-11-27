@@ -121,8 +121,9 @@ final class ContainmentObservationConformance {
             }, recursive);
             try (var recorder = JournalRecorder.start(root, binding, "initial", 0)) {
                 destination.getChildren().add(moving);
-                check(changes.all().size() == 3 && changes.all().get(0).referenceSetChange().orElseThrow().added().get(0) == nested,
-                        "ordered native history remains nested-first");
+                // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+                check(changes.all().size() == 3 && changes.all().get(1).referenceSetChange().orElseThrow().added().get(0) == nested,
+                        "ordered native history records the removal, the nested replacement, then the addition");
                 var journal = recorder.finish();
                 var ops = journal.transactions().get(0).operations();
                 check(ops.stream().map(ChangeJournal.Operation::kind).collect(Collectors.toList()).equals(List.of(
@@ -192,8 +193,9 @@ final class ContainmentObservationConformance {
         }
         check(order.equals(List.of("source removed", "recursive name during removal", "child detached", "child attached",
                 "destination added", "recursive name after move")), "list move deliveries: " + order);
-        check(history(changes).equals(List.of("name:during removal", "source:children", "destination:children", "name:after move")),
-                "root list history orders source-callback edit before removal and excludes inverse events: " + history(changes));
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        check(history(changes).equals(List.of("source:children", "name:during removal", "destination:children", "name:after move")),
+                "root list history records the removal before the callback's edit and excludes inverse events: " + history(changes));
         assertUndoable(changes);
         check(source.getChildren().size() == 1 && source.getChildren().get(0) == child && child.getParent() == source
                 && destination.getChildren().isEmpty() && child.getName().equals("child"), "list move transaction restores the original graph");

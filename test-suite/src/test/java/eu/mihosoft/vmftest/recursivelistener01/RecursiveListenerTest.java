@@ -232,10 +232,11 @@ public class RecursiveListenerTest {
             Assert.assertSame(subtree, leaf.getParent());
             Assert.assertTrue(source.getChildren().isEmpty());
             Assert.assertSame(subtree, destination.getChildren().get(0));
+            // A listener's edit is recorded after the edit whose delivery triggered it (portable contract H4).
             var recorded = changes.transactions().get(0).changes();
             Assert.assertEquals(4, recorded.size());
-            Assert.assertSame(leaf, recorded.get(0).object());
-            Assert.assertSame(source, recorded.get(1).object());
+            Assert.assertSame(source, recorded.get(0).object());
+            Assert.assertSame(leaf, recorded.get(1).object());
             Assert.assertSame(destination, recorded.get(2).object());
             Assert.assertSame(leaf, recorded.get(3).object());
         } finally {

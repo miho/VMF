@@ -26,8 +26,10 @@ public class ReferenceEndsTest {
             else teams.add(team);
             changes.stop();
 
-            assertEquals(viaOpposite ? List.of("direct:true", "projected", "local:0", "late:0", "recursive:0", "opposite")
-                    : List.of("opposite", "direct:true", "projected", "local:0", "late:1", "recursive:1"), trace);
+            // The object's local and recursive listeners receive a change together, in the order they were added
+            // (portable contract E7); raw list listeners keep their own registration order around them.
+            assertEquals(viaOpposite ? List.of("direct:true", "projected", "local:0", "recursive:0", "late:0", "opposite")
+                    : List.of("opposite", "direct:true", "projected", "local:0", "recursive:0", "late:1"), trace);
             assertEquals(viaOpposite ? 0 : 1, changes.all().size());
             assertSame(team, teams.get(0));
         }

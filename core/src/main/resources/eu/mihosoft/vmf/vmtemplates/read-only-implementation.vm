@@ -166,7 +166,7 @@ class $type.readOnlyImplementation.typeName implements $type.readOnlyInterface.t
 
   @Override
   public void removePropertyChangeListener(java.beans.PropertyChangeListener l) {
-    java.beans.PropertyChangeListener readOnlyListener = readOnlyListenerMap.get(l);
+    java.beans.PropertyChangeListener readOnlyListener = readOnlyListenerMap.remove(l);
     if(readOnlyListener!=null) {
       ((${VMFPKG_INT}.VObjectInternal)this.mutableObject).removePropertyChangeListener(readOnlyListener);
     }

@@ -190,9 +190,10 @@ final class KeyedConformance {
             var positions = owner.vmf().changes().all().stream().filter(change -> change.propertyName().equals(property))
                     .collect(Collectors.toList());
             if (mode.equals("transfer")) check(positions.size() == 1, "native transfer add");
-            else check(positions.size() == 2 && (positions.get(0).listChange().map(event -> event.wasAdded())
-                            .orElseGet(() -> !positions.get(0).referenceSetChange().orElseThrow().added().isEmpty())),
-                    "native history retains nested-before-outer delivery");
+            // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+            else check(positions.size() == 2 && (positions.get(1).listChange().map(event -> event.wasAdded())
+                            .orElseGet(() -> !positions.get(1).referenceSetChange().orElseThrow().added().isEmpty())),
+                    "native history records the outer edit before the observer's edit");
             return recorder.finish();
         } finally {
             watch.unsubscribe();

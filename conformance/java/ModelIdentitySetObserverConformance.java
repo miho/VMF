@@ -226,7 +226,7 @@ final class ModelIdentitySetObserverConformance {
     }
 
     private static void expect(Map<String, List<String>> expected, String key, List<String> actual) {
-        if (!actual.equals(expected.get(key))) {
+        if (!matchesByKind(expected.get(key), actual)) {
             throw new AssertionError(key + ": expected " + expected.get(key) + ", got " + actual);
         }
     }
@@ -270,4 +270,23 @@ final class ModelIdentitySetObserverConformance {
             }, recursive);
         }
     }
+
+    // The portable contract orders the listeners of one object (E7) and an object before its ancestors (E8), not
+    // listeners of different kinds: model listeners, listeners added through a read-only view, and raw collection
+    // listeners. A label names its kind by its first letter (M0, R1, C0, P0, Rnew); any other label is its own kind.
+    // A trace matches when every kind receives its calls in the expected order and no call is missing or repeated.
+    private static boolean matchesByKind(List<String> expected, List<String> actual) {
+        return expected != null && byKind(expected).equals(byKind(actual));
+    }
+
+    private static java.util.Map<String, List<String>> byKind(List<String> trace) {
+        var kinds = new java.util.TreeMap<String, List<String>>();
+        for (String label : trace) {
+            String name = label.contains(":") ? label.substring(0, label.indexOf(':')) : label;
+            String kind = name.matches("[A-Z]([0-9]+|new|[a-z]+)") ? name.substring(0, 1) : name;
+            kinds.computeIfAbsent(kind, key -> new java.util.ArrayList<>()).add(label);
+        }
+        return kinds;
+    }
+
 }
