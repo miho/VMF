@@ -417,6 +417,9 @@ final class TypeScriptRenderModel {
         if (hasBase) {
             members.add("abstract override asReadOnly(): " + readOnlyType + ";");
         } else {
+            // Every class that implements a trait validates itself, so trait-typed children can be validated.
+            members.add("/** @internal */\n    abstract __vmfValidateInto(issues: vmf.ValidationIssue[], path: string, "
+                    + "modelPath: string, pending: vmf.ValidationTask[]): void;");
             members.add("abstract asReadOnly(): " + readOnlyType + ";");
             members.add("abstract contentEquals(other: unknown): boolean;");
             members.add("abstract contentHashCode(): number;");
@@ -602,13 +605,15 @@ final class TypeScriptRenderModel {
             case CONTAINMENT: {
                 String containerProperty = property.getOppositeName().isEmpty() ? ""
                         : ", " + quoted(checkedIdentifier(property.getOppositeName(), owner + "." + member + " opposite"));
+                // A getter-only trait does not show the containment link that its mutable implementations have.
+                String link = ownedByRole(property) ? "vmf.containmentLinkOf" : "child => child.__vmfContainerLink";
                 if (property.isCollection()) {
                     return field("readonly " + member + " = new vmf.ContainmentList<" + owner + ", "
-                            + target + ">(this, " + name + ", child => child.__vmfContainerLink" + containerProperty + ");");
+                            + target + ">(this, " + name + ", " + link + containerProperty + ");");
                 }
                 return field("/** @internal */\n"
                         + "    readonly __vmfSlot_" + member + " = new vmf.ContainmentSlot<" + owner + ", " + target
-                        + ">(this, " + name + ", child => child.__vmfContainerLink" + containerProperty + ");\n\n"
+                        + ">(this, " + name + ", " + link + containerProperty + ");\n\n"
                         + accessor(member, target, "this.__vmfSlot_" + member + ".value",
                                 "this.__vmfSlot_" + member + ".set(value);"));
             }
@@ -643,6 +648,12 @@ final class TypeScriptRenderModel {
             default:
                 throw new IllegalStateException("Unsupported property kind " + property.getKind());
         }
+    }
+
+    /** Whether the children of a containment property are typed by a getter-only trait (or a parameter bound to one). */
+    private boolean ownedByRole(Property property) {
+        String target = property.getValueType().getModelType();
+        return target != null && model.findType(target).filter(Type::isGetterOnlyTrait).isPresent();
     }
 
     /** A single value stored in a field and changed through {@code vmf.setValue}, which reports the change. */

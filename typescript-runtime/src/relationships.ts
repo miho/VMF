@@ -51,6 +51,18 @@ export function containerOf<T extends object>(link: ContainmentLink, ownerType: 
         && properties.includes(attachment.property) ? attachment.owner as T : null;
 }
 
+/**
+ * @internal The containment link of a child whose declared type does not show it, such as a getter-only trait that
+ * only mutable classes implement.
+ */
+export function containmentLinkOf(child: object): ContainmentLink {
+    const link = linkOf(child);
+    if (link === undefined) {
+        throw new TypeError("Only mutable model objects can be contained.");
+    }
+    return link;
+}
+
 function linkOf(model: object): ContainmentLink | undefined {
     const link = (model as { __vmfContainerLink?: unknown }).__vmfContainerLink;
     return link instanceof ContainmentLink ? link : undefined;

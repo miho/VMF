@@ -167,3 +167,31 @@ interface Tagged {
 
 interface TaggedPoint extends Point, Tagged {
 }
+
+// A getter-only trait as the type of contained children, from C# conformance traits (Folder, NamedItem): every
+// implementation is mutable, so each can be contained.
+@InterfaceOnly
+interface Labeled {
+    @GetterOnly
+    String getLabel();
+
+    @GetterOnly
+    @Container(opposite = "items")
+    Shelf getShelf();
+}
+
+interface Book extends Labeled {
+    String getIsbn();
+}
+
+interface Note extends Labeled {
+    String getText();
+}
+
+interface Shelf {
+    @Contains(opposite = "shelf")
+    Labeled[] getItems();
+
+    @Contains
+    Labeled getFirst();
+}

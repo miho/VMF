@@ -1001,11 +1001,8 @@ public final class PortableCapabilities {
                 if (isImmutableType(model, valueType)) {
                     diagnostics.add(name + " cannot contain an immutable value");
                 }
-                if (profile == Profile.TYPESCRIPT && isGetterOnlyTrait(model, valueType)) {
-                    diagnostics.add(name + " cannot use a getter-only trait as a containment target");
-                }
-                if (profile == Profile.CSHARP && isGetterOnlyTrait(model, valueType)
-                        && !supportsOwningGetterRole(model, property)) {
+                // A getter-only trait can own children when every implementation is mutable.
+                if (isGetterOnlyTrait(model, valueType) && !supportsOwningGetterRole(model, property)) {
                     diagnostics.add(name + " cannot use a getter-only trait as a containment target");
                 }
                 if (!property.getOppositeName().isEmpty()) {

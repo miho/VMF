@@ -1,3 +1,5 @@
+import { isSubtype } from "./model-types.js";
+
 export const typeField = "@vmf-type";
 export const idField = "@vmf-id";
 
@@ -123,7 +125,8 @@ export class SnapshotRegistry {
         if (type === undefined) {
             throw new TypeError(`Unregistered VMF type '${wireName}' at ${path}.`);
         }
-        if (type.runtimeType !== expectedType && !(type.runtimeType.prototype instanceof expectedType)) {
+        // Implemented supertypes count too: a class implements every model supertype besides its base class.
+        if (!isSubtype(type.runtimeType, expectedType)) {
             throw new TypeError(`VMF type '${wireName}' is not compatible with '${expectedType.name}' at ${path}.`);
         }
         return type;

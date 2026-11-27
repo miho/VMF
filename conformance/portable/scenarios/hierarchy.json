@@ -314,6 +314,8 @@
         {"check": "s2.value.name", "value": "k"},
         {"check": "s2.history[0].name", "value": "k"}
       ]
-    }
+    },
+    {"id": "getter-only-trait-as-containment-target", "from": "C# conformance traits (Folder, NamedItem)", "rules": ["T1", "C1", "C2", "C3"], "steps": [{"new": "s", "type": "Shelf"}, {"new": "b", "type": "Book", "with": {"label": "b", "isbn": "1"}}, {"new": "n", "type": "Note", "with": {"label": "n", "text": "t"}}, {"add": "s.items", "objs": ["b", "n"]}, {"check": "s.items", "objs": ["b", "n"]}, {"check": "b.shelf", "obj": "s"}, {"check": "n.shelf", "obj": "s"}, {"set": "s.first", "obj": "b"}, {"check": "s.items", "objs": ["n"]}, {"check": "s.first", "obj": "b"}, {"check": "b.shelf", "value": null}, {"remove": "s.items", "obj": "n"}, {"check": "n.shelf", "value": null}]},
+    {"id": "getter-only-trait-children-in-documents", "requires": ["json"], "rules": ["T1", "J1"], "steps": [{"new": "s", "type": "Shelf"}, {"new": "b", "type": "Book", "with": {"label": "b", "isbn": "1"}}, {"new": "n", "type": "Note", "with": {"label": "n", "text": "t"}}, {"add": "s.items", "objs": ["b", "n"]}, {"write": "s", "as": "d"}, {"read": "d", "type": "Shelf", "as": "copy"}, {"equal": ["s", "copy"]}, {"let": "b2", "path": "copy.items[0]"}, {"instanceOf": "b2", "type": "Book"}, {"check": "b2.shelf.items", "size": 2}]}
   ]
 }

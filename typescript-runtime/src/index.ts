@@ -1,6 +1,6 @@
 export {
-    ContainmentLink, ContainmentList, ContainmentSlot, containerOf, ReferenceList, ReferenceSet, ReferenceSlot,
-    setReference, setValue,
+    ContainmentLink, ContainmentList, ContainmentSlot, containerOf, containmentLinkOf, ReferenceList, ReferenceSet,
+    ReferenceSlot, setReference, setValue,
 } from "./relationships.js";
 export { ScalarList } from "./collections.js";
 export { changesOf, edit, ModelChanges, ModelEdit } from "./changes.js";
