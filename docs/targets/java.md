@@ -4,7 +4,7 @@ Java is the reference target: the rules of the [portable contract](../../conform
 restate what VMF's Java code does. This page says how each rule appears in the generated Java API. Rule ids
 (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, equality-modes, json.
+Claimed modules: core, views, events, history, reflection, equality-modes, json, externals, behavior.
 
 ## Generating
 
@@ -97,3 +97,23 @@ Catalog copy = mapper.readValue(json, Catalog.class);
 Without `withReferences(true)` the documents are plain (J5): references to mutable objects are rejected, or
 left out with `withReferences(VMFJacksonModule.ReferenceMode.OMIT)`. References to immutable values are
 written by value in every mode.
+
+## External types (X)
+
+An `@ExternalType(pkgName = ...)` stub names a Java type; the generated code uses that type directly.
+
+| External type | Java |
+|---|---|
+| enum | the enum; documents write `name()` (X1); `@DefaultValue("Level.MEDIUM")` is Java code |
+| `java.util.UUID` | `UUID`; Jackson writes the canonical lower-case form |
+| `java.lang.Object` | `Object`; Jackson reads JSON as `null`, `String`, `Boolean`, `Integer`, `Long`, `BigInteger`, `Double`, `ArrayList` and `LinkedHashMap` |
+| any other class | the class, written and read by Jackson (X5); content equality uses `equals` (X6) |
+
+## Behavior (B)
+
+A delegation class implements `DelegatedBehavior<Type>` and the delegated methods without the caller parameter.
+VMF creates one instance per object and delegation class when the object first needs it and calls
+`setCaller(object)`; a type-level `@DelegateTo` adds `on<Type>Instantiated()`, which the constructor calls before
+it applies the declared defaults (B3). `x.vmf().behavior().set(behavior)` replaces the behavior of one object;
+the replacement implements the generated `<Type>.Behavior` (B4). A builder sets every property after the hook
+ran, so what the hook set does not survive `newBuilder()...build()` (the contract leaves this unspecified).

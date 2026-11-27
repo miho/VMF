@@ -3,8 +3,9 @@
 How the rules of the [portable contract](../../conformance/portable/CONTRACT.md) appear in the generated
 TypeScript API. Rule ids (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, identity-equality, json. JavaScript has no
-equality that a class can define, so TypeScript follows N3 instead of N2 (see [Equality](#equality-and-copies-q-n)).
+Claimed modules: core, views, events, history, reflection, identity-equality, json, externals, behavior.
+JavaScript has no equality that a class can define, so TypeScript follows N3 instead of N2 (see
+[Equality](#equality-and-copies-q-n)).
 
 ## Generating
 
@@ -37,7 +38,110 @@ Generated code is an ES2022 module that imports the runtime as `@vmf/runtime` (`
 | `char` | `string` of one UTF-16 code unit; the default is `"\u0000"` |
 | `String` and other optional values | `string \| null` |
 | list property (`T[]`) | `ScalarList<T>`, `ContainmentList<TOwner, TChild>` or `ReferenceList<T>` with `add`, `insert`, `set`, `remove`, `removeAt`, `clear`, `at`, `indexOf`, `contains`, `count` and iteration; an unordered reference collection is a `ReferenceSet<T>` with `add`, `remove`, `clear`, `contains` and `count` |
-| `@DefaultValue` (scalars) | the initial value of new objects |
+| `@DefaultValue` (scalars) | the initial value of new objects (see [Defaults](#defaults)) |
+| external type | see [External types](#external-types-x) |
+
+## External types (X)
+
+An `@ExternalType` stub names a type of the host language. For TypeScript,
+`@Annotation(key = "vmf:typescript:external-type", value = ...)` on the stub names the TypeScript type:
+
+| Stub | TypeScript |
+|---|---|
+| `value = "\"LOW\" \| \"HIGH\""`, a union of string literals (for Java enums) | an exported alias `type Level = "LOW" \| "HIGH"`; documents write the name and readers reject other names (X1); values compare with `===` |
+| `value = "Date"`, a global type | that type |
+| `value = "Distance"` and `vmf:typescript:external-module` = `"./hosts.js"` | `import type { Distance } from "./hosts.js"`; a relative module is relative to the generated `model.g.ts`; a name that a generated declaration also uses is imported as `HostDistance` |
+| `java.util.UUID`, no annotation | `string` in canonical form: setters accept either case, reject anything but 8-4-4-4-12 hexadecimal digits and keep lower case (X3) |
+| `java.lang.Object`, no annotation | `unknown`, an untyped JSON value (X4) |
+
+External types can be single values, lists (`ScalarList`) and method parameters and results.
+
+Untyped values are `null`, strings, booleans, numbers, `bigint`, arrays and plain objects with string keys,
+without cycles and nested at most 1,000 deep; `undefined` is stored as `null`. Documents write a safe integer
+(`Number.isSafeInteger`) as an integer, any other number with a fraction or exponent and a `bigint` as an integer.
+Readers return integers beyond `Number.MAX_SAFE_INTEGER` as `bigint`, other numbers as `number` and JSON objects as
+plain objects. A floating-point value that Java wrote as `2.0` therefore reads as `2` and is written back as `2`,
+which Java reads as an `Integer`; the contract leaves this unspecified. Content equality compares untyped values
+as JSON values, regardless of key order; deep copies share them.
+
+Other external types need a codec when they occur in documents, a `vmf.ExternalCodec<T>` in the
+[host bindings](#host-bindings):
+
+```ts
+installModelBindings({
+    externals: {
+        Distance: {
+            write: distance => ({ meters: distance.meters }),
+            read: json => new Distance((json as { meters: number }).meters),
+            equals: (left, right) => left.meters === right.meters,    // optional, default ===
+            hashCode: distance => Math.trunc(distance.meters),           // optional, agrees with equals
+        },
+    },
+});
+```
+
+`write` returns a JSON value other than `null` (the rules of untyped values apply) and `read` receives it back
+(X5). Content equality uses `equals` (X6); deep copies and read-only views share external values.
+
+## Host bindings
+
+A model that needs host code (codecs of the external types its properties use, bound defaults, behaviors)
+exports a `ModelBindings` interface that lists exactly that code and an `installModelBindings(bindings)` function:
+
+```ts
+import { installModelBindings } from "./model.g.js";
+
+installModelBindings({ externals: { ... }, defaults: { ... }, behaviors: { ... } });
+```
+
+A missing member is a compile error at the call; `installModelBindings` also checks at run time that every
+binding is present and throws a `TypeError` that lists the missing ones. Model code asks for a binding when it
+first needs it: before `installModelBindings` ran, that throws an `Error` naming the binding and
+`installModelBindings`, and a model that never reaches a binding (no documents, no delegated calls) works without
+one. Installing again replaces the bindings: later documents, new objects and first calls use the new ones, while
+an object keeps the default behaviors it already created. Models that need no host code generate neither.
+
+## Defaults
+
+| `@DefaultValue` | TypeScript |
+|---|---|
+| a literal | the initial value |
+| a constant of an enum mapped to a literal union (`Level.MEDIUM`) | the literal (`"MEDIUM"`), no binding needed |
+| any other expression, with `@Annotation(key = "vmf:typescript:bind-default", value = "true")` | `bindings.defaults.<Type>.<property>()`, called for each new object |
+
+A nullable property that holds `null` while its default is not `null` is written as `null` in documents, so
+that readers keep `null` (J1). Defaults of lists, sets, maps and reference sets are not supported yet.
+
+## Behavior (B)
+
+`@DelegateTo` methods become methods of the class that call a behavior with the object as first argument. Each
+type that declares delegated methods or a construction hook (a `@DelegateTo` on the type) has a behavior
+interface, and `bindings.behaviors` creates the behaviors of the types that bind something:
+
+```ts
+export interface CounterBehavior {
+    onCounterInstantiated?(caller: Counter): void;    // the construction hook
+    add(caller: Counter, amount: number): number;
+}
+
+installModelBindings({ behaviors: { Counter: () => new DefaultCounter() } });
+counter.add(2);                                       // DefaultCounter.add(counter, 2)
+counter.replaceBehavior(new TestCounter());           // only this object
+```
+
+| Rule | TypeScript |
+|---|---|
+| a call (B1) | `x.add(2)` calls `add(x, 2)` of the object's behavior and returns its result |
+| default behavior (B2) | the binding creates one per object and declaring type, when the object first needs it |
+| construction hook (B3) | `on<Type>Instantiated(caller)` runs in the constructor of every new object (also deep copies and objects read from documents) before the declared defaults are applied; immutable objects have none, as in Java |
+| replacement (B4) | `x.replaceBehavior(b)`: `b` implements all delegated methods of `x`'s class (else `TypeError`), never receives the hook and is not copied |
+| inherited methods (B5) | a subtype uses the behavior of the type that declares the method until it binds the method again; a method that an interface-only type declares without a binding throws unless the object's behavior was replaced |
+
+Parameters and results map like properties (`unknown` for `Object`); arrays are `readonly T[] | null` as
+parameters and `T[] | null` as results, `List` and `VList` results are arrays, and variable arguments are a rest
+parameter whose array the behavior receives. TypeScript has one method per name, so overloads must differ in
+their number of parameters; the class method dispatches on the argument count. As in C#, static methods, checked
+exceptions and `Object` methods other than `toString()` are rejected.
 
 ## Containment and references (C, R)
 
@@ -107,5 +211,5 @@ in every mode.
 ## Not supported
 
 The TypeScript generator rejects models that use maps, sets or unique lists of scalars, generic immutable types,
-behavior delegation, executable defaults or custom external value types. XML, YAML and journals are not
-available. None of these are part of the contract.
+defaults of collections and reference sets, delegated methods of generic types and overloads with the same
+number of parameters. XML, YAML and journals are not available. None of these are part of the contract.

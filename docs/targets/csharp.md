@@ -3,7 +3,7 @@
 How the rules of the [portable contract](../../conformance/portable/CONTRACT.md) appear in the generated C#
 API. Rule ids (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, equality-modes, json.
+Claimed modules: core, views, events, history, reflection, equality-modes, json, externals, behavior.
 
 ## Generating
 
@@ -100,3 +100,20 @@ each with `Name` and `Annotations`, and the type's `Annotations`.
 `Vmf.Runtime.ReferenceMode` is `Ids`, `Reject` or `Omit`; documents without ids reject references to mutable
 objects unless `Omit` is given. References to immutable values are written by value in every mode. XML and YAML
 variants of these methods exist but are not part of the contract.
+
+## External types (X)
+
+| External type | C# |
+|---|---|
+| enum | the CLR enum named by `vmf:csharp:external-value-type` on the stub; `ExternalSnapshotCodecs.WithEnum<T>(javaName)` writes the names (X1); a `@DefaultValue` naming a constant needs `vmf:csharp:bind-default` and a partial `CreateDefault<Property>()` |
+| `java.util.UUID` | `Guid`, written in the `D` form (lower case) |
+| `java.lang.Object` | `object?`: `null`, `string`, `bool`, `int`, `long`, `BigInteger`, `double`, `List<object?>` and `Dictionary<string, object?>` |
+| any other type | the type named by `vmf:csharp:external-type` or `vmf:csharp:external-value-type`; the partial `ModelSnapshot.CreateExternalValueCodecs()` registers its codec with `WithValue` (X5); content equality uses `Equals` (X6) |
+
+## Behavior (B)
+
+Each type with delegated methods has a nested `Behavior` interface whose methods take the caller first; a partial
+`CreateDefaultBehavior()` creates the default behavior of each object when it first needs it (a `DefaultBehavior`
+per binding in hierarchies). `On<Type>Instantiated(caller)` runs in the constructor before the declared defaults
+are applied (B3). `x.ReplaceBehavior(behavior)` replaces the behavior of one object and `BehaviorOverride` shows
+it (B4); copies and objects read from documents start with the default behavior.
