@@ -49,6 +49,9 @@ public final class PortableRunner {
     static final String BASE_PACKAGE = "eu.mihosoft.vmf.portable.";
     static final Set<String> CAPABILITIES = Set.of(
             "core", "views", "events", "history", "reflection", "equality-modes", "json");
+    /** Modules that do not apply to the language, with the reason. */
+    static final Map<String, String> NOT_APPLICABLE = Map.of(
+            "identity-equality", "Java's equals and hashCode follow the declared mode (N2)");
 
     private PortableRunner() {
     }
@@ -84,7 +87,11 @@ public final class PortableRunner {
                 scenario.path("requires").forEach(node -> requires.add(node.asText()));
                 String module = requires.isEmpty() ? "core" : String.join("+", requires);
                 Result result = new Result(id, module);
-                if (!CAPABILITIES.containsAll(requires)) {
+                String inapplicable = requires.stream().filter(NOT_APPLICABLE::containsKey).findFirst().orElse(null);
+                if (inapplicable != null) {
+                    result.status = "skipped";
+                    result.message = inapplicable + " does not apply: " + NOT_APPLICABLE.get(inapplicable);
+                } else if (!CAPABILITIES.containsAll(requires)) {
                     result.status = "skipped";
                     result.message = "target does not claim " + requires;
                 } else if (unsupported.containsKey(model)) {

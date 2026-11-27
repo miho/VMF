@@ -18,11 +18,22 @@ every target, Java included, runs the same scenarios ([README](README.md)).
 | events | E (change listeners) | optional |
 | history | H (recording, undo, redo) | optional |
 | reflection | F (property order, annotations) | optional |
-| equality-modes | N (`@VMFEquals` and `@VMFModel(equality = ...)` for the language's own equality) | optional |
+| equality-modes | N1, N2 (the language's own equality follows `@VMFEquals` and `@VMFModel(equality = ...)`) | optional |
+| identity-equality | N1, N3 (the language compares objects by identity only) | optional |
 | json | J (snapshot documents that every target writes and reads alike) | optional |
 
 A target claims the modules it implements. Scenarios of modules it does not claim are skipped and reported
 as skipped, not as passed.
+
+## Language mappings
+
+Every target documents how the model and the rules of the modules it claims appear in its language: names,
+creation, lists, numbers, rejected edits, equality, listeners, recording and documents. The rules say what
+must hold; the mapping says how to reach it in that language.
+
+- [Java](../../docs/targets/java.md) (the reference)
+- [C#](../../docs/targets/csharp.md)
+- [TypeScript](../../docs/targets/typescript.md)
 
 ## Core
 
@@ -125,13 +136,17 @@ back to the container (its opposite).
 
 ## Equality modes (optional)
 
-- **N1** The language's own equality (Java `equals`/`hashCode`, C# `Equals`/`GetHashCode`) follows the
-  declared mode: `INSTANCE` is identity; `CONTAINMENT_AND_EXTERNAL` is content equality (Q1);
-  `ALL` also takes references into account. `@VMFModel(equality = ...)` sets the mode for the whole
-  model; `@VMFEquals` overrides it per type.
+- **N1** Every model type has an equality mode: `INSTANCE` is identity; `CONTAINMENT_AND_EXTERNAL` is content
+  equality (Q1); `ALL` is content equality that also takes references into account. `@VMFModel(equality = ...)`
+  sets the mode for the whole model; `@VMFEquals` overrides it per type. Without either, the mode is `INSTANCE`.
+- **N2** In a language that lets a type define its own equality, that equality follows the mode: Java
+  `equals`/`hashCode`, C# `Equals`/`GetHashCode`.
+- **N3** In a language that compares objects by identity only, the language's equality stays identity in every
+  mode, and content equality (Q1) remains available as an operation. The target's language mapping says so.
 
-The module applies only to languages whose equality can be overridden. JavaScript compares objects by identity
-(`===`, `Map`, `Set`), so TypeScript does not claim it; content equality (Q1) is available there as a method.
+A target claims `equality-modes` (N1, N2) or `identity-equality` (N1, N3), whichever its language allows.
+Java and C# claim `equality-modes`. TypeScript claims `identity-equality`: JavaScript has no equality that a
+class can define; `===`, `Map` and `Set` compare objects by identity.
 
 ## JSON (optional)
 

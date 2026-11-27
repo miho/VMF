@@ -7,7 +7,7 @@ One set of scenario files, one small runner per target language. The rules are i
 conformance/portable/
   CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J optional modules)
   models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>)
-  scenarios/*.json            126 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
+  scenarios/*.json            128 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
   java/                       model generation helper and the Java runner
   csharp/                     the C# runner
@@ -76,7 +76,7 @@ Values: `"obj": label` or `"objs": [labels]` for model objects (compared by iden
 | `{"check": path, ...}` | `obj`, `value`, `objs`, `values`, `size`, optional `"unordered": true` |
 | `{"let": l, "path": path}` | label the object at a path |
 | `{"equal": [p1, p2, ...]}` / `notEqual` | content equality and content hash (Q1) of the first with each other |
-| `{"nativeEqual": [...]}` / `nativeNotEqual` | the language's own equality (N1) |
+| `{"nativeEqual": [...]}` / `nativeNotEqual` | the language's own equality (N2, or identity under N3) |
 | `{"same": [...]}` / `notSame` | identity |
 | `{"copy": path, "as": l}` | deep copy (Q3) |
 | `{"readOnly": path, "as": l}` | read-only view (V1) |
@@ -108,7 +108,7 @@ list events of the same kind on the same property, and chains of set events (`a 
    1,000 lines) follow it step by step.
 3. Add a `runPortable<Target>` task and `expected-failures/<target>.txt`.
 
-How the runners reach the generated code:
+How the runners reach the generated code (for users, the [language mappings](../../docs/targets/) say the same per language):
 
 - Java: `<Type>.newInstance()` and `newBuilder()`, properties through `vmf().reflect()`, `vmf().content()` for
   equality and copies, `vmf().changes()` for listeners and recording, `Change.undo()` and
@@ -122,7 +122,7 @@ How the runners reach the generated code:
 - TypeScript: `new` on the classes listed in `ModelSnapshot.registry` (interface-only types are abstract and
   not registered), then plain property assignment for initial values; properties and list objects by model
   name; `instanceof` also for interface-only supertypes a class implements besides its base class;
-  `contentEquals`, `contentHashCode` and `deepCopy` on every model object; `vmfChanges.addListener(listener,
+  `contentEquals`, `contentHashCode` and `deepCopy` on every model object, `===` as the language's equality (N3); `vmfChanges.addListener(listener,
   "local" | "recursive")` (returns a function that removes the listener), `vmfChanges.start()` and `history`,
   whose entries have `undo()` and `redo()`. Documents through `ModelSnapshot.write`, `read`, `writePlain` and
   `readPlain`. `long` values are `bigint`; the runner parses large JSON integers exactly. `@Immutable` types
@@ -134,9 +134,9 @@ How the runners reach the generated code:
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 16 of 16 | 126 of 126 | none |
-| C# | 16 of 16 | 126 of 126 | none |
-| TypeScript | 16 of 16 | 123 of 123 (all modules but equality modes, which do not apply to JavaScript: 3 scenarios skipped) | none |
+| Java | 16 of 16 | 127 of 127 (the identity-equality scenario does not apply) | none |
+| C# | 16 of 16 | 127 of 127 (the identity-equality scenario does not apply) | none |
+| TypeScript | 16 of 16 | 124 of 124 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
@@ -158,7 +158,7 @@ behavior.
 |---|---|---|---|
 | ContainmentTest (11) | containment moves, opposites | core C | `containment.json` (all 11, plus 13 more) |
 | CrossRefTest (3) | references with opposites, events, recorded changes | core R, events, history | `references.json` |
-| EqualsTest (15) | content equality, equality modes, deep copy | core Q, equality-modes | `equality.json` |
+| EqualsTest (15) | content equality, equality modes, deep copy | core Q, equality-modes, identity-equality | `equality.json` |
 | LazyInitTest (2), DefaultValuesAndBuildersTest (1), BuilderTest (2) | defaults, initial values | core T | `types.json` |
 | PropertyInheritanceTest (1) | several supertypes | core T1 | `types.json` |
 | ImmutableTypesTest (1), GetterOnlyTest (1) | immutables, getter-only | views | `views.json` |

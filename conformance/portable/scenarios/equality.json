@@ -362,6 +362,41 @@
       ]
     },
     {
+      "id": "identity-equality-in-every-mode",
+      "model": "equalitymodes",
+      "requires": ["identity-equality"],
+      "rules": ["N1", "N3", "Q1"],
+      "steps": [
+        {"new": "t", "type": "Target", "with": {"name": "t"}},
+        {"new": "a1", "type": "AllEq", "with": {"name": "a", "value": 3, "reference": {"obj": "t"}}},
+        {"new": "a2", "type": "AllEq", "with": {"name": "a", "value": 3, "reference": {"obj": "t"}}},
+        {"nativeNotEqual": ["a1", "a2"]},
+        {"nativeEqual": ["a1", "a1"]},
+        {"equal": ["a1", "a2"]},
+        {"new": "d1", "type": "DefaultEq", "with": {"name": "d"}},
+        {"new": "d2", "type": "DefaultEq", "with": {"name": "d"}},
+        {"nativeNotEqual": ["d1", "d2"]},
+        {"equal": ["d1", "d2"]},
+        {"new": "i1", "type": "InstanceEq", "with": {"name": "i", "value": 1}},
+        {"new": "i2", "type": "InstanceEq", "with": {"name": "i", "value": 1}},
+        {"nativeNotEqual": ["i1", "i2"]},
+        {"equal": ["i1", "i2"]}
+      ]
+    },
+    {
+      "id": "default-equality-mode-is-identity",
+      "model": "equality",
+      "requires": ["equality-modes"],
+      "rules": ["N1", "N2", "Q1"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"name": "c"}},
+        {"new": "c2", "type": "Child", "with": {"name": "c"}},
+        {"nativeNotEqual": ["c1", "c2"]},
+        {"nativeEqual": ["c1", "c1"]},
+        {"equal": ["c1", "c2"]}
+      ]
+    },
+    {
       "id": "all-equality-mode",
       "model": "equalitymodes",
       "from": "EqualsTest.testEqualsAll",

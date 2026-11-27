@@ -7,10 +7,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as vmf from "@vmf/runtime";
 
 const TARGET = "typescript";
-const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "json"]);
+const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "identity-equality", "json"]);
 /** Modules that do not apply to the language, with the reason. */
 const NOT_APPLICABLE = new Map([
-    ["equality-modes", "JavaScript has no overridable equality: === and Map/Set use identity"],
+    ["equality-modes", "JavaScript compares objects by identity only (===, Map, Set); TypeScript follows N3"],
 ]);
 const OPERATIONS = ["new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual",
     "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf",
@@ -202,6 +202,15 @@ function isModel(value) {
     } catch {
         return false;
     }
+}
+
+/** JavaScript's own equality: === and the SameValueZero of Map and Set, which must agree. */
+function nativelyEqual(left, right) {
+    const equal = left === right;
+    if (equal !== (new Set([left, right]).size === 1)) {
+        throw new ScenarioFailure("=== and Set disagree");
+    }
+    return equal;
 }
 
 function isCollection(value) {
@@ -440,6 +449,20 @@ class Execution {
                 this.pairs(node.notEqual, (left, right) => {
                     if (this.content(left).contentEquals(right) || this.content(right).contentEquals(left)) {
                         throw new ScenarioFailure("expected content inequality");
+                    }
+                });
+                break;
+            case "nativeEqual":
+                this.pairs(node.nativeEqual, (left, right) => {
+                    if (!nativelyEqual(left, right)) {
+                        throw new ScenarioFailure("expected native equality");
+                    }
+                });
+                break;
+            case "nativeNotEqual":
+                this.pairs(node.nativeNotEqual, (left, right) => {
+                    if (nativelyEqual(left, right)) {
+                        throw new ScenarioFailure("expected native inequality");
                     }
                 });
                 break;

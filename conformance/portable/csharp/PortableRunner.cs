@@ -25,6 +25,12 @@ public static class PortableRunner
         "core", "views", "events", "history", "reflection", "equality-modes", "json",
     };
 
+    /// <summary>Modules that do not apply to the language, with the reason.</summary>
+    private static readonly Dictionary<string, string> NotApplicable = new(StringComparer.Ordinal)
+    {
+        ["identity-equality"] = "C#'s Equals and GetHashCode follow the declared mode (N2)",
+    };
+
     public static int Main(string[] args)
     {
         string scenarios = args[0];
@@ -56,7 +62,13 @@ public static class PortableRunner
                 var requires = (scenario["requires"]?.AsArray() ?? new JsonArray()).Select(node => Json.Text(node)).ToList();
                 string module = requires.Count == 0 ? "core" : string.Join("+", requires);
                 var result = new Result(id, module);
-                if (!requires.All(Capabilities.Contains))
+                string? inapplicable = requires.FirstOrDefault(NotApplicable.ContainsKey);
+                if (inapplicable is not null)
+                {
+                    result.Status = "skipped";
+                    result.Message = inapplicable + " does not apply: " + NotApplicable[inapplicable];
+                }
+                else if (!requires.All(Capabilities.Contains))
                 {
                     result.Status = "skipped";
                     result.Message = "target does not claim [" + string.Join(", ", requires) + "]";
