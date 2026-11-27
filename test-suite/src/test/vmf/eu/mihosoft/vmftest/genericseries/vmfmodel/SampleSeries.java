@@ -52,6 +52,7 @@ interface StateSeries extends SampleSeries<Thread.State> {}
 
 @ExternalType(pkgName = "java.lang.Thread")
 @Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmf.Conformance.Externalbinding.Host.ThreadPhase")
+@Annotation(key = "vmf:typescript:external-type", value = "\"NEW\" | \"RUNNABLE\" | \"BLOCKED\" | \"WAITING\" | \"TIMED_WAITING\" | \"TERMINATED\"")
 interface State {}
 
 interface PrimitiveArrays {

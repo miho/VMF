@@ -30,6 +30,8 @@ import eu.mihosoft.vmf.core.ExternalType;
 
 @ExternalType(pkgName = "java.lang")
 @Annotation(key = "vmf:csharp:external-type", value = "System.Text.StringBuilder")
+@Annotation(key = "vmf:typescript:external-type", value = "StringBuilder")
+@Annotation(key = "vmf:typescript:external-module", value = "@vmftest/hosts")
 interface StringBuilder {
 }
 

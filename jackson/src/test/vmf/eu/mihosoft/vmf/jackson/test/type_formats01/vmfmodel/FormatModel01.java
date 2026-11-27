@@ -4,6 +4,7 @@ import eu.mihosoft.vmf.core.*;
 
 @ExternalType(pkgName = "eu.mihosoft.vmf.jackson.test.type_formats01")
 @Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmf.Jackson.Test.Type_formats01.PetType")
+@Annotation(key = "vmf:typescript:external-type", value = "\"DOG\" | \"CAT\" | \"BIRD\" | \"FISH\" | \"UNKNOWN\"")
 interface PetType {
 }
 

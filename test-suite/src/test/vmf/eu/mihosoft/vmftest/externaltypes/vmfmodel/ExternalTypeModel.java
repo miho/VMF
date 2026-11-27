@@ -31,12 +31,16 @@ import eu.mihosoft.vmf.core.ExternalType;
 
 @ExternalType(pkgName = "java.util")
 @Annotation(key = "vmf:csharp:external-type", value = "System.Collections.ArrayList")
+@Annotation(key = "vmf:typescript:external-type", value = "JavaList")
+@Annotation(key = "vmf:typescript:external-module", value = "@vmftest/hosts")
 interface List {
 
 }
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.externaltypes")
 @Annotation(key = "vmf:csharp:external-type", value = "Eu.Mihosoft.Vmftest.Externaltypes.Host.ModelAction")
+@Annotation(key = "vmf:typescript:external-type", value = "ModelAction")
+@Annotation(key = "vmf:typescript:external-module", value = "@vmftest/hosts")
 interface MyAction {
 
 }
@@ -50,12 +54,16 @@ interface MyType {
 
 @ExternalType(pkgName = "java.awt")
 @Annotation(key = "vmf:csharp:external-type", value = "Eu.Mihosoft.Vmftest.Externaltypes.Host.Image")
+@Annotation(key = "vmf:typescript:external-type", value = "Image")
+@Annotation(key = "vmf:typescript:external-module", value = "@vmftest/hosts")
 interface Image {
 
 }
 
 @ExternalType(pkgName = "java.awt.image")
 @Annotation(key = "vmf:csharp:external-type", value = "Eu.Mihosoft.Vmftest.Externaltypes.Host.BufferedImage")
+@Annotation(key = "vmf:typescript:external-type", value = "BufferedImage")
+@Annotation(key = "vmf:typescript:external-module", value = "@vmftest/hosts")
 interface BufferedImage { }
 
 interface Model {
