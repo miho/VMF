@@ -76,6 +76,14 @@ its properties.
 | record | `x.vmfChanges.start()`, `stop()`; `history` holds one entry per edit |
 | undo, redo | `entry.undo()`, `entry.redo()` |
 
+`"local"` and `"recursive"` listeners of one object run in the order they were added (E7). A change reaches the
+changed object's listeners first, then the recursive listeners of its container, nearest first, whatever the
+order in which they were added (E8). A listener may edit the model: the edit is delivered at once, before the
+remaining listeners receive the current change, so a listener called later can receive a change whose new value
+is no longer current (E9). Such an edit is recorded after the edit that triggered it, so undoing all recorded
+changes restores the starting state (H4). Listeners added or removed during a delivery, exceptions thrown by
+listeners and recordings started inside a listener are not specified.
+
 ## Reflection (F)
 
 `x.vmfType` returns `{ name, immutable, properties, annotations, property(name) }`; `properties` are in VMF

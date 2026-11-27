@@ -69,6 +69,18 @@ properties, created through the constructor: `new ImmutableType(name: "a")`.
 | record | `x.VmfChanges.Start()`, `Stop()`; `History` holds the recorded changes |
 | undo, redo | `change.Undo()`, `change.Redo()` |
 
+`Local` and `Recursive` listeners of one object run in the order they were added (E7). A change reaches the
+changed object's listeners first, then the recursive listeners of its container, nearest first, whatever the
+order in which they were added (E8). A listener may edit the model: the edit is delivered at once, before the
+remaining listeners receive the current change, so a listener called later can receive a change whose new value
+is no longer current (E9). Such an edit is recorded after the edit that triggered it, so undoing all recorded
+changes restores the starting state (H4). Listeners added or removed during a delivery, exceptions thrown by
+listeners and recordings started inside a listener are not specified.
+
+Direct property listeners (`AddDirectPropertyListener`) and collection observers are not model listeners: they
+run in their own registration order around the model listeners, and edits they make can be recorded before the
+edit that triggered them.
+
 ## Reflection (F)
 
 `ModelSnapshot.Reflection.Reflect(x)` returns the reflection of an object: `Properties` in VMF property order,

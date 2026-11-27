@@ -61,6 +61,19 @@ and an object of such a type must not change while it is a key in one.
 | record | `x.vmf().changes().start()`, `stop()`; `all()` lists the recorded changes |
 | undo, redo | `change.undo()`; `change.apply(change.object())` |
 
+Local and recursive listeners of one object run in the order they were added (E7). A change reaches the changed
+object's listeners first, then the recursive listeners of its container, nearest first, whatever the order in
+which they were added (E8). A listener may edit the model: the edit is delivered at once, before the remaining
+listeners receive the current change, so a listener called later can receive a change whose new value is no
+longer current (E9). Such an edit is recorded after the edit that triggered it, so undoing all recorded changes
+restores the starting state (H4). Listeners added or removed during a delivery, exceptions thrown by listeners
+and recordings started inside a listener are not specified.
+
+Raw VCollections listeners on a property's list (`list.addChangeListener(...)`) are not model listeners: they run
+in their own registration order around the model listeners, and edits they make can be recorded before the edit
+that triggered them. Up to VMF 0.4.0, an ancestor's recursive listener that was added first ran before the
+changed object's own listeners, and an ancestor's recording recorded a listener's edit before its cause.
+
 ## Reflection (F)
 
 `x.vmf().reflect().properties()` lists the properties in VMF property order; `x.vmf().reflect().annotations()`
