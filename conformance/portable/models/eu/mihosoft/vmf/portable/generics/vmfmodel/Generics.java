@@ -1,5 +1,6 @@
 package eu.mihosoft.vmf.portable.generics.vmfmodel;
 
+import eu.mihosoft.vmf.core.Container;
 import eu.mihosoft.vmf.core.Contains;
 import eu.mihosoft.vmf.core.Immutable;
 import eu.mihosoft.vmf.core.InterfaceOnly;
@@ -81,4 +82,34 @@ interface RightBranch<Y extends Entry> extends Holder<Y> {
 }
 
 interface Journal extends LeftBranch<Entry>, RightBranch<Entry> {
+}
+
+// A generic supertype that a class implements besides its base class declares its scalar slots in that class.
+interface Header {
+    String getId();
+}
+
+interface ReviewedSlot extends Header, Slot<Code> {
+}
+
+// The container narrows its end to a subtype, from test-suite vmftest/genericseries (OwnerOf, OwnedTarget).
+@InterfaceOnly
+interface OwnerOf<T extends OwnedTarget> {
+    @Contains(opposite = "owner")
+    T getPrimary();
+}
+
+interface Owner extends OwnerOf<Owned> {
+    @Override
+    Owned getPrimary();
+}
+
+@InterfaceOnly
+interface OwnedTarget {
+    @Container(opposite = "primary")
+    Owner getOwner();
+}
+
+interface Owned extends OwnedTarget {
+    String getName();
 }

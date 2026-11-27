@@ -66,6 +66,8 @@ final class TypeScriptRenderModel {
     private final Map<String, Set<String>> abstractSlots = new HashMap<>();
     /** The properties whose storage a class declares or inherits from its base classes. */
     private final Map<String, Set<String>> storage = new HashMap<>();
+    /** The type whose class is being prepared. */
+    private Type preparing;
     /** Concrete types that other classes implement besides their base class; their brand is a public symbol. */
     private final Set<String> symbolBrands = new java.util.TreeSet<>();
 
@@ -187,8 +189,9 @@ final class TypeScriptRenderModel {
         if (!type.isGetterOnlyTrait()) {
             for (Property property : type.getEffectiveProperties()) {
                 if (inherited.contains(property.getName())) continue;
-                if (type.isInterfaceOnly() && !type.isImmutable() && property.isGetterOnly()
-                        && redeclaredWithOtherStorage(type, property)) {
+                if (type.isInterfaceOnly() && !type.isImmutable()
+                        && (property.isGetterOnly() && redeclaredWithOtherStorage(type, property)
+                            || mergedWithOtherStorage(type, property))) {
                     abstracted.add(property.getName());
                 } else {
                     stored.add(property.getName());
@@ -208,6 +211,23 @@ final class TypeScriptRenderModel {
                 if (declared.getName().equals(property.getName()) && !sameStorage(declared, property)) {
                     return true;
                 }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a subtype merges a property of an interface-only type into other storage without declaring it again,
+     * as when a plain reference list becomes the keyed containment that another supertype declares. Properties
+     * typed by a type parameter only change with the type arguments, which the storage of the base class keeps.
+     */
+    private boolean mergedWithOtherStorage(Type owner, Property property) {
+        if (property.getValueType().getKind() == ValueType.Kind.PARAMETER) return false;
+        for (Type candidate : model.getTypes()) {
+            if (candidate == owner || !isSubtype(candidate, owner.getName())) continue;
+            Optional<Property> merged = effectiveProperty(candidate, property.getName());
+            if (merged.isPresent() && !sameStorage(merged.get(), property)) {
+                return true;
             }
         }
         return false;
@@ -283,6 +303,7 @@ final class TypeScriptRenderModel {
     }
 
     private Map<String, Object> prepareType(Type type) {
+        preparing = type;
         String name = typeNames.get(type.getName());
         Set<String> parameterNames = new HashSet<>();
         List<String> parameters = new ArrayList<>();
@@ -699,6 +720,16 @@ final class TypeScriptRenderModel {
             case CONTAINER:
                 return prepareContainer(owner, member, property, target);
             case REFERENCE: {
+                // A class that implements a generic supertype besides its base declares the supertype's scalar
+                // slot itself; an immutable type argument keeps the slot's storage.
+                Optional<Property> slot = scalarSlotOrigin(property);
+                if (slot.isPresent()) {
+                    if (property.isCollection()) {
+                        String element = target + (slot.get().allowsNullElements() ? " | null" : "");
+                        return field("readonly " + member + " = new vmf.ScalarList<" + element + ">(this, " + name + ");");
+                    }
+                    return valueAccessor(member, target + " | null", "null");
+                }
                 String opposite = property.getOppositeName();
                 if (property.isCollection()) {
                     String arguments = "this, " + name + (opposite.isEmpty() ? "" : ", "
@@ -732,6 +763,15 @@ final class TypeScriptRenderModel {
             default:
                 throw new IllegalStateException("Unsupported property kind " + property.getKind());
         }
+    }
+
+    /** The declaration of a property as a scalar slot of a type parameter, if its declaring type has one. */
+    private Optional<Property> scalarSlotOrigin(Property property) {
+        return model.findType(property.getDeclaringType())
+                .flatMap(declaring -> declaring.getProperties().stream()
+                        .filter(origin -> origin.getName().equals(property.getName())).findFirst())
+                .filter(origin -> origin.getKind() == Property.Kind.SCALAR
+                        && origin.getValueType().getKind() == ValueType.Kind.PARAMETER);
     }
 
     /** Whether the children of a containment property are typed by a getter-only trait (or a parameter bound to one). */
@@ -846,7 +886,12 @@ final class TypeScriptRenderModel {
             }
             Property inverse = containerType.getEffectiveProperties().stream()
                     .filter(candidate -> candidate.getName().equals(opposite)).findFirst().orElseThrow();
-            attach = inverse.isCollection() ? "value." + opposite + ".add(this)" : "value." + opposite + " = this";
+            // The container can have narrowed its end to a subtype of this class (Owner.primary: Owned for an
+            // OwnedTarget); the objects that reach this setter are of that subtype.
+            String self = inverse.getValueType().getModelType() == null
+                    || isSubtype(preparing, inverse.getValueType().getModelType())
+                    ? "this" : "this as unknown as " + typeName(inverse.getValueType());
+            attach = inverse.isCollection() ? "value." + opposite + ".add(" + self + ")" : "value." + opposite + " = " + self;
         }
         return Map.of("container", true, "name", member, "type", target, "modifier", "",
                 "ownerType", typeName(containerType),

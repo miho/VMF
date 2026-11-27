@@ -6,6 +6,7 @@ import eu.mihosoft.vmf.core.DefaultValue;
 import eu.mihosoft.vmf.core.GetterOnly;
 import eu.mihosoft.vmf.core.Immutable;
 import eu.mihosoft.vmf.core.InterfaceOnly;
+import eu.mihosoft.vmf.core.Keyed;
 
 // Subtypes that declare inherited properties again, from test-suite vmftest/propertyinheritance (2022),
 // vflow (2017) and VMF-Text grammar models: the same property with a new default, getter-only references that
@@ -194,4 +195,43 @@ interface Shelf {
 
     @Contains
     Labeled getFirst();
+}
+
+// Two concrete supertypes that both declare the same containment list, from C# conformance exactredeclarations.
+interface Asset {
+    String getName();
+}
+
+interface FirstRecord {
+    @Contains
+    Asset[] getAssets();
+}
+
+interface SecondRecord {
+    @Contains
+    Asset[] getAssets();
+}
+
+interface CombinedRecord extends FirstRecord, SecondRecord {
+}
+
+// A plain reference list of the first supertype that becomes the keyed containment the second declares, from
+// test-suite vmftest/keyed (Warehouse).
+interface Article {
+    String getCode();
+}
+
+@InterfaceOnly
+interface ArticleRefs {
+    Article[] getArticles();
+}
+
+@InterfaceOnly
+interface ArticleStock {
+    @Contains
+    @Keyed(by = "code")
+    Article[] getArticles();
+}
+
+interface Store extends ArticleRefs, ArticleStock {
 }

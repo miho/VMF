@@ -122,10 +122,13 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
     readonly #attachment: Attachment;
     readonly #key: ContainmentKey<TChild> | undefined;
     #indexed = true;
+    /** The owning object; typed as object so that any class implementing the owner's type can share the field. */
+    readonly owner: object;
 
-    constructor(readonly owner: TParent, readonly property: string,
+    constructor(owner: TParent, readonly property: string,
                 private readonly getLink: (child: TChild) => ContainmentLink, readonly opposite?: string,
                 options: ContainmentOptions<TChild> = {}) {
+        this.owner = owner;
         this.#key = options.key;
         const key = this.#key;
         this.#attachment = {
@@ -373,9 +376,12 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
  */
 export class ContainmentSet<TParent extends object, TChild extends object> implements Iterable<TChild> {
     readonly #children: ContainmentList<TParent, TChild>;
+    /** The owning object; typed as object so that any class implementing the owner's type can share the field. */
+    readonly owner: object;
 
-    constructor(readonly owner: TParent, readonly property: string, getLink: (child: TChild) => ContainmentLink,
+    constructor(owner: TParent, readonly property: string, getLink: (child: TChild) => ContainmentLink,
                 readonly opposite?: string, options: ContainmentOptions<TChild> = {}) {
+        this.owner = owner;
         this.#children = new ContainmentList(owner, property, getLink, opposite, options);
         this.#children.__vmfUnordered(this);
     }
@@ -419,9 +425,12 @@ export class ContainmentSet<TParent extends object, TChild extends object> imple
 export class ContainmentSlot<TParent extends object, TChild extends object> {
     #value: TChild | null = null;
     readonly #attachment: Attachment;
+    /** The owning object; typed as object so that any class implementing the owner's type can share the field. */
+    readonly owner: object;
 
-    constructor(readonly owner: TParent, readonly property: string,
+    constructor(owner: TParent, readonly property: string,
                 private readonly getLink: (child: TChild) => ContainmentLink, readonly opposite?: string) {
+        this.owner = owner;
         this.#attachment = {
             owner,
             property,

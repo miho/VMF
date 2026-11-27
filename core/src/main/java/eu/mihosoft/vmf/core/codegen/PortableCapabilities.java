@@ -623,6 +623,18 @@ public final class PortableCapabilities {
         }
     }
 
+    private static Set<String> ancestorsOf(ResolvedModel model, Type type) {
+        var ancestors = new java.util.LinkedHashSet<String>();
+        var pending = new java.util.ArrayDeque<>(type.getSuperTypes());
+        while (!pending.isEmpty()) {
+            String name = pending.removeFirst();
+            if (ancestors.add(name)) {
+                model.findType(name).ifPresent(parent -> pending.addAll(parent.getSuperTypes()));
+            }
+        }
+        return ancestors;
+    }
+
     /** The base class of a TypeScript class, as the TypeScript generator chooses it. */
     private static Type typeScriptBase(ResolvedModel model, Type type) {
         Type firstInterfaceOnly = null;
@@ -1129,7 +1141,17 @@ public final class PortableCapabilities {
         String name = type.getQualifiedName();
         for (String parentName : type.getSuperTypes()) {
             var parent = model.findType(parentName);
-            if (parent.isEmpty() || parent.get().isGetterOnlyTrait()) continue;
+            if (parent.isEmpty()) continue;
+            if (parent.get().isGetterOnlyTrait()) {
+                // A TypeScript trait extends its first supertype; an immutable class can only implement traits
+                // whose supertypes are traits too (a generic interface-only type is not one).
+                for (String ancestor : ancestorsOf(model, parent.get())) {
+                    model.findType(ancestor).filter(candidate -> !candidate.isGetterOnlyTrait()).ifPresent(candidate ->
+                            diagnostics.add(name + " needs getter-only traits whose supertypes are getter-only traits, found "
+                                    + candidate.getQualifiedName()));
+                }
+                continue;
+            }
             if (parent.get().isImmutable() && !parent.get().isInterfaceOnly()) continue;
             diagnostics.add(name + " can extend immutable types and getter-only traits, found "
                     + parent.get().getQualifiedName());
@@ -1151,10 +1173,14 @@ public final class PortableCapabilities {
                         property.isUnique(), property.getWireName(), property.getOppositeName(),
                         PortableInheritance.boundTypeKey(parentType.get(), application, property.getValueType()));
                 var previous = declarations.putIfAbsent(property.getName(), declaration);
-                // A property the type declares again is checked against each supertype in checkOverrides.
+                // A property the type declares again is checked against each supertype in checkOverrides. A plain
+                // reference list of the first supertype can become the keyed containment that the others declare.
                 boolean redeclared = type.getProperties().stream()
                         .anyMatch(own -> own.getName().equals(property.getName()));
-                if (previous != null && !redeclared && !previous.equals(declaration)) {
+                boolean promoted = type.getEffectiveProperties().stream()
+                        .filter(effective -> effective.getName().equals(property.getName())).findFirst()
+                        .filter(effective -> PortableInheritance.promotesKeyedSequence(model, type, effective)).isPresent();
+                if (previous != null && !redeclared && !promoted && !previous.equals(declaration)) {
                     conflicts.add(property.getName());
                 }
             }
