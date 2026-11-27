@@ -29,9 +29,12 @@ import eu.mihosoft.vmf.runtime.core.Type;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.runtime.core.VObject;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Don't rely on this API. Seriously, <b>don't</b> rely on it!
@@ -42,6 +45,17 @@ import java.util.List;
  */
 @Deprecated
 public class ReflectImpl implements Reflect {
+    private static final ClassValue<Optional<Method>> GENERATED_DECLARATION_FACTORY = new ClassValue<>() {
+        @Override
+        protected Optional<Method> computeValue(Class<?> modelClass) {
+            try {
+                Class<?> builder = Class.forName(modelClass.getName() + "$Builder", false, modelClass.getClassLoader());
+                return Optional.of(builder.getDeclaredMethod("__vmf_snapshotMetadata"));
+            } catch (ClassNotFoundException | NoSuchMethodException olderModel) {
+                return Optional.empty();
+            }
+        }
+    };
 
     private VObject model;
     private List<Property> properties;
@@ -96,6 +110,26 @@ public class ReflectImpl implements Reflect {
             sortedUniqueProperties = sorted;
         }
         return properties;
+    }
+
+    /** Reads declarations through the generated builder without running model construction. */
+    public static Optional<ReflectImpl> generatedDeclaration(Class<?> modelClass) {
+        Optional<Method> factory = GENERATED_DECLARATION_FACTORY.get(modelClass);
+        if (factory.isEmpty()) return Optional.empty();
+        try {
+            return Optional.of((ReflectImpl) factory.get().invoke(null));
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalArgumentException("Cannot read generated snapshot metadata of " + modelClass.getName(), failure);
+        }
+    }
+
+    /** Reads the original supertype table, with the prototype path for older generated models. */
+    public static String[] readDeclaredSuperTypeNames(Class<?> modelClass, Supplier<VObject> legacyPrototype) {
+        VObjectInternal owner = (VObjectInternal) generatedDeclaration(modelClass)
+                .map(declaration -> declaration.model).orElseGet(legacyPrototype);
+        return owner instanceof TypeMetadataProvider
+                ? ((TypeMetadataProvider) owner)._vmf_getGenericSuperTypeNames()
+                : owner._vmf_getSuperTypeNames();
     }
 
     /** Visits the real property order without exposing a new writable reference. */

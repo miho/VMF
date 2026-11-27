@@ -27,7 +27,7 @@ import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,22 +35,35 @@ import java.util.regex.PatternSyntaxException;
 
 /** Checks property constraints and prepares their generated runtime descriptors. */
 final class ConstraintDeclarations {
+    private static final String PATTERN_BINDING_PREFIX = "vmf:pattern:";
     private static final Set<Class<?>> NUMERIC = Set.of(byte.class, short.class, int.class, long.class,
             float.class, double.class, Byte.class, Short.class, Integer.class, Long.class, Float.class, Double.class);
     private static final java.util.regex.Pattern QUANTIFIER = java.util.regex.Pattern.compile("\\{[0-9]+(?:,[0-9]*)?}");
 
+    static final class Result {
+        static final Result EMPTY = new Result(Map.of());
+
+        final List<PropertyConstraint> declarations;
+        final List<String> javaExpressions;
+
+        Result(Map<String, PropertyConstraint> constraints) {
+            declarations = List.copyOf(constraints.values());
+            javaExpressions = List.copyOf(constraints.keySet());
+        }
+    }
+
     private ConstraintDeclarations() {}
 
-    static List<String> expressions(ModelType owner, Method getter, Class<?> valueType) {
+    static Result resolve(ModelType owner, Method getter, Class<?> valueType) {
         Class<?> raw = getter.getReturnType();
         boolean many = raw.isArray() || Collection.class.isAssignableFrom(raw) || Map.class.isAssignableFrom(raw)
                 || raw.getName().equals("eu.mihosoft.vcollections.VMap");
-        Set<String> expressions = new LinkedHashSet<>();
+        Map<String, PropertyConstraint> constraints = new LinkedHashMap<>();
         for (Method declaration : owner.genericTypes().propertyDeclarations(getter.getName())) {
             Range range = declaration.getAnnotation(Range.class);
             if (range != null) {
                 checkType(owner, declaration, many, valueType, NUMERIC, "@Range", "a numeric scalar");
-                expressions.add(rangeExpression(declaration, range));
+                add(constraints, rangeConstraint(declaration, range));
             }
             Length length = declaration.getAnnotation(Length.class);
             if (length != null) {
@@ -58,15 +71,39 @@ final class ConstraintDeclarations {
                 if (length.min() < 0 || length.max() < -1 || length.max() >= 0 && length.max() < length.min()) {
                     throw invalid(declaration, "@Length has invalid bounds");
                 }
-                expressions.add("ValueConstraint.StringLength(" + length.min() + ", " + length.max() + ")");
+                add(constraints, PropertyConstraint.length(length.min(), length.max()));
             }
             Pattern pattern = declaration.getAnnotation(Pattern.class);
             if (pattern != null) {
                 checkType(owner, declaration, many, valueType, Set.of(String.class), "@Pattern", "a String scalar");
-                expressions.add(patternExpression(declaration, pattern));
+                add(constraints, patternConstraint(declaration, pattern));
             }
         }
-        return List.copyOf(expressions);
+        return constraints.isEmpty() ? Result.EMPTY : new Result(constraints);
+    }
+
+    private static void add(Map<String, PropertyConstraint> constraints, PropertyConstraint constraint) {
+        // Preserve the Java generator's existing descriptor order and duplicate handling.
+        constraints.merge(javaExpression(constraint), constraint, PropertyConstraint::mergeBindings);
+    }
+
+    private static String javaExpression(PropertyConstraint constraint) {
+        switch (constraint.getKind()) {
+            case RANGE:
+                return "ValueConstraint.NumericRange(" + quote(constraint.getMin() == null ? "" : constraint.getMin())
+                        + ", " + constraint.isMinInclusive()
+                        + ", " + quote(constraint.getMax() == null ? "" : constraint.getMax())
+                        + ", " + constraint.isMaxInclusive() + ")";
+            case LENGTH:
+                return "ValueConstraint.StringLength(" + constraint.getMinLength() + ", "
+                        + constraint.getMaxLength() + ")";
+            case PATTERN:
+                return "ValueConstraint.StringPattern(" + quote(constraint.getPattern())
+                        + ", " + quote(constraint.getJavaPattern()) + ", "
+                        + (constraint.isPortable() ? quote(constraint.getSchemaPattern()) : "null") + ")";
+            default:
+                throw new IllegalStateException("Unknown property constraint " + constraint.getKind());
+        }
     }
 
     private static void checkType(ModelType owner, Method declaration, boolean many, Class<?> valueType,
@@ -77,7 +114,7 @@ final class ConstraintDeclarations {
         }
     }
 
-    private static String rangeExpression(Method declaration, Range range) {
+    private static PropertyConstraint rangeConstraint(Method declaration, Range range) {
         try {
             String min = decimal(range.min());
             String max = decimal(range.max());
@@ -88,8 +125,8 @@ final class ConstraintDeclarations {
                     throw invalid(declaration, "@Range has an empty interval");
                 }
             }
-            return "ValueConstraint.NumericRange(" + quote(min) + ", " + range.minInclusive()
-                    + ", " + quote(max) + ", " + range.maxInclusive() + ")";
+            return PropertyConstraint.range(min.isEmpty() ? null : min, range.minInclusive(),
+                    max.isEmpty() ? null : max, range.maxInclusive());
         } catch (NumberFormatException exception) {
             throw invalid(declaration, "@Range bounds must be finite decimal numbers");
         }
@@ -99,7 +136,7 @@ final class ConstraintDeclarations {
         return value.isEmpty() ? value : new BigDecimal(value).toString();
     }
 
-    private static String patternExpression(Method declaration, Pattern pattern) {
+    private static PropertyConstraint patternConstraint(Method declaration, Pattern pattern) {
         String expression = pattern.value();
         try {
             java.util.regex.Pattern.compile(expression);
@@ -107,7 +144,14 @@ final class ConstraintDeclarations {
             throw invalid(declaration, "@Pattern is invalid: " + exception.getDescription());
         }
         if (!pattern.portable()) {
-            return "ValueConstraint.StringPattern(" + quote(expression) + ", " + quote(expression) + ", null)";
+            var bindings = new LinkedHashMap<String, List<String>>();
+            for (Annotation annotation : declaration.getDeclaredAnnotationsByType(Annotation.class)) {
+                if (annotation.key().startsWith(PATTERN_BINDING_PREFIX)) {
+                    String target = annotation.key().substring(PATTERN_BINDING_PREFIX.length());
+                    bindings.computeIfAbsent(target, key -> new ArrayList<>()).add(annotation.value());
+                }
+            }
+            return PropertyConstraint.pattern(expression, expression, null, bindings);
         }
 
         List<Integer> endAnchors = portableEndAnchors(declaration, expression);
@@ -119,8 +163,7 @@ final class ConstraintDeclarations {
             javaExpression.replace(index, index + 1, "\\z");
             schemaExpression.replace(index, index + 1, "(?![\\s\\S])");
         }
-        return "ValueConstraint.StringPattern(" + quote(expression) + ", " + quote(javaExpression.toString())
-                + ", " + quote(schemaExpression.toString()) + ")";
+        return PropertyConstraint.pattern(expression, javaExpression.toString(), schemaExpression.toString());
     }
 
     private static List<Integer> portableEndAnchors(Method declaration, String expression) {

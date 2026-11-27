@@ -16,6 +16,13 @@ interface Workshop extends StationOwner {
     Set<Station> getFavorites();
 }
 
+interface BoundedPicks {
+    @Multiplicity(upper = 2)
+    Station[] getTrail();
+    @Multiplicity(kind = ORDERED_SET, upper = 2)
+    Station[] getChoices();
+}
+
 @VMFEquals(VMFEquals.EqualsType.CONTAINMENT_AND_EXTERNAL)
 interface Station {
     @Multiplicity(lower = 1)

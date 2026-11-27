@@ -35,26 +35,82 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 
 /** Internal generated-model list that completes synchronous delivery before throwing. */
 public class ObservableModelList<T> extends AbstractList<T> implements VList<T> {
     private final VList<T> observable;
-    private List<CollectionChangeListener<T, VList<T>, VListChange<T>>> listeners = Collections.emptyList();
+    private final boolean ordinary;
+    private final boolean modelElements;
+    private enum ReciprocalOpposite { NONE, COLLECTION, SCALAR }
+
+    private final ReciprocalOpposite reciprocalOpposite;
+    private List<ListListenerRegistration<T>> listeners = Collections.emptyList();
     private Subscription relay;
     private VList<T> unmodifiable;
     private boolean crossReferencePending;
 
     ObservableModelList(VList<T> observable) {
+        this(observable, false, false);
+    }
+
+    private ObservableModelList(VList<T> observable, boolean ordinary, boolean modelElements) {
+        this(observable, ordinary, modelElements, ReciprocalOpposite.NONE);
+    }
+
+    private ObservableModelList(VList<T> observable, boolean ordinary, boolean modelElements,
+                                ReciprocalOpposite reciprocalOpposite) {
         this.observable = observable;
+        this.ordinary = ordinary;
+        this.modelElements = modelElements;
+        this.reciprocalOpposite = reciprocalOpposite;
     }
 
     public static <T> VList<T> newInstance(List<T> backing) {
-        return new ObservableModelList<>(VList.newInstance(backing));
+        return new ObservableModelList<>(VList.newInstance(backing), false, false);
+    }
+
+    public static <T> VList<T> newReferenceInstance(List<T> backing) {
+        return new ObservableModelList<>(VList.newInstance(backing), false, true);
+    }
+
+    /** A reciprocal positional source whose opposite updates are inverse-only. */
+    public static <T> VList<T> newCollectionReciprocalSequence(List<T> backing) {
+        return new ObservableModelList<>(VList.newInstance(backing), false, true, ReciprocalOpposite.COLLECTION);
+    }
+
+    /** A positional source that keeps only one occurrence per singular opposite. */
+    public static <T> VList<T> newScalarReciprocalSequence(List<T> backing) {
+        return new ObservableModelList<>(VList.newInstance(backing), false, true, ReciprocalOpposite.SCALAR);
+    }
+
+    public static boolean hasScalarReciprocalOpposite(VList<?> source) {
+        return source instanceof ObservableModelList
+                && ((ObservableModelList<?>) source).reciprocalOpposite == ReciprocalOpposite.SCALAR;
+    }
+
+    boolean hasReciprocalCollectionOpposite() {
+        return reciprocalOpposite == ReciprocalOpposite.COLLECTION;
+    }
+
+    /** Creates a positional list without an opposite that can be captured before callbacks. */
+    public static <T> VList<T> newOrdinaryInstance(List<T> backing) {
+        return newOrdinaryInstance(backing, false);
+    }
+
+    public static <T> VList<T> newOrdinaryInstance(List<T> backing, boolean modelElements) {
+        return new ObservableModelList<>(VList.newInstance(backing), true, modelElements);
+    }
+
+    boolean isOrdinary() {
+        return ordinary;
     }
 
     /** Returns true when a replacement only reorders the existing edges, counting identities and duplicates. */
@@ -70,6 +126,19 @@ public class ObservableModelList<T> extends AbstractList<T> implements VList<T> 
             else counts.put(edge, count - 1);
         }
         return true;
+    }
+
+    /** Compares the current reverse occurrence count to the live initiating list. */
+    public static int compareOppositeOccurrences(Iterable<?> source, Object value, Iterable<?> opposite, Object owner) {
+        return Integer.compare(identityCount(opposite, owner), identityCount(source, value));
+    }
+
+    private static int identityCount(Iterable<?> entries, Object identity) {
+        int count = 0;
+        for (Object entry : entries) {
+            if (entry == identity) count++;
+        }
+        return count;
     }
 
     public static <T> void addCrossReference(VList<T> list, T value) {
@@ -123,16 +192,21 @@ public class ObservableModelList<T> extends AbstractList<T> implements VList<T> 
     }
 
     private void dispatch(CollectionChangeEvent<T, VList<T>, VListChange<T>> event) {
-        if (listeners.isEmpty()) return;
-        if (listeners.size() == 1) {
-            listeners.get(0).onChange(event);
+        var snapshot = listeners;
+        if (snapshot.isEmpty()) return;
+        // Prepare portable records before any direct or model listener can edit the list again.
+        if (snapshot.size() == 1) {
+            var listener = snapshot.get(0);
+            listener.prepare((VListChangeEvent<T>) event);
+            listener.onChange(event);
             return;
         }
+        for (var listener : snapshot) listener.prepare((VListChangeEvent<T>) event);
 
         Throwable failure = null;
         // Registration publishes a new list, so nested subscription changes
         // cannot alter the current delivery.
-        for (var listener : listeners) {
+        for (var listener : snapshot) {
             try {
                 listener.onChange(event);
             } catch (RuntimeException | Error ex) {
@@ -143,25 +217,32 @@ public class ObservableModelList<T> extends AbstractList<T> implements VList<T> 
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public Subscription addChangeListener(
             CollectionChangeListener<T, ? super VList<T>, ? super VListChange<T>> listener) {
-        var typed = (CollectionChangeListener<T, VList<T>, VListChange<T>>) listener;
+        return observe(listener, null);
+    }
+
+    Subscription observe(CollectionChangeListener<T, ? super VList<T>, ? super VListChange<T>> listener,
+                         Consumer<VListChangeEvent<T>> prepare) {
+        var registration = new ListListenerRegistration<>(listener, prepare);
         if (listeners.isEmpty()) {
             relay = observable.addChangeListener(this::fire);
-            listeners = Collections.singletonList(typed);
+            listeners = Collections.singletonList(registration);
         } else {
             var updated = new ArrayList<>(listeners);
-            updated.add(typed);
+            updated.add(registration);
             listeners = updated;
         }
-        return () -> removeChangeListener(listener);
+        return () -> removeAt(listeners.indexOf(registration));
     }
 
     @Override
     public boolean removeChangeListener(
             CollectionChangeListener<T, ? super VList<T>, ? super VListChange<T>> listener) {
-        int index = listeners.indexOf(listener);
+        return removeAt(ListListenerRegistration.indexOf(listeners, listener));
+    }
+
+    private boolean removeAt(int index) {
         if (index < 0) return false;
         if (listeners.size() == 1) {
             listeners = Collections.emptyList();
@@ -183,7 +264,8 @@ public class ObservableModelList<T> extends AbstractList<T> implements VList<T> 
 
     final VList<T> unmodifiableView(boolean projectEventSource) {
         if (unmodifiable == null) {
-            var view = new ObservableModelList<>(VList.newInstance(Collections.unmodifiableList(observable)));
+            var view = new ObservableModelList<>(VList.newInstance(Collections.unmodifiableList(observable)),
+                    ordinary, modelElements);
             view.unmodifiable = view;
             // Raw VList views forward the original edit and its source. A generated read-only projection
             // provides its own event source so an observer cannot reach the mutable model list through it.
@@ -207,31 +289,55 @@ public class ObservableModelList<T> extends AbstractList<T> implements VList<T> 
     @Override public int size() { return observable.size(); }
     @Override public T get(int index) { return observable.get(index); }
     @Override public boolean isEmpty() { return observable.isEmpty(); }
-    @Override public boolean contains(Object value) { return observable.contains(value); }
-    @Override public boolean containsAll(Collection<?> values) { return observable.containsAll(values); }
-    @Override public int indexOf(Object value) { return observable.indexOf(value); }
-    @Override public int lastIndexOf(Object value) { return observable.lastIndexOf(value); }
+    @Override public boolean contains(Object value) { return observable.contains(lookupValue(value)); }
+    @Override public boolean containsAll(Collection<?> values) {
+        return modelElements ? ReferenceAliasList.containsAll(observable, values) : observable.containsAll(values);
+    }
+    @Override public int indexOf(Object value) { return observable.indexOf(lookupValue(value)); }
+    @Override public int lastIndexOf(Object value) { return observable.lastIndexOf(lookupValue(value)); }
     @Override public Object[] toArray() { return observable.toArray(); }
     @Override public <U> U[] toArray(U[] result) { return observable.toArray(result); }
-    @Override public boolean remove(Object value) { return observable.remove(value); }
+    @Override public boolean remove(Object value) { return observable.remove(lookupValue(value)); }
     @Override public T remove(int index) { return observable.remove(index); }
     @Override public boolean removeAll(int... indices) { return observable.removeAll(indices); }
     @Override public boolean removeAll(Collection<?> values) { return observable.removeAll(values); }
     @Override public boolean retainAll(Collection<?> values) { return observable.retainAll(values); }
     @Override public boolean removeIf(Predicate<? super T> predicate) { return observable.removeIf(predicate); }
-    @Override public void replaceAll(UnaryOperator<T> operator) { observable.replaceAll(operator); }
+    @Override public void replaceAll(UnaryOperator<T> operator) {
+        if (unmodifiable == this) throw new UnsupportedOperationException("Read-only list.");
+        Objects.requireNonNull(operator);
+        if (observable.isEmpty()) return;
+
+        // The raw VList applies the operator in place. A later exception otherwise
+        // leaves an unrecorded mutation with no change event.
+        var before = new ArrayList<>(observable);
+        var after = new ArrayList<>(before);
+        after.replaceAll(operator);
+        if (observable.size() != before.size()) throw new ConcurrentModificationException();
+        for (int index = 0; index < before.size(); index++) {
+            if (observable.get(index) != before.get(index)) throw new ConcurrentModificationException();
+        }
+        observable.setAll(0, after);
+    }
     @Override public void sort(Comparator<? super T> comparator) { observable.sort(comparator); }
     @Override public void clear() { observable.clear(); }
     @Override public Iterator<T> iterator() { return observable.iterator(); }
     @Override public ListIterator<T> listIterator() { return observable.listIterator(); }
     @Override public ListIterator<T> listIterator(int index) { return observable.listIterator(index); }
-    @Override public List<T> subList(int from, int to) { return observable.subList(from, to); }
+    @Override public List<T> subList(int from, int to) {
+        var range = observable.subList(from, to);
+        return modelElements ? new ReferenceAliasList<>(range) : range;
+    }
     @Override public String getEventInfo() { return observable.getEventInfo(); }
     @Override public void setEventInfo(String value) { observable.setEventInfo(value); }
     @Override public boolean equals(Object other) { return other == this || observable.equals(other); }
     @Override public int hashCode() { return observable.hashCode(); }
 
-    private static final class ModelListEvent<T> implements VListChangeEvent<T> {
+    private Object lookupValue(Object value) {
+        return modelElements ? ReferenceCollections.identity(value) : value;
+    }
+
+    static final class ModelListEvent<T> implements VListChangeEvent<T> {
         private final VList<T> source;
         private final VListChangeEvent<T> event;
         private final boolean crossReference;

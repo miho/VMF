@@ -6,6 +6,20 @@
 
 Jackson projects VMF multiplicity, numeric range, string length, and portable string patterns into Draft-07 JSON Schema. Configure `VMFJacksonModule.withModelValidator(validator)` to also validate the finished model after a read. See [model validation](../docs/model-validation.md) for the runtime API, schema extension hook, and reference behavior.
 
+## Model-defined wire names
+
+Put `@Annotation(key = "vmf:wire:type", value = "thermometer")` on a concrete
+model declaration to share its discriminator across generated targets.
+Configure the Java mapper and schema generator with
+`withModelWireTypeAliases(Catalog.class)`, where `Catalog` is any concrete
+generated type from that model. This registers the model's aliases when
+polymorphism calls for a discriminator. Explicit `withTypeAlias` configuration
+remains available for existing callers.
+
+Use `@Annotation(key = "vmf:jackson:rename", value = "items")` for a property
+whose wire name differs from its model name. See the
+[Java and C# interchange example](../examples/csharp-workshop/README.md#exchange-json-snapshots).
+
 ## Reference-aware JSON and schema
 
 Reference support is opt-in on both the mapper module and schema generator:
@@ -50,3 +64,7 @@ An unordered scalar set uses a JSON/YAML array or XML `member` elements. Duplica
 A keyed containment list stores its entry objects in order. Enable `VMFJacksonModule.withReferences(true)` when an entry uses a mutable model reference as its key, so reload can resolve the original object within the graph. The schema requires the key field on entries in that list. VMF enforces uniqueness across those entry keys and across the keys of typed maps during loading. JSON Schema cannot express uniqueness by one field of an object array.
 
 An ordered or unordered unique containment end writes its children inline. A unique reference end with mutable targets requires `withReferences(true)`. Each mutable target must be reachable through containment from the serialized root. An immutable target can be defined inline at any of its references. Null members, duplicate identities, unresolved IDs and wrong-type IDs fail on read.
+
+## Portable change journals
+
+`VMFJournalCodec` reads and writes preview journals in JSON, YAML, and XML. All current operation and value kinds use envelope version `1`. The reader accepts only that version and rejects the retired preview versions `2` through `6`. The model version in the journal is separate. [Journal formats and replay](../docs/change-journal.md)

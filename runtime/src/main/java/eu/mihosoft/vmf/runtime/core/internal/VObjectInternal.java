@@ -121,6 +121,11 @@ public interface VObjectInternal extends VObject, ObservableObject {
      */
     public int[] _vmf_getChildrenIndices();
 
+    /** Changes whenever a generated singular owning slot changes identity. */
+    default long _vmf_getContainmentSlotRevision(int propertyId) {
+        return 0;
+    }
+
     /**
      * Returns the indices of all parent properties which declare this object as
      * child/contained element (opposite).
@@ -200,11 +205,8 @@ public interface VObjectInternal extends VObject, ObservableObject {
      */
     default VObject _vmf_getContainer() {throw new RuntimeException("This type is not contained and this method shouldn't be called!");};
 
-    /**
-     * 
-     * @param threadlocalMap the thread local map for equality checks
-     */
-    void _vmf_setThreadLocalEquals(ThreadLocal<java.util.Map<EqualsPair, ?>> threadlocalMap);
+    /** Compatibility hook for model classes generated before active-pair comparison. */
+    default void _vmf_setThreadLocalEquals(ThreadLocal<java.util.Map<EqualsPair, ?>> threadlocalMap) { }
 
     /**
      * @param sb string builder used to create the final string
@@ -224,6 +226,8 @@ public interface VObjectInternal extends VObject, ObservableObject {
    * deliberately broken by design.
    */
    static class EqualsPair {
+        private static final ThreadLocal<java.util.Set<EqualsPair>> ACTIVE_PAIRS =
+                ThreadLocal.withInitial(java.util.HashSet::new);
 
         final Object first;
         final Object second;
@@ -231,6 +235,24 @@ public interface VObjectInternal extends VObject, ObservableObject {
         public EqualsPair(Object first, Object second) {
             this.first = first;
             this.second = second;
+        }
+
+        /** A repeated pair reached through the current comparison path represents a cycle. */
+        public boolean enter() {
+            return ACTIVE_PAIRS.get().add(this);
+        }
+
+        /** Returns the new path depth, or zero if the pair is already active. */
+        public int enterDepth() {
+            var pairs = ACTIVE_PAIRS.get();
+            return pairs.add(this) ? pairs.size() : 0;
+        }
+
+        /** A completed comparison must not affect another branch of an unordered match. */
+        public void leave() {
+            var pairs = ACTIVE_PAIRS.get();
+            pairs.remove(this);
+            if (pairs.isEmpty()) ACTIVE_PAIRS.remove();
         }
 
         @Override
@@ -268,9 +290,20 @@ public interface VObjectInternal extends VObject, ObservableObject {
      */
     boolean _vmf_equals(Object o);
 
+    /** Returns the raw field count, -1 for legacy dispatch, or -2 for another implementation type. */
+    default int _vmf_equalityFieldCount(VObjectInternal other) { return -1; }
+
+    /** Supplies raw generated storage for exactly one field in structural comparison order. */
+    default void _vmf_prepareEqualityField(int index, VObjectInternal other, StructuralContentEquality.Field field) {
+        throw new UnsupportedOperationException("No generated equality fields");
+    }
+
     /**
      * TBD
      * @return
      */
     int _vmf_hashCode();
+
+    /** Internal hash visitor for generated equality fields. Older implementations act as opaque leaves. */
+    default void _vmf_collectHashFields(StructuralContentHash.Fields fields) { }
 }

@@ -303,7 +303,9 @@
 #foreach($prop in ${type.implementation.properties})
       case ${foreach.index}:
         Object __vmf_default_value_tmp${prop.nameWithUpperCase} = _VMF_DEFAULT_VALUES[${foreach.index}];
-#if($prop.referenceSet)
+#if($readOnlyVal && !$type.immutable && $prop.scalarValue)
+        return ((${VMFPKG}.internal.VObjectInternal) this.mutableObject)._vmf_getDefaultValueById(propertyId);
+#elseif($prop.referenceSet)
 #if($readOnlyVal && !$type.immutable)
         return ((java.util.List<${prop.elementTypeName}>) ((${VMFPKG}.internal.VObjectInternal) mutableObject)._vmf_getDefaultValueById(propertyId))
             .stream().map(e -> e.asReadOnly()).collect(java.util.stream.Collectors.toUnmodifiableList());
@@ -344,12 +346,13 @@
 #end
 #end
 #elseif(${prop.propType}=="PRIMITIVE")## if prop is primitive
+## Box defaults using the declared property type.
         if(__vmf_default_value_tmp${prop.nameWithUpperCase}==null) {
             return
 #if(${prop.getDefaultValueAsString()}=="null")## if default is null
-            #if(${prop.typeName}=="boolean")false#else 0#end;
+            #if(${prop.typeName}=="boolean")false#else (${prop.typeName}) 0#end;
 #else## if default is null
-            ${prop.getDefaultValueAsString()};
+            (${prop.typeName}) (${prop.getDefaultValueAsString()});
 #end## if default is null
         } else {
             return __vmf_default_value_tmp${prop.nameWithUpperCase};
@@ -438,7 +441,7 @@
 
   final static ${VMFPKG}.Annotation[] _VMF_OBJECT_ANNOTATIONS = {
 #foreach($annotation in $type.implementation.annotations) 
-    new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext),#else #end
+    new ${VMFPKG}.internal.AnnotationImpl("$StringUtil.escapeJavaStyleString($annotation.key, false)","$StringUtil.escapeJavaStyleString($annotation.value, false)")#if($foreach.hasNext || $type.immutable),#else #end
 
 #end## for each pannotationroperty
 
@@ -461,6 +464,9 @@
 
 #if(!$prop.containmentProperty && ($prop.type || $prop.referenceInfo))
       new ${VMFPKG}.internal.AnnotationImpl("vmf:property:reference-opposite",#if($prop.referenceInfo)"${prop.referenceInfo.opposite.name}"#else""#end),
+#end
+#if($prop.hasReferenceDefault())
+      new ${VMFPKG}.internal.AnnotationImpl("vmf:property:reference-default","true"),
 #end
 ## if contained, add annotation with opposite
       // containment info annotation

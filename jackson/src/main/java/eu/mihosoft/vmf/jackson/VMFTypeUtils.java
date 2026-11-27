@@ -1,18 +1,100 @@
 package eu.mihosoft.vmf.jackson;
 
 import eu.mihosoft.vmf.runtime.core.*;
+import eu.mihosoft.vmf.runtime.core.internal.ReflectImpl;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
  * Utility class for VMF type related operations.
  */
 public final class VMFTypeUtils {
+    private static final String WIRE_TYPE_KEY = "vmf:wire:type";
+    private static final ClassValue<Optional<SnapshotDeclarations>> SNAPSHOT_DECLARATIONS = new ClassValue<>() {
+        @Override
+        protected Optional<SnapshotDeclarations> computeValue(Class<?> modelClass) {
+            return ReflectImpl.generatedDeclaration(modelClass).map(SnapshotDeclarations::new);
+        }
+    };
+
+    private static final ClassValue<ModelRegistry> ROLE_MODEL_REGISTRIES = new ClassValue<>() {
+        @Override
+        protected ModelRegistry computeValue(Class<?> role) {
+            String packageName = role.getPackageName();
+            String name = packageName.substring(packageName.lastIndexOf('.') + 1);
+            String catalogName = packageName + "." + name.substring(0, 1).toUpperCase() + name.substring(1)
+                    + "Model__VMF_API";
+            try {
+                Class<?> catalog = Class.forName(catalogName, false, role.getClassLoader());
+                var exported = (List<?>) catalog.getMethod("getTypes").invoke(null);
+                var registry = new ModelRegistry(List.of(exported.stream().map(Type.class::cast).collect(Collectors.toList())));
+                if (!registry.findJavaType(role.getName()).filter(candidate -> candidate == role).isPresent()) {
+                    throw new IllegalArgumentException("The generated catalog does not contain " + role.getName());
+                }
+                return registry;
+            } catch (ReflectiveOperationException failure) {
+                throw new IllegalArgumentException("Cannot read the VMF catalog of " + role.getName(), failure);
+            }
+        }
+    };
+
+    static ModelRegistry interfaceOnlyModelRegistry(Class<?> role) {
+        return ROLE_MODEL_REGISTRIES.get(role);
+    }
+
+    private static final class SnapshotDeclarations {
+        private final Reflect reflection;
+        private final List<Property> properties;
+        private final List<Annotation> annotations;
+
+        private SnapshotDeclarations(Reflect reflection) {
+            this.reflection = reflection;
+            properties = List.copyOf(ReflectImpl.readProperties(reflection));
+            annotations = List.copyOf(reflection.annotations());
+        }
+    }
+
+    static Optional<List<Property>> generatedProperties(Class<?> modelClass) {
+        return SNAPSHOT_DECLARATIONS.get(modelClass).map(declarations -> declarations.properties);
+    }
+
+    static Optional<Type> interfaceOnlyDeclaration(Class<?> modelClass) {
+        if (!modelClass.isInterface() || !VObject.class.isAssignableFrom(modelClass)
+                || Mutable.class.isAssignableFrom(modelClass) || Immutable.class.isAssignableFrom(modelClass)) {
+            return Optional.empty();
+        }
+        try {
+            Method declaration = modelClass.getDeclaredMethod("type");
+            if (!Modifier.isStatic(declaration.getModifiers()) || declaration.getReturnType() != Type.class) {
+                return Optional.empty();
+            }
+            var type = (Type) declaration.invoke(null);
+            return type != null && type.isModelType() && type.isInterfaceOnly()
+                    && modelClass.getName().equals(type.getName()) ? Optional.of(type) : Optional.empty();
+        } catch (NoSuchMethodException absent) {
+            return Optional.empty();
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalArgumentException("Cannot read the VMF role " + modelClass.getName(), failure);
+        }
+    }
+
+    private static Optional<SnapshotDeclarations> snapshotDeclarations(Type type, ClassLoader loader) {
+        try {
+            return SNAPSHOT_DECLARATIONS.get(Class.forName(type.getName(), false, loader));
+        } catch (ClassNotFoundException notVisible) {
+            return Optional.empty();
+        }
+    }
+
     private VMFTypeUtils() {
         throw new AssertionError("Don't instantiate me");
     }
@@ -84,6 +166,9 @@ public final class VMFTypeUtils {
         }
 
 
+        var role = interfaceOnlyDeclaration(cls);
+        if (role.isPresent()) return role.get();
+
         try {
             Class<?> builderClass = VMFTypeUtils.getBuilderClass(cls);
 
@@ -136,16 +221,7 @@ public final class VMFTypeUtils {
      * @return {@code true} if the given type is an enum, {@code false} otherwise
      */
     public static boolean isEnum(Type type) {
-        // get type name
-        String typeName = type.getName();
-
-        // get class object from name
-        try {
-            Class<?> cls = Class.forName(typeName);
-            return cls.isEnum();
-        } catch (ClassNotFoundException ex) {
-            return false;
-        }
+        return type.isEnumType();
     }
 
     /**
@@ -154,16 +230,7 @@ public final class VMFTypeUtils {
      * @return the enum constants of the given type
      */
     public static Object[] getEnumConstants(Type type) {
-        // get type name
-        String typeName = type.getName();
-
-        // get class object from name
-        try {
-            Class<?> cls = Class.forName(typeName);
-            return cls.getEnumConstants();
-        } catch (ClassNotFoundException ex) {
-            return new Object[0];
-        }
+        return type.getEnumConstants();
     }
 
     /**
@@ -179,6 +246,62 @@ public final class VMFTypeUtils {
             return a.get().getValue();
         }
         return p.getName();
+    }
+
+    /**
+     * Reads portable wire aliases declared on the model's concrete types.
+     * @param modelType a generated type from the model
+     * @return aliases mapped to generated Java type names
+     * @throws IllegalArgumentException if an alias is blank, ambiguous or conflicts with an existing type name
+     */
+    public static Map<String, String> modelWireTypeAliases(Class<? extends VObject> modelType) {
+        var types = interfaceOnlyDeclaration(modelType).isPresent()
+                ? interfaceOnlyModelRegistry(modelType).allTypes()
+                : SNAPSHOT_DECLARATIONS.get(modelType)
+                        .map(declarations -> declarations.reflection.allTypes())
+                        .orElseGet(() -> forClass(modelType).reflect().allTypes());
+        var typeNames = types.stream().map(Type::getName).collect(Collectors.toSet());
+        var aliases = new LinkedHashMap<String, String>();
+        for (Type type : types) {
+            if (type.isInterfaceOnly()) {
+                continue;
+            }
+            var annotations = snapshotDeclarations(type, modelType.getClassLoader())
+                    .map(declarations -> declarations.annotations)
+                    .orElseGet(() -> type.reflect().annotations());
+            var annotation = annotations.stream().filter(value -> WIRE_TYPE_KEY.equals(value.getKey())).findFirst();
+            if (annotation.isEmpty()) {
+                continue;
+            }
+
+            String alias = annotation.get().getValue();
+            String name = type.getName();
+            if (alias.isBlank() || (typeNames.contains(alias) && !alias.equals(name))) {
+                throw new IllegalArgumentException("Invalid VMF wire type alias '" + alias + "' for " + name);
+            }
+            String previous = aliases.putIfAbsent(alias, name);
+            if (previous != null && !previous.equals(name)) {
+                throw new IllegalArgumentException("VMF wire type alias '" + alias + "' is shared by "
+                        + previous + " and " + name);
+            }
+        }
+        return Map.copyOf(aliases);
+    }
+
+    static Map<String, String> modelWireTypeAliases(Class<? extends VObject> modelType,
+                                                    Map<String, String> configuredAliases) {
+        var aliases = modelWireTypeAliases(modelType);
+        for (var alias : aliases.entrySet()) {
+            for (var existing : configuredAliases.entrySet()) {
+                boolean sameAlias = alias.getKey().equals(existing.getKey());
+                boolean sameType = alias.getValue().equals(existing.getValue());
+                if (sameAlias != sameType) {
+                    throw new IllegalArgumentException("VMF wire type alias '" + alias.getKey()
+                            + "' for " + alias.getValue() + " conflicts with a configured alias");
+                }
+            }
+        }
+        return aliases;
     }
 
     /**
@@ -209,6 +332,7 @@ public final class VMFTypeUtils {
 
         // receive all property types
         var allPropTypes = new HashSet<Type>();
+        ClassLoader loader = model.getClass().getClassLoader();
 
         allTypes.forEach(t -> {
 
@@ -216,7 +340,10 @@ public final class VMFTypeUtils {
                 return;
             }
 
-            t.reflect().properties().forEach(p -> {
+            var properties = snapshotDeclarations(t, loader)
+                    .map(declarations -> declarations.properties)
+                    .orElseGet(() -> t.reflect().properties());
+            properties.forEach(p -> {
                 allPropTypes.add(p.getType().isListType() || p.getType().isReferenceSetType() ?
                         allTypesByName.get(p.getType().getElementTypeName().get())
                         : p.getType());

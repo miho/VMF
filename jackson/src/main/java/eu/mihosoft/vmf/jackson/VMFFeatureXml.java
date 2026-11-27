@@ -147,7 +147,9 @@ final class VMFFeatureXml {
         output.writeEndElement();
     }
 
-    private static void start(XMLStreamWriter output, String name, int depth) throws XMLStreamException {
+    private static void start(XMLStreamWriter output, String name, int depth) throws XMLStreamException, IOException {
+        int limit = StreamReadConstraints.defaults().getMaxNestingDepth();
+        if (depth >= limit) throw new IOException("VMF feature XML exceeds the maximum element depth of " + limit);
         indent(output, depth);
         output.writeStartElement(name);
     }
@@ -290,9 +292,9 @@ final class VMFFeatureXml {
                 case "big-integer":
                     return NODES.numberNode(new BigInteger(text));
                 case "float":
-                    return NODES.numberNode(Float.parseFloat(text));
+                    return nonfiniteToken(text) ? NODES.textNode(text) : NODES.numberNode(Float.parseFloat(text));
                 case "double":
-                    return NODES.numberNode(Double.parseDouble(text));
+                    return nonfiniteToken(text) ? NODES.textNode(text) : NODES.numberNode(Double.parseDouble(text));
                 case "big-decimal":
                     return NODES.numberNode(new BigDecimal(text));
                 case "binary":
@@ -303,6 +305,11 @@ final class VMFFeatureXml {
         } catch (IllegalArgumentException exception) {
             throw invalid(element, "invalid " + kind + " value");
         }
+    }
+
+    private static boolean nonfiniteToken(String text) {
+        // Jackson's JSON wire uses strings for non-finite values, including managed scalar members.
+        return "NaN".equals(text) || "Infinity".equals(text) || "-Infinity".equals(text);
     }
 
     private static String readText(Element element, String text, String encodingAttribute) throws IOException {

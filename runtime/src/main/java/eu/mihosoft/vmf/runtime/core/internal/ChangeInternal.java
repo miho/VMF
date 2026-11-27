@@ -37,6 +37,7 @@ public interface ChangeInternal extends Change {
   static final String CHANGE_TYPE_CROSS_REF   = "vmf:change:type:crossref";
   static final String CHANGE_TYPE_CONTAINMENT = "vmf:change:type:containment";
   static final String CHANGE_TYPE_SCALAR_AFTER_OPPOSITE_REMOVAL = "vmf:change:type:scalar-after-opposite-removal";
+  static final String CHANGE_TYPE_ORDINARY_PROPERTY = "vmf:change:type:ordinary-property";
   static final String CHANGE_TYPE_EMPTY       = "";
 
   /**

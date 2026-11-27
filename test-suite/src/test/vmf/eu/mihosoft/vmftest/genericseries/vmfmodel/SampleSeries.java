@@ -24,8 +24,10 @@
  */
 package eu.mihosoft.vmftest.genericseries.vmfmodel;
 
+import eu.mihosoft.vmf.core.Annotation;
 import eu.mihosoft.vmf.core.Container;
 import eu.mihosoft.vmf.core.Contains;
+import eu.mihosoft.vmf.core.ExternalType;
 import eu.mihosoft.vmf.core.GetterOnly;
 import eu.mihosoft.vmf.core.Immutable;
 import eu.mihosoft.vmf.core.InterfaceOnly;
@@ -47,6 +49,10 @@ interface NumericSeries<N extends Number> extends SampleSeries<N> {}
 interface TemperatureSeries extends NumericSeries<Double> {}
 interface StatusSeries extends SampleSeries<String> {}
 interface StateSeries extends SampleSeries<Thread.State> {}
+
+@ExternalType(pkgName = "java.lang.Thread")
+@Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmf.Conformance.Externalbinding.Host.ThreadPhase")
+interface State {}
 
 interface PrimitiveArrays {
     int[] getInts();

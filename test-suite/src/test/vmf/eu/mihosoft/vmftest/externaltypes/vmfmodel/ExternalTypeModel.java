@@ -25,15 +25,18 @@
 package eu.mihosoft.vmftest.externaltypes.vmfmodel;
 
 
+import eu.mihosoft.vmf.core.Annotation;
 import eu.mihosoft.vmf.core.DelegateTo;
 import eu.mihosoft.vmf.core.ExternalType;
 
 @ExternalType(pkgName = "java.util")
+@Annotation(key = "vmf:csharp:external-type", value = "System.Collections.ArrayList")
 interface List {
 
 }
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.externaltypes")
+@Annotation(key = "vmf:csharp:external-type", value = "Eu.Mihosoft.Vmftest.Externaltypes.Host.ModelAction")
 interface MyAction {
 
 }
@@ -46,9 +49,14 @@ interface MyType {
 }
 
 @ExternalType(pkgName = "java.awt")
+@Annotation(key = "vmf:csharp:external-type", value = "Eu.Mihosoft.Vmftest.Externaltypes.Host.Image")
 interface Image {
 
 }
+
+@ExternalType(pkgName = "java.awt.image")
+@Annotation(key = "vmf:csharp:external-type", value = "Eu.Mihosoft.Vmftest.Externaltypes.Host.BufferedImage")
+interface BufferedImage { }
 
 interface Model {
     String getName();

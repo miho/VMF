@@ -73,6 +73,8 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
   // --- public getter methods for accessing properties
   // --------------------------------------------------------------------
 
+#parse("${VMF_TEMPLATE_PATH}impl/snapshot-metadata.vm")
+
 ##parse("${VMF_TEMPLATE_PATH}impl/getter.vm")
 #foreach( $prop in ${type.implementation.properties} )
   @Override

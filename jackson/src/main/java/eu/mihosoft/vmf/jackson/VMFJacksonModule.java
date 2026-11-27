@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.*;
 import com.fasterxml.jackson.databind.jsontype.TypeSerializer;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import com.fasterxml.jackson.databind.deser.BeanDeserializerModifier;
@@ -23,6 +24,7 @@ import javax.xml.namespace.QName;
 import java.io.IOException;
 import java.lang.reflect.*;
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * Generic VMF Jackson module. This module provides a serializer and deserializer for VMF models. It supports polymorphism
@@ -89,6 +91,7 @@ public class VMFJacksonModule extends SimpleModule {
     private final Map<String, String> typeAliasesReverse = new HashMap<>();
 
     private volatile boolean referencesEnabled;
+    private volatile boolean rootTypeDiscriminator;
     private volatile ModelRegistry modelRegistry;
     private volatile ModelValidator modelValidator;
     private final ThreadLocal<Boolean> readingModelForValidation = new ThreadLocal<>();
@@ -102,6 +105,17 @@ public class VMFJacksonModule extends SimpleModule {
      */
     public VMFJacksonModule withModelValidator(ModelValidator validator) {
         this.modelValidator = Objects.requireNonNull(validator, "validator");
+        return this;
+    }
+
+    /**
+     * Writes a concrete type name even when a root would ordinarily omit it.
+     * Enable this when the consumer will read through an interface-only role.
+     * @param enabled whether to write a discriminator for every root model
+     * @return this module
+     */
+    public VMFJacksonModule withRootTypeDiscriminator(boolean enabled) {
+        rootTypeDiscriminator = enabled;
         return this;
     }
 
@@ -261,6 +275,15 @@ public class VMFJacksonModule extends SimpleModule {
     }
 
     /**
+     * Registers aliases declared with the VMF annotation key {@code vmf:wire:type}.
+     * @param modelType a generated concrete type from the model
+     * @return this module
+     */
+    public VMFJacksonModule withModelWireTypeAliases(Class<? extends VObject> modelType) {
+        return withTypeAliases(VMFTypeUtils.modelWireTypeAliases(modelType, typeAliases));
+    }
+
+    /**
      * Creates a new experimental instance of the module.
      * @param runtimeType must be {@link RUNTIME_TYPE#EXPERIMENTAL} to acknowledge that this is
      *                    experimental software
@@ -350,9 +373,11 @@ public class VMFJacksonModule extends SimpleModule {
             if (Change.class.isAssignableFrom(beanDesc.getBeanClass())) {
                 return LIVE_CHANGE_DESERIALIZER;
             }
-            if (isVMFObj(beanDesc.getBeanClass()) && hasBuilder(beanDesc.getBeanClass())) {
-
-                return new GenericBuilderDeserializer<>(beanDesc.getBeanClass(), module);
+            Class<?> modelClass = beanDesc.getBeanClass();
+            if (isVMFObj(modelClass)) {
+                if (hasBuilder(modelClass)) return new GenericBuilderDeserializer<>(modelClass, module, false);
+                if (VMFTypeUtils.interfaceOnlyDeclaration(modelClass).isPresent())
+                    return new GenericBuilderDeserializer<>(modelClass, module, true);
             }
 
             return deserializer;
@@ -381,6 +406,9 @@ public class VMFJacksonModule extends SimpleModule {
      * @param <T> the type of the object to deserialize
      */
     private static class GenericBuilderDeserializer<T> extends StdDeserializer<T> {
+        private static final Pattern INTEGER_TEXT = Pattern.compile("[+-]?[0-9]+");
+        private static final Pattern DECIMAL_TEXT = Pattern.compile(
+                "[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?");
 
         private static final com.fasterxml.jackson.databind.deser.std.JsonNodeDeserializer STRICT_MODEL_TREE =
                 new com.fasterxml.jackson.databind.deser.std.JsonNodeDeserializer() {
@@ -405,15 +433,12 @@ public class VMFJacksonModule extends SimpleModule {
         };
 
         private final VMFJacksonModule module;
+        private final boolean interfaceOnly;
 
-        /**
-         * Constructor. Creates a new instance of GenericBuilderDeserializer.
-         * @param vc the value class
-         */
-        public GenericBuilderDeserializer(Class<?> vc, VMFJacksonModule module) {
-            super(vc);
+        private GenericBuilderDeserializer(Class<?> modelClass, VMFJacksonModule module, boolean interfaceOnly) {
+            super(modelClass);
             this.module = module;
-
+            this.interfaceOnly = interfaceOnly;
         }
 
 
@@ -424,13 +449,16 @@ public class VMFJacksonModule extends SimpleModule {
             JsonNode node;
             String format = p.getCodec() == null ? "" : p.getCodec().getFactory().getFormatName();
             if ("JSON".equals(format) || "YAML".equals(format)) {
-                // Read this model strictly without changing mapper or caller parser settings. Retain very
-                // small decimal literals until their declared scalar type is available for a range check.
+                // Read this model strictly without changing mapper or caller parser settings. Retain
+                // decimals that would underflow or overflow double until their declared type is known.
                 var numbers = new com.fasterxml.jackson.core.util.JsonParserDelegate(p) {
                     @Override public NumberTypeFP getNumberTypeFP() throws IOException {
                         NumberTypeFP type = super.getNumberTypeFP();
-                        if (type != NumberTypeFP.BIG_DECIMAL && getDoubleValue() == 0d && getDecimalValue().signum() != 0) {
-                            return NumberTypeFP.BIG_DECIMAL;
+                        if (type != NumberTypeFP.BIG_DECIMAL && !isNaN()) {
+                            double rounded = getDoubleValue();
+                            if (!Double.isFinite(rounded) || (rounded == 0d && getDecimalValue().signum() != 0)) {
+                                return NumberTypeFP.BIG_DECIMAL;
+                            }
                         }
                         return type;
                     }
@@ -599,6 +627,10 @@ public class VMFJacksonModule extends SimpleModule {
                                 }
                                 methodMap.get(fieldName).method.invoke(builder, referenceProperty.list ? targets : targets.get(0));
                             } else {
+                                if (referenceProperty.hasDeclaredDefault) {
+                                    // An explicit field replaces the seeded membership. The builder keeps its declared reset value.
+                                    methodMap.get(fieldName).method.invoke(builder, List.of());
+                                }
                                 references.put(referenceProperty, slots);
                             }
                         } catch (IOException | ReflectiveOperationException e) {
@@ -633,6 +665,10 @@ public class VMFJacksonModule extends SimpleModule {
                                     }
                                 }
                                 method.invoke(builder, members);
+                            } else if (!isXml && paramType == List.class && setter.property != null
+                                    && !setter.property.getType().isListType()) {
+                                // A declared external raw List is one host value, even though its builder parameter is a collection.
+                                method.invoke(builder, readExternalList(ctxt, value));
                             } else if (Collection.class.isAssignableFrom(paramType)
                                     || (setter.property != null && setter.property.getType().isReferenceSetType() && paramType == Iterable.class)) {
                                 boolean referenceSet = setter.property != null && setter.property.getType().isReferenceSetType();
@@ -640,19 +676,38 @@ public class VMFJacksonModule extends SimpleModule {
                                         setter.property.getType().getElementTypeName().orElseThrow(), false,
                                         method.getDeclaringClass().getClassLoader())
                                         : ctxt.constructType(method.getGenericParameterTypes()[0]).getContentType().getRawClass();
+                                boolean externalRawList = !isXml && !referenceSet && elementType == List.class
+                                        && setter.property != null && setter.property.getType().isListType();
+                                boolean untypedList = !isXml && !referenceSet && elementType == Object.class
+                                        && setter.property != null && setter.property.getType().isListType()
+                                        && Object.class.getName().equals(
+                                                setter.property.getType().getElementTypeName().orElse(null));
+                                if (externalRawList && !value.isArray()) {
+                                    throw new IOException("Expected an array of external lists");
+                                }
 
                                 List<Object> collection = new ArrayList<>();
                                 // Plain collection declarations historically read members only from a container node.
                                 if (referenceSet || value.isContainerNode()) {
                                     Iterable<JsonNode> members = isXml ? VMFReferences.elementsOf(value, true) : value;
                                     for (JsonNode member : members) {
+                                        if (externalRawList) {
+                                            collection.add(readExternalList(ctxt, member));
+                                            continue;
+                                        }
+                                        if (untypedList && member.isContainerNode()) {
+                                            collection.add(ctxt.readTreeAsValue(member, Object.class));
+                                            continue;
+                                        }
                                         if (referenceSet) {
                                             // XML has a text node for an empty <item/> model object.
                                             if (isXml && member.isTextual() && member.textValue().isEmpty())
                                                 member = ctxt.getNodeFactory().objectNode();
                                             if (!member.isObject()) throw new IOException("Expected a model object in " + fieldName);
                                         }
-                                        Class<?> memberType = getVMFTypeClass(ctxt.getParser(), member, elementType);
+                                        // An external element's object fields belong to Jackson or its host codec.
+                                        Class<?> memberType = isVMFObj(elementType)
+                                                ? getVMFTypeClass(ctxt.getParser(), member, elementType) : elementType;
                                         if (referenceSet && session == null && VMFReferences.isReferenceProperty(setter.property)
                                                 && !Immutable.class.isAssignableFrom(memberType)) {
                                             throw new IOException("Mutable reference collection " + fieldName + " requires withReferences(true)");
@@ -779,6 +834,7 @@ public class VMFJacksonModule extends SimpleModule {
             private final Method build;
             private final Locale describedLocale;
             private final Map<String, Property> declarations;
+            private final boolean generatedMetadata;
             private final List<BuilderSetter> setters;
 
             private BuilderPlan(Class<?> modelClass) throws ReflectiveOperationException {
@@ -796,7 +852,11 @@ public class VMFJacksonModule extends SimpleModule {
                     }
                 }
 
-                declarations = modelType && !methods.isEmpty() ? declaredProperties(modelClass) : Map.of();
+                var generated = modelType && !methods.isEmpty()
+                        ? VMFTypeUtils.generatedProperties(modelClass) : Optional.<List<Property>>empty();
+                generatedMetadata = generated.isPresent();
+                declarations = generated.map(BuilderPlan::byName)
+                        .orElseGet(() -> modelType && !methods.isEmpty() ? declaredProperties(modelClass) : Map.of());
                 describedLocale = Locale.getDefault();
                 setters = new ArrayList<>(methods.size());
                 for (Method method : methods) {
@@ -823,14 +883,18 @@ public class VMFJacksonModule extends SimpleModule {
                     var prototype = (VObject) build.invoke(newInstance.invoke(null));
                     Reflect reflect = prototype.vmf().reflect();
                     if (reflect.getClass() != ReflectImpl.class) return Map.of();
-                    Map<String, Property> properties = new HashMap<>();
-                    for (Property property : ReflectImpl.readProperties(reflect)) {
-                        properties.putIfAbsent(property.getName(), property);
-                    }
-                    return properties;
+                    return byName(ReflectImpl.readProperties(reflect));
                 } catch (ReflectiveOperationException | RuntimeException unavailable) {
                     return Map.of();
                 }
+            }
+
+            private static Map<String, Property> byName(List<Property> declarations) {
+                Map<String, Property> properties = new HashMap<>();
+                for (Property declaration : declarations) {
+                    properties.putIfAbsent(declaration.getName(), declaration);
+                }
+                return properties;
             }
 
             private Property declaredProperty(Method method, String name) {
@@ -863,6 +927,9 @@ public class VMFJacksonModule extends SimpleModule {
                     String name = useDescribedFields ? setter.name : setterName(setter.method, locale);
                     Property property = useDescribedFields ? setter.property : declaredProperty(setter.method, name);
                     if (modelType && property == null) {
+                        if (generatedMetadata) {
+                            throw new NoSuchFieldException("Missing generated snapshot metadata for " + setter.method.getName());
+                        }
                         // A hand-written builder can supply its own instance metadata.
                         var prototype = (VObject) build.invoke(newInstance.invoke(null));
                         property = prototype.vmf().reflect().propertyByName(name).orElseThrow();
@@ -887,6 +954,12 @@ public class VMFJacksonModule extends SimpleModule {
             }
         }
 
+        private static List<?> readExternalList(DeserializationContext ctxt, JsonNode value) throws IOException {
+            if (value.isNull()) return null;
+            if (!value.isArray()) throw new IOException("Expected an external list array");
+            return ctxt.readTreeAsValue(value, List.class);
+        }
+
         private static Object deserializeField(DeserializationContext ctxt, JsonNode value, Class<?> paramType) throws IllegalAccessException, InvocationTargetException, IOException {
             // Handle null values
             if (value.isNull()) {
@@ -897,10 +970,14 @@ public class VMFJacksonModule extends SimpleModule {
                 if (paramType == String.class) {
                     paramValue = value.asText();
                 } else if (paramType == Integer.class|| paramType == int.class) {
-                    paramValue = value.asInt();
+                    paramValue = (int) readInteger(value, true);
                 } else if (paramType == Long.class|| paramType == long.class) {
-                    paramValue = value.asLong();
+                    paramValue = readInteger(value, false);
+                } else if (paramType == Float.class || paramType == float.class) {
+                    requireFloatingRange(value, true);
+                    paramValue = ctxt.getParser().getCodec().treeToValue(value, paramType);
                 } else if (paramType == Double.class|| paramType == double.class) {
+                    requireFloatingRange(value, false);
                     paramValue = value.asDouble();
                 } else if (paramType == Boolean.class|| paramType == boolean.class) {
                     paramValue = value.asBoolean();
@@ -918,6 +995,52 @@ public class VMFJacksonModule extends SimpleModule {
             }
         }
 
+        private static long readInteger(JsonNode value, boolean int32) throws IOException {
+            String type = int32 ? "int" : "long";
+            if (value.isIntegralNumber() && !(int32 ? value.canConvertToInt() : value.canConvertToLong())) {
+                throw new IOException("Integer outside the range of " + type);
+            }
+            if (value.isTextual()) {
+                // XML represents scalar leaves as text. Retain existing coercion for other
+                // text forms, but do not let an overflowing integer silently default to zero.
+                String scalar = value.textValue().trim();
+                if (INTEGER_TEXT.matcher(scalar).matches()) {
+                    try {
+                        return int32 ? Integer.parseInt(scalar) : Long.parseLong(scalar);
+                    } catch (NumberFormatException outOfRange) {
+                        throw new IOException("Integer outside the range of " + type, outOfRange);
+                    }
+                }
+            }
+            return int32 ? value.asInt() : value.asLong();
+        }
+
+        private static void requireFloatingRange(JsonNode value, boolean single) throws IOException {
+            boolean outOfRange = false;
+            if (value instanceof NumericNode && !((NumericNode) value).isNaN()) {
+                double rounded = single ? value.floatValue() : value.doubleValue();
+                outOfRange = !Double.isFinite(rounded) || (rounded == 0d && value.decimalValue().signum() != 0);
+            } else if (value.isTextual()) {
+                // XML stores numbers as text. Recognize decimals while preserving canonical
+                // non-finite strings and other caller-specific Jackson coercions.
+                String literal = value.textValue().trim();
+                if (DECIMAL_TEXT.matcher(literal).matches()) {
+                    double rounded = single ? Float.parseFloat(literal) : Double.parseDouble(literal);
+                    outOfRange = !Double.isFinite(rounded) || (rounded == 0d && hasNonzeroSignificand(literal));
+                }
+            }
+            if (outOfRange) throw new IOException("Decimal outside the range of " + (single ? "float" : "double"));
+        }
+
+        private static boolean hasNonzeroSignificand(String literal) {
+            for (int i = 0; i < literal.length(); i++) {
+                char digit = literal.charAt(i);
+                if (digit == 'e' || digit == 'E') return false;
+                if (digit >= '1' && digit <= '9') return true;
+            }
+            return false;
+        }
+
         private Class<?> getVMFTypeClass(JsonParser p, JsonNode node, Class<?> actualClass) throws JsonMappingException {
             String vmfTypeFieldName = "@vmf-type";
 
@@ -928,11 +1051,15 @@ public class VMFJacksonModule extends SimpleModule {
             }
 
             JsonNode discriminator = node.get(vmfTypeFieldName);
+            boolean readsRole = interfaceOnly && actualClass == _valueClass;
             if (discriminator == null) {
+                if (readsRole) throw JsonMappingException.from(p, "A VMF role requires '" + vmfTypeFieldName + "'");
                 return actualClass;
             }
 
-            ModelRegistry registry = module.modelRegistry;
+            ModelRegistry configured = module.modelRegistry;
+            ModelRegistry registry = configured == null && readsRole
+                    ? VMFTypeUtils.interfaceOnlyModelRegistry(actualClass) : configured;
             if (registry != null) {
                 // External collection elements may use this field as ordinary data.
                 if (actualClass == null || !isVMFObj(actualClass)) {
@@ -977,6 +1104,10 @@ public class VMFJacksonModule extends SimpleModule {
      * @param <T> the type of the object to serialize
      */
     private static class GenericBuilderSerializer<T> extends StdSerializer<T> {
+        private static final Set<String> NULLABLE_SCALAR_TYPES = Set.of(
+                String.class.getName(), Boolean.class.getName(), Byte.class.getName(), Short.class.getName(),
+                Integer.class.getName(), Long.class.getName(), Character.class.getName(),
+                Float.class.getName(), Double.class.getName(), UUID.class.getName(), java.net.URI.class.getName());
 
         private final JsonSerializer<T> defaultSerializer;
         private final VMFJacksonModule module;
@@ -1032,7 +1163,8 @@ public class VMFJacksonModule extends SimpleModule {
                 gen.writeString(session.idOf(obj));
                 return;
             }
-            if(gen.getOutputContext().inRoot()) {
+            boolean root = gen.getOutputContext().inRoot();
+            if (root) {
                 // set start name
                 String startName = obj.vmf().reflect().type().getName();
 
@@ -1064,7 +1196,8 @@ public class VMFJacksonModule extends SimpleModule {
             gen.writeStartObject();
 
             // Write the type annotation if the model type is polymorphic
-            if (VMFTypeUtils.isTypeExtendsModelTypeInProps(obj, obj.vmf().reflect().type())) {
+            if ((root && module.rootTypeDiscriminator)
+                    || VMFTypeUtils.isTypeExtendsModelTypeInProps(obj, obj.vmf().reflect().type())) {
 
                 String typeFieldName = "@vmf-type";
 
@@ -1097,6 +1230,16 @@ public class VMFJacksonModule extends SimpleModule {
             for (eu.mihosoft.vmf.runtime.core.Property p : obj.vmf().reflect().properties()) {
                 Object propValue = p.get();
                 if (propValue == null) {
+                    // Omitting a cleared scalar would reinstate the builder's non-null default on load.
+                    if ((NULLABLE_SCALAR_TYPES.contains(p.getType().getName()) || p.getType().isEnumType())
+                            && p.getDefault() != null) {
+                        gen.writeFieldName(VMFTypeUtils.getFieldNameForProperty(p));
+                        if (isInstanceOf(gen, "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator")) {
+                            XmlNullableValues.writeNull(gen);
+                        } else {
+                            gen.writeNull();
+                        }
+                    }
                     continue;
                 }
                 if (p.getType().isReferenceSetType()) {
@@ -1162,37 +1305,42 @@ public class VMFJacksonModule extends SimpleModule {
         }
 
         private static void writeModelValue(JsonGenerator gen, Property property, Object value) throws IOException {
-            if (property.getType().isModelType() && property.getType().isListType()
+            if (property.getType().isListType() && value instanceof List<?>
                     && isInstanceOf(gen, "com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator")
                     && ((List<?>) value).contains(null)) {
-                XmlModelList.write((List<?>) value, gen);
+                XmlNullableValues.writeList((List<?>) value, gen);
             } else {
                 gen.writeObject(value);
             }
         }
 
-        // Loaded only when writing a nullable model list with the optional Jackson XML module.
-        private static final class XmlModelList {
-            static void write(List<?> values, JsonGenerator gen) throws IOException {
+        // Loaded only when writing explicit nulls with the optional Jackson XML module.
+        private static final class XmlNullableValues {
+            static void writeList(List<?> values, JsonGenerator gen) throws IOException {
                 var xml = (com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator) gen;
-                var nil = com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator.Feature.WRITE_NULLS_AS_XSI_NIL;
-                boolean enabled = xml.isEnabled(nil);
                 xml.writeStartObject();
                 xml.writeArrayFieldStart("item");
                 for (Object value : values) {
                     if (value != null) {
                         xml.writeObject(value);
                     } else {
-                        try {
-                            xml.enable(nil);
-                            xml.writeNull();
-                        } finally {
-                            xml.configure(nil, enabled);
-                        }
+                        writeNull(xml);
                     }
                 }
                 xml.writeEndArray();
                 xml.writeEndObject();
+            }
+
+            static void writeNull(JsonGenerator gen) throws IOException {
+                var xml = (com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator) gen;
+                var nil = com.fasterxml.jackson.dataformat.xml.ser.ToXmlGenerator.Feature.WRITE_NULLS_AS_XSI_NIL;
+                boolean enabled = xml.isEnabled(nil);
+                try {
+                    xml.enable(nil);
+                    xml.writeNull();
+                } finally {
+                    xml.configure(nil, enabled);
+                }
             }
         }
 

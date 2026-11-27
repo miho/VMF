@@ -49,9 +49,11 @@ package eu.mihosoft.vmftest.complex.devcom.vmfmodel;
 import eu.mihosoft.vmf.core.*;
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.complex.devcom")
+@eu.mihosoft.vmf.core.Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmftest.Complex.Devcom.Host.StopBits")
 interface StopBits {}
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.complex.devcom")
+@eu.mihosoft.vmf.core.Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmftest.Complex.Devcom.Host.ParityBits")
 interface ParityBits {}
 
 @InterfaceOnly
@@ -87,10 +89,12 @@ interface PortConfig extends WithName {
 
     @Doc("The number of parity bits.")
     @DefaultValue("ParityBits.NO_PARITY")
+    @eu.mihosoft.vmf.core.Annotation(key = "vmf:csharp:bind-default", value = "true")
     ParityBits getParityBits();
 
     @Doc("The number of stop bits.")
     @DefaultValue("StopBits.ONE_STOP_BIT")
+    @eu.mihosoft.vmf.core.Annotation(key = "vmf:csharp:bind-default", value = "true")
     StopBits getStopBits();
 
     @Doc("Determines, whether RS485 mode should be enabled")
@@ -160,6 +164,7 @@ interface PortEvent {
 }
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.complex.devcom.Device")
+@eu.mihosoft.vmf.core.Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmftest.Complex.Devcom.Host.State")
 interface State {
 
 }

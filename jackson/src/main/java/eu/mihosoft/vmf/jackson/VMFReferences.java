@@ -288,14 +288,17 @@ final class VMFReferences {
         /** whether the property is a list */
         final boolean list;
         final boolean uniqueReferences;
+        final boolean hasDeclaredDefault;
         /** property type (single) or element type (list), for values written by value */
         final Class<?> valueClass;
 
-        ReferenceProperty(String name, String fieldName, boolean list, boolean uniqueReferences, Class<?> valueClass) {
+        ReferenceProperty(String name, String fieldName, boolean list, boolean uniqueReferences,
+                          boolean hasDeclaredDefault, Class<?> valueClass) {
             this.name = name;
             this.fieldName = fieldName;
             this.list = list;
             this.uniqueReferences = uniqueReferences;
+            this.hasDeclaredDefault = hasDeclaredDefault;
             this.valueClass = valueClass;
         }
     }
@@ -307,18 +310,21 @@ final class VMFReferences {
         return REFERENCE_PROPERTIES.get(modelClass);
     }
 
-    private static Map<String, ReferenceProperty> findReferenceProperties(Class<?> modelClass) {
-        VObject prototype;
+    private static List<Property> inspectLegacyReferenceProperties(Class<?> modelClass) {
         try {
             Class<?> builderClass = VMFTypeUtils.getBuilderClass(modelClass);
             Builder builder = (Builder) builderClass.getDeclaredMethod("newInstance").invoke(null);
-            prototype = (VObject) builder.build();
+            return ((VObject) builder.build()).vmf().reflect().properties();
         } catch (Exception e) {
             throw new RuntimeException("Cannot inspect the properties of " + modelClass.getName(), e);
         }
+    }
 
+    private static Map<String, ReferenceProperty> findReferenceProperties(Class<?> modelClass) {
+        List<Property> declarations = VMFTypeUtils.generatedProperties(modelClass)
+                .orElseGet(() -> inspectLegacyReferenceProperties(modelClass));
         Map<String, ReferenceProperty> result = new LinkedHashMap<>();
-        for (Property p : prototype.vmf().reflect().properties()) {
+        for (Property p : declarations) {
             if (!isReferenceProperty(p)) {
                 continue;
             }
@@ -334,7 +340,10 @@ final class VMFReferences {
                 }
             }
             String fieldName = VMFTypeUtils.getFieldNameForProperty(p);
-            result.put(fieldName, new ReferenceProperty(p.getName(), fieldName, list, p.getType().isReferenceSetType(), valueClass));
+            boolean unique = p.getType().isReferenceSetType();
+            boolean hasDefault = unique && p.annotationByKey("vmf:property:reference-default")
+                    .filter(annotation -> "true".equals(annotation.getValue())).isPresent();
+            result.put(fieldName, new ReferenceProperty(p.getName(), fieldName, list, unique, hasDefault, valueClass));
         }
         return Collections.unmodifiableMap(result);
     }

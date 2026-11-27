@@ -43,3 +43,11 @@ interface Child {
 interface Child2 {
     int getValue();
 }
+
+interface DefaultChild {
+    @DefaultValue("123")
+    int getValue();
+}
+
+interface InheritedDefaultChild extends DefaultChild {
+}

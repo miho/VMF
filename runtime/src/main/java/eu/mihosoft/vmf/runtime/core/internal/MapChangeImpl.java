@@ -51,6 +51,8 @@ final class MapChangeImpl implements Change {
     @Override public ChangeType getType() { return ChangeType.MAP; }
     @Override public Optional<VMapChangeEvent<Object, Object>> mapChange() { return Optional.of(event); }
 
+    Object deliveryIdentity() { return event; }
+
     @Override
     public boolean isUndoable() {
         if (!(object instanceof VObjectInternalModifiable)) return false;

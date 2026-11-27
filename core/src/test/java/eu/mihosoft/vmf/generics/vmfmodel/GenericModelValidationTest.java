@@ -24,6 +24,7 @@
 package eu.mihosoft.vmf.generics.vmfmodel;
 
 import eu.mihosoft.vmf.core.Contains;
+import eu.mihosoft.vmf.core.GetterOnly;
 import eu.mihosoft.vmf.core.InterfaceOnly;
 import eu.mihosoft.vmf.core.Model;
 import eu.mihosoft.vmf.core.Refers;
@@ -51,6 +52,14 @@ public class GenericModelValidationTest {
                 Model.newInstance(Base.class, Target.class, MutableWithoutBound.class));
         assertTrue(failure.getMessage(), failure.getMessage().contains("named VMF model upper bound"));
         assertTrue(failure.getMessage(), failure.getMessage().contains(MutableWithoutBound.class.getName()));
+    }
+
+    @Test
+    public void parameterizedGetterTraitArgumentsStillRequireANamedModelType() {
+        var failure = assertThrows(IllegalArgumentException.class, () ->
+                Model.newInstance(Readable.class, QualifiedReadable.class, ReadableSlot.class, DirectAppliedReadable.class));
+        assertTrue(failure.getMessage(), failure.getMessage().contains("unsupported model type argument or bound"));
+        assertTrue(failure.getMessage(), failure.getMessage().contains("QualifiedReadable<java.lang.String>"));
     }
 
     @Test
@@ -110,3 +119,8 @@ interface Team extends TeamOf<Included> {}
 interface NarrowTarget extends Target {}
 @InterfaceOnly interface Values<T extends Target> { T[] getValues(); }
 interface BadOverride extends Values<Target> { @Override NarrowTarget[] getValues(); }
+
+@InterfaceOnly interface Readable { @GetterOnly String getTitle(); }
+@InterfaceOnly interface QualifiedReadable<T> extends Readable { @GetterOnly T getQualifier(); }
+@InterfaceOnly interface ReadableSlot<T extends Readable> { T getCurrent(); }
+interface DirectAppliedReadable extends ReadableSlot<QualifiedReadable<String>> { }

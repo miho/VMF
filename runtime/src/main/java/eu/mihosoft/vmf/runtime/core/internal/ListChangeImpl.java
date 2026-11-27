@@ -86,6 +86,11 @@ class ListChangeImpl implements ChangeInternal {
         return internalChangeInfo;
     }
 
+    Object deliveryIdentity() {
+        return ContainmentList.capturesBeforeObservers(evt) || evt instanceof ObservableModelList.ModelListEvent<?>
+                ? evt : null;
+    }
+
     boolean removesFrom(VList<?> source, VObject member) {
         if (list != source || evt.wasAdded()) return false;
         for (Object removed : evt.removed().elements()) {
@@ -116,10 +121,16 @@ class ListChangeImpl implements ChangeInternal {
         VObjectInternal internal = (VObjectInternal) obj;
         int propId = internal._vmf_getPropertyIdByName(propertyName);
         VList list = (VList) internal._vmf_getPropertyValueById(propId);
-        if(evt.wasSet()) {
+        if (evt instanceof ContainmentList.RangeChange<?>) {
+            ((ContainmentList.RangeChange<?>) evt).replay(false);
+        } else if(evt.wasSet()) {
             applySet(obj, list, evt.added());
         } else if (evt.wasAdded()) {
-            list.addAll(evt.added().indices(), evt.added().elements());
+            int[] indices = evt.added().indices();
+            List<Object> elements = evt.added().elements();
+            if (!ContainmentList.isAliasRestoration(evt) || !ContainmentList.insertRecordedAliases(list, indices, elements)) {
+                list.addAll(indices, elements);
+            }
         } else if(evt.wasRemoved()) {
             list.removeAll(evt.removed().indices());
         }
@@ -131,13 +142,16 @@ class ListChangeImpl implements ChangeInternal {
 
         if (!isUndoable()) return;
 
-        if (evt.wasSet()) {
+        if (evt instanceof ContainmentList.RangeChange<?>) {
+            ((ContainmentList.RangeChange<?>) evt).replay(true);
+        } else if (evt.wasSet()) {
             applySet(object, list, evt.removed());
         } else if (evt.wasAdded()) {
             list.removeAll(evt.added().indices());
         } else if(evt.wasRemoved()) {
             int[] indices = evt.removed().indices();
             List<Object> elements = evt.removed().elements();
+            if (ContainmentList.insertRecordedAliases(list, indices, elements)) return;
             if (ManagedValues.isOrderedSet(list) || ReferenceCollections.isReferenceList(list)) {
                 list.addAll(indices, elements);
                 return;
@@ -172,7 +186,8 @@ class ListChangeImpl implements ChangeInternal {
             list.setAll(indices[0], change.elements());
         } else {
             var property = target.vmf().reflect().propertyByName(propertyName).orElseThrow();
-            if (property.getMultiplicity().isUnique() || property.getKeyPropertyName().isPresent()) {
+            if (property.getMultiplicity().isUnique() || property.getKeyPropertyName().isPresent()
+                    || isScalarOppositePermutation(list, indices, change.elements())) {
                 // Apply the permutation as one edit, preserving untouched members between the changed positions.
                 int first = Arrays.stream(indices).min().getAsInt();
                 int last = Arrays.stream(indices).max().getAsInt();
@@ -185,8 +200,21 @@ class ListChangeImpl implements ChangeInternal {
         }
     }
 
+    private static boolean isScalarOppositePermutation(VList<?> list, int[] indices, List<?> replacement) {
+        if (!ObservableModelList.hasScalarReciprocalOpposite(list)) return false;
+        List<Object> current = new ArrayList<>(indices.length);
+        for (int index : indices) {
+            if (index < 0 || index >= list.size()) return false;
+            current.add(list.get(index));
+        }
+        return ObservableModelList.permutesIdentities(current, replacement);
+    }
+
     @Override
     public boolean isUndoable() {
+        if (evt instanceof ContainmentList.RangeChange<?>) {
+            return ((ContainmentList.RangeChange<?>) evt).canUndo();
+        }
         if (evt.wasSet() && (!Arrays.equals(evt.added().indices(), evt.removed().indices())
                 || evt.removed().indices().length != evt.removed().elements().size())) {
             return false;
@@ -199,6 +227,8 @@ class ListChangeImpl implements ChangeInternal {
 
         int size = list.size();
         if (!evt.wasAdded() && size != removalSize) return false;
+        if (evt.wasRemoved() && !evt.wasSet() && list instanceof ContainmentList<?>
+                && !((ContainmentList<?>) list).canRestoreKeyedEntries(elements)) return false;
         if (evt.wasRemoved() && !evt.wasSet() && ManagedValues.isOrderedSet(list)
                 && !java.util.Collections.disjoint(list, elements)) return false;
         if (ReferenceCollections.isReferenceList(list) && evt.wasRemoved()) {
@@ -235,7 +265,11 @@ class ListChangeImpl implements ChangeInternal {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public Optional<VListChangeEvent<Object>> listChange() {
+        if (evt instanceof ContainmentList.RangeChange<?>) {
+            return Optional.of((VListChangeEvent<Object>) evt);
+        }
         VListChangeEvent<Object> result;
         if (evt.wasSet()) {
             result =  VListChangeEvent.getSetEvent(evt.source(), evt.added().indices(), evt.removed().elements(), evt.added().elements());

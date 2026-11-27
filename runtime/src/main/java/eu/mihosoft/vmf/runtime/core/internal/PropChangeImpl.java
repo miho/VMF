@@ -50,30 +50,27 @@ class PropChangeImpl implements ChangeInternal, PropertyChange {
     private final Object newValue;
     private final long timestamp;
     private final String internalChangeInfo;
+    private final Object deliveryIdentity;
 
     PropChangeImpl(VObject object, String propertyName, Object oldValue, Object newValue) {
-        this.object = object;
-        this.propertyName = propertyName;
-        this.oldValue = oldValue;
-        this.newValue = newValue;
-
-        this.timestamp = System.nanoTime();
-
-        this.internalChangeInfo = "";
+        this(object, propertyName, oldValue, newValue, "");
     }
 
     PropChangeImpl(VObject object, String propertyName, Object oldValue, Object newValue, String internalChangeInfo) {
-        this.object = object;
-        this.propertyName = propertyName;
-        this.oldValue = oldValue;
-        this.newValue = newValue;
+        this(object, propertyName, oldValue, newValue, internalChangeInfo, null);
+    }
 
-        this.timestamp = System.nanoTime();
-
-        this.internalChangeInfo = internalChangeInfo;
+    PropChangeImpl(VObject object, String propertyName, Object oldValue, Object newValue,
+                   String internalChangeInfo, Object deliveryIdentity) {
+        this(object, propertyName, oldValue, newValue, System.nanoTime(), internalChangeInfo, deliveryIdentity);
     }
 
     public PropChangeImpl(VObject object, String propertyName, Object oldValue, Object newValue, long timestamp, String internalChangeInfo) {
+        this(object, propertyName, oldValue, newValue, timestamp, internalChangeInfo, null);
+    }
+
+    private PropChangeImpl(VObject object, String propertyName, Object oldValue, Object newValue, long timestamp,
+                           String internalChangeInfo, Object deliveryIdentity) {
         this.object = object;
         this.propertyName = propertyName;
         this.oldValue = oldValue;
@@ -82,7 +79,10 @@ class PropChangeImpl implements ChangeInternal, PropertyChange {
         this.timestamp = timestamp;
 
         this.internalChangeInfo = internalChangeInfo;
+        this.deliveryIdentity = deliveryIdentity;
     }
+
+    Object deliveryIdentity() { return deliveryIdentity; }
 
     @Override
     public String getInternalChangeInfo() {

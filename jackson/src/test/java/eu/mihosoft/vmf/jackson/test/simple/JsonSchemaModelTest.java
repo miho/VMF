@@ -58,7 +58,7 @@ public class JsonSchemaModelTest {
     }
 
     @Test
-    void polymorphicItemsUseOneOfWithAllOfDiscriminator() {
+    void polymorphicItemsAllowTheDeclaredTypeWithoutADiscriminator() throws Exception {
         JsonNode schema = generateSchema();
         JsonNode oneOf = schema.at("/properties/persons/items/oneOf");
         assertTrue(oneOf.isArray(), "polymorphic items must use oneOf");
@@ -82,15 +82,27 @@ public class JsonSchemaModelTest {
             assertTrue(ref.startsWith("#/definitions/"), "ref must point into definitions: " + ref);
 
             JsonNode discriminator = allOf.get(1);
-            assertEquals("@vmf-type", discriminator.get("required").get(0).asText());
             String typeName = discriminator.at("/properties/@vmf-type/enum/0").asText();
+            if ("person".equals(typeName)) {
+                assertFalse(discriminator.has("required"), "the declared Person is the untagged fallback");
+            } else {
+                assertEquals("@vmf-type", discriminator.path("required").path(0).asText());
+            }
             discriminators.add(typeName);
             // the discriminator's fixed value must match the referenced definition
             assertEquals("#/definitions/" + typeName, ref,
                     "discriminator value must match the referenced definition");
         }
         assertEquals(Set.of("person", "employee"), discriminators,
-                "both concrete subtypes must be selectable with their alias as discriminator");
+                "both concrete types must be selectable with their alias as discriminator");
+        var mapper = new ObjectMapper().registerModule(
+                VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL)
+                        .withTypeAlias("employee", Employee.class.getName()));
+        var decoded = mapper.readValue("{\"persons\":[{\"name\":\"ordinary\"},"
+                + "{\"@vmf-type\":\"employee\",\"name\":\"employee\"}]}", MyModel.class);
+        assertEquals("ordinary", decoded.getPersons().get(0).getName());
+        assertFalse(decoded.getPersons().get(0) instanceof Employee);
+        assertTrue(decoded.getPersons().get(1) instanceof Employee);
     }
 
     @Test

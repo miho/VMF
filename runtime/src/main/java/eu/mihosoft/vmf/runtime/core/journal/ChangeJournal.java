@@ -35,11 +35,6 @@ import java.util.Set;
 public final class ChangeJournal {
     public static final String FORMAT = "vmf-journal";
     public static final int VERSION = 1;
-    public static final int EXTERNAL_VALUES_VERSION = 2;
-    public static final int MAPS_VERSION = 3;
-    public static final int COLLECTIONS_VERSION = 4;
-    public static final int REFERENCE_SETS_VERSION = 5;
-    public static final int IMMUTABLE_REFERENCES_VERSION = 6;
 
     private final String model;
     private final int modelVersion;
@@ -75,33 +70,8 @@ public final class ChangeJournal {
     public long baseSequence() { return baseSequence; }
     public List<Frame> transactions() { return transactions; }
 
-    /** Returns the oldest wire version that can represent these records. */
-    public int wireVersion() {
-        int version = VERSION;
-        for (Frame frame : transactions) {
-            for (Operation operation : frame.operations()) {
-                if (operation.kind() == Kind.REF_SET_EDIT) version = Math.max(version, REFERENCE_SETS_VERSION);
-                if (operation.kind() == Kind.SET_EDIT || operation.kind() == Kind.TYPED_MAP_EDIT) version = Math.max(version, COLLECTIONS_VERSION);
-                if (operation.kind() == Kind.MAP_EDIT) version = Math.max(version, MAPS_VERSION);
-                version = valueVersion(operation.before(), version);
-                version = valueVersion(operation.after(), version);
-                for (Creation creation : operation.created()) {
-                    if (!creation.typedMapProperties().isEmpty() || !creation.setProperties().isEmpty()) version = Math.max(version, COLLECTIONS_VERSION);
-                    if (!creation.mapProperties().isEmpty()) version = Math.max(version, MAPS_VERSION);
-                    for (List<Value> values : creation.properties().values()) version = valueVersion(values, version);
-                }
-            }
-        }
-        return version;
-    }
-
-    private static int valueVersion(List<Value> values, int version) {
-        for (Value value : values) {
-            if (value.kind() == ValueKind.IMMUTABLE_REFERENCE) return IMMUTABLE_REFERENCES_VERSION;
-            if (value.kind() == ValueKind.EXTERNAL) version = Math.max(version, EXTERNAL_VALUES_VERSION);
-        }
-        return version;
-    }
+    /** Returns the wire version of the current preview journal grammar. */
+    public int wireVersion() { return VERSION; }
 
     public enum Kind { SET, LIST_ADD, LIST_REMOVE, LIST_SET, MAP_EDIT, SET_EDIT, TYPED_MAP_EDIT, REF_SET_EDIT }
 

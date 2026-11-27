@@ -21,6 +21,7 @@ including when the root has no property with that name. Keep each subscription a
 `unsubscribe()` when the consumer is done.
 Each VMF change subscription removes its own registration. The same callback can
 be registered more than once, and calling one handle twice is safe.
+Subscriptions from generated ordinary VMF lists also remove a single registration.
 
 Listeners and predicates run synchronously during model change delivery. Filtering limits
 which changes reach one listener. Choose local scope when observations only concern the
@@ -28,6 +29,59 @@ root. JavaBeans property-change listeners continue to support existing beans int
 When a scope has only exact-name subscriptions and recording is off, VMF can skip its
 `Change` payload for an unmatched property. Recursive observation still follows containment
 edits, and recordings include changes regardless of the subscriber filters.
+
+### Direct property callbacks
+
+JavaBeans listeners and C# `VmfChanges.AddDirectPropertyListener` observe
+property assignments on one object and receive its old and new values.
+Ordinary direct registrations interleave with model observation in source
+order. Named direct callbacks run after those registrations for the
+matching property. Each property event captures its direct recipients
+before callbacks run. A nested edit or a later inverse-side event captures
+its own recipients. Direct and modeled property callbacks on a read-only
+model receive its canonical view. If an old or new value is a generated
+mutable model, the callback receives that value's canonical read-only view.
+This also applies when the declared property type is Object and the payload
+comes from another generated model package. Mutable callbacks and ordinary
+getters for Object properties preserve the original value. Existing read-only
+views, immutable models, and other values retain their identity.
+
+[Shared direct property traces](../conformance/fixtures/direct-property-observers.json)
+cover registration order, reentry, observer errors, and starting a recorder
+from a callback.
+
+### Collection callback order
+
+Direct and modeled callbacks on both views of an `Object[]` property report each
+entry with its exact stored identity, including mutable models from other generated packages.
+
+Ordinary lists and scalar maps interleave direct collection callbacks and
+mutable model callbacks in the source's registration order. Obtaining a
+read-only collection reserves its relay in that order. Observing the
+read-only model can obtain the projection on the listener's behalf.
+The projected relay reads its own subscribers when it runs. The
+[mixed-list traces](../conformance/fixtures/mixed-list-observers.json) and
+[scalar membership traces](../conformance/fixtures/scalar-membership-observers.json)
+cover putting a subscription before or after that relay and changing it
+during a callback.
+
+An unordered scalar set captures its mutable and projected callback lists
+before delivery, then visits the mutable callbacks first. An unordered
+identity reference or owning set installs the modeled projection relay
+when the first read-only model observer subscribes, independent of when
+the set view is read. Ordered keyed relationships
+also attach their modeled projection when a read-only model observer
+subscribes. The C# direct collection API for those relationships can
+independently observe indexed edits. The
+[identity-set traces](../conformance/fixtures/model-identity-set-observers.json)
+and [keyed and reciprocal traces](../conformance/fixtures/modeled-relationship-set-observers.json)
+exercise these positions and reentrant subscription changes.
+
+A shallow copy can share the physical list with its original. The list
+delivers one direct edit, and each observed model owner receives its own
+modeled change. Reciprocal lists capture the source routes before
+repairing the inverse. The initiating route records native history.
+The opposite route can deliver its own live notifications.
 
 ### Delivery, mutation and failure
 
@@ -67,3 +121,21 @@ Call `model.vmf().reflect().propertyMetadata()` or
 annotations. Each call returns a detached immutable snapshot in reflection order.
 Use `properties()` or `propertyByName(...)` when you need reflective value access or a
 subscription bound to a property on a model instance.
+
+## Traversing a model graph
+
+Java's `root.vmf().content().stream()` and `iterator()` use `UNIQUE_NODE`.
+The corresponding C# enumeration is
+`ModelSnapshot.Reflection.Traverse(root, ModelTraversalStrategy.UniqueNode)`.
+`ModelSnapshot.Reflection.OpenGraphCursor(root)` makes the same selection on a
+writable graph and supports edits to the selected edge. Both runtimes
+walk containment and reference edges depth first, skip inverse container
+edges, and visit each mutable identity once. Immutable values still appear
+at each occurrence. Enumeration also supports read-only projections.
+
+C# `ModelSnapshot.Reflection.Traverse(root)` uses its native default,
+`UniqueProperty`. It yields distinct edge occurrences, including aliases and
+back edges, while expanding each mutable identity once. To compare these
+occurrences across runtimes, select `UNIQUE_PROPERTY` in Java and
+`UniqueProperty` in C#. Choose `CONTAINMENT_TREE` or `ContainmentTree` to
+visit only owning edges and retain repeated owning slots.

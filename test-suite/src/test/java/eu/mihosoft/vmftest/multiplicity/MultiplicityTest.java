@@ -89,6 +89,10 @@ public class MultiplicityTest {
         var target = ValueGroups.newBuilder().withStages("a", "b").build();
         ValueGroups.newBuilder().withStages("b", "c").appendCollections(true).applyTo(target);
         assertEquals(List.of("a", "b", "c"), target.getStages());
+        target.getStages().addChangeListener(edit -> fail("Failed append must not publish a change"));
+        assertThrows(IllegalArgumentException.class,
+                () -> ValueGroups.newBuilder().withStages("d").applyTo(target));
+        assertEquals(List.of("a", "b", "c"), target.getStages());
         assertThrows(IllegalArgumentException.class, () -> ValueGroups.newBuilder().withStages("a", "a"));
     }
 

@@ -26,7 +26,7 @@
 
     // perform lazy initialization
     if(this.__vmf_prop_$prop.name==null) {
-      this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ObservableModelList.newInstance(__vmf_get_prop_${prop.name}__vmf_RawList());
+      this.__vmf_prop_$prop.name = ${VMFPKG_INT}.ObservableModelList.newOrdinaryInstance(__vmf_get_prop_${prop.name}__vmf_RawList()#if($prop.genericType), true#end);
 #if($prop.referenceSet)
       this.__vmf_prop_${prop.name} = ${VMFPKG_INT}.ReferenceCollections.checked(this.__vmf_prop_${prop.name}, ${prop.elementTypeName}.class, ${prop.ordered});
 #end

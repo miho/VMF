@@ -23,7 +23,7 @@ jar {
                 'Created-By': System.properties['java.version'] + " (" + System.properties['java.vendor'] + " " + System.properties['java.vm.version'] + ")",
                 'Build-Date': new java.text.SimpleDateFormat('yyyy-MM-dd').format(buildTimeAndDate),
                 'Build-Time': new java.text.SimpleDateFormat('HH:mm:ss.SSSZ').format(buildTimeAndDate),
-                'Build-Revision': rootProject.versioning.info.commit,
+                'Build-Revision': rootProject.buildRevision.get(),
                 'Specification-Title': project.name,
                 'Specification-Version': project.version,
                 'Implementation-Title': project.name,

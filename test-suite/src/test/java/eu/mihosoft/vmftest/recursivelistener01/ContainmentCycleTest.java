@@ -69,6 +69,8 @@ public class ContainmentCycleTest {
                     () -> iterator.set(root),
                     () -> children.subList(0, 2).replaceAll(child -> child == first ? detached : root),
                     () -> reflected.addAll(List.of(detached, root)),
+                    () -> Node.newBuilder().withChildren(detached, root).applyTo(branch),
+                    () -> Node.newBuilder().withChildren(detached, root).appendCollections(false).applyTo(branch),
                     () -> root.setParent(first),
                     () -> branch.setParent(branch));
             for (Runnable edit : cyclicEdits) {

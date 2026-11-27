@@ -39,6 +39,10 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
 
     private static final long serialVersionUID = -4464120913442618645L;
 
+    interface PreparingListener extends PropertyChangeListener {
+        void prepare(PropertyChangeEvent event);
+    }
+
     private Object source;
     private transient volatile PropertyChangeListener[] dispatchListeners;
 
@@ -86,7 +90,9 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
                 ? oldValue != newValue
                 : oldValue == null || newValue == null || !oldValue.equals(newValue);
         if (changed) {
-            listener.propertyChange(VMFPropertyChangeEvent.newInstance(source, propertyName, oldValue, newValue, eventInfo));
+            var event = VMFPropertyChangeEvent.newInstance(source, propertyName, oldValue, newValue, eventInfo);
+            prepare(listener, event);
+            listener.propertyChange(event);
         }
     }
 
@@ -152,8 +158,10 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
 
     private void fireToListeners(PropertyChangeEvent event, boolean modelValue) {
         String propertyName = event.getPropertyName();
+        var snapshot = dispatchSnapshot();
+        for (PropertyChangeListener listener : snapshot) prepare(listener, event);
         Throwable failure = null;
-        for (PropertyChangeListener listener : dispatchSnapshot()) {
+        for (PropertyChangeListener listener : snapshot) {
             if (listener instanceof PropertyChangeListenerProxy) {
                 PropertyChangeListenerProxy proxy = (PropertyChangeListenerProxy) listener;
                 if (propertyName == null ? !modelValue : !propertyName.equals(proxy.getPropertyName())) continue;
@@ -165,6 +173,10 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
             }
         }
         ObserverFailures.rethrow(failure);
+    }
+
+    private static void prepare(PropertyChangeListener listener, PropertyChangeEvent event) {
+        if (listener instanceof PreparingListener) ((PreparingListener) listener).prepare(event);
     }
 
     @Override

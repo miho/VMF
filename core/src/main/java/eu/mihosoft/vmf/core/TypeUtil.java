@@ -25,8 +25,10 @@ package eu.mihosoft.vmf.core;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Created by miho on 21.03.2017.
@@ -179,50 +181,15 @@ public final class TypeUtil {
                         convertModelPackageToDestination(containedClazz.getSimpleName(),
                                 TypeUtil.getPackageName(containedClazz));
             }
-        } else if (m.getGenericReturnType() != null) {
-
-            ParameterizedType retType = null;
-
-            if (m.getGenericReturnType() != null) {
-                if (m.getGenericReturnType() instanceof ParameterizedType) {
-                    retType = (ParameterizedType) m
-                            .getGenericReturnType();
-                }
-            }
-
-            Class<?> containedClazz=null;
-
-            if (retType != null) {
-                containedClazz = (Class<?>) (retType
-                        .getActualTypeArguments()[0]);
-            }
-
-            if(containedClazz==null) {
-                typeName = propClass.getSimpleName();
-
-                packageName = model.
-                        convertModelPackageToDestination(propClass.getSimpleName(), TypeUtil.getPackageName(propClass));
-            } else {
-
-
-                genericPackageName = model.
-                            convertModelPackageToDestination(containedClazz.getSimpleName(),
-                                    TypeUtil.getPackageName(containedClazz));
-
-
-                genericTypeName = containedClazz.getSimpleName();
-
-                typeName = m.getReturnType().getSimpleName() + "<" + model.
-                        convertModelTypeToDestination(containedClazz) + ">";
-                packageName = model.convertModelPackageToDestination(m.getReturnType().getSimpleName(),
-                        TypeUtil.getPackageName(m.getReturnType()));
-            }
-
         } else {
             typeName = propClass.getSimpleName();
-
-            packageName = model.
-                    convertModelPackageToDestination(propClass.getSimpleName(), TypeUtil.getPackageName(propClass));
+            packageName = model.convertModelPackageToDestination(typeName, TypeUtil.getPackageName(propClass));
+            if (m.getGenericReturnType() instanceof ParameterizedType) {
+                ParameterizedType applied = (ParameterizedType) m.getGenericReturnType();
+                typeName += Arrays.stream(applied.getActualTypeArguments())
+                        .map(Class.class::cast).map(model::convertModelTypeToDestination)
+                        .collect(Collectors.joining(", ", "<", ">"));
+            }
         }
 
         if (!packageName.isEmpty()) {

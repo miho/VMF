@@ -85,6 +85,38 @@ public class ManagedSettingsTest {
     }
 
     @Test
+    public void builderRetainsMapAndPublishesDisplacedKeysBeforeChangedPuts() {
+        var model = ManagedSettings.newInstance();
+        var scores = model.getScores();
+        scores.put("drop-a", 1.0);
+        scores.put("drop-b", 2.0);
+        scores.put("keep", 3.0);
+        Map<String, Double> desired = new LinkedHashMap<>();
+        desired.put("keep", 3.0);
+        desired.put("nil", null);
+        desired.put("tail", 4.0);
+        var events = new ArrayList<String>();
+        model.vmf().changes().addListener(change -> {
+            if (change.propertyName().equals("scores")) {
+                var map = change.mapChange().orElseThrow();
+                events.add(map.removed().entries().keySet() + " -> " + map.added().entries().keySet());
+            }
+        });
+
+        var builder = ManagedSettings.newBuilder().withScores(desired);
+        builder.appendCollections(false).applyTo(model);
+        assertSame(scores, model.getScores());
+        assertEquals(List.of("keep", "nil", "tail"), new ArrayList<>(scores.keySet()));
+        assertTrue(scores.containsKey("nil"));
+        assertNull(scores.get("nil"));
+        assertEquals(List.of("[drop-a] -> []", "[drop-b] -> []", "[] -> [nil, tail]"), events);
+
+        events.clear();
+        builder.appendCollections(true).applyTo(model);
+        assertTrue(events.isEmpty());
+    }
+
+    @Test
     public void replacementAndClonePreserveIterationOrderAcrossDefaultKeys() {
         var wanted = new LinkedHashMap<String, Integer>();
         wanted.put("alternate", 8080);

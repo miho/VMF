@@ -1,6 +1,6 @@
 {
   "format": "vmf-journal",
-  "version": 3,
+  "version": 1,
   "model": { "id": "ledger", "version": 1 },
   "root": "root",
   "base": { "checkpoint": "base", "sequence": 0 },

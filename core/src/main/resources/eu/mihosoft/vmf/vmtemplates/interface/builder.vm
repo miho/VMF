@@ -197,6 +197,19 @@
       return __VMF__${type.typeName}_Creator.newBuilderInstance();
     }
 
+    // Internal snapshot metadata. The implementation access stays in this model module.
+    static ${VMFPKG}.Reflect __vmf_snapshotMetadata() {
+      try {
+        var impl = Class.forName("${type.implementation.packageName}.${type.implementation.typeName}", false,
+            ${type.typeName}.class.getClassLoader());
+        var method = impl.getDeclaredMethod("__vmf_snapshotMetadata");
+        method.setAccessible(true);
+        return (${VMFPKG}.Reflect) method.invoke(null);
+      } catch (ReflectiveOperationException error) {
+        throw new IllegalStateException("Cannot read snapshot metadata for ${type.fullTypeName}", error);
+      }
+    }
+
   } // end class Builder
 
   /**

@@ -338,7 +338,7 @@ class JournalTest {
     }
 
     @Test
-    void readsVersionOneFixtureAndRejectsAnUnknownVersionOrDuplicateKey() throws Exception {
+    void readsVersionOneFixtureAndRejectsInvalidFields() throws Exception {
         String fixture = "{\"format\":\"vmf-journal\",\"version\":1,"
                 + "\"model\":{\"id\":\"test.document\",\"version\":1},\"root\":\"document\","
                 + "\"base\":{\"checkpoint\":\"document-at-40\",\"sequence\":40},"
@@ -352,7 +352,6 @@ class JournalTest {
         assertEquals(fixture, mapper.writeValueAsString(mapper.readTree(VMFJournalCodec.write(journal))));
         assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(journal, VMFDocumentFormat.JSON));
         assertEquals(VMFJournalCodec.write(journal), VMFJournalCodec.write(VMFJournalCodec.read(fixture, VMFDocumentFormat.JSON)));
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":" + (ChangeJournal.IMMUTABLE_REFERENCES_VERSION + 1))));
         assertThrows(IOException.class, () -> VMFJournalCodec.read(fixture.replaceFirst("\"version\":1", "\"version\":1,\"version\":1")));
 
         var unknown = assertThrows(IOException.class,
@@ -364,6 +363,30 @@ class JournalTest {
         var wrongType = assertThrows(IOException.class,
                 () -> VMFJournalCodec.read(fixture.replace("\"text\":\"a\"", "\"text\":42")));
         assertEquals("$.transactions[0].operations[0].before[0].text expected a string", wrongType.getMessage());
+    }
+
+    @Test
+    void allFormatsRejectRetiredPreviewAndUnknownJournalVersions() throws IOException {
+        var journal = new ChangeJournal(BINDING.modelId(), 37, "document", CHECKPOINT, BASE_SEQUENCE, List.of());
+        for (VMFDocumentFormat format : VMFDocumentFormat.values()) {
+            String encoded = VMFJournalCodec.write(journal, format);
+            String versionField;
+            switch (format) {
+                case JSON: versionField = "\"version\" : "; break;
+                case YAML: versionField = "version: "; break;
+                case XML: versionField = "<version>"; break;
+                default: throw new AssertionError(format);
+            }
+            assertTrue(encoded.contains(versionField + "1"), format.name());
+            var decoded = VMFJournalCodec.read(encoded, format);
+            assertEquals(1, decoded.wireVersion(), format.name());
+            assertEquals(37, decoded.modelVersion(), format.name());
+            for (int version : List.of(0, 2, 3, 4, 5, 6, 7, 99)) {
+                String retired = encoded.replace(versionField + "1", versionField + version);
+                var problem = assertThrows(IOException.class, () -> VMFJournalCodec.read(retired, format), format.name());
+                assertEquals("$.version unsupported journal version " + version, problem.getMessage(), format.name());
+            }
+        }
     }
 
     @Test
@@ -400,7 +423,7 @@ class JournalTest {
         for (VMFDocumentFormat format : VMFDocumentFormat.values()) {
             String encoded = VMFJournalCodec.write(journal, format);
             ChangeJournal decoded = VMFJournalCodec.read(encoded, format);
-            assertEquals(2, decoded.wireVersion(), format.name());
+            assertEquals(1, decoded.wireVersion(), format.name());
             assertEquals(Long.MAX_VALUE - 1, decoded.baseSequence());
             var frame = decoded.transactions().get(0);
             assertEquals(Long.MAX_VALUE, frame.sequence());
@@ -445,7 +468,7 @@ class JournalTest {
     }
 
     @Test
-    void preservesOpaqueExternalValuesInVersionTwoAndValidatesTheirWireShape() throws Exception {
+    void preservesOpaqueExternalValuesAndValidatesTheirWireShape() throws Exception {
         Value external = Value.external("example.quantity.v1", "5\u00a0mm\nlength");
         var operation = new ChangeJournal.Operation(Kind.SET, "document", "length", List.of(),
                 List.of(new Value(ValueKind.NULL, null)), List.of(external), List.of());
@@ -458,10 +481,7 @@ class JournalTest {
         assertEquals(json, VMFJournalCodec.write(decoded));
 
         var envelope = (ObjectNode) new ObjectMapper().readTree(json);
-        assertEquals(2, envelope.get("version").intValue());
-        envelope.put("version", 1);
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
-        envelope.put("version", 2);
+        assertEquals(1, envelope.get("version").intValue());
 
         var value = (ObjectNode) envelope.at("/transactions/0/operations/0/after/0");
         assertEquals(external.codecId(), value.get("codec").textValue());
@@ -475,7 +495,7 @@ class JournalTest {
     }
 
     @Test
-    void writesVersionTwoForAnExternalValueInInitialCreationProperties() throws Exception {
+    void writesExternalValuesInInitialCreationProperties() throws Exception {
         Value external = Value.external("example.quantity.v1", "5 mm");
         var creation = new ChangeJournal.Creation("item-1", "item", Map.of("length", List.of(external)));
         var operation = new ChangeJournal.Operation(Kind.LIST_ADD, "document", "items", List.of(0),
@@ -485,12 +505,10 @@ class JournalTest {
 
         String json = VMFJournalCodec.write(journal);
         var envelope = (ObjectNode) new ObjectMapper().readTree(json);
-        assertEquals(2, envelope.get("version").intValue());
+        assertEquals(1, envelope.get("version").intValue());
         String path = "/transactions/0/operations/0/created/0/properties/length/0/codec";
         assertEquals(external.codecId(), envelope.at(path).textValue());
         assertEquals(json, VMFJournalCodec.write(VMFJournalCodec.read(json)));
-        envelope.put("version", 1);
-        assertThrows(IOException.class, () -> VMFJournalCodec.read(envelope.toString()));
     }
 
     @Test

@@ -27,13 +27,154 @@ package eu.mihosoft.vmftest.keyed;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
 import org.junit.Test;
 
+import java.lang.reflect.Proxy;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.Assert.*;
 
 public class KeyedPropertyTest {
     private static Item item(String sku) { return Item.newBuilder().withSku(sku).build(); }
+
+    @Test public void lazyKeyedItemsBuildFreshAndApplyOnlyAfterEagerImport() {
+        for (boolean append : List.of(false, true)) {
+            var calls = new AtomicInteger();
+            var staged = Catalog.newBuilder().appendCollections(append)
+                    .withItems(List.of(countedItemBuilder("lazy", calls)));
+            var existing = item("existing");
+            var target = Catalog.newBuilder().withItems(existing).build();
+
+            staged.applyTo(target);
+            assertEquals(0, calls.get());
+            assertEquals(append ? List.of(existing) : List.of(), target.getItems());
+            assertSame(append ? target : null, ((VObjectInternal) existing)._vmf_getContainer());
+
+            var first = staged.build();
+            var second = staged.build();
+            var firstChild = first.findItemsBySku("lazy").orElseThrow();
+            var secondChild = second.findItemsBySku("lazy").orElseThrow();
+            assertEquals(2, calls.get());
+            assertNotSame(firstChild, secondChild);
+            assertSame(first, ((VObjectInternal) firstChild)._vmf_getContainer());
+            assertSame(second, ((VObjectInternal) secondChild)._vmf_getContainer());
+
+            var imported = item("imported");
+            var source = Catalog.newBuilder().withItems(imported).build();
+            staged.applyFrom(source);
+            assertSame(source, ((VObjectInternal) imported)._vmf_getContainer());
+            var built = staged.build();
+            assertEquals(2, calls.get());
+            assertSame(imported, built.findItemsBySku("imported").orElseThrow());
+            assertTrue(source.getItems().isEmpty());
+            assertSame(built, ((VObjectInternal) imported)._vmf_getContainer());
+
+            staged.applyTo(target);
+            assertEquals(2, calls.get());
+            assertTrue(built.getItems().isEmpty());
+            assertSame(imported, target.findItemsBySku("imported").orElseThrow());
+        }
+    }
+
+    @Test public void lazyDuplicateKeysAreRejectedOnBuild() {
+        var calls = new AtomicInteger();
+        var staged = Catalog.newBuilder().withItems(countedItemBuilder("same", calls), countedItemBuilder("same", calls));
+        var existing = item("same");
+        var target = Catalog.newBuilder().withItems(existing).build();
+        staged.applyTo(target);
+        assertEquals(0, calls.get());
+        assertThrows(IllegalArgumentException.class, staged::build);
+        assertEquals(2, calls.get());
+        assertSame(existing, target.findItemsBySku("same").orElseThrow());
+        assertSame(target, ((VObjectInternal) existing)._vmf_getContainer());
+    }
+
+    private static Item.Builder countedItemBuilder(String sku, AtomicInteger calls) {
+        var builder = Item.newBuilder().withSku(sku);
+        return Item.Builder.class.cast(Proxy.newProxyInstance(Item.Builder.class.getClassLoader(),
+                new Class<?>[] { Item.Builder.class }, (proxy, method, arguments) -> {
+                    assertEquals("build", method.getName());
+                    calls.incrementAndGet();
+                    return builder.build();
+                }));
+    }
+
+    @Test public void builderReplacementStagesAndMovesTheOriginalKeyedChildren() {
+        Item moving = item("a"), replaced = item("b");
+        var assignment = Assignment.newBuilder().withKey(moving).build();
+        var source = Catalog.newBuilder().withItems(moving).withAssignments(assignment).build();
+        var target = Catalog.newBuilder().withItems(replaced).build();
+        source.getPrices().put(1, 11L);
+        target.getPrices().put(2, 22L);
+        var targetItems = target.getItems();
+        var targetPrices = target.getPrices();
+        var events = new ArrayList<String>();
+        source.vmf().changes().addListener(change ->
+                change.listChange().filter(edit -> change.propertyName().equals("items")).ifPresent(edit ->
+                        events.add("source:" + (edit.wasRemoved() ? "remove" : "add"))));
+        target.vmf().changes().addListener(change ->
+                change.listChange().filter(edit -> change.propertyName().equals("items")).ifPresent(edit ->
+                        events.add("target:" + (edit.wasRemoved() ? "remove" : "add"))));
+
+        var staged = Catalog.newBuilder().appendCollections(false).applyFrom(source);
+        assertSame(source, ((VObjectInternal) moving)._vmf_getContainer());
+        assertTrue(events.isEmpty());
+        staged.applyTo(source);
+        assertEquals(List.of("source:remove", "source:add"), events);
+        assertSame(source, ((VObjectInternal) moving)._vmf_getContainer());
+        events.clear();
+
+        staged.applyTo(target);
+        assertEquals(List.of("target:remove", "source:remove", "target:add"), events);
+        assertSame(targetItems, target.getItems());
+        assertSame(targetPrices, target.getPrices());
+        assertEquals(Map.of(1, 11L), targetPrices);
+        assertTrue(source.getItems().isEmpty());
+        assertTrue(source.getAssignments().isEmpty());
+        assertSame(moving, target.findItemsBySku("a").orElseThrow());
+        assertSame(assignment, target.findAssignmentsByKey(moving).orElseThrow());
+        assertSame(target, ((VObjectInternal) moving)._vmf_getContainer());
+        assertNull(((VObjectInternal) replaced)._vmf_getContainer());
+        assertSame(moving, assignment.getKey());
+    }
+
+    @Test public void builderDuplicateOrLostKeyDoesNotChangeTheDestinationOrSource() {
+        Item existing = item("same"), conflicting = item("same"), detached = item("valid");
+        var target = Catalog.newBuilder().withItems(existing).build();
+        var source = Catalog.newBuilder().withItems(conflicting).build();
+        var events = new ArrayList<Boolean>();
+        target.getItems().addChangeListener(edit -> events.add(edit.wasRemoved()));
+        assertThrows(IllegalArgumentException.class, () -> Catalog.newBuilder().applyFrom(target).applyTo(target));
+        assertThrows(IllegalArgumentException.class, () -> Catalog.newBuilder().applyFrom(source).applyTo(target));
+        var staged = Catalog.newBuilder().withItems(detached).appendCollections(false);
+        detached.setSku(null);
+        assertThrows(IllegalArgumentException.class, () -> staged.applyTo(target));
+
+        assertTrue(events.isEmpty());
+        assertSame(existing, target.findItemsBySku("same").orElseThrow());
+        assertSame(conflicting, source.findItemsBySku("same").orElseThrow());
+        assertSame(source, ((VObjectInternal) conflicting)._vmf_getContainer());
+        assertSame(target, ((VObjectInternal) existing)._vmf_getContainer());
+        assertNull(((VObjectInternal) detached)._vmf_getContainer());
+    }
+
+    @Test public void builderChecksKeyedContainmentCyclesBeforeClearingTheDestination() {
+        var root = RecursiveKeyedNode.newBuilder().withKey("root").build();
+        var branch = RecursiveKeyedNode.newBuilder().withKey("branch").build();
+        var leaf = RecursiveKeyedNode.newBuilder().withKey("leaf").build();
+        root.getChildren().add(branch);
+        branch.getChildren().add(leaf);
+        var events = new ArrayList<Boolean>();
+        branch.getChildren().addChangeListener(edit -> events.add(edit.wasRemoved()));
+
+        var staged = RecursiveKeyedNode.newBuilder().withChildren(root).appendCollections(false);
+        assertThrows(IllegalArgumentException.class, () -> staged.applyTo(branch));
+        assertTrue(events.isEmpty());
+        assertSame(leaf, branch.findChildrenByKey("leaf").orElseThrow());
+        assertSame(branch, ((VObjectInternal) leaf)._vmf_getContainer());
+        assertSame(root, ((VObjectInternal) branch)._vmf_getContainer());
+    }
 
     @Test public void attachedEntriesHaveUniqueEditableKeysAcrossMutableAndReadOnlyViews() {
         Item a = item("a"), b = item("b");
@@ -211,5 +352,23 @@ public class KeyedPropertyTest {
         Code value = slot.asReadOnly().getValue();
         assertSame(code, value);
         assertSame(code, slot.asReadOnly().getHistory().get(0));
+    }
+
+    @Test public void ancestorImportReplacesStagedLazyBuildersOfBoundModelValues() {
+        var code = Code.newBuilder().withName("imported").build();
+        Slot<Code> source = CodeSlot.newBuilder().withValue(code).withHistory(code).build();
+        var staged = CodeSlot.newBuilder().withValue(Code.newBuilder().withName("lazy"))
+                .withHistory(Code.newBuilder().withName("lazy")).applyFrom(source);
+        var built = staged.build();
+
+        assertSame(code, built.getValue());
+        assertEquals(1, built.getHistory().size());
+        assertSame(code, built.getHistory().get(0));
+
+        Slot<Code> empty = CodeSlot.newInstance();
+        var cleared = staged.withValue(Code.newBuilder().withName("lazy"))
+                .withHistory(Code.newBuilder().withName("lazy")).applyFrom(empty).build();
+        assertNull(cleared.getValue());
+        assertTrue(cleared.getHistory().isEmpty());
     }
 }

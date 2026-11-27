@@ -57,7 +57,7 @@ property.set(Map.of("pressure", 99.4));
 property.unset();
 ```
 
-VMF Jackson represents the string-keyed property above as a JSON object. The change journal records map entries by key and distinguishes null from absence during replay. [Journal format and replay](change-journal.md#version-3-managed-maps)
+VMF Jackson represents the string-keyed property above as a JSON object. The change journal records map entries by key and distinguishes null from absence during replay. [Journal format and replay](change-journal.md#managed-maps)
 
 ## Bind generic map keys and values
 
