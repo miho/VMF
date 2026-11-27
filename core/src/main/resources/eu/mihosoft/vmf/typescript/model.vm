@@ -91,10 +91,12 @@ ${type.declaration} {
     }
 #end
 #if(!$type.hasBase)
+
     /** @internal */
     readonly __vmfContainerLink = new vmf.ContainmentLink();
 #end
 #foreach($property in $type.properties)
+
 #if($property.container)
     ${property.modifier}get ${property.name}(): ${property.type} | null {
         return vmf.containerOf(this.__vmfContainerLink, ${property.ownerType}, [${property.owners}]) as ${property.type} | null;
