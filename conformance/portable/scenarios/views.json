@@ -1,0 +1,117 @@
+{
+  "model": "events",
+  "scenarios": [
+    {
+      "id": "read-only-view-is-live",
+      "from": "ObservablePropTest.observeSimplePropertyOfReadOnlyTest, ReadOnlyExternalListTest.readOnlyListIsLive",
+      "requires": ["views"],
+      "rules": ["V1"],
+      "steps": [
+        {"new": "o", "type": "ObserveMyProperties"},
+        {"readOnly": "o", "as": "ro"},
+        {"set": "o.name", "value": "x"},
+        {"add": "o.values", "values": [1, 2]},
+        {"check": "ro.name", "value": "x"},
+        {"check": "ro.values", "values": [1, 2]},
+        {"set": "o.name", "value": null},
+        {"check": "ro.name", "value": null}
+      ]
+    },
+    {
+      "id": "read-only-view-rejects-edits",
+      "from": "GetterOnlyTest.getterOnlyTest, ReadOnlyExternalListTest.readOnlyGetterRejectsStructuralChanges",
+      "requires": ["views"],
+      "rules": ["V2"],
+      "steps": [
+        {"new": "o", "type": "ObserveMyProperties", "with": {"name": "n", "values": [1, 2]}},
+        {"readOnly": "o", "as": "ro"},
+        {"set": "ro.name", "value": "x", "fails": true},
+        {"add": "ro.values", "value": 3, "fails": true},
+        {"remove": "ro.values", "at": 0, "fails": true},
+        {"set": "ro.values[0]", "value": 5, "fails": true},
+        {"clear": "ro.values", "fails": true},
+        {"check": "o.name", "value": "n"},
+        {"check": "o.values", "values": [1, 2]}
+      ]
+    },
+    {
+      "id": "read-only-view-covers-contained-objects",
+      "model": "tree",
+      "requires": ["views"],
+      "rules": ["V1", "V2"],
+      "steps": [
+        {"new": "root", "type": "Node", "with": {"name": "root"}},
+        {"new": "child", "type": "Node", "with": {"name": "child"}},
+        {"add": "root.children", "obj": "child"},
+        {"readOnly": "root", "as": "ro"},
+        {"check": "ro.children[0].name", "value": "child"},
+        {"set": "ro.children[0].name", "value": "x", "fails": true},
+        {"new": "other", "type": "Node"},
+        {"add": "ro.children", "obj": "other", "fails": true},
+        {"set": "child.name", "value": "renamed"},
+        {"check": "ro.children[0].name", "value": "renamed"}
+      ]
+    },
+    {
+      "id": "immutable-created-with-values",
+      "model": "immutable",
+      "from": "ImmutableTypesTest.immutableTypesTest, GetterOnlyTest.getterOnlyTest",
+      "requires": ["views"],
+      "rules": ["V3"],
+      "steps": [
+        {"new": "i", "type": "ImmutableType", "with": {"name": "a"}},
+        {"check": "i.name", "value": "a"},
+        {"set": "i.name", "value": "b", "fails": true},
+        {"new": "j", "type": "ImmutableType", "with": {"name": "a"}},
+        {"equal": ["i", "j"]}
+      ]
+    },
+    {
+      "id": "immutable-list-rejects-edits",
+      "model": "immutable",
+      "from": "ImmutableTypesTest.immutableTypesTest",
+      "requires": ["views"],
+      "rules": ["V3"],
+      "steps": [
+        {"new": "i", "type": "ImmutableTypeWithList", "with": {"names": ["a", "b"]}},
+        {"check": "i.names", "values": ["a", "b"]},
+        {"add": "i.names", "value": "c", "fails": true},
+        {"clear": "i.names", "fails": true},
+        {"check": "i.names", "values": ["a", "b"]}
+      ]
+    },
+    {
+      "id": "getter-only-property-of-mutable-and-immutable-type",
+      "model": "immutable",
+      "from": "GetterOnlyTest.getterOnlyTest",
+      "requires": ["views"],
+      "rules": ["V3", "T1"],
+      "steps": [
+        {"new": "i", "type": "ImmutableObj", "with": {"name": "immutable obj"}},
+        {"new": "m", "type": "MutableObj", "with": {"name": "mutable obj"}},
+        {"instanceOf": "i", "type": "WithName"},
+        {"instanceOf": "m", "type": "WithName"},
+        {"check": "i.name", "value": "immutable obj"},
+        {"check": "m.name", "value": "mutable obj"},
+        {"set": "i.name", "value": "new name", "fails": true},
+        {"set": "m.name", "value": "new name"},
+        {"check": "m.name", "value": "new name"}
+      ]
+    },
+    {
+      "id": "mutable-owner-refers-to-immutable-value",
+      "model": "immutable",
+      "requires": ["views"],
+      "rules": ["V3", "Q3"],
+      "steps": [
+        {"new": "i", "type": "ImmutableType", "with": {"name": "red"}},
+        {"new": "p", "type": "Palette", "with": {"title": "warm"}},
+        {"set": "p.primary", "obj": "i"},
+        {"check": "p.primary", "obj": "i"},
+        {"copy": "p", "as": "k"},
+        {"equal": ["p", "k"]},
+        {"equal": ["k.primary", "i"]}
+      ]
+    }
+  ]
+}

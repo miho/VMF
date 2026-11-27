@@ -1,0 +1,378 @@
+{
+  "model": "containment",
+  "scenarios": [
+    {
+      "id": "builder-sets-container",
+      "from": "ContainmentTest.containmentWithBuilderTest",
+      "rules": ["C1", "T3"],
+      "steps": [
+        {"new": "e", "type": "Element"},
+        {"new": "ca", "type": "ContainerOne", "with": {"element1": {"obj": "e"}}},
+        {"check": "ca.element1", "obj": "e"},
+        {"check": "e.parentOne", "obj": "ca"}
+      ]
+    },
+    {
+      "id": "move-between-owners",
+      "from": "ContainmentTest.containmentTest",
+      "rules": ["C1", "C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"set": "ca.element1", "obj": "e"},
+        {"check": "e.parentOne", "obj": "ca"},
+        {"new": "cb", "type": "ContainerOne"},
+        {"set": "cb.element1", "obj": "e"},
+        {"check": "e.parentOne", "obj": "cb"},
+        {"check": "ca.element1", "obj": null}
+      ]
+    },
+    {
+      "id": "move-to-other-type-with-opposite",
+      "from": "ContainmentTest.containmentMultiplePropsTest1",
+      "rules": ["C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"set": "ca.element1", "obj": "e"},
+        {"new": "cb", "type": "ContainerTwo"},
+        {"set": "cb.element2", "obj": "e"},
+        {"check": "e.parentTwo", "obj": "cb"},
+        {"check": "e.parentOne", "obj": null},
+        {"check": "ca.element1", "obj": null}
+      ]
+    },
+    {
+      "id": "move-to-slot-without-opposite",
+      "from": "ContainmentTest.containmentMultiplePropsTest2",
+      "rules": ["C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"set": "ca.element1", "obj": "e"},
+        {"new": "cb", "type": "ContainerTwo"},
+        {"set": "cb.element", "obj": "e"},
+        {"check": "ca.element1", "obj": null},
+        {"check": "e.parentOne", "obj": null},
+        {"check": "cb.element", "obj": "e"}
+      ]
+    },
+    {
+      "id": "move-from-slot-without-opposite",
+      "from": "ContainmentTest.containmentMultiplePropsTest3",
+      "rules": ["C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"set": "ca.element", "obj": "e"},
+        {"new": "cb", "type": "ContainerTwo"},
+        {"set": "cb.element2", "obj": "e"},
+        {"check": "ca.element", "obj": null},
+        {"check": "e.parentTwo", "obj": "cb"}
+      ]
+    },
+    {
+      "id": "move-from-slot-to-list-with-opposite",
+      "from": "ContainmentTest.containmentMultiplePropsTest4",
+      "rules": ["C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"set": "ca.element", "obj": "e"},
+        {"new": "cb", "type": "ContainerTwo"},
+        {"add": "cb.elements2a", "obj": "e"},
+        {"check": "ca.element", "obj": null},
+        {"check": "cb.elements2a", "objs": ["e"]},
+        {"check": "e.listParentTwo", "obj": "cb"}
+      ]
+    },
+    {
+      "id": "move-from-slot-to-list-without-opposite",
+      "from": "ContainmentTest.containmentMultiplePropsTest5",
+      "rules": ["C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"set": "ca.element", "obj": "e"},
+        {"new": "cb", "type": "ContainerTwo"},
+        {"add": "cb.elements2", "obj": "e"},
+        {"check": "ca.element", "obj": null},
+        {"check": "cb.elements2", "objs": ["e"]}
+      ]
+    },
+    {
+      "id": "move-from-list-to-list-with-opposite",
+      "from": "ContainmentTest.containmentMultiplePropsTest6",
+      "rules": ["C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"add": "ca.elements1", "obj": "e"},
+        {"new": "cb", "type": "ContainerTwo"},
+        {"add": "cb.elements2a", "obj": "e"},
+        {"check": "ca.elements1", "size": 0},
+        {"check": "cb.elements2a", "objs": ["e"]},
+        {"check": "e.listParentTwo", "obj": "cb"}
+      ]
+    },
+    {
+      "id": "move-from-list-with-opposite-to-list",
+      "from": "ContainmentTest.containmentMultiplePropsTest7",
+      "rules": ["C2", "C3"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"add": "ca.elements1a", "obj": "e"},
+        {"new": "cb", "type": "ContainerTwo"},
+        {"add": "cb.elements2", "obj": "e"},
+        {"check": "ca.elements1a", "size": 0},
+        {"check": "cb.elements2", "objs": ["e"]},
+        {"check": "e.listParentOne", "obj": null}
+      ]
+    },
+    {
+      "id": "move-between-slots-without-opposite",
+      "from": "ContainmentTest.containmentMultiplePropsTestNoOpposite",
+      "rules": ["C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"set": "ca.element", "obj": "e"},
+        {"new": "cb", "type": "ContainerTwo"},
+        {"set": "cb.element", "obj": "e"},
+        {"check": "ca.element", "obj": null},
+        {"check": "cb.element", "obj": "e"}
+      ]
+    },
+    {
+      "id": "one-container-property-for-several-containments",
+      "from": "ContainmentTest.containmentMultiplePropsTestMultipleOpposites",
+      "model": "shared",
+      "rules": ["C1", "C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerMultipleOpposites"},
+        {"new": "e", "type": "ElementMultipleOpposites"},
+        {"set": "ca.element", "obj": "e"},
+        {"check": "ca.element", "obj": "e"},
+        {"check": "e.parent", "obj": "ca"},
+        {"new": "cb", "type": "ContainerMultipleOpposites"},
+        {"set": "cb.element", "obj": "e"},
+        {"check": "ca.element", "obj": null},
+        {"check": "e.parent", "obj": "cb"},
+        {"add": "ca.elements", "obj": "e"},
+        {"check": "cb.element", "obj": null},
+        {"check": "e.parent", "obj": "ca"},
+        {"add": "ca.elements1", "obj": "e"},
+        {"check": "ca.elements", "size": 0},
+        {"check": "ca.elements1", "objs": ["e"]},
+        {"set": "ca.element", "obj": "e"},
+        {"check": "ca.elements1", "size": 0},
+        {"check": "ca.element", "obj": "e"},
+        {"check": "e.parent", "obj": "ca"}
+      ]
+    },
+    {
+      "id": "setting-container-property-appends",
+      "from": "UndoRedoWithContainmentTest.unoRedoWithListContainmentTestViaSetParent",
+      "rules": ["C4"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e1", "type": "Element"},
+        {"new": "e2", "type": "Element"},
+        {"add": "ca.elements1a", "obj": "e1"},
+        {"set": "e2.listParentOne", "obj": "ca"},
+        {"check": "ca.elements1a", "objs": ["e1", "e2"]},
+        {"check": "e2.listParentOne", "obj": "ca"}
+      ]
+    },
+    {
+      "id": "setting-container-property-of-slot",
+      "from": "UndoRedoWithContainmentTest.unoRedoWithSingleContainmentTest2",
+      "rules": ["C4"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"set": "e.parentOne", "obj": "ca"},
+        {"check": "ca.element1", "obj": "e"},
+        {"set": "e.parentOne", "obj": null},
+        {"check": "ca.element1", "obj": null},
+        {"check": "e.parentOne", "obj": null}
+      ]
+    },
+    {
+      "id": "clearing-container-property-removes-from-list",
+      "rules": ["C4"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e1", "type": "Element"},
+        {"new": "e2", "type": "Element"},
+        {"add": "ca.elements1a", "objs": ["e1", "e2"]},
+        {"set": "e1.listParentOne", "obj": null},
+        {"check": "ca.elements1a", "objs": ["e2"]},
+        {"check": "e1.listParentOne", "obj": null}
+      ]
+    },
+    {
+      "id": "moving-by-container-property",
+      "rules": ["C2", "C4"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "cb", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"add": "ca.elements1a", "obj": "e"},
+        {"set": "e.listParentOne", "obj": "cb"},
+        {"check": "ca.elements1a", "size": 0},
+        {"check": "cb.elements1a", "objs": ["e"]}
+      ]
+    },
+    {
+      "id": "remove-clear-and-null-release-children",
+      "rules": ["C3"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e1", "type": "Element"},
+        {"new": "e2", "type": "Element"},
+        {"new": "e3", "type": "Element"},
+        {"new": "e4", "type": "Element"},
+        {"add": "ca.elements1a", "objs": ["e1", "e2", "e3"]},
+        {"remove": "ca.elements1a", "obj": "e2"},
+        {"check": "e2.listParentOne", "obj": null},
+        {"check": "ca.elements1a", "objs": ["e1", "e3"]},
+        {"remove": "ca.elements1a", "at": 0},
+        {"check": "e1.listParentOne", "obj": null},
+        {"clear": "ca.elements1a"},
+        {"check": "e3.listParentOne", "obj": null},
+        {"check": "ca.elements1a", "size": 0},
+        {"set": "ca.element1", "obj": "e4"},
+        {"set": "ca.element1", "obj": null},
+        {"check": "e4.parentOne", "obj": null}
+      ]
+    },
+    {
+      "id": "replacing-slot-releases-previous-child",
+      "rules": ["C3"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e1", "type": "Element"},
+        {"new": "e2", "type": "Element"},
+        {"set": "ca.element1", "obj": "e1"},
+        {"set": "ca.element1", "obj": "e2"},
+        {"check": "e1.parentOne", "obj": null},
+        {"check": "e2.parentOne", "obj": "ca"}
+      ]
+    },
+    {
+      "id": "replacing-list-entry-releases-previous-child",
+      "rules": ["C3"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e1", "type": "Element"},
+        {"new": "e2", "type": "Element"},
+        {"new": "e3", "type": "Element"},
+        {"add": "ca.elements1a", "objs": ["e1", "e2"]},
+        {"set": "ca.elements1a[0]", "obj": "e3"},
+        {"check": "ca.elements1a", "objs": ["e3", "e2"]},
+        {"check": "e1.listParentOne", "obj": null},
+        {"check": "e3.listParentOne", "obj": "ca"}
+      ]
+    },
+    {
+      "id": "insert-keeps-order-and-moves-from-other-owner",
+      "rules": ["C1", "C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "cb", "type": "ContainerOne"},
+        {"new": "e1", "type": "Element"},
+        {"new": "e2", "type": "Element"},
+        {"new": "e3", "type": "Element"},
+        {"add": "ca.elements1a", "objs": ["e1", "e2"]},
+        {"add": "cb.elements1a", "obj": "e3"},
+        {"insert": "ca.elements1a", "at": 1, "obj": "e3"},
+        {"check": "ca.elements1a", "objs": ["e1", "e3", "e2"]},
+        {"check": "cb.elements1a", "size": 0},
+        {"check": "e3.listParentOne", "obj": "ca"}
+      ]
+    },
+    {
+      "id": "move-between-properties-of-same-owner",
+      "rules": ["C2"],
+      "steps": [
+        {"new": "ca", "type": "ContainerOne"},
+        {"new": "e", "type": "Element"},
+        {"add": "ca.elements1a", "obj": "e"},
+        {"set": "ca.element1", "obj": "e"},
+        {"check": "ca.elements1a", "size": 0},
+        {"check": "ca.element1", "obj": "e"},
+        {"check": "e.listParentOne", "obj": null},
+        {"check": "e.parentOne", "obj": "ca"}
+      ]
+    },
+    {
+      "id": "reject-self-containment",
+      "model": "tree",
+      "from": "ContainmentCycleTest.listAndContainerEntryPointsRejectCyclesBeforeMutationOrNotification",
+      "rules": ["C5"],
+      "steps": [
+        {"new": "a", "type": "Node", "with": {"name": "a"}},
+        {"add": "a.children", "obj": "a", "fails": true},
+        {"set": "a.parent", "obj": "a", "fails": true},
+        {"check": "a.children", "size": 0},
+        {"check": "a.parent", "obj": null}
+      ]
+    },
+    {
+      "id": "reject-transitive-cycle-in-lists",
+      "model": "tree",
+      "from": "ContainmentCycleTest.listAndContainerEntryPointsRejectCyclesBeforeMutationOrNotification",
+      "rules": ["C5"],
+      "steps": [
+        {"new": "a", "type": "Node", "with": {"name": "a"}},
+        {"new": "b", "type": "Node", "with": {"name": "b"}},
+        {"new": "c", "type": "Node", "with": {"name": "c"}},
+        {"add": "a.children", "obj": "b"},
+        {"add": "b.children", "obj": "c"},
+        {"add": "c.children", "obj": "a", "fails": true},
+        {"set": "a.parent", "obj": "c", "fails": true},
+        {"check": "a.parent", "obj": null},
+        {"check": "c.children", "size": 0},
+        {"check": "b.parent", "obj": "a"}
+      ]
+    },
+    {
+      "id": "reject-cycle-in-single-slots",
+      "model": "tree",
+      "from": "ContainmentCycleTest.scalarContainmentRejectsCyclesBeforeReplacingTheExistingChild",
+      "rules": ["C5"],
+      "steps": [
+        {"new": "a", "type": "Box", "with": {"name": "a"}},
+        {"new": "b", "type": "Box", "with": {"name": "b"}},
+        {"new": "x", "type": "Box", "with": {"name": "x"}},
+        {"set": "a.inner", "obj": "b"},
+        {"set": "b.inner", "obj": "x"},
+        {"set": "b.inner", "obj": "a", "fails": true},
+        {"check": "b.inner", "obj": "x"},
+        {"check": "x.outer", "obj": "b"},
+        {"check": "a.outer", "obj": null}
+      ]
+    },
+    {
+      "id": "moving-subtree-keeps-its-content",
+      "model": "tree",
+      "rules": ["C1", "C2"],
+      "steps": [
+        {"new": "r1", "type": "Node", "with": {"name": "r1"}},
+        {"new": "r2", "type": "Node", "with": {"name": "r2"}},
+        {"new": "a", "type": "Node", "with": {"name": "a"}},
+        {"new": "b", "type": "Node", "with": {"name": "b"}},
+        {"add": "r1.children", "obj": "a"},
+        {"add": "a.children", "obj": "b"},
+        {"add": "r2.children", "obj": "a"},
+        {"check": "r1.children", "size": 0},
+        {"check": "r2.children", "objs": ["a"]},
+        {"check": "a.children", "objs": ["b"]},
+        {"check": "b.parent", "obj": "a"},
+        {"check": "a.parent", "obj": "r2"}
+      ]
+    }
+  ]
+}

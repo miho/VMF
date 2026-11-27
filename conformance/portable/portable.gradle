@@ -1,0 +1,82 @@
+// Portable VMF contract: one set of scenario files, one small runner per target language.
+// See conformance/portable/README.md.
+
+def portable = rootProject.layout.projectDirectory.dir('conformance/portable')
+def portableBuild = portable.dir('build')
+def portableModels = portable.dir('models')
+def portableScenarios = portable.dir('scenarios')
+def portableRuntime = evaluationDependsOn(':vmf-runtime').sourceSets.main.runtimeClasspath
+def portableJackson = configurations.detachedConfiguration(
+        dependencies.create("com.fasterxml.jackson.core:jackson-databind:${commonProps.getProperty('deps.jackson.version')}"))
+def portableFilter = providers.gradleProperty('portableFilter').orElse('')
+
+def compilePortableGenerator = tasks.register('compilePortableGenerator', JavaCompile) {
+    source portable.file('java/GeneratePortableModels.java')
+    classpath = sourceSets.main.runtimeClasspath
+    destinationDirectory = portableBuild.dir('classes/generator')
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def portableGeneration = [:]
+['java', 'csharp', 'typescript'].each { target ->
+    portableGeneration[target] = tasks.register("generatePortable${target.capitalize()}", JavaExec) {
+        group = 'vmf'
+        description = "Generates the portable contract models for ${target}."
+        dependsOn compilePortableGenerator
+        classpath = files(portableBuild.dir('classes/generator')) + sourceSets.main.runtimeClasspath
+        mainClass = 'eu.mihosoft.vmf.portable.GeneratePortableModels'
+        args target, portableBuild.dir("generated/${target}").asFile.absolutePath,
+                portableModels.asFile.absolutePath,
+                portableBuild.file("generated/${target}-unsupported.txt").asFile.absolutePath
+        inputs.dir portableModels
+        inputs.files sourceSets.main.runtimeClasspath
+        outputs.dir portableBuild.dir("generated/${target}")
+        outputs.file portableBuild.file("generated/${target}-unsupported.txt")
+    }
+}
+
+def compilePortableJava = tasks.register('compilePortableJava', JavaCompile) {
+    dependsOn portableGeneration['java']
+    source portableBuild.dir('generated/java'), portable.file('java/PortableRunner.java')
+    classpath = portableRuntime + portableJackson
+    destinationDirectory = portableBuild.dir('classes/java')
+    javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
+    options.release = 11
+    options.encoding = 'UTF-8'
+}
+
+def runPortableJava = tasks.register('runPortableJava', JavaExec) {
+    group = 'verification'
+    description = 'Runs the portable contract scenarios against generated Java code.'
+    dependsOn compilePortableJava
+    classpath = files(portableBuild.dir('classes/java')) + portableRuntime + portableJackson
+    mainClass = 'eu.mihosoft.vmf.portable.PortableRunner'
+    argumentProviders.add({
+        [portableScenarios.asFile.absolutePath,
+         portableBuild.file('generated/java-unsupported.txt').asFile.absolutePath,
+         portable.file('expected-failures/java.txt').asFile.absolutePath,
+         portableBuild.file('results/java.json').asFile.absolutePath,
+         portableFilter.get()]
+    } as CommandLineArgumentProvider)
+}
+
+def runPortableCSharp = tasks.register('runPortableCSharp', Exec) {
+    group = 'verification'
+    description = 'Runs the portable contract scenarios against generated C# code.'
+    dependsOn portableGeneration['csharp']
+    workingDir portable.dir('csharp').asFile
+    commandLine 'dotnet', 'run', '--project', 'PortableRunner.csproj', '--configuration', 'Release', '--',
+            portableScenarios.asFile.absolutePath,
+            portableBuild.file('generated/csharp-unsupported.txt').asFile.absolutePath,
+            portable.file('expected-failures/csharp.txt').asFile.absolutePath,
+            portableBuild.file('results/csharp.json').asFile.absolutePath
+    argumentProviders.add({ [portableFilter.get()] } as CommandLineArgumentProvider)
+}
+
+tasks.register('verifyPortableContract') {
+    group = 'verification'
+    description = 'Runs the portable contract scenarios for every target and fails on unexpected results.'
+    dependsOn runPortableJava, runPortableCSharp
+}

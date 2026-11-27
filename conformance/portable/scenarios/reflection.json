@@ -1,0 +1,68 @@
+{
+  "model": "order",
+  "scenarios": [
+    {
+      "id": "default-property-order",
+      "from": "PropertyOrderTest.propertyDefaultOrderTest",
+      "requires": ["reflection"],
+      "rules": ["F1"],
+      "steps": [
+        {"new": "o", "type": "DefaultOrder"},
+        {"properties": "o", "are": ["b", "d", "x", "z"]}
+      ]
+    },
+    {
+      "id": "declared-property-order",
+      "from": "PropertyOrderTest.propertyCustomOrderTest",
+      "requires": ["reflection"],
+      "rules": ["F1"],
+      "steps": [
+        {"new": "o", "type": "CustomOrder"},
+        {"properties": "o", "are": ["z", "b", "d", "x"]}
+      ]
+    },
+    {
+      "id": "inherited-property-order",
+      "from": "PropertyOrderTest.inheritedPropertyOrderTestWithoutBaseOrder",
+      "requires": ["reflection"],
+      "rules": ["F1"],
+      "steps": [
+        {"new": "o", "type": "InheritedOrderSubClassWithoutBaseOrder"},
+        {"properties": "o", "are": ["baseA", "baseB", "baseZ", "a", "z", "b"]}
+      ]
+    },
+    {
+      "id": "inherited-declared-property-order",
+      "from": "PropertyOrderTest.inheritedPropertyOrderTestWithBaseOrder",
+      "requires": ["reflection"],
+      "rules": ["F1"],
+      "steps": [
+        {"new": "o", "type": "InheritedOrderSubClassWithBaseOrder"},
+        {"properties": "o", "are": ["baseA", "baseZ", "baseB", "a", "z", "b"]}
+      ]
+    },
+    {
+      "id": "type-and-property-annotations",
+      "model": "annotations",
+      "from": "AnnotationsTest.basicAnnotationTest",
+      "requires": ["reflection"],
+      "rules": ["F2"],
+      "steps": [
+        {"new": "m", "type": "AnnotatedModel"},
+        {"annotations": "m", "are": [["key 1", "my value 1"], ["key 2", "my value 2"]]},
+        {"annotations": "m.name", "are": [["prop key 1", "my prop value 1"], ["prop key 2", "my prop value 2"]]}
+      ]
+    },
+    {
+      "id": "repeated-annotation-keys",
+      "model": "annotations",
+      "from": "AnnotationsTest.multipleAnnotationsPerKeyTest",
+      "requires": ["reflection"],
+      "rules": ["F2"],
+      "steps": [
+        {"new": "m", "type": "MultipleAnnotationsPerKey"},
+        {"annotations": "m", "are": [["key 1", "my value 1"], ["key 2", "my value 2"], ["key 2", "my value 3"]]}
+      ]
+    }
+  ]
+}

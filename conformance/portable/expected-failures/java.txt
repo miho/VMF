@@ -1,0 +1,6 @@
+# Scenarios the generated Java code currently fails. One scenario id per line, then "# reason".
+# The runner fails on any unexpected failure and on any listed scenario that passes again.
+
+references/list-opposite-events-on-both-sides  # clearing a many-to-one reference (a.ref = null) notifies a's listeners twice
+views/immutable-created-with-values  # vmf().content().equals() of immutable types falls back to Object.equals (immutable template)
+views/mutable-owner-refers-to-immutable-value  # same: content equality of immutable values is identity

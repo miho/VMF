@@ -87,3 +87,4 @@ license {
 
 apply from: rootProject.file('examples/csharp-workshop/workshop.gradle')
 apply from: rootProject.file('conformance/conformance.gradle')
+apply from: rootProject.file('conformance/portable/portable.gradle')

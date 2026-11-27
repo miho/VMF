@@ -1,0 +1,298 @@
+{
+  "model": "references",
+  "scenarios": [
+    {
+      "id": "one-to-one-sets-opposite",
+      "from": "CrossRefTest.singleRefTest",
+      "rules": ["R1"],
+      "steps": [
+        {"new": "a", "type": "EntityOneA"},
+        {"new": "b", "type": "EntityTwoA"},
+        {"set": "a.ref", "obj": "b"},
+        {"check": "b.ref", "obj": "a"},
+        {"new": "a2", "type": "EntityOneA"},
+        {"new": "b2", "type": "EntityTwoA"},
+        {"set": "b2.ref", "obj": "a2"},
+        {"check": "a2.ref", "obj": "b2"}
+      ]
+    },
+    {
+      "id": "many-to-one-sets-opposite",
+      "from": "CrossRefTest.singleMultipleRefTest",
+      "rules": ["R1"],
+      "steps": [
+        {"new": "a", "type": "EntityOneB"},
+        {"new": "b", "type": "EntityTwoB"},
+        {"add": "b.refs", "obj": "a"},
+        {"check": "a.ref", "obj": "b"},
+        {"new": "a2", "type": "EntityOneB"},
+        {"new": "b2", "type": "EntityTwoB"},
+        {"set": "a2.ref", "obj": "b2"},
+        {"check": "b2.refs", "objs": ["a2"]}
+      ]
+    },
+    {
+      "id": "many-to-many-sets-opposite",
+      "from": "CrossRefTest.multipleMultipleRefTest",
+      "rules": ["R1"],
+      "steps": [
+        {"new": "c", "type": "EntityOneC"},
+        {"new": "d", "type": "EntityTwoC"},
+        {"add": "c.refs", "obj": "d"},
+        {"check": "d.refs", "objs": ["c"]},
+        {"new": "c2", "type": "EntityOneC"},
+        {"add": "d.refs", "obj": "c2"},
+        {"check": "c2.refs", "objs": ["d"]},
+        {"check": "d.refs", "objs": ["c", "c2"]}
+      ]
+    },
+    {
+      "id": "one-to-one-takeover-releases-previous-owner",
+      "from": "OneToOneReassignmentTest.takingOverReleasesPreviousOwner",
+      "rules": ["R2"],
+      "steps": [
+        {"new": "a1", "type": "EntityOneA"},
+        {"new": "a2", "type": "EntityOneA"},
+        {"new": "b", "type": "EntityTwoA"},
+        {"set": "a1.ref", "obj": "b"},
+        {"set": "a2.ref", "obj": "b"},
+        {"check": "b.ref", "obj": "a2"},
+        {"check": "a2.ref", "obj": "b"},
+        {"check": "a1.ref", "obj": null}
+      ]
+    },
+    {
+      "id": "one-to-one-repointing-releases-old-target",
+      "from": "OneToOneReassignmentTest.repointingReleasesOldOppositeWithoutClearingNewValue",
+      "rules": ["R2"],
+      "steps": [
+        {"new": "a", "type": "EntityOneA"},
+        {"new": "b1", "type": "EntityTwoA"},
+        {"new": "b2", "type": "EntityTwoA"},
+        {"set": "a.ref", "obj": "b1"},
+        {"set": "a.ref", "obj": "b2"},
+        {"check": "b1.ref", "obj": null},
+        {"check": "b2.ref", "obj": "a"},
+        {"check": "a.ref", "obj": "b2"}
+      ]
+    },
+    {
+      "id": "one-to-one-transfer-between-pairs",
+      "from": "OneToOneReassignmentTest.transferringBetweenTwoExistingPairsWorksInBothDirections",
+      "rules": ["R2"],
+      "steps": [
+        {"new": "a1", "type": "EntityOneA"},
+        {"new": "a2", "type": "EntityOneA"},
+        {"new": "b1", "type": "EntityTwoA"},
+        {"new": "b2", "type": "EntityTwoA"},
+        {"set": "a1.ref", "obj": "b1"},
+        {"set": "a2.ref", "obj": "b2"},
+        {"set": "a1.ref", "obj": "b2"},
+        {"check": "a1.ref", "obj": "b2"},
+        {"check": "b2.ref", "obj": "a1"},
+        {"check": "b1.ref", "obj": null},
+        {"check": "a2.ref", "obj": null},
+        {"set": "b1.ref", "obj": "a1"},
+        {"check": "a1.ref", "obj": "b1"},
+        {"check": "b2.ref", "obj": null}
+      ]
+    },
+    {
+      "id": "one-to-one-clear-releases-opposite",
+      "from": "OneToOneReassignmentTest.clearAndIdenticalAssignmentHaveExpectedEvents",
+      "rules": ["R3"],
+      "steps": [
+        {"new": "a", "type": "EntityOneA"},
+        {"new": "b", "type": "EntityTwoA"},
+        {"set": "a.ref", "obj": "b"},
+        {"set": "a.ref", "obj": null},
+        {"check": "b.ref", "obj": null},
+        {"set": "b.ref", "obj": "a"},
+        {"set": "b.ref", "obj": null},
+        {"check": "a.ref", "obj": null}
+      ]
+    },
+    {
+      "id": "self-opposite-stays-symmetric",
+      "from": "OneToOneReassignmentTest.selfOppositeReferenceStaysSymmetric",
+      "rules": ["R1", "R2"],
+      "steps": [
+        {"new": "p1", "type": "Partner", "with": {"name": "p1"}},
+        {"new": "p2", "type": "Partner", "with": {"name": "p2"}},
+        {"new": "p3", "type": "Partner", "with": {"name": "p3"}},
+        {"set": "p1.partner", "obj": "p2"},
+        {"check": "p2.partner", "obj": "p1"},
+        {"set": "p3.partner", "obj": "p2"},
+        {"check": "p2.partner", "obj": "p3"},
+        {"check": "p1.partner", "obj": null},
+        {"set": "p1.partner", "obj": "p1"},
+        {"check": "p1.partner", "obj": "p1"}
+      ]
+    },
+    {
+      "id": "many-to-one-repointing-moves-between-lists",
+      "from": "OneToManyReassignmentTest.listMoveKeepsNativeOrderAndReplaysFromFreshCheckpoint",
+      "rules": ["R2"],
+      "steps": [
+        {"new": "a", "type": "EntityOneB"},
+        {"new": "x", "type": "EntityOneB"},
+        {"new": "b1", "type": "EntityTwoB"},
+        {"new": "b2", "type": "EntityTwoB"},
+        {"set": "a.ref", "obj": "b1"},
+        {"add": "b2.refs", "obj": "x"},
+        {"set": "a.ref", "obj": "b2"},
+        {"check": "b1.refs", "size": 0},
+        {"check": "b2.refs", "objs": ["x", "a"]},
+        {"add": "b1.refs", "obj": "a"},
+        {"check": "a.ref", "obj": "b1"},
+        {"check": "b2.refs", "objs": ["x"]},
+        {"check": "b1.refs", "objs": ["a"]}
+      ]
+    },
+    {
+      "id": "one-to-many-remove-and-clear-release-opposites",
+      "rules": ["R3"],
+      "steps": [
+        {"new": "a1", "type": "EntityOneB"},
+        {"new": "a2", "type": "EntityOneB"},
+        {"new": "a3", "type": "EntityOneB"},
+        {"new": "b", "type": "EntityTwoB"},
+        {"add": "b.refs", "objs": ["a1", "a2", "a3"]},
+        {"remove": "b.refs", "obj": "a1"},
+        {"check": "a1.ref", "obj": null},
+        {"check": "b.refs", "objs": ["a2", "a3"]},
+        {"set": "a2.ref", "obj": null},
+        {"check": "b.refs", "objs": ["a3"]},
+        {"clear": "b.refs"},
+        {"check": "a3.ref", "obj": null}
+      ]
+    },
+    {
+      "id": "many-to-many-remove-releases-opposite",
+      "rules": ["R3"],
+      "steps": [
+        {"new": "c1", "type": "EntityOneC"},
+        {"new": "c2", "type": "EntityOneC"},
+        {"new": "d", "type": "EntityTwoC"},
+        {"add": "d.refs", "objs": ["c1", "c2"]},
+        {"check": "c1.refs", "objs": ["d"]},
+        {"remove": "c1.refs", "obj": "d"},
+        {"check": "d.refs", "objs": ["c2"]},
+        {"clear": "d.refs"},
+        {"check": "c2.refs", "size": 0}
+      ]
+    },
+    {
+      "id": "plain-references-leave-targets-alone",
+      "rules": ["R4"],
+      "steps": [
+        {"new": "s", "type": "Store"},
+        {"new": "i", "type": "Item", "with": {"name": "i"}},
+        {"new": "h1", "type": "Holder"},
+        {"new": "h2", "type": "Holder"},
+        {"add": "s.stock", "obj": "i"},
+        {"set": "h1.item", "obj": "i"},
+        {"add": "h1.items", "obj": "i"},
+        {"set": "h2.item", "obj": "i"},
+        {"add": "h2.items", "obj": "i"},
+        {"check": "h1.item", "obj": "i"},
+        {"check": "h1.items", "objs": ["i"]},
+        {"check": "s.stock", "objs": ["i"]},
+        {"set": "h1.item", "obj": null},
+        {"check": "h2.item", "obj": "i"},
+        {"check": "s.stock", "objs": ["i"]}
+      ]
+    },
+    {
+      "id": "plain-reference-list-allows-repeats",
+      "rules": ["R4", "T5"],
+      "steps": [
+        {"new": "h", "type": "Holder"},
+        {"new": "i", "type": "Item"},
+        {"new": "j", "type": "Item"},
+        {"add": "h.items", "objs": ["i", "j", "i"]},
+        {"check": "h.items", "objs": ["i", "j", "i"]},
+        {"remove": "h.items", "at": 2},
+        {"check": "h.items", "objs": ["i", "j"]}
+      ]
+    },
+    {
+      "id": "opposite-events-on-both-sides",
+      "from": "CrossRefTest.singleRefTest",
+      "requires": ["events"],
+      "rules": ["E1", "E3"],
+      "steps": [
+        {"new": "a", "type": "EntityOneA"},
+        {"new": "b", "type": "EntityTwoA"},
+        {"listen": "a", "as": "A", "scope": "local"},
+        {"listen": "b", "as": "B", "scope": "local"},
+        {"set": "a.ref", "obj": "b"},
+        {"events": "A", "are": [{"on": "a", "prop": "ref", "kind": "set", "oldObj": null, "newObj": "b"}]},
+        {"events": "B", "are": [{"on": "b", "prop": "ref", "kind": "set", "oldObj": null, "newObj": "a"}]},
+        {"set": "a.ref", "obj": "b"},
+        {"events": "A", "count": 0},
+        {"events": "B", "count": 0},
+        {"set": "a.ref", "obj": null},
+        {"events": "A", "are": [{"on": "a", "prop": "ref", "kind": "set", "oldObj": "b", "newObj": null}]},
+        {"events": "B", "are": [{"on": "b", "prop": "ref", "kind": "set", "oldObj": "a", "newObj": null}]}
+      ]
+    },
+    {
+      "id": "list-opposite-events-on-both-sides",
+      "from": "CrossRefTest.singleMultipleRefTest",
+      "requires": ["events"],
+      "rules": ["E1", "E3"],
+      "steps": [
+        {"new": "a", "type": "EntityOneB"},
+        {"new": "b", "type": "EntityTwoB"},
+        {"listen": "a", "as": "A", "scope": "local"},
+        {"listen": "b", "as": "B", "scope": "local"},
+        {"add": "b.refs", "obj": "a"},
+        {"events": "A", "are": [{"on": "a", "prop": "ref", "kind": "set", "oldObj": null, "newObj": "b"}]},
+        {"events": "B", "are": [{"on": "b", "prop": "refs", "kind": "add", "objs": ["a"], "index": [0]}]},
+        {"set": "a.ref", "obj": null},
+        {"events": "A", "are": [{"on": "a", "prop": "ref", "kind": "set", "oldObj": "b", "newObj": null}]},
+        {"events": "B", "are": [{"on": "b", "prop": "refs", "kind": "remove", "objs": ["a"], "index": [0]}]}
+      ]
+    },
+    {
+      "id": "opposite-edit-is-one-recorded-change",
+      "from": "CrossRefTest.singleRefTest",
+      "requires": ["history"],
+      "rules": ["H1", "H2", "H3"],
+      "steps": [
+        {"new": "a", "type": "EntityOneA"},
+        {"new": "b", "type": "EntityTwoA"},
+        {"record": "a"},
+        {"record": "b"},
+        {"set": "a.ref", "obj": "b"},
+        {"recorded": "a", "count": 1},
+        {"recorded": "b", "count": 0},
+        {"undoAll": "a"},
+        {"check": "a.ref", "obj": null},
+        {"check": "b.ref", "obj": null},
+        {"redoAll": "a"},
+        {"check": "a.ref", "obj": "b"},
+        {"check": "b.ref", "obj": "a"}
+      ]
+    },
+    {
+      "id": "list-opposite-edit-is-one-recorded-change",
+      "from": "CrossRefTest.multipleMultipleRefTest",
+      "requires": ["history"],
+      "rules": ["H1", "H2"],
+      "steps": [
+        {"new": "c", "type": "EntityOneC"},
+        {"new": "d", "type": "EntityTwoC"},
+        {"record": "c"},
+        {"record": "d"},
+        {"add": "c.refs", "obj": "d"},
+        {"recorded": "c", "count": 1},
+        {"recorded": "d", "count": 0},
+        {"undoAll": "c"},
+        {"check": "c.refs", "size": 0},
+        {"check": "d.refs", "size": 0}
+      ]
+    }
+  ]
+}

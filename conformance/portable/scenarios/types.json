@@ -1,0 +1,210 @@
+{
+  "model": "values",
+  "scenarios": [
+    {
+      "id": "new-instance-defaults",
+      "from": "LazyInitTest.testLazyInitOfLists1",
+      "rules": ["T2"],
+      "steps": [
+        {"new": "b", "type": "Basic"},
+        {"check": "b.flag", "value": false},
+        {"check": "b.count", "value": 0},
+        {"check": "b.text", "value": null},
+        {"check": "b.optionalCount", "value": null},
+        {"check": "b.tags", "size": 0},
+        {"check": "b.numbers", "size": 0}
+      ]
+    },
+    {
+      "id": "declared-default-values",
+      "from": "DefaultValuesAndBuildersTest.defaultValuesAndBuildersTest",
+      "rules": ["T2", "T3"],
+      "steps": [
+        {"new": "w", "type": "WithDefaultValues"},
+        {"check": "w.visible", "value": true},
+        {"check": "w.name", "value": "my name"},
+        {"check": "w.answer", "value": 42},
+        {"new": "built", "type": "WithDefaultValues", "with": {}},
+        {"check": "built.visible", "value": true},
+        {"check": "built.name", "value": "my name"},
+        {"check": "built.answer", "value": 42},
+        {"new": "custom", "type": "WithDefaultValues", "with": {"name": "other", "visible": false}},
+        {"check": "custom.name", "value": "other"},
+        {"check": "custom.visible", "value": false},
+        {"check": "custom.answer", "value": 42}
+      ]
+    },
+    {
+      "id": "declared-default-can-be-overwritten",
+      "rules": ["T2", "T4"],
+      "steps": [
+        {"new": "w", "type": "WithDefaultValues"},
+        {"set": "w.name", "value": null},
+        {"check": "w.name", "value": null},
+        {"set": "w.visible", "value": false},
+        {"check": "w.visible", "value": false}
+      ]
+    },
+    {
+      "id": "empty-lists-of-fresh-objects-are-equal",
+      "from": "LazyInitTest.testLazyInitOfLists2",
+      "rules": ["T2", "Q1"],
+      "steps": [
+        {"new": "o1", "type": "Obj"},
+        {"new": "o2", "type": "Obj"},
+        {"check": "o1.entries", "size": 0},
+        {"equal": ["o1", "o2"]}
+      ]
+    },
+    {
+      "id": "scalar-values-round-trip",
+      "rules": ["T4"],
+      "steps": [
+        {"new": "b", "type": "Basic"},
+        {"set": "b.flag", "value": true},
+        {"set": "b.count", "value": -5},
+        {"set": "b.text", "value": ""},
+        {"set": "b.optionalCount", "value": 7},
+        {"check": "b.flag", "value": true},
+        {"check": "b.count", "value": -5},
+        {"check": "b.text", "value": ""},
+        {"check": "b.optionalCount", "value": 7},
+        {"set": "b.optionalCount", "value": null},
+        {"set": "b.text", "value": "Grüße ✓"},
+        {"set": "b.count", "value": 2147483647},
+        {"check": "b.optionalCount", "value": null},
+        {"check": "b.text", "value": "Grüße ✓"},
+        {"check": "b.count", "value": 2147483647}
+      ]
+    },
+    {
+      "id": "scalar-lists-keep-order-and-repeats",
+      "rules": ["T5"],
+      "steps": [
+        {"new": "b", "type": "Basic"},
+        {"add": "b.tags", "values": ["a", "b"]},
+        {"insert": "b.tags", "at": 0, "value": "z"},
+        {"check": "b.tags", "values": ["z", "a", "b"]},
+        {"set": "b.tags[1]", "value": "y"},
+        {"check": "b.tags", "values": ["z", "y", "b"]},
+        {"remove": "b.tags", "value": "z"},
+        {"check": "b.tags", "values": ["y", "b"]},
+        {"add": "b.numbers", "values": [1, 2, 2, 3]},
+        {"remove": "b.numbers", "at": 1},
+        {"check": "b.numbers", "values": [1, 2, 3]},
+        {"clear": "b.numbers"},
+        {"check": "b.numbers", "size": 0}
+      ]
+    },
+    {
+      "id": "creation-with-values-and-children",
+      "from": "BuilderTest.testWithProperties",
+      "rules": ["T3", "C1"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"value": 1}},
+        {"new": "c2", "type": "Child", "with": {"value": 2}},
+        {"new": "c3", "type": "Child", "with": {"value": 3}},
+        {"new": "c4", "type": "Child2", "with": {"value": 4}},
+        {"new": "a", "type": "AClass", "with": {
+          "name": "my name",
+          "ids": ["id1", "id2", "id3"],
+          "children": [{"obj": "c1"}, {"obj": "c2"}, {"obj": "c3"}],
+          "child": {"obj": "c4"}
+        }},
+        {"check": "a.name", "value": "my name"},
+        {"check": "a.ids", "values": ["id1", "id2", "id3"]},
+        {"check": "a.children", "objs": ["c1", "c2", "c3"]},
+        {"check": "a.children[1].value", "value": 2},
+        {"check": "a.child", "obj": "c4"},
+        {"check": "a.child.value", "value": 4}
+      ]
+    },
+    {
+      "id": "creation-with-values-moves-contained-children",
+      "rules": ["T3", "C2"],
+      "steps": [
+        {"new": "c1", "type": "Child", "with": {"value": 1}},
+        {"new": "a", "type": "AClass", "with": {"children": [{"obj": "c1"}]}},
+        {"new": "b", "type": "AClass", "with": {"children": [{"obj": "c1"}]}},
+        {"check": "b.children", "objs": ["c1"]},
+        {"check": "a.children", "size": 0}
+      ]
+    },
+    {
+      "id": "long-and-double-values",
+      "model": "numbers",
+      "rules": ["T4", "T5"],
+      "steps": [
+        {"new": "n", "type": "Numbers"},
+        {"check": "n.big", "value": 0},
+        {"check": "n.ratio", "value": 0.0},
+        {"check": "n.optionalRatio", "value": null},
+        {"set": "n.big", "value": 9007199254740993},
+        {"set": "n.ratio", "value": -2.5},
+        {"set": "n.optionalRatio", "value": 0.1},
+        {"check": "n.big", "value": 9007199254740993},
+        {"check": "n.ratio", "value": -2.5},
+        {"check": "n.optionalRatio", "value": 0.1},
+        {"add": "n.bigs", "values": [-9223372036854775808, 9223372036854775807]},
+        {"add": "n.ratios", "values": [1.5, 0.25]},
+        {"check": "n.bigs", "values": [-9223372036854775808, 9223372036854775807]},
+        {"check": "n.ratios", "values": [1.5, 0.25]}
+      ]
+    },
+    {
+      "id": "instances-have-their-supertypes",
+      "model": "inheritance",
+      "rules": ["T1"],
+      "steps": [
+        {"new": "d", "type": "Derived", "with": {"name": "d", "id": 3, "extra": "e"}},
+        {"instanceOf": "d", "type": "Base"},
+        {"instanceOf": "d", "type": "Named"},
+        {"notInstanceOf": "d", "type": "Document"},
+        {"check": "d.name", "value": "d"},
+        {"check": "d.id", "value": 3},
+        {"check": "d.extra", "value": "e"}
+      ]
+    },
+    {
+      "id": "interface-only-types-cannot-be-created",
+      "model": "inheritance",
+      "rules": ["T1"],
+      "steps": [
+        {"new": "n", "type": "Named", "fails": true}
+      ]
+    },
+    {
+      "id": "containment-declared-on-base-type",
+      "model": "inheritance",
+      "rules": ["C1", "C2", "T1"],
+      "steps": [
+        {"new": "f1", "type": "Folder", "with": {"name": "f1"}},
+        {"new": "f2", "type": "Folder", "with": {"name": "f2"}},
+        {"new": "d", "type": "Derived"},
+        {"new": "doc", "type": "Document"},
+        {"add": "f1.entries", "objs": ["d", "doc"]},
+        {"check": "d.folder", "obj": "f1"},
+        {"check": "doc.folder", "obj": "f1"},
+        {"set": "doc.folder", "obj": "f2"},
+        {"check": "f1.entries", "objs": ["d"]},
+        {"check": "f2.entries", "objs": ["doc"]}
+      ]
+    },
+    {
+      "id": "several-model-supertypes",
+      "model": "multiple",
+      "from": "PropertyInheritanceTest.propertyInheritanceTest01",
+      "rules": ["T1"],
+      "steps": [
+        {"new": "l", "type": "LocationXY", "with": {"label": "l", "x": 1, "y": 2}},
+        {"instanceOf": "l", "type": "Location"},
+        {"instanceOf": "l", "type": "WithX"},
+        {"instanceOf": "l", "type": "WithY"},
+        {"check": "l.x", "value": 1},
+        {"check": "l.y", "value": 2},
+        {"set": "l.x", "value": 5},
+        {"check": "l.x", "value": 5}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,231 @@
+{
+  "model": "events",
+  "scenarios": [
+    {
+      "id": "property-events-carry-old-and-new-values",
+      "from": "ObservablePropTest.observeSimplePropertyTest",
+      "requires": ["events"],
+      "rules": ["E1"],
+      "steps": [
+        {"new": "o", "type": "ObserveMyProperties"},
+        {"listen": "o", "as": "L", "scope": "local"},
+        {"set": "o.name", "value": "ABC"},
+        {"set": "o.name", "value": "123"},
+        {"set": "o.name", "value": ""},
+        {"set": "o.name", "value": null},
+        {"events": "L", "are": [
+          {"on": "o", "prop": "name", "kind": "set", "old": null, "new": "ABC"},
+          {"on": "o", "prop": "name", "kind": "set", "old": "ABC", "new": "123"},
+          {"on": "o", "prop": "name", "kind": "set", "old": "123", "new": ""},
+          {"on": "o", "prop": "name", "kind": "set", "old": "", "new": null}
+        ]}
+      ]
+    },
+    {
+      "id": "list-events-carry-elements-and-positions",
+      "from": "ObservablePropTest.observeListPropertyTest",
+      "requires": ["events"],
+      "rules": ["E1", "E6"],
+      "steps": [
+        {"new": "o", "type": "ObserveMyProperties"},
+        {"listen": "o", "as": "L", "scope": "local"},
+        {"add": "o.values", "values": [1, 2, 3]},
+        {"events": "L", "are": [{"on": "o", "prop": "values", "kind": "add", "values": [1, 2, 3], "index": [0, 1, 2]}]},
+        {"remove": "o.values", "at": 2},
+        {"events": "L", "are": [{"on": "o", "prop": "values", "kind": "remove", "values": [3], "index": [2]}]},
+        {"insert": "o.values", "at": 0, "value": 7},
+        {"events": "L", "are": [{"on": "o", "prop": "values", "kind": "add", "values": [7], "index": [0]}]},
+        {"set": "o.values[1]", "value": 9},
+        {"events": "L", "are": [{"on": "o", "prop": "values", "kind": "replace", "values": [9], "index": [1]}]},
+        {"clear": "o.values"},
+        {"events": "L", "are": [{"on": "o", "prop": "values", "kind": "remove", "values": [7, 9, 2]}]}
+      ]
+    },
+    {
+      "id": "no-event-without-change",
+      "from": "OneToOneReassignmentTest.clearAndIdenticalAssignmentHaveExpectedEvents",
+      "requires": ["events"],
+      "rules": ["E2"],
+      "steps": [
+        {"new": "o", "type": "ObserveMyProperties"},
+        {"set": "o.name", "value": "same"},
+        {"listen": "o", "as": "L", "scope": "local"},
+        {"set": "o.name", "value": "same"},
+        {"events": "L", "count": 0},
+        {"set": "o.name", "value": "other"},
+        {"events": "L", "count": 1}
+      ]
+    },
+    {
+      "id": "read-only-view-delivers-events",
+      "from": "ObservablePropTest.observeSimplePropertyOfReadOnlyTest",
+      "requires": ["events", "views"],
+      "rules": ["E1", "V1"],
+      "steps": [
+        {"new": "o", "type": "ObserveMyProperties"},
+        {"readOnly": "o", "as": "ro"},
+        {"listen": "ro", "as": "L", "scope": "local"},
+        {"set": "o.name", "value": "ABC"},
+        {"add": "o.values", "value": 1},
+        {"events": "L", "are": [
+          {"prop": "name", "kind": "set", "new": "ABC"},
+          {"prop": "values", "kind": "add", "values": [1]}
+        ]}
+      ]
+    },
+    {
+      "id": "containment-add-events-on-both-sides",
+      "from": "UndoRedoWithContainmentTest.unoRedoWithListContainmentTestViaListAdd",
+      "requires": ["events"],
+      "rules": ["E1", "E3"],
+      "steps": [
+        {"new": "p", "type": "ParentListContainment"},
+        {"new": "c", "type": "ChildListContainment"},
+        {"listen": "p", "as": "P", "scope": "local"},
+        {"listen": "c", "as": "C", "scope": "local"},
+        {"add": "p.children", "obj": "c"},
+        {"events": "P", "are": [{"on": "p", "prop": "children", "kind": "add", "objs": ["c"], "index": [0]}]},
+        {"events": "C", "are": [{"on": "c", "prop": "parent", "kind": "set", "oldObj": null, "newObj": "p"}]}
+      ]
+    },
+    {
+      "id": "container-set-events-on-both-sides",
+      "from": "UndoRedoWithContainmentTest.unoRedoWithListContainmentTestViaSetParent",
+      "requires": ["events"],
+      "rules": ["E1", "E3", "C4"],
+      "steps": [
+        {"new": "p", "type": "ParentListContainment"},
+        {"new": "c1", "type": "ChildListContainment"},
+        {"new": "c2", "type": "ChildListContainment"},
+        {"add": "p.children", "obj": "c1"},
+        {"listen": "p", "as": "P", "scope": "local"},
+        {"listen": "c2", "as": "C", "scope": "local"},
+        {"set": "c2.parent", "obj": "p"},
+        {"events": "P", "are": [{"on": "p", "prop": "children", "kind": "add", "objs": ["c2"], "index": [1]}]},
+        {"events": "C", "are": [{"on": "c2", "prop": "parent", "kind": "set", "oldObj": null, "newObj": "p"}]}
+      ]
+    },
+    {
+      "id": "single-containment-events-on-both-sides",
+      "from": "UndoRedoWithContainmentTest.unoRedoWithSingleContainmentTest1",
+      "requires": ["events"],
+      "rules": ["E1", "E3"],
+      "steps": [
+        {"new": "p", "type": "ParentSingleContainment"},
+        {"new": "c", "type": "ChildSingleContainment"},
+        {"listen": "p", "as": "P", "scope": "local"},
+        {"listen": "c", "as": "C", "scope": "local"},
+        {"set": "p.child", "obj": "c"},
+        {"events": "P", "are": [{"on": "p", "prop": "child", "kind": "set", "oldObj": null, "newObj": "c"}]},
+        {"events": "C", "are": [{"on": "c", "prop": "parent", "kind": "set", "oldObj": null, "newObj": "p"}]},
+        {"set": "p.child", "obj": null},
+        {"events": "P", "are": [{"on": "p", "prop": "child", "kind": "set", "oldObj": "c", "newObj": null}]},
+        {"events": "C", "are": [{"on": "c", "prop": "parent", "kind": "set", "oldObj": "p", "newObj": null}]}
+      ]
+    },
+    {
+      "id": "move-events-on-all-three-objects",
+      "requires": ["events"],
+      "rules": ["E3", "C2"],
+      "steps": [
+        {"new": "p1", "type": "ParentListContainment"},
+        {"new": "p2", "type": "ParentListContainment"},
+        {"new": "c", "type": "ChildListContainment"},
+        {"add": "p1.children", "obj": "c"},
+        {"listen": "p1", "as": "P1", "scope": "local"},
+        {"listen": "p2", "as": "P2", "scope": "local"},
+        {"listen": "c", "as": "C", "scope": "local"},
+        {"add": "p2.children", "obj": "c"},
+        {"events": "P1", "are": [{"on": "p1", "prop": "children", "kind": "remove", "objs": ["c"], "index": [0]}]},
+        {"events": "P2", "are": [{"on": "p2", "prop": "children", "kind": "add", "objs": ["c"], "index": [0]}]},
+        {"events": "C", "are": [{"on": "c", "prop": "parent", "kind": "set", "oldObj": "p1", "newObj": "p2"}]}
+      ]
+    },
+    {
+      "id": "recursive-listener-sees-the-subtree",
+      "model": "tree",
+      "from": "RecursiveListenerTest.recursiveVsNonRecursiveListenerTest",
+      "requires": ["events"],
+      "rules": ["E4"],
+      "steps": [
+        {"new": "root", "type": "Node", "with": {"name": "ROOT"}},
+        {"new": "x", "type": "Node", "with": {"name": "x"}},
+        {"new": "y", "type": "Node", "with": {"name": "y"}},
+        {"add": "root.children", "obj": "x"},
+        {"add": "x.children", "obj": "y"},
+        {"listen": "root", "as": "L", "scope": "local"},
+        {"listen": "root", "as": "R", "scope": "recursive"},
+        {"set": "root.name", "value": "root"},
+        {"events": "L", "count": 1},
+        {"events": "R", "count": 1},
+        {"set": "y.name", "value": "my new name"},
+        {"events": "L", "count": 0},
+        {"events": "R", "are": [{"on": "y", "prop": "name", "kind": "set", "old": "y", "new": "my new name"}]},
+        {"new": "z", "type": "Node", "with": {"name": "evt node"}},
+        {"add": "y.children", "obj": "z"},
+        {"events": "L", "count": 0},
+        {"events": "R", "ignore": [{"on": "z", "prop": "parent"}],
+          "are": [{"on": "y", "prop": "children", "kind": "add", "objs": ["z"]}]},
+        {"set": "z.name", "value": "observed"},
+        {"events": "R", "are": [{"on": "z", "prop": "name", "kind": "set", "new": "observed"}]}
+      ]
+    },
+    {
+      "id": "recursive-listener-forgets-removed-objects",
+      "model": "tree",
+      "requires": ["events"],
+      "rules": ["E4"],
+      "steps": [
+        {"new": "root", "type": "Node", "with": {"name": "root"}},
+        {"new": "x", "type": "Node", "with": {"name": "x"}},
+        {"new": "y", "type": "Node", "with": {"name": "y"}},
+        {"add": "root.children", "obj": "x"},
+        {"add": "x.children", "obj": "y"},
+        {"listen": "root", "as": "R", "scope": "recursive"},
+        {"remove": "root.children", "obj": "x"},
+        {"events": "R", "ignore": [{"on": "x", "prop": "parent"}],
+          "are": [{"on": "root", "prop": "children", "kind": "remove", "objs": ["x"]}]},
+        {"set": "x.name", "value": "outside"},
+        {"set": "y.name", "value": "outside too"},
+        {"events": "R", "count": 0}
+      ]
+    },
+    {
+      "id": "recursive-listener-follows-moves-inside-the-subtree",
+      "model": "tree",
+      "requires": ["events"],
+      "rules": ["E4"],
+      "steps": [
+        {"new": "root", "type": "Node", "with": {"name": "root"}},
+        {"new": "a", "type": "Node", "with": {"name": "a"}},
+        {"new": "b", "type": "Node", "with": {"name": "b"}},
+        {"new": "c", "type": "Node", "with": {"name": "c"}},
+        {"add": "root.children", "objs": ["a", "b"]},
+        {"add": "a.children", "obj": "c"},
+        {"listen": "root", "as": "R", "scope": "recursive"},
+        {"add": "b.children", "obj": "c"},
+        {"events": "R", "anyOrder": true, "ignore": [{"on": "c", "prop": "parent"}], "are": [
+          {"on": "a", "prop": "children", "kind": "remove", "objs": ["c"]},
+          {"on": "b", "prop": "children", "kind": "add", "objs": ["c"]}
+        ]},
+        {"set": "c.name", "value": "still observed"},
+        {"events": "R", "count": 1}
+      ]
+    },
+    {
+      "id": "removed-listener-receives-nothing",
+      "requires": ["events"],
+      "rules": ["E5"],
+      "steps": [
+        {"new": "o", "type": "ObserveMyProperties"},
+        {"listen": "o", "as": "L", "scope": "local"},
+        {"set": "o.name", "value": "a"},
+        {"events": "L", "count": 1},
+        {"unlisten": "L"},
+        {"set": "o.name", "value": "b"},
+        {"add": "o.values", "value": 1},
+        {"events": "L", "count": 0}
+      ]
+    }
+  ]
+}
