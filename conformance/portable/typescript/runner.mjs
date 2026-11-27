@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as vmf from "@vmf/runtime";
 
 const TARGET = "typescript";
-const CAPABILITIES = new Set(["core"]);
+const CAPABILITIES = new Set(["core", "events", "history"]);
 const OPERATIONS = ["new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual",
     "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf",
     "listen", "unlisten", "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations"];
@@ -217,6 +217,28 @@ function sameScalar(actual, expected) {
     return false;
 }
 
+/**
+ * Normalizes the events of one step: consecutive list events of the same kind on the same property are merged
+ * (bulk edits), and a chain of set events on the same property (a -> b, b -> c) becomes one event (a -> c).
+ */
+function merged(received) {
+    const result = [];
+    for (const event of received) {
+        const last = result.at(-1);
+        const sameTarget = last !== undefined && last.step === event.step && last.source === event.source
+            && last.property === event.property && last.kind === event.kind;
+        if (sameTarget && (event.kind === "add" || event.kind === "remove")) {
+            result[result.length - 1] = { ...last, elements: [...last.elements, ...event.elements],
+                indices: [...last.indices, ...event.indices] };
+        } else if (sameTarget && event.kind === "set" && Object.is(last.newValue, event.oldValue)) {
+            result[result.length - 1] = { ...last, newValue: event.newValue };
+        } else {
+            result.push(event);
+        }
+    }
+    return result;
+}
+
 function sameObjects(actual, expected, unordered) {
     if (actual.length !== expected.length) {
         return false;
@@ -255,6 +277,9 @@ function operationOf(node) {
 
 class Execution {
     labels = new Map();
+    events = new Map();
+    subscriptions = new Map();
+    undone = new Map();
     step = 0;
 
     constructor(module) {
@@ -372,9 +397,131 @@ class Execution {
                 }
                 break;
             }
+            case "listen":
+                this.listen(node.listen, node.as, node.scope ?? "recursive");
+                break;
+            case "unlisten":
+                this.subscriptions.get(node.unlisten)();
+                this.subscriptions.delete(node.unlisten);
+                break;
+            case "events":
+                this.checkEvents(node.events, node);
+                break;
+            case "record":
+                this.changes(this.resolve(node.record)).start();
+                break;
+            case "recorded": {
+                const count = this.changes(this.resolve(node.recorded)).history.length;
+                if (count !== node.count) {
+                    throw new ScenarioFailure(`expected ${node.count} recorded changes, found ${count}`);
+                }
+                break;
+            }
+            case "undoAll": {
+                const changes = this.changes(this.resolve(node.undoAll));
+                changes.stop();
+                const edits = changes.history;
+                for (let index = edits.length - 1; index >= 0; index--) {
+                    edits[index].undo();
+                }
+                this.undone.set(node.undoAll, edits);
+                break;
+            }
+            case "redoAll":
+                for (const edit of this.undone.get(node.redoAll) ?? []) {
+                    edit.redo();
+                }
+                this.undone.delete(node.redoAll);
+                break;
             default:
                 throw new ScenarioFailure(`unsupported operation ${operation}`);
         }
+    }
+
+    // ------------------------------------------------------------------------------------------------ events
+
+    changes(model) {
+        if (!isModel(model) || !(model.vmfChanges instanceof vmf.ModelChanges)) {
+            throw new ScenarioFailure(`not an observable model object: ${this.render(model)}`);
+        }
+        return model.vmfChanges;
+    }
+
+    listen(path, name, scope) {
+        const received = this.events.get(name) ?? [];
+        this.events.set(name, received);
+        const remove = this.changes(this.resolve(path)).addListener(change => received.push({
+            step: this.step,
+            source: change.source,
+            property: change.property,
+            kind: change.kind,
+            oldValue: change.oldValue ?? null,
+            newValue: change.newValue ?? null,
+            elements: [...(change.values ?? [])],
+            indices: [...(change.indices ?? [])],
+        }), scope === "local" ? "local" : "recursive");
+        this.subscriptions.set(name, remove);
+    }
+
+    checkEvents(name, node) {
+        const buffer = this.events.get(name) ?? [];
+        let received = merged([...buffer]);
+        buffer.length = 0;
+        if (has(node, "ignore")) {
+            received = received.filter(event => !node.ignore.some(pattern => this.matches(pattern, event)));
+        }
+        if (has(node, "count")) {
+            if (received.length !== node.count) {
+                throw new ScenarioFailure(`${name}: expected ${node.count} events, received ${this.renderEvents(received)}`);
+            }
+            return;
+        }
+        const expected = node.are;
+        const failure = () => new ScenarioFailure(`${name}: expected ${JSON.stringify(expected, bigintJson)}, `
+            + `received ${this.renderEvents(received)}`);
+        if (expected.length !== received.length) {
+            throw failure();
+        }
+        const remaining = [...received];
+        for (const wanted of expected) {
+            const candidates = node.anyOrder === true ? remaining.length : 1;
+            let match = -1;
+            for (let index = 0; index < candidates; index++) {
+                if (this.matches(wanted, remaining[index])) {
+                    match = index;
+                    break;
+                }
+            }
+            if (match < 0) {
+                throw failure();
+            }
+            remaining.splice(match, 1);
+        }
+    }
+
+    matches(wanted, event) {
+        if (has(wanted, "on") && this.resolve(wanted.on) !== event.source) return false;
+        if (has(wanted, "prop") && wanted.prop !== event.property) return false;
+        if (has(wanted, "kind") && wanted.kind !== event.kind) return false;
+        if (has(wanted, "old") && !sameScalar(event.oldValue, wanted.old)) return false;
+        if (has(wanted, "new") && !sameScalar(event.newValue, wanted.new)) return false;
+        if (has(wanted, "oldObj") && this.object(wanted.oldObj) !== event.oldValue) return false;
+        if (has(wanted, "newObj") && this.object(wanted.newObj) !== event.newValue) return false;
+        if (has(wanted, "values") && !sameScalar(event.elements, wanted.values)) return false;
+        if (has(wanted, "objs") && !sameObjects(event.elements, wanted.objs.map(label => this.object(label)), false)) {
+            return false;
+        }
+        if (has(wanted, "index")) {
+            return wanted.index.length === event.indices.length
+                && wanted.index.every((index, position) => index === event.indices[position]);
+        }
+        return true;
+    }
+
+    renderEvents(events) {
+        return `[${events.map(event => `{${this.render(event.source)}.${event.property} ${event.kind} `
+            + (event.kind === "set" ? `${this.render(event.oldValue)}->${this.render(event.newValue)}`
+                : `${this.render(event.elements)}@[${event.indices.join(",")}]`) + "}").join(", ")}]`;
     }
 
     // ------------------------------------------------------------------------------------------------ objects

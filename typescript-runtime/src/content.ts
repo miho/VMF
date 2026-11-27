@@ -143,7 +143,7 @@ export function deepCopy<T extends object>(root: T, registry: SnapshotRegistry):
                     } else {
                         // Both ends are copied, so copy the stored value without updating the opposite again.
                         const slot = (copy as Record<string, unknown>)["__vmfRef_" + (property.name ?? property.wireName)];
-                        (slot as ReferenceSlot<object>).value = copyOf(value);
+                        (slot as ReferenceSlot<object>).__vmfInitialize(copyOf(value));
                     }
                     break;
                 case "referenceList": {

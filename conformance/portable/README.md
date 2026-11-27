@@ -102,7 +102,7 @@ list events of the same kind on the same property, and chains of set events (`a 
 2. Write a runner that reads these files and implements the steps above for the modules the target claims.
    The Java runner (`java/PortableRunner.java`, about 1,100 lines) is the reference; the C# runner
    (`csharp/PortableRunner.cs`, about 1,400 lines) and the TypeScript runner (`typescript/runner.mjs`, about
-   650 lines, core module only) follow it step by step.
+   800 lines; core, events and history) follow it step by step.
 3. Add a `runPortable<Target>` task and `expected-failures/<target>.txt`.
 
 How the runners reach the generated code:
@@ -117,8 +117,10 @@ How the runners reach the generated code:
   `I<Name>` interfaces.
 - TypeScript: `new` on the classes listed in `ModelSnapshot.registry` (interface-only types are abstract and
   not registered), then plain property assignment for initial values; properties and list objects by model
-  name; `contentEquals`, `contentHashCode` and `deepCopy` on every model object. `long` values are `bigint`;
-  the runner parses large JSON integers exactly.
+  name; `contentEquals`, `contentHashCode` and `deepCopy` on every model object; `vmfChanges.addListener(listener,
+  "local" | "recursive")` (returns a function that removes the listener), `vmfChanges.start()` and `history`,
+  whose entries have `undo()` and `redo()`. `long` values are `bigint`; the runner parses large JSON integers
+  exactly.
 
 ## Current results
 
@@ -126,7 +128,7 @@ How the runners reach the generated code:
 |---|---|---|---|
 | Java | 15 of 15 | 111 of 111 | none |
 | C# | 15 of 15 | 111 of 111 | none |
-| TypeScript | 13 of 15 | 71 of 72 core (claims core only; 39 scenarios of optional modules skipped) | a type with several model supertypes (TypeScript classes have one base class) |
+| TypeScript | 13 of 15 | 93 of 94 (claims core, events and history; 17 scenarios of views, reflection and equality modes skipped) | a type with several model supertypes (TypeScript classes have one base class) |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java).

@@ -47,7 +47,7 @@ final class TypeScriptRenderModel {
             "(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])");
     private static final Set<String> RESERVED_MEMBERS = Set.of(
             "constructor", "__proto__", "validate", "__vmfValidateInto", "__vmfContainerLink",
-            "contentEquals", "contentHashCode", "deepCopy",
+            "contentEquals", "contentHashCode", "deepCopy", "vmfChanges",
             "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable", "toLocaleString", "toString", "valueOf");
     private static final String BRAND_PREFIX = "__vmfBrand_";
     private static final String INTERNAL_PREFIX = "__vmf";
@@ -163,49 +163,62 @@ final class TypeScriptRenderModel {
         String target = typeName(property.getValueType());
         String name = quoted(member);
         switch (property.getKind()) {
-            case CONTAINMENT:
+            case CONTAINMENT: {
+                String containerProperty = property.getOppositeName().isEmpty() ? ""
+                        : ", " + quoted(checkedIdentifier(property.getOppositeName(), owner + "." + member + " opposite"));
                 if (property.isCollection()) {
                     return field("readonly " + member + " = new vmf.ContainmentList<" + owner + ", "
-                            + target + ">(this, " + name + ", child => child.__vmfContainerLink);");
+                            + target + ">(this, " + name + ", child => child.__vmfContainerLink" + containerProperty + ");");
                 }
                 return field("/** @internal */\n"
                         + "    readonly __vmfSlot_" + member + " = new vmf.ContainmentSlot<" + owner + ", " + target
-                        + ">(this, " + name + ", child => child.__vmfContainerLink);\n\n"
+                        + ">(this, " + name + ", child => child.__vmfContainerLink" + containerProperty + ");\n\n"
                         + accessor(member, target, "this.__vmfSlot_" + member + ".value",
                                 "this.__vmfSlot_" + member + ".set(value);"));
+            }
             case CONTAINER:
                 return prepareContainer(owner, member, property, target);
             case REFERENCE: {
                 String opposite = property.getOppositeName();
                 if (property.isCollection()) {
                     if (!property.isOrdered()) {
-                        return field("readonly " + member + " = new vmf.ReferenceSet<" + target + ">();");
+                        return field("readonly " + member + " = new vmf.ReferenceSet<" + target + ">(this, " + name + ");");
                     }
-                    String arguments = opposite.isEmpty() ? "this" : "this, " + name + ", "
-                            + quoted(checkedIdentifier(opposite, owner + "." + member + " opposite"));
+                    String arguments = "this, " + name + (opposite.isEmpty() ? "" : ", "
+                            + quoted(checkedIdentifier(opposite, owner + "." + member + " opposite")));
                     return field("readonly " + member + " = new vmf.ReferenceList<" + target + ">(" + arguments + ");");
                 }
                 if (opposite.isEmpty()) {
-                    return field(member + ": " + target + " | null = null;");
+                    return valueAccessor(member, target + " | null", "null");
                 }
                 String oppositeName = quoted(checkedIdentifier(opposite, owner + "." + member + " opposite"));
                 return field("/** @internal */\n"
-                        + "    readonly __vmfRef_" + member + " = new vmf.ReferenceSlot<" + target + ">();\n\n"
+                        + "    readonly __vmfRef_" + member + " = new vmf.ReferenceSlot<" + target + ">(this, " + name + ");\n\n"
                         + accessor(member, target, "this.__vmfRef_" + member + ".value",
                                 "vmf.setReference(this, value, " + name + ", " + oppositeName + ");"));
             }
             case SCALAR:
                 if (property.isCollection()) {
                     String element = target + (property.allowsNullElements() ? " | null" : "");
-                    return field("readonly " + member + " = new vmf.ScalarList<" + element + ">();");
+                    return field("readonly " + member + " = new vmf.ScalarList<" + element + ">(this, " + name + ");");
                 }
-                if (property.getValueType().isPrimitive()) {
-                    return field(member + ": " + target + " = " + initialValue(property) + ";");
-                }
-                return field(member + ": " + target + " | null = " + initialValue(property) + ";");
+                return valueAccessor(member, target + (property.getValueType().isPrimitive() ? "" : " | null"),
+                        initialValue(property));
             default:
                 throw new IllegalStateException("Unsupported property kind " + property.getKind());
         }
+    }
+
+    /** A single value stored in a field and changed through {@code vmf.setValue}, which reports the change. */
+    private static Map<String, Object> valueAccessor(String member, String type, String initial) {
+        return field("/** @internal */\n"
+                + "    __vmfValue_" + member + ": " + type + " = " + initial + ";\n\n"
+                + "    get " + member + "(): " + type + " {\n"
+                + "        return this.__vmfValue_" + member + ";\n"
+                + "    }\n\n"
+                + "    set " + member + "(value: " + type + ") {\n"
+                + "        vmf.setValue(this, " + quoted(member) + ", value);\n"
+                + "    }");
     }
 
     private static String accessor(String member, String type, String read, String write) {

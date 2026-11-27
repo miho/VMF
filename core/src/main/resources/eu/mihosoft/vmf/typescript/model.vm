@@ -16,11 +16,13 @@ ${type.declaration} {
 #if($property.settable)
 
     set ${property.name}(value: ${property.type} | null) {
-        if (value !== null) {
-            ${property.attach};
-        } else if (this.${property.name} !== null) {
-            this.__vmfContainerLink.detach(this);
-        }
+        vmf.edit(this, () => {
+            if (value !== null) {
+                ${property.attach};
+            } else if (this.${property.name} !== null) {
+                this.__vmfContainerLink.detach(this);
+            }
+        });
     }
 #end
 #else
@@ -47,6 +49,11 @@ ${type.declaration} {
     /** Copies this object and everything it reaches through containment and references. */
     deepCopy(): this {
         return vmf.deepCopy(this, ModelSnapshot.registry);
+    }
+
+    /** Listeners and recording for this object and everything it contains. */
+    get vmfChanges(): vmf.ModelChanges {
+        return vmf.changesOf(this);
     }
 #end
 #if($type.emitValidation)
