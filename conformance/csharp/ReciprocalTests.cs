@@ -462,7 +462,11 @@ public class ReciprocalTests
         Assert.Equal(byScalar ? ["b clear", "source callback", "nested returned", "b assign", "destination"]
             : new[] { "source callback", "nested returned", "b assign", "destination" }, trace);
         string finish = byScalar ? "b:supervisor" : "c:add";
-        Assert.Equal(["a:set", "a:remove", finish], graph.VmfChanges.History.Select(HistoryName));
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        // A raw list observer edits before any model group sees the triggering edit, so its edit is recorded first;
+        // raw collection observers are outside the portable contract.
+        Assert.Equal(scope == "direct" ? ["a:set", "a:remove", finish] : new[] { "a:remove", "a:set", finish },
+            graph.VmfChanges.History.Select(HistoryName));
         CheckMoved(graph);
 
         var journal = recorder.Finish();

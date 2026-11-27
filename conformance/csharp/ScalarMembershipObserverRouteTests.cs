@@ -34,7 +34,7 @@ public sealed class ScalarMembershipObserverRouteTests
         fixture.ProjectedModel(_ => trace.Add("R1"), ModelChangeScope.Recursive);
         fixture.Edit("outer");
 
-        Assert.Equal(fixture.Expected["mixed-order"], trace);
+        ListenerTraces.EqualByKind(fixture.Expected["mixed-order"], trace);
     }
 
     [Theory]
@@ -52,7 +52,7 @@ public sealed class ScalarMembershipObserverRouteTests
         fixture.Raw(_ => trace.Add("M2"));
         fixture.Edit("outer");
 
-        Assert.Equal(fixture.Expected["implicit-projection"], trace);
+        ListenerTraces.EqualByKind(fixture.Expected["implicit-projection"], trace);
     }
 
     [Theory]
@@ -68,17 +68,17 @@ public sealed class ScalarMembershipObserverRouteTests
         using (view(_ => trace.Add("P0")))
         {
             fixture.Edit("outer");
-            Assert.Equal(fixture.Expected["first-projected-subscription"], trace);
+            ListenerTraces.EqualByKind(fixture.Expected["first-projected-subscription"], trace);
         }
         trace.Clear();
         fixture.Edit("nested");
-        Assert.Equal(fixture.Expected["unsubscribed-projection"], trace);
+        ListenerTraces.EqualByKind(fixture.Expected["unsubscribed-projection"], trace);
 
         trace.Clear();
         fixture.Raw(_ => trace.Add("M2"));
         view(_ => trace.Add("Pnew"));
         fixture.Edit("future");
-        Assert.Equal(fixture.Expected["resubscribed-projection"], trace);
+        ListenerTraces.EqualByKind(fixture.Expected["resubscribed-projection"], trace);
     }
 
     [Theory]
@@ -106,7 +106,7 @@ public sealed class ScalarMembershipObserverRouteTests
         fixture.Edit("outer");
 
         string scenario = initiallyObserved ? "source-reentry-existing-projection" : "source-reentry-empty-projection";
-        Assert.Equal(fixture.Expected[scenario], trace);
+        ListenerTraces.EqualByKind(fixture.Expected[scenario], trace);
     }
 
     [Theory]
@@ -130,7 +130,7 @@ public sealed class ScalarMembershipObserverRouteTests
         fixture.Raw(key => trace.Add("late:" + key));
         fixture.Edit("outer");
 
-        Assert.Equal(fixture.Expected["projected-reentry"], trace);
+        ListenerTraces.EqualByKind(fixture.Expected["projected-reentry"], trace);
     }
 
     [Theory]
@@ -159,7 +159,7 @@ public sealed class ScalarMembershipObserverRouteTests
         fixture.Edit("outer");
 
         string scenario = initialGroup ? "modeled-reentry-existing-scope" : "modeled-reentry-new-scope";
-        Assert.Equal(fixture.Expected[scenario], trace);
+        ListenerTraces.EqualByKind(fixture.Expected[scenario], trace);
     }
 
     [Theory]
@@ -183,7 +183,7 @@ public sealed class ScalarMembershipObserverRouteTests
         {
             fixture.Edit("outer");
             string recording = recordingFirst ? "early-recording" : "late-recording";
-            Assert.Equal(fixture.Expected[recording + "-visible-in-direct-callback"], visible);
+            ListenerTraces.EqualByKind(fixture.Expected[recording + "-visible-in-direct-callback"], visible);
             Assert.Equal(fixture.Expected[recording + "-history"], stream.History.Select(edit => edit.PropertyName));
         }
         finally
@@ -223,7 +223,7 @@ public sealed class ScalarMembershipObserverRouteTests
         using var recorder = JournalRecorder<CollectionProfile>.Start(fixture.Model, ModelSnapshot.Registry, Journal, "checkpoint", 0);
 
         Assert.Same(rawFailure, Assert.Throws<InvalidOperationException>(() => fixture.Edit("outer")));
-        Assert.Equal(fixture.Expected["first-failure-order"], trace);
+        ListenerTraces.EqualByKind(fixture.Expected["first-failure-order"], trace);
         Assert.Equal(Assert.Single(fixture.Expected["first-failure-suppression"]), SuppressionTree(rawFailure));
         Assert.Equal(fixture.Expected["first-failure-native-history"],
             fixture.Model.VmfChanges.History.Select(change => change.PropertyName));
@@ -272,7 +272,7 @@ public sealed class ScalarMembershipObserverRouteTests
             Assert.False(fixture.Contains(checkpoint, "nested"));
             string channel = projected ? "projected" : "raw";
             string group = priorGroup ? "with-group" : "without-group";
-            Assert.Equal(fixture.Expected[$"portable-initiation-{channel}-{group}"], trace);
+            ListenerTraces.EqualByKind(fixture.Expected[$"portable-initiation-{channel}-{group}"], trace);
             VerifyReplay(fixture, checkpoint, active.Finish(), "outer", "nested");
             Assert.False(fixture.Contains(checkpoint, "nested"));
         }

@@ -44,6 +44,19 @@ public abstract class ModelChange
     /// <summary>A strictly increasing process-local timestamp in stopwatch ticks.</summary>
     public long Timestamp { get; }
 
+    private static long lastDeliveryStamp;
+    private long deliveryStamp;
+
+    /// <summary>
+    /// The order in which changes first reached a model observer group (portable contract H4). A change is stamped
+    /// when the first group receives it, before any of its listeners can react to it.
+    /// </summary>
+    internal long EnsureDeliveryStamp()
+    {
+        if (deliveryStamp == 0) deliveryStamp = Interlocked.Increment(ref lastDeliveryStamp);
+        return deliveryStamp;
+    }
+
     public bool CanUndo => IsCurrent(undo: true);
     public bool CanRedo => IsCurrent(undo: false);
 

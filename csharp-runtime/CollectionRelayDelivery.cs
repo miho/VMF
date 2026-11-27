@@ -44,10 +44,12 @@ public sealed partial class ModelChanges
             if (!prepared) Prepare(change);
             bool projected = direct.HasProjections || projectedLane.Count != 0;
             HashSet<ModelChanges>? delivered = groups.Length > 1 || projected ? new(ReferenceEqualityComparer.Instance) : null;
+            HashSet<ModelChanges>? merged = null;
             if (projected)
             {
                 var plan = this;
-                edit = attachContext(edit, new(group => ModelObserverFailures.Rethrow(plan.DeliverGroup(group, change, delivered, null))));
+                edit = attachContext(edit, new(group =>
+                    ModelObserverFailures.Rethrow(plan.DeliverGroup(group, change, delivered, ref merged, null))));
             }
             int raw = 0;
             int model = 0;
@@ -61,14 +63,15 @@ public sealed partial class ModelChanges
                 {
                     var registration = groups[model++];
                     if (!registration.IsProjected(change.PropertyName))
-                        failure = DeliverGroup(registration.Group, change, delivered, failure);
+                        failure = DeliverGroup(registration.Group, change, delivered, ref merged, failure);
                 }
             }
             return projectedLane.Notify(edit, failure);
         }
 
-        private Exception? DeliverGroup(ObserverGroup group, ModelChange change, HashSet<ModelChanges>? delivered, Exception? failure) =>
+        private Exception? DeliverGroup(ObserverGroup group, ModelChange change, HashSet<ModelChanges>? delivered,
+            ref HashSet<ModelChanges>? merged, Exception? failure) =>
             NotifyRecordingRelay(group, recorders, change, relationship, delivered, failure,
-                reconcileAfterRecording: relationship is not null);
+                reconcileAfterRecording: relationship is not null, delivery: DeliveryFor(groups, group, change, ref merged));
     }
 }

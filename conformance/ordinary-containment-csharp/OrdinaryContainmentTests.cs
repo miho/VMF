@@ -31,7 +31,8 @@ public class OrdinaryContainmentTests
         }, scope);
         using var recorder = JournalRecorder<LegacyContainer>.Start(root, ModelSnapshot.Registry, binding, "initial", 0);
         root.Children.Add(child);
-        Assert.Equal(["name", "children"], root.VmfChanges.History.Select(change => change.PropertyName));
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(["children", "name"], root.VmfChanges.History.Select(change => change.PropertyName));
         string wire = JournalJson.Write(recorder.Finish());
         Verify(wire);
         string? exchange = Environment.GetEnvironmentVariable("VMF_CONFORMANCE_ORDINARY_CONTAINMENT");
@@ -103,9 +104,12 @@ public class OrdinaryContainmentTests
         Assert.Equal(["source", "nested", "detach", "attach", "adopt"], trace);
         var history = working.VmfChanges.History.OfType<ModelCollectionChange>().Where(change => change.PropertyName == "children").ToArray();
         Assert.Equal(3, history.Length);
-        // The nested edit reaches native history while the source removal is still being delivered.
-        Assert.Same(nested, Assert.Single(history[0].Added).Value);
-        Assert.Same(moving, Assert.Single(history[1].Removed).Value);
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        // A raw list observer edits before any model group sees the triggering edit, so its edit is recorded first;
+        // raw collection observers are outside the portable contract.
+        bool direct = scope == "direct";
+        Assert.Same(nested, Assert.Single(history[direct ? 0 : 1].Added).Value);
+        Assert.Same(moving, Assert.Single(history[direct ? 1 : 0].Removed).Value);
         Assert.Same(moving, Assert.Single(history[2].Added).Value);
         var journal = recorder.Finish();
 
@@ -565,10 +569,11 @@ public class OrdinaryContainmentTests
         Assert.Null(outer.Owner);
         var history = owner.VmfChanges.History.Select(Assert.IsType<ModelCollectionChange>).ToArray();
         Assert.Equal(2, history.Length);
-        Assert.Same(nested, Assert.Single(history[0].Added).Value);
-        Assert.Equal(index, history[0].Added[0].Index);
-        Assert.Same(outer, history[1].Added[0].Value);
-        Assert.Equal(sort ? [0, 2] : new[] { 3 }, history[1].Added.Select(slot => slot.Index!.Value));
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Same(outer, history[0].Added[0].Value);
+        Assert.Equal(sort ? [0, 2] : new[] { 3 }, history[0].Added.Select(slot => slot.Index!.Value));
+        Assert.Same(nested, Assert.Single(history[1].Added).Value);
+        Assert.Equal(index, history[1].Added[0].Index);
         Assert.NotNull(recorder.PublishFrame());
         var journal = recorder.Finish();
 
@@ -635,8 +640,9 @@ public class OrdinaryContainmentTests
         Assert.Equal(["left", "middle"], callbacks);
         Assert.Null(first.Owner);
         Assert.Null(middle.Owner);
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
         Assert.Collection(owner.VmfChanges.History,
-            change => Assert.Same(middle, Removed(change)), change => Assert.Same(first, Removed(change)));
+            change => Assert.Same(first, Removed(change)), change => Assert.Same(middle, Removed(change)));
         var journal = recorder.Finish();
 
         (string Extension, Func<ChangeJournal, string> Write, Func<string, ChangeJournal> Read)[] formats =
@@ -710,9 +716,10 @@ public class OrdinaryContainmentTests
         Assert.Null(c.Owner);
         var history = graph.VmfChanges.History.Select(Assert.IsType<ModelCollectionChange>).ToArray();
         Assert.Equal(3, history.Length);
-        Assert.Same(d, Assert.Single(history[0].Added).Value);
-        Assert.Null(Assert.Single(history[1].Added).Value);
-        Assert.Same(c, history[2].Added[1].Value);
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Same(c, history[0].Added[1].Value);
+        Assert.Same(d, Assert.Single(history[1].Added).Value);
+        Assert.Null(Assert.Single(history[2].Added).Value);
         Assert.NotNull(recorder.PublishFrame());
         var journal = recorder.Finish();
 

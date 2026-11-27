@@ -166,7 +166,9 @@ public class ShallowCopyTests
         });
 
         copy.Messages.Add("edit");
-        Assert.Equal(["source local", "copy recursive", "source recursive"], trace);
+        // The source's listeners run together, in the order they were added (portable contract E7); the copy shares
+        // the list but is not an ancestor, so its place relative to the source is not specified.
+        Assert.Equal(["source local", "source recursive", "copy recursive"], trace);
     }
 
     [Fact]

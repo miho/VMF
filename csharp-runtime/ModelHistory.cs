@@ -27,10 +27,11 @@ public sealed class ModelHistory<T> : IReadOnlyList<T>, IModelListObservation<T>
     public IEnumerator<T> GetEnumerator() => items.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
-    internal Notification? Append(T item)
+    internal Notification? Append(T item) => Insert(items.Count, item);
+
+    internal Notification? Insert(int index, T item)
     {
-        int index = items.Count;
-        items.Add(item);
+        items.Insert(index, item);
         var snapshot = listeners.Snapshot;
         return snapshot.Length == 0 ? null
             : new Notification(new(this, index, Array.AsReadOnly(new[] { item }), Array.Empty<T>()), snapshot);
@@ -69,6 +70,10 @@ public sealed class ModelHistoryChange<T>
     }
 
     public ModelHistory<T> Source { get; }
+
+    /// <summary>The position of the first added or removed entry.</summary>
+    internal int Index => index;
+
     public IReadOnlyList<T> Added { get; }
     public IReadOnlyList<T> Removed { get; }
 

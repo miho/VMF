@@ -59,7 +59,8 @@ public class PositionalJournalTests
         });
         using var recorder = JournalRecorder<ArchiveRoot>.Start(working, ModelSnapshot.Registry, Binding, CheckpointId, 20);
         head.Trail.Add(left);
-        Assert.Equal([start + 1, start], working.VmfChanges.History.Cast<ModelCollectionChange>()
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal([start, start + 1], working.VmfChanges.History.Cast<ModelCollectionChange>()
             .Select(change => change.Added[0].Index!.Value));
         var journal = recorder.Finish();
         var original = ModelSnapshot.Read<ArchiveRoot>(baseline);
@@ -107,7 +108,8 @@ public class PositionalJournalTests
         Assert.Null(outer.InsetOf);
         Assert.Same(working, nested.InsetOf);
         Assert.Equal(["-", "outer", "-", "nested"], callbacks);
-        Assert.Equal(["-", "-", "nested", "outer"], working.VmfChanges.History
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(["-", "outer", "-", "nested"], working.VmfChanges.History
             .Where(change => change.PropertyName == "inset").Select(change => (change.NewValue as ArchiveNode)?.Name ?? "-"));
 
         var journal = recorder.Finish();
@@ -166,7 +168,8 @@ public class PositionalJournalTests
         add(first);
         Assert.Same(second, Assert.Single(Membership(working)));
         Assert.Equal(["+first", "-first", "+second"], callbacks);
-        Assert.Equal(["-first", "+second", "+first"], working.VmfChanges.History.Cast<ModelCollectionChange>().Select(Label));
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(["+first", "-first", "+second"], working.VmfChanges.History.Cast<ModelCollectionChange>().Select(Label));
         var journal = recorder.Finish();
 
         string? interchange = Environment.GetEnvironmentVariable("VMF_CONFORMANCE_POSITIONAL_JOURNAL");

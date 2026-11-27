@@ -104,7 +104,7 @@ public sealed class ModeledRelationshipSetObserverTests
         try
         {
             fixture.Edit();
-            Assert.Equal(Expected[name], trace);
+            ListenerTraces.EqualByKind(Expected[name], trace);
         }
         finally
         {

@@ -85,7 +85,9 @@ public sealed class ReadOnlyModelChanges
         Func<TSource, TView> project)
     {
         if (change.Removed.Count > 0) ModelObserverFailures.Rethrow(items.RemoveAll()?.Notify(null));
-        foreach (var added in change.Added) ModelObserverFailures.Rethrow(items.Append(project(added))?.Notify(null));
+        // A change can be recorded before later ones (portable contract H4); keep its position.
+        int index = Math.Min(change.Index, items.Count);
+        foreach (var added in change.Added) ModelObserverFailures.Rethrow(items.Insert(index++, project(added))?.Notify(null));
     }
 }
 

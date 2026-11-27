@@ -145,10 +145,11 @@ public class CollectionRedeclarationTests
             case "codes": basis.Codes.Add(2L); break;
         }
 
-        Assert.Equal(ancestorFirst ? [property] : [], visible);
-        Assert.Equal(ancestorFirst ? [$"ancestor {property}", $"local {property}", "ancestor name"]
-            : [$"local {property}", "ancestor name", $"ancestor {property}"], trace);
-        Assert.Equal(ancestorFirst ? [property, "name"] : ["name", property], recording.History.Select(edit => edit.PropertyName));
+        // The basis' own listener runs before the recording ancestor (portable contract E8), and the nested edit is
+        // delivered at once (E9) but recorded after its cause (H4).
+        Assert.Empty(visible);
+        Assert.Equal([$"local {property}", "ancestor name", $"ancestor {property}"], trace);
+        Assert.Equal([property, "name"], recording.History.Select(edit => edit.PropertyName));
         local.Dispose();
         early?.Dispose();
         late?.Dispose();

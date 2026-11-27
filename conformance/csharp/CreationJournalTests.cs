@@ -54,7 +54,8 @@ public class CreationJournalTests
             case "trail": root.Trail.Add(fresh); break;
             case "peers": root.Peers.Add(fresh); break;
         }
-        Assert.Equal(ownedByEdge ? ["name", edge] : new[] { "name", "inset", edge },
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(ownedByEdge ? [edge, "name"] : new[] { edge, "name", "inset" },
             root.VmfChanges.History.Select(change => change.PropertyName));
         string wire = JournalJson.Write(recorder.Finish());
         Verify(wire);
@@ -118,7 +119,8 @@ public class CreationJournalTests
         });
         using var recorder = JournalRecorder<ArchiveNode>.Start(root, ModelSnapshot.Registry, binding, "observer-dependencies", 0);
         left.Inset = outer;
-        Assert.Equal(new[] { right, left }, root.VmfChanges.History.Select(change => Assert.IsType<ArchiveNode>(change.Source)));
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(new[] { left, right }, root.VmfChanges.History.Select(change => Assert.IsType<ArchiveNode>(change.Source)));
         string wire = JournalJson.Write(recorder.Finish());
         Verify(wire);
         string? exchange = Environment.GetEnvironmentVariable("VMF_CONFORMANCE_CREATION_JOURNAL");
@@ -179,7 +181,8 @@ public class CreationJournalTests
         using var watchRight = right.VmfChanges.AddPropertyListener("inset", _ => b.Anchor = a);
         using var recorder = JournalRecorder<ArchiveNode>.Start(root, ModelSnapshot.Registry, binding, "cross-definitions", 0);
         left.Inset = a;
-        Assert.Equal(tracked ? ["right", "b", "left"] : new[] { "right", "left" },
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(tracked ? ["left", "right", "b"] : new[] { "left", "right" },
             root.VmfChanges.History.Select(change => ((ArchiveNode)change.Source).Name));
         var recorded = recorder.Finish();
         string? exchange = Environment.GetEnvironmentVariable("VMF_CONFORMANCE_CREATION_JOURNAL");

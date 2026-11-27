@@ -414,7 +414,7 @@ public class ObservationTests
     }
 
     [Fact]
-    public void DirectReferenceHistoryRecordsNestedEditBeforeInitiatingEdit()
+    public void DirectReferenceHistoryRecordsInitiatingEditBeforeNestedEdit()
     {
         var selection = new ValueSelection();
         var first = new ValueLabel("first");
@@ -436,8 +436,9 @@ public class ObservationTests
         selection.Current = first;
         changes.Stop();
         Assert.Equal(["first current", "first second", "second second", "second current"], delivered);
-        Assert.Equal(["second", "current"], changes.History.Select(change => change.PropertyName));
-        Assert.True(changes.History[0].Timestamp > changes.History[1].Timestamp);
+        // The triggering edit is recorded before the edits its listeners made (portable contract H4).
+        Assert.Equal(["current", "second"], changes.History.Select(change => change.PropertyName));
+        Assert.True(changes.History[0].Timestamp < changes.History[1].Timestamp);
     }
 
     [Fact]

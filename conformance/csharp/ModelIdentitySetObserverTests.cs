@@ -44,7 +44,7 @@ public sealed class ModelIdentitySetObserverTests
 
         fixture.Edit();
 
-        Assert.Equal(Expected[observeEarly ? "early-projected-modeled" : "public-getter-alone"], trace);
+        ListenerTraces.EqualByKind(Expected[observeEarly ? "early-projected-modeled" : "public-getter-alone"], trace);
     }
 
     [Theory]
@@ -69,7 +69,7 @@ public sealed class ModelIdentitySetObserverTests
         fixture.Edit();
 
         using var cleanup = activated;
-        Assert.Equal(Expected["reactivated-modeled"], trace);
+        ListenerTraces.EqualByKind(Expected["reactivated-modeled"], trace);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class ModelIdentitySetObserverTests
         fixture.Edit();
 
         using var cleanup = projected;
-        Assert.Equal(Expected["inverse-activation"], trace);
+        ListenerTraces.EqualByKind(Expected["inverse-activation"], trace);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public sealed class ModelIdentitySetObserverTests
 
         raw.Add(item);
 
-        Assert.Equal(Expected["plain-keyed-list-getter"], trace);
+        ListenerTraces.EqualByKind(Expected["plain-keyed-list-getter"], trace);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class ModelIdentitySetObserverTests
 
         destination.Volumes.Add(child);
 
-        Assert.Equal(Expected["owning-journal"], trace);
+        ListenerTraces.EqualByKind(Expected["owning-journal"], trace);
         foreach (var journal in RoundTrip(recorder.Finish(), "source.volumes", "dest.volumes"))
         {
             var replayed = JournalReplayer.Replay(checkpoint, Journal, "base", journal, OwningSnapshot.Registry);
@@ -172,7 +172,7 @@ public sealed class ModelIdentitySetObserverTests
 
         head.Peers.Add(peer);
 
-        Assert.Equal(Expected["unopposed-journal"], trace);
+        ListenerTraces.EqualByKind(Expected["unopposed-journal"], trace);
         foreach (var journal in RoundTrip(recorder.Finish(), "head.peers"))
         {
             var replayed = JournalReplayer.Replay(checkpoint, Journal, "base", journal, ValuesSnapshot.Registry);

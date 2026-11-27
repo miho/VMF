@@ -27,9 +27,11 @@ public sealed class ReciprocalListObservationTests
         else teams.Add(team);
         changes.Stop();
 
+        // The object's local and recursive listeners receive a change together, in the order they were added
+        // (portable contract E7); raw list observers keep their own registration order around them.
         Assert.Equal(viaOpposite
-            ? ["linked", "projected", "local:0", "late:0", "recursive:0", "opposite"]
-            : new[] { "opposite", "linked", "projected", "local:0", "late:1", "recursive:1" }, trace);
+            ? ["linked", "projected", "local:0", "recursive:0", "late:0", "opposite"]
+            : new[] { "opposite", "linked", "projected", "local:0", "recursive:0", "late:1" }, trace);
         Assert.Equal(viaOpposite ? 0 : 1, changes.History.Count);
         Assert.Same(team, Assert.Single(teams));
     }

@@ -14,11 +14,31 @@ public sealed partial class ModelChanges
         {
             this.owners = owners;
             this.routes = routes;
-            ordered = routes.SelectMany((route, index) => route.Groups.Select(group => (Group: group, Route: index)))
-                .OrderBy(entry => entry.Group.Order).ToArray();
+            ordered = Interleave(routes);
         }
 
         internal bool HasModelGroups => routes.Length != 0;
+
+        /// <summary>
+        /// Interleaves the owners' groups by registration order while each owner keeps its own group order,
+        /// nearest observers first (portable contract E8).
+        /// </summary>
+        private static (ObservationRegistration Group, int Route)[] Interleave(SharedSequenceRoute[] routes)
+        {
+            var result = new List<(ObservationRegistration Group, int Route)>();
+            var next = new int[routes.Length];
+            while (true)
+            {
+                int best = -1;
+                for (int route = 0; route < routes.Length; route++)
+                {
+                    if (next[route] >= routes[route].Groups.Length) continue;
+                    if (best < 0 || routes[route].Groups[next[route]].Order < routes[best].Groups[next[best]].Order) best = route;
+                }
+                if (best < 0) return result.ToArray();
+                result.Add((routes[best].Groups[next[best]++], best));
+            }
+        }
 
         internal static SharedSequenceDelivery? Capture(SharedModelSequenceOwners owners, bool projectedRelayMayActivate)
         {
@@ -49,7 +69,7 @@ public sealed partial class ModelChanges
                 var route = routes[index];
                 var change = build(route.Source);
                 PrepareJournalEdit(route.Recorders, change);
-                var publication = new SharedSequencePublication(change, route.Recorders);
+                var publication = new SharedSequencePublication(change, route.Recorders, route.Groups);
                 publications[index] = publication;
                 byOwner?.Add(route.Source.Owner, publication);
             }
@@ -82,7 +102,7 @@ public sealed partial class ModelChanges
                 // An earlier raw callback can subscribe to an existing projection
                 // even when that logical owner had no scopes at commit time.
                 if (!owners.TryGetSource(group.Owner, out var source)) return;
-                publication = new SharedSequencePublication(build(source), recorders: null);
+                publication = new SharedSequencePublication(build(source), recorders: null, groups: []);
                 byOwner.Add(group.Owner, publication);
             }
             ModelObserverFailures.Rethrow(publication.Notify(group, null));
@@ -92,14 +112,17 @@ public sealed partial class ModelChanges
     private sealed record SharedSequenceRoute(ModelChangeSource Source, ObservationRegistration[] Groups,
         List<Recording>? Recorders);
 
-    private sealed class SharedSequencePublication(ModelChange change, List<Recording>? recorders)
+    private sealed class SharedSequencePublication(ModelChange change, List<Recording>? recorders,
+        ObservationRegistration[] groups)
     {
         // Distinct owners can belong to the same recursive stream.
         // Deduplicate a stream only within this logical owner.
         private readonly HashSet<ModelChanges> delivered = new(ReferenceEqualityComparer.Instance);
+        private HashSet<ModelChanges>? merged;
         internal ModelChange Change { get; } = change;
 
         internal Exception? Notify(ObserverGroup group, Exception? failure) =>
-            NotifyRecordingRelay(group, recorders, Change, null, delivered, failure);
+            NotifyRecordingRelay(group, recorders, Change, null, delivered, failure,
+                delivery: DeliveryFor(groups, group, Change, ref merged));
     }
 }
