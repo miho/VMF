@@ -124,9 +124,12 @@ How the runners reach the generated code:
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 15 of 15 | 108 of 111 | clearing a many-to-one reference notifies the owner twice; content equality of immutable types is identity (2 scenarios) |
-| C# | 15 of 15 | 110 of 111 | clearing a many-to-one reference notifies the owner twice |
+| Java | 15 of 15 | 111 of 111 | none |
+| C# | 15 of 15 | 111 of 111 | none |
 | TypeScript | 13 of 15 | 71 of 72 core (claims core only; 39 scenarios of optional modules skipped) | a type with several model supertypes (TypeScript classes have one base class) |
+
+The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
+(Java and C#), and content equality of `@Immutable` types was identity (Java).
 
 The TypeScript generator also rejects `@Immutable` types (views module, not claimed yet). Before this contract
 it accepted 2 of the 15 models; supporting the core took about 700 lines of runtime code and 230 lines of

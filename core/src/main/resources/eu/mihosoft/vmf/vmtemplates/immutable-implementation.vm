@@ -209,6 +209,18 @@ public class $type.implementation.typeName implements $type.typeName, ${VMFPKG}.
               // we don't copy anything since this is an immutable type
               return ${type.implementation.typeName}.this;
               }
+
+            @Override
+            public boolean equals(Object o) {
+              // vmf object comparison
+              return ${type.implementation.typeName}.this._vmf_equals(o);
+            }
+
+            @Override
+            public int hashCode() {
+              // vmf object hash-code
+              return ${type.implementation.typeName}.this._vmf_hashCode();
+            }
             };
           }
 

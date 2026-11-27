@@ -84,6 +84,12 @@ internal sealed class ReciprocalReferenceChange(ReciprocalEndpoint endpoint, obj
     : ModelChange(endpoint.Owner, endpoint.Name, oldValue, newValue, isModelReference: true, isInverse: isInverse,
         timestamp: timestamp)
 {
+    /// <summary>
+    /// A cleared reference whose opposite is a collection is already reported by the removal from that collection;
+    /// this follow-up change only feeds recording.
+    /// </summary>
+    internal bool RecordingOnly => removal is not null && NewValue is null;
+
     internal ModelChange? ForHistory(ModelChanges stream, long generation)
     {
         if (removal?.RecordedChange(stream, generation) is not { } prior) return this;

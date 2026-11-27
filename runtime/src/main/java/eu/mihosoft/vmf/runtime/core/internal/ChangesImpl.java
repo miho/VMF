@@ -322,7 +322,7 @@ public class ChangesImpl implements Changes {
 
     private static Throwable notifyListeners(List<Registration> listeners, Change change) {
         int count = listeners.size();
-        if (count == 0) return null;
+        if (count == 0 || isRecordingOnlyClear(change)) return null;
         if (count == 1) {
             return notifyListener(listeners.get(0).listener, change, null);
         }
@@ -332,6 +332,17 @@ public class ChangesImpl implements Changes {
             failure = notifyListener(registration.listener, change, failure);
         }
         return failure;
+    }
+
+    /**
+     * Clearing a single-valued reference whose opposite is a list first removes the owner from that list, which
+     * already reports the cleared reference to listeners. The setter's follow-up change only serves recording.
+     */
+    private static boolean isRecordingOnlyClear(Change change) {
+        if (!(change instanceof PropChangeImpl)) return false;
+        var property = (PropChangeImpl) change;
+        return property.newValue() == null
+                && ChangeInternal.CHANGE_TYPE_SCALAR_AFTER_OPPOSITE_REMOVAL.equals(property.getInternalChangeInfo());
     }
 
     private static Throwable notifyListener(ChangeListener listener, Change change, Throwable failure) {

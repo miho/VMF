@@ -130,6 +130,7 @@ public sealed partial class ModelChanges
 
         internal Exception? NotifyListeners(ModelChange change, Exception? failure)
         {
+            if (change is ReciprocalReferenceChange { RecordingOnly: true }) return failure;
             // The source takes a group snapshot when publishing. A group's listener list is
             // taken only at its turn, so a preceding group can change later subscriptions.
             return ModelListeners<ModelChange>.Notify(listeners.Snapshot, change, recursiveOnly: false, failure);
