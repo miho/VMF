@@ -41,6 +41,8 @@ test-suite/src/test/vmf/eu/mihosoft/vmftest/cross_ref/vmfmodel
 test-suite/src/test/vmf/eu/mihosoft/vmftest/defaultvaluesandbuilders/vmfmodel
 test-suite/src/test/vmf/eu/mihosoft/vmftest/delegationinherit/vmfmodel
 test-suite/src/test/vmf/eu/mihosoft/vmftest/diff/vmfmodel
+test-suite/src/test/vmf/eu/mihosoft/vmftest/dispatch/foreign/vmfmodel
+test-suite/src/test/vmf/eu/mihosoft/vmftest/dispatch/local/vmfmodel
 test-suite/src/test/vmf/eu/mihosoft/vmftest/equals/vmfmodel
 test-suite/src/test/vmf/eu/mihosoft/vmftest/events_undo_redo/vmfmodel
 test-suite/src/test/vmf/eu/mihosoft/vmftest/externaltypes/vmfmodel

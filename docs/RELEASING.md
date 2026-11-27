@@ -13,6 +13,7 @@ below.
 | `vmf-runtime` | root build, project `:vmf-runtime` (`runtime/`) |
 | `vmf-gradle-plugin` + marker `eu.mihosoft.vmf.gradle.plugin` | root build, project `:gradle-plugin` |
 | `vmf-jackson` | separate build in `jackson/` |
+| `vmf-maven-plugin` | separate Maven build in `maven-plugin/` |
 
 `vmfedit` (`vmf-edit` on Central) has its own publishing and is not covered here.
 
@@ -164,3 +165,20 @@ requires a new VCollections fix, release VCollections first and update
    `-Pgroup=eu.mihosoft.vmf -Pversion=0.2.11`, before that change.
    `publishPlugins --validate-only` checks without publishing.
 4. `git checkout main`.
+
+### Maven plugin release
+
+Build the Maven plugin with the release profile after the matching generator
+and runtime are available. This attaches source and Javadoc jars.
+
+```sh
+(cd maven-plugin && sh ./maven.sh -B -ntp -Prelease clean install)
+(cd test-suite && sh ./maven.sh -B -ntp clean verify)
+```
+
+The Maven plugin is published separately from `scripts/publish-central.sh`.
+Use the installed POM with resolved versions and the three plugin jars. Sign
+each file with the VMF release key and upload the Maven-layout bundle to the
+[Central Publisher Portal](https://central.sonatype.org/publish/publish-portal-upload/).
+Verify that a clean Maven repository can resolve and run both plugin goals
+after publication.
