@@ -22,12 +22,18 @@
  * Computing and Visualization in Science, 2013, 16(4),
  * 181–192. http://doi.org/10.1007/s00791-014-0230-y
  */
-package eu.mihosoft.vmftest.tostring;
+package eu.mihosoft.vmftest.dispatch;
 
 import eu.mihosoft.vmf.runtime.core.VObject;
 import eu.mihosoft.vmf.runtime.core.internal.VObjectInternal;
-import eu.mihosoft.vmftest.staticreflection.ReadOnlyRoot;
-import eu.mihosoft.vmftest.staticreflection.Root;
+import eu.mihosoft.vmftest.dispatch.foreign.ForeignNode;
+import eu.mihosoft.vmftest.dispatch.foreign.ReadOnlyForeignNode;
+import eu.mihosoft.vmftest.dispatch.local.ListenerForLocalModel;
+import eu.mihosoft.vmftest.dispatch.local.LocalNode;
+import eu.mihosoft.vmftest.dispatch.local.ReadOnlyListenerForLocalModel;
+import eu.mihosoft.vmftest.dispatch.local.ReadOnlyLocalNode;
+import eu.mihosoft.vmftest.dispatch.local.ReadOnlySwitchForLocalModel;
+import eu.mihosoft.vmftest.dispatch.local.SwitchForLocalModel;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -38,14 +44,14 @@ import static org.junit.Assert.assertEquals;
 public class GeneratedDispatchTest {
     @Test
     public void mutableSwitchFallsBackForForeignModel() {
-        Child child = Child.newInstance();
-        Root foreign = Root.newInstance();
-        assertTypeIdsCollide(child, foreign);
+        LocalNode local = LocalNode.newInstance();
+        ForeignNode foreign = ForeignNode.newInstance();
+        assertTypeIdsCollide(local, foreign);
 
-        SwitchForTostringModel<String> modelSwitch = new SwitchForTostringModel<String>() {
+        SwitchForLocalModel<String> modelSwitch = new SwitchForLocalModel<String>() {
             @Override
-            public String caseChild(Child object) {
-                return "child";
+            public String caseLocalNode(LocalNode object) {
+                return "local";
             }
 
             @Override
@@ -54,20 +60,20 @@ public class GeneratedDispatchTest {
             }
         };
 
-        assertEquals("child", modelSwitch.doSwitch(child));
+        assertEquals("local", modelSwitch.doSwitch(local));
         assertEquals("fallback", modelSwitch.doSwitch(foreign));
     }
 
     @Test
     public void readOnlySwitchFallsBackForForeignModel() {
-        ReadOnlyChild child = Child.newInstance().asReadOnly();
-        ReadOnlyRoot foreign = Root.newInstance().asReadOnly();
-        assertTypeIdsCollide(child, foreign);
+        ReadOnlyLocalNode local = LocalNode.newInstance().asReadOnly();
+        ReadOnlyForeignNode foreign = ForeignNode.newInstance().asReadOnly();
+        assertTypeIdsCollide(local, foreign);
 
-        ReadOnlySwitchForTostringModel<String> modelSwitch = new ReadOnlySwitchForTostringModel<String>() {
+        ReadOnlySwitchForLocalModel<String> modelSwitch = new ReadOnlySwitchForLocalModel<String>() {
             @Override
-            public String caseReadOnlyChild(ReadOnlyChild object) {
-                return "child";
+            public String caseReadOnlyLocalNode(ReadOnlyLocalNode object) {
+                return "local";
             }
 
             @Override
@@ -76,64 +82,65 @@ public class GeneratedDispatchTest {
             }
         };
 
-        assertEquals("child", modelSwitch.doSwitch(child));
+        assertEquals("local", modelSwitch.doSwitch(local));
         assertEquals("fallback", modelSwitch.doSwitch(foreign));
     }
 
     @Test
     public void mutableTraversalListenerSkipsForeignModel() {
-        Child child = Child.newInstance();
-        Root foreign = Root.newInstance();
-        assertTypeIdsCollide(child, foreign);
+        LocalNode local = LocalNode.newInstance();
+        ForeignNode foreign = ForeignNode.newInstance();
+        assertTypeIdsCollide(local, foreign);
 
         List<String> events = new ArrayList<>();
-        ListenerForTostringModel listener = new ListenerForTostringModel() {
+        ListenerForLocalModel listener = new ListenerForLocalModel() {
             @Override
-            public void onEnterChild(Child object) {
+            public void onEnterLocalNode(LocalNode object) {
                 events.add("enter");
             }
 
             @Override
-            public void onExitChild(Child object) {
+            public void onExitLocalNode(LocalNode object) {
                 events.add("exit");
             }
         };
 
-        listener.onEnter(child);
+        listener.onEnter(local);
         listener.onEnter(foreign);
         listener.onExit(foreign);
-        listener.onExit(child);
+        listener.onExit(local);
         assertEquals(List.of("enter", "exit"), events);
     }
 
     @Test
     public void readOnlyTraversalListenerSkipsForeignModel() {
-        ReadOnlyChild child = Child.newInstance().asReadOnly();
-        ReadOnlyRoot foreign = Root.newInstance().asReadOnly();
-        assertTypeIdsCollide(child, foreign);
+        ReadOnlyLocalNode local = LocalNode.newInstance().asReadOnly();
+        ReadOnlyForeignNode foreign = ForeignNode.newInstance().asReadOnly();
+        assertTypeIdsCollide(local, foreign);
 
         List<String> events = new ArrayList<>();
-        ReadOnlyListenerForTostringModel listener = new ReadOnlyListenerForTostringModel() {
+        ReadOnlyListenerForLocalModel listener = new ReadOnlyListenerForLocalModel() {
             @Override
-            public void onEnterReadOnlyChild(ReadOnlyChild object) {
+            public void onEnterReadOnlyLocalNode(ReadOnlyLocalNode object) {
                 events.add("enter");
             }
 
             @Override
-            public void onExitReadOnlyChild(ReadOnlyChild object) {
+            public void onExitReadOnlyLocalNode(ReadOnlyLocalNode object) {
                 events.add("exit");
             }
         };
 
-        listener.onEnter(child);
+        listener.onEnter(local);
         listener.onEnter(foreign);
         listener.onExit(foreign);
-        listener.onExit(child);
+        listener.onExit(local);
         assertEquals(List.of("enter", "exit"), events);
     }
 
     @SuppressWarnings("deprecation")
     private static void assertTypeIdsCollide(VObject local, VObject foreign) {
-        assertEquals(((VObjectInternal) local)._vmf_getTypeId(), ((VObjectInternal) foreign)._vmf_getTypeId());
+        assertEquals("The independently generated fixtures must share a raw type ID",
+                ((VObjectInternal) local)._vmf_getTypeId(), ((VObjectInternal) foreign)._vmf_getTypeId());
     }
 }
