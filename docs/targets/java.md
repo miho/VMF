@@ -4,7 +4,8 @@ Java is the reference target: the rules of the [portable contract](../../conform
 restate what VMF's Java code does. This page says how each rule appears in the generated Java API. Rule ids
 (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, equality-modes, json, externals, behavior.
+Claimed modules: core, views, events, history, reflection, equality-modes, json, validation, collections,
+externals, behavior.
 
 ## Generating
 
@@ -28,6 +29,17 @@ sources; `VMF.generate(outputDir, interfaces...)` does the same from code. Gener
 | `String` and other object values | references that may be `null` |
 | list property (`T[]`) | `VList<T>`, a `java.util.List` that reports its changes |
 | `@DefaultValue` | the initial value of new objects |
+
+## Collections (K)
+
+| Model | Java |
+|---|---|
+| `Set<T>` of scalars | `VSet<T>`, a `java.util.Set` that reports its changes (`Change.setChange()`) |
+| `@Multiplicity(kind = ORDERED_SET)` or `upper = n` list of scalars | a `VList<T>` that holds each value once or at most `n` values |
+| `VMap<K, V>` | `VMap<K, V>`, a `java.util.Map` in insertion order that reports its changes (`Change.mapChange()`) |
+| `Set<T>` of model objects, `ORDERED_SET` model list | `RefSet<T>`, `OrderedRefSet<T>` (`Change.referenceSetChange()`) |
+| `@Contains @Keyed(by = "sku")` | a keyed `VList<T>` and `owner.findItemsBySku(key)` returning an `Optional` |
+| in a read-only view or an `@Immutable` type | the same types, unmodifiable |
 
 ## Containment and references (C, R)
 
@@ -97,6 +109,18 @@ Catalog copy = mapper.readValue(json, Catalog.class);
 Without `withReferences(true)` the documents are plain (J5): references to mutable objects are rejected, or
 left out with `withReferences(VMFJacksonModule.ReferenceMode.OMIT)`. References to immutable values are
 written by value in every mode.
+
+## Validation (L)
+
+| Rule | Java |
+|---|---|
+| validate | `x.vmf().content().validate()` returns a `ValidationReport`; `isValid()`, `getIssues()` |
+| an issue | `ValidationIssue` with `getCode()` (`"vmf.range"`), `getPath()` (`"/segments/0/start"`), `getMessage()`, `getSeverity()`, `getObject()`, `getProperty()` |
+
+Declared constraints report errors. `ModelValidator.builder()` adds application rules and can follow references
+(`withFollowReferences(true)`); both are outside the contract. A pattern outside the portable subset (L5) is declared
+`@Pattern(value = "...", portable = false)` and checked as written; C# and TypeScript need a counterpart for it.
+Adding an element beyond the upper bound of a scalar list throws.
 
 ## External types (X)
 

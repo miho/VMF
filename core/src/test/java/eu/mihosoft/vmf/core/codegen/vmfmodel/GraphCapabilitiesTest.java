@@ -196,12 +196,8 @@ public class GraphCapabilitiesTest {
         assertEquals(1, priority.getLowerBound());
         assertEquals(3, priority.getUpperBound());
 
-        var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertFalse(ts.getMessage(), ts.getMessage().contains(".optional "));
-        assertFalse(ts.getMessage(), ts.getMessage().contains(".primary "));
-        assertFalse(ts.getMessage(), ts.getMessage().contains(".trail "));
-        assertTrue(ts.getMessage(), ts.getMessage().contains(
-                ".priority needs a single-valued reference, an ordered reference list, or an unbounded unordered"));
+        // TypeScript accepts the ordered reference set too; the bounds of model collections are left to validation.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test

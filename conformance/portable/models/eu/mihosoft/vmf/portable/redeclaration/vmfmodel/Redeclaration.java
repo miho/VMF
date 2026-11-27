@@ -6,6 +6,7 @@ import eu.mihosoft.vmf.core.DefaultValue;
 import eu.mihosoft.vmf.core.GetterOnly;
 import eu.mihosoft.vmf.core.Immutable;
 import eu.mihosoft.vmf.core.InterfaceOnly;
+import eu.mihosoft.vmf.core.Keyed;
 
 // Subtypes that declare inherited properties again, from test-suite vmftest/propertyinheritance (2022),
 // vflow (2017) and VMF-Text grammar models: the same property with a new default, getter-only references that
@@ -43,6 +44,46 @@ interface Version {
 interface Release extends Version {
     @DefaultValue("2")
     int getMajor();
+}
+
+// Immutable types with two immutable supertypes (the first supertype's default wins), and an immutable subtype
+// that narrows the reference it inherits.
+@Immutable
+interface LeftRank {
+    @DefaultValue("5")
+    int getRank();
+}
+
+@Immutable
+interface RightRank {
+    @DefaultValue("11")
+    int getRank();
+
+    String getNote();
+}
+
+@Immutable
+interface LiteralRank extends LeftRank, RightRank {
+}
+
+@Immutable
+interface ValueTag {
+    String getTitle();
+}
+
+@Immutable
+interface ColorTag extends ValueTag {
+    String getColor();
+}
+
+@Immutable
+interface FrozenChoice {
+    ValueTag getCurrent();
+}
+
+@Immutable
+interface FrozenColorChoice extends FrozenChoice {
+    ColorTag getCurrent();
 }
 
 // A port's node and wires are relationship ends that each kind of port declares itself.
@@ -126,4 +167,71 @@ interface Tagged {
 }
 
 interface TaggedPoint extends Point, Tagged {
+}
+
+// A getter-only trait as the type of contained children, from C# conformance traits (Folder, NamedItem): every
+// implementation is mutable, so each can be contained.
+@InterfaceOnly
+interface Labeled {
+    @GetterOnly
+    String getLabel();
+
+    @GetterOnly
+    @Container(opposite = "items")
+    Shelf getShelf();
+}
+
+interface Book extends Labeled {
+    String getIsbn();
+}
+
+interface Note extends Labeled {
+    String getText();
+}
+
+interface Shelf {
+    @Contains(opposite = "shelf")
+    Labeled[] getItems();
+
+    @Contains
+    Labeled getFirst();
+}
+
+// Two concrete supertypes that both declare the same containment list, from C# conformance exactredeclarations.
+interface Asset {
+    String getName();
+}
+
+interface FirstRecord {
+    @Contains
+    Asset[] getAssets();
+}
+
+interface SecondRecord {
+    @Contains
+    Asset[] getAssets();
+}
+
+interface CombinedRecord extends FirstRecord, SecondRecord {
+}
+
+// A plain reference list of the first supertype that becomes the keyed containment the second declares, from
+// test-suite vmftest/keyed (Warehouse).
+interface Article {
+    String getCode();
+}
+
+@InterfaceOnly
+interface ArticleRefs {
+    Article[] getArticles();
+}
+
+@InterfaceOnly
+interface ArticleStock {
+    @Contains
+    @Keyed(by = "code")
+    Article[] getArticles();
+}
+
+interface Store extends ArticleRefs, ArticleStock {
 }

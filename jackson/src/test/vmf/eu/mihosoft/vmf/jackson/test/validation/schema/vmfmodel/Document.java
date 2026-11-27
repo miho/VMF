@@ -29,6 +29,7 @@ interface Document {
     @Range(min = "2", max = "100") Byte getCount();
     @Pattern(value = "\\A[a-z]+\\z", portable = false)
     @Annotation(key = "vmf:pattern:csharp", value = "\\A[a-z]+\\z")
+    @Annotation(key = "vmf:pattern:typescript", value = "^[a-z]+$")
     String getJavaOnly();
     @Length(min = 1, max = 1) String getGlyph();
     @Pattern("^[A-Z]+$") String getAnchored();

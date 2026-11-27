@@ -1,4 +1,7 @@
-/** The kind of a property change: a single value was set, or list elements were added, removed or replaced. */
+/**
+ * The kind of a property change: a single value was set, or elements of a list or set, or entries of a map, were
+ * added, removed or replaced.
+ */
 export type ChangeKind = "set" | "add" | "remove" | "replace";
 
 /** A change of one property of one model object. */
@@ -16,6 +19,8 @@ export interface ModelChange {
     readonly replaced?: readonly unknown[];
     /** The positions of the elements in an ordered list. */
     readonly indices?: readonly number[];
+    /** The keys of the entries of a map change, one for each value. */
+    readonly keys?: readonly unknown[];
 }
 
 export type ModelChangeListener = (change: ModelChange) => void;

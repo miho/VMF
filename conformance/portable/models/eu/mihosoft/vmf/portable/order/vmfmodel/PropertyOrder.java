@@ -71,3 +71,14 @@ interface InheritedOrderSubClassWithBaseOrder extends InheritedBaseWithCustomOrd
     @PropertyOrder(index = 2)
     String getB();
 }
+
+// Neither the base nor the subtype declares an order.
+interface PlainBase {
+    String getZeta();
+    String getMid();
+}
+
+interface PlainSub extends PlainBase {
+    String getAlpha();
+    String getYank();
+}

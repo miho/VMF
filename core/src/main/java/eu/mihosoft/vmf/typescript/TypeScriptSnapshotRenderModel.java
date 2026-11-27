@@ -23,6 +23,7 @@
  */
 package eu.mihosoft.vmf.typescript;
 
+import eu.mihosoft.vmf.core.codegen.ResolvedModel;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Property;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Type;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.ValueType;
@@ -71,26 +72,48 @@ final class TypeScriptSnapshotRenderModel {
         ValueType value = property.getValueType();
         String valueType = source.typeName(value);
         String data = "name: " + literal(name) + ", ";
-        if (property.getKind() == Property.Kind.SCALAR) {
+        if (property.getKind() == Property.Kind.MAP) {
+            // Map keys and values are portable scalars (see PortableCapabilities).
+            data += "keyType: \"" + scalarKind(property.getKeyType()) + "\", scalarType: \"" + scalarKind(value)
+                    + "\", nullable: true";
+        } else if (property.getKind() == Property.Kind.SCALAR) {
+            // Scalars, lists and sets, with the value semantics of external types.
             data += source.scalarData(property);
         } else {
             data += "modelType: () => " + source.runtimeTypeName(value);
             if (property.getKind() == Property.Kind.REFERENCE && !property.getOppositeName().isEmpty()) {
                 data += ", opposite: " + literal(property.getOppositeName());
             }
+            // Entries keyed by a model reference are attached once a reader has resolved the references.
+            if (property.getEntryKey().filter(ResolvedModel.EntryKey::usesIdentity).isPresent()) {
+                data += ", keyedByReference: true";
+            }
         }
+        String edit = property.getKind() == Property.Kind.MAP ? "put" : property.isCollection() ? "add" : "set";
         return Map.of("wireName", literal(property.getWireName()), "kind", propertyKind(property),
                 "data", data, "getter", "get: owner => " + member,
-                "mutator", type.isImmutable() ? (property.isCollection() ? "add" : "set") + ": vmf.rejectEdit"
-                        : prepareMutator(property, member, valueType));
+                "mutator", type.isImmutable() ? edit + ": vmf.rejectEdit"
+                        : prepareMutator(source, property, member, valueType));
+    }
+
+    private static String scalarKind(ValueType value) {
+        return value.getKind().name().toLowerCase(Locale.ROOT);
     }
 
     private static String propertyKind(Property property) {
         switch (property.getKind()) {
             case SCALAR:
-                return property.isCollection() ? "scalarList" : "scalar";
+                if (!property.isCollection()) {
+                    return "scalar";
+                }
+                return property.isOrdered() ? "scalarList" : "scalarSet";
+            case MAP:
+                return "scalarMap";
             case CONTAINMENT:
-                return property.isCollection() ? "containmentList" : "containment";
+                if (!property.isCollection()) {
+                    return "containment";
+                }
+                return property.isOrdered() ? "containmentList" : "containmentSet";
             case REFERENCE:
                 if (!property.isCollection()) {
                     return "reference";
@@ -101,7 +124,12 @@ final class TypeScriptSnapshotRenderModel {
         }
     }
 
-    private static String prepareMutator(Property property, String member, String valueType) {
+    private static String prepareMutator(TypeScriptRenderModel source, Property property, String member,
+                                         String valueType) {
+        if (property.getKind() == Property.Kind.MAP) {
+            return "put: (owner, key, value) => { " + member + ".put(key as " + source.typeName(property.getKeyType())
+                    + ", value as " + valueType + " | null); }";
+        }
         if (property.isCollection()) {
             String element = valueType + (property.getKind() == Property.Kind.SCALAR && property.allowsNullElements()
                     ? " | null" : "");

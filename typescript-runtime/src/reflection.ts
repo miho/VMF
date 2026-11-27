@@ -34,11 +34,16 @@ export type AnnotationPairs = readonly (readonly [string, string])[];
 type AnyClass = Function;
 
 const declared = new WeakMap<AnyClass, ModelType>();
+const lookups = new WeakMap<ModelType, readonly string[]>();
 let unwrap: (value: object) => object = value => value;
 
-/** @internal Generated code declares every model class with its reflection data. */
+/**
+ * @internal Generated code declares every model class with its reflection data. `keyLookups` names the methods that
+ * find entries of keyed containments by key, which read-only views offer too.
+ */
 export function declareModelType(type: AnyClass, name: string, immutable: boolean, annotations: AnnotationPairs,
-                                 properties: readonly (readonly [string, AnnotationPairs])[]): void {
+                                 properties: readonly (readonly [string, AnnotationPairs])[],
+                                 keyLookups: readonly string[] = []): void {
     const propertyList = Object.freeze(properties.map(([propertyName, pairs]) => {
         const propertyAnnotations = annotationList(pairs);
         return Object.freeze({
@@ -48,14 +53,21 @@ export function declareModelType(type: AnyClass, name: string, immutable: boolea
         });
     }));
     const typeAnnotations = annotationList(annotations);
-    declared.set(type, Object.freeze({
+    const modelType: ModelType = Object.freeze({
         name,
         immutable,
         properties: propertyList,
         annotations: typeAnnotations,
         property: (propertyName: string) => propertyList.find(property => property.name === propertyName),
         annotationValues: (key: string) => valuesOf(typeAnnotations, key),
-    }));
+    });
+    declared.set(type, modelType);
+    lookups.set(modelType, Object.freeze([...keyLookups]));
+}
+
+/** @internal The key lookup methods of a model type, including those of its supertypes. */
+export function __vmfLookupsOf(type: ModelType): readonly string[] {
+    return lookups.get(type) ?? [];
 }
 
 /** @internal Lets read-only views report the type of the object they show. */

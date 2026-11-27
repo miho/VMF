@@ -159,13 +159,23 @@ public class KeyedMetadataTest {
     }
 
     @Test
-    public void concreteKeyedListsAndSetsAreAvailableOnlyToCsharp() {
-        var model = model(KeyedPortableCatalog.class, KeyedMetadataInventory.class, KeyedMetadataItem.class,
+    public void concreteKeyedListsAndSetsAreAvailableToCsharpAndTypeScript() throws IOException {
+        Class<?>[] declarations = {KeyedPortableCatalog.class, KeyedMetadataInventory.class, KeyedMetadataItem.class,
                 KeyedMetadataItemBase.class, KeyedMetadataAssignment.class, KeyedMetadataAssignmentBase.class,
-                KeyedMetadataTarget.class, KeyedMetadataSpecificTarget.class);
+                KeyedMetadataTarget.class, KeyedMetadataSpecificTarget.class};
+        var model = model(declarations);
         CSharpCapabilities.validate(model);
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".assignments uses keyed relationships"));
+        PortableCapabilities.validate(model, "TypeScript");
+        var output = new MemoryResourceSet();
+        VMF.generate(GenerationTarget.TYPESCRIPT, output, declarations);
+        String source = output.getMemSet().elements().nextElement().asString();
+        assertTrue(source, source.contains("key: { property: \"sku\", of: child => child.sku }"));
+        assertTrue(source, source.contains("findItemsBySku(key: string): KeyedMetadataItem | null {"));
+        assertTrue(source, source.contains(
+                "findAssignmentsByTarget(key: KeyedMetadataSpecificTarget): KeyedMetadataAssignment | null {"));
+        assertTrue(source, source.contains("findItemsBySku(key: string): ReadOnlyKeyedMetadataItem | null;"));
+        // Readers attach entries keyed by a model reference after they resolved the references.
+        assertTrue(source, source.contains("keyedByReference: true"));
     }
 
     @Test
@@ -185,8 +195,7 @@ public class KeyedMetadataTest {
         assertEquals(Kind.STRING, key.getValueType().getKind());
         assertEquals(key.getRelationshipId(), closed.getEntryKey().orElseThrow().getRelationshipId());
         assertTrue(property(model, "KeyedMetadataItemBase", "sku").isUsedAsEntryKey());
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".items uses keyed relationships"));
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
@@ -203,8 +212,7 @@ public class KeyedMetadataTest {
         String source = output.getMemSet().elements().nextElement().asString();
         assertTrue(source.contains("public class KeyedMetadataItem "));
         assertTrue(source.contains("where E : KeyedMetadataItem"));
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".items uses keyed relationships"));
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
@@ -225,8 +233,7 @@ public class KeyedMetadataTest {
         assertTrue(openKey.usesIdentity());
         assertEquals(openKey.getRelationshipId(), closed.getEntryKey().orElseThrow().getRelationshipId());
         assertTrue(property(model, "KeyedMetadataAssignmentBase", "target").isUsedAsEntryKey());
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".selected uses keyed relationships"));
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     private static ResolvedModel model() {

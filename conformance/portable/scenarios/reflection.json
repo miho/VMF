@@ -11,6 +11,7 @@
         {"properties": "o", "are": ["b", "d", "x", "z"]}
       ]
     },
+    {"id": "default-order-includes-inherited-properties", "requires": ["reflection"], "rules": ["F1"], "steps": [{"new": "o", "type": "PlainSub"}, {"properties": "o", "are": ["alpha", "mid", "yank", "zeta"]}]},
     {
       "id": "declared-property-order",
       "from": "PropertyOrderTest.propertyCustomOrderTest",

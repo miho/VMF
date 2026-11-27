@@ -46,6 +46,59 @@
       ]
     },
     {
+      "id": "several-immutable-supertypes",
+      "requires": ["views"],
+      "rules": ["T1", "T7", "V3"],
+      "from": "C# conformance hierarchy models (LiteralRank)",
+      "steps": [
+        {"new": "l", "type": "LiteralRank"},
+        {"instanceOf": "l", "type": "LeftRank"},
+        {"instanceOf": "l", "type": "RightRank"},
+        {"check": "l.rank", "value": 5},
+        {"check": "l.note", "value": null},
+        {"new": "m", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"check": "m.rank", "value": 7},
+        {"check": "m.note", "value": "n"},
+        {"new": "m2", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"equal": ["m", "m2"]},
+        {"notEqual": ["l", "m"]}
+      ]
+    },
+    {
+      "id": "immutable-subtype-narrows-a-reference",
+      "requires": ["views"],
+      "rules": ["T7", "V3"],
+      "from": "C# conformance covariance models (FrozenColorChoice)",
+      "steps": [
+        {"new": "c", "type": "ColorTag", "with": {"title": "t", "color": "red"}},
+        {"new": "f", "type": "FrozenColorChoice", "with": {"current": {"obj": "c"}}},
+        {"instanceOf": "f", "type": "FrozenChoice"},
+        {"check": "f.current", "obj": "c"},
+        {"check": "f.current.color", "value": "red"},
+        {"check": "f.current.title", "value": "t"},
+        {"new": "e", "type": "FrozenColorChoice"},
+        {"check": "e.current", "value": null}
+      ]
+    },
+    {
+      "id": "immutable-supertypes-in-documents",
+      "requires": ["json", "views"],
+      "rules": ["T1", "T7", "J1"],
+      "steps": [
+        {"new": "m", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"write": "m", "as": "md"},
+        {"document": "md", "is": {"note": "n", "rank": 7}},
+        {"read": "md", "type": "LiteralRank", "as": "m2"},
+        {"equal": ["m", "m2"]},
+        {"new": "c", "type": "ColorTag", "with": {"title": "t", "color": "red"}},
+        {"new": "f", "type": "FrozenColorChoice", "with": {"current": {"obj": "c"}}},
+        {"write": "f", "as": "fd"},
+        {"read": "fd", "type": "FrozenColorChoice", "as": "f2"},
+        {"equal": ["f", "f2"]},
+        {"check": "f2.current.color", "value": "red"}
+      ]
+    },
+    {
       "id": "relationship-ends-declared-by-each-subtype",
       "from": "vflow (2017)",
       "rules": ["T7", "C1", "C2", "C3", "C4"],
@@ -261,6 +314,14 @@
         {"check": "s2.value.name", "value": "k"},
         {"check": "s2.history[0].name", "value": "k"}
       ]
-    }
+    },
+    {"id": "getter-only-trait-as-containment-target", "from": "C# conformance traits (Folder, NamedItem)", "rules": ["T1", "C1", "C2", "C3"], "steps": [{"new": "s", "type": "Shelf"}, {"new": "b", "type": "Book", "with": {"label": "b", "isbn": "1"}}, {"new": "n", "type": "Note", "with": {"label": "n", "text": "t"}}, {"add": "s.items", "objs": ["b", "n"]}, {"check": "s.items", "objs": ["b", "n"]}, {"check": "b.shelf", "obj": "s"}, {"check": "n.shelf", "obj": "s"}, {"set": "s.first", "obj": "b"}, {"check": "s.items", "objs": ["n"]}, {"check": "s.first", "obj": "b"}, {"check": "b.shelf", "value": null}, {"remove": "s.items", "obj": "n"}, {"check": "n.shelf", "value": null}]},
+    {"id": "getter-only-trait-children-in-documents", "requires": ["json"], "rules": ["T1", "J1"], "steps": [{"new": "s", "type": "Shelf"}, {"new": "b", "type": "Book", "with": {"label": "b", "isbn": "1"}}, {"new": "n", "type": "Note", "with": {"label": "n", "text": "t"}}, {"add": "s.items", "objs": ["b", "n"]}, {"write": "s", "as": "d"}, {"read": "d", "type": "Shelf", "as": "copy"}, {"equal": ["s", "copy"]}, {"let": "b2", "path": "copy.items[0]"}, {"instanceOf": "b2", "type": "Book"}, {"check": "b2.shelf.items", "size": 2}]},
+    {"id": "concrete-supertypes-share-a-containment-list", "from": "C# conformance exactredeclarations (CombinedRecord)", "rules": ["T1", "C1", "C2"], "steps": [{"new": "c", "type": "CombinedRecord"}, {"instanceOf": "c", "type": "FirstRecord"}, {"instanceOf": "c", "type": "SecondRecord"}, {"new": "a", "type": "Asset", "with": {"name": "a"}}, {"add": "c.assets", "obj": "a"}, {"check": "c.assets", "objs": ["a"]}, {"new": "f", "type": "FirstRecord"}, {"add": "f.assets", "obj": "a"}, {"check": "c.assets", "size": 0}]},
+    {"id": "concrete-supertypes-share-a-containment-list-in-documents", "requires": ["json"], "rules": ["T1", "J1"], "steps": [{"new": "a", "type": "Asset", "with": {"name": "a"}}, {"new": "c", "type": "CombinedRecord", "with": {"assets": [{"obj": "a"}]}}, {"write": "c", "as": "d"}, {"document": "d", "is": {"assets": [{"name": "a"}]}}, {"read": "d", "type": "CombinedRecord", "as": "copy"}, {"equal": ["c", "copy"]}]},
+    {"id": "reference-list-promoted-to-keyed-containment", "from": "KeyedCollectionTest (Warehouse)", "requires": ["collections"], "rules": ["T1", "K6"], "steps": [{"new": "s", "type": "Store"}, {"instanceOf": "s", "type": "ArticleRefs"}, {"instanceOf": "s", "type": "ArticleStock"}, {"new": "a", "type": "Article", "with": {"code": "a"}}, {"new": "b", "type": "Article", "with": {"code": "b"}}, {"add": "s.articles", "objs": ["a", "b"]}, {"find": "s.articles", "by": "code", "key": "b", "obj": "b"}, {"new": "a2", "type": "Article", "with": {"code": "a"}}, {"add": "s.articles", "obj": "a2", "fails": true}, {"check": "s.articles", "objs": ["a", "b"]}]},
+    {"id": "generic-scalar-slot-declared-by-an-implementing-class", "model": "generics", "requires": ["views"], "rules": ["T1", "T8", "V3"], "steps": [{"new": "k", "type": "Code", "with": {"name": "k"}}, {"new": "r", "type": "ReviewedSlot", "with": {"id": "r"}}, {"instanceOf": "r", "type": "Slot"}, {"instanceOf": "r", "type": "Header"}, {"set": "r.value", "obj": "k"}, {"add": "r.history", "obj": "k"}, {"check": "r.value", "obj": "k"}, {"check": "r.history", "objs": ["k"]}]},
+    {"id": "generic-scalar-slot-declared-by-an-implementing-class-in-documents", "model": "generics", "requires": ["json", "views"], "rules": ["T8", "J1"], "steps": [{"new": "k", "type": "Code", "with": {"name": "k"}}, {"new": "r", "type": "ReviewedSlot", "with": {"id": "r"}}, {"set": "r.value", "obj": "k"}, {"add": "r.history", "obj": "k"}, {"write": "r", "as": "d"}, {"read": "d", "type": "ReviewedSlot", "as": "copy"}, {"equal": ["r", "copy"]}, {"check": "copy.history[0].name", "value": "k"}]},
+    {"id": "container-of-a-narrowed-containment-end", "model": "generics", "from": "GenericSeriesTest (OwnerOf)", "rules": ["T7", "T8", "C1", "C4"], "steps": [{"new": "o", "type": "Owner"}, {"new": "d", "type": "Owned", "with": {"name": "d"}}, {"set": "d.owner", "obj": "o"}, {"check": "o.primary", "obj": "d"}, {"set": "o.primary", "value": null}, {"check": "d.owner", "value": null}, {"set": "o.primary", "obj": "d"}, {"check": "d.owner", "obj": "o"}, {"set": "d.owner", "value": null}, {"check": "o.primary", "value": null}]}
   ]
 }

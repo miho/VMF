@@ -63,6 +63,11 @@ ${type.declaration} {
 #foreach($brand in $type.brands)
     ${brand}
 #end
+#if($type.hasInstance)
+    static ${type.staticOverride}[Symbol.hasInstance](value: unknown): boolean {
+        return vmf.isInstance(value, this);
+    }
+#end
 #foreach($field in $type.fields)
 
     ${field}
@@ -111,7 +116,13 @@ ${type.declaration} {
     get vmfType(): vmf.ModelType {
         return vmf.modelTypeOf(this);
     }
+
+    /** Checks the declared multiplicities and value constraints of this value. */
+    validate(): readonly vmf.ValidationIssue[] {
+        return vmf.validateTree(this);
+    }
 #end
+#parse("eu/mihosoft/vmf/typescript/validation.vm")
 }
 #else
 ${type.declaration} {
@@ -124,10 +135,12 @@ ${type.declaration} {
     }
 #end
 #if(!$type.hasBase)
+
     /** @internal */
     readonly __vmfContainerLink = new vmf.ContainmentLink();
 #end
 #foreach($property in $type.properties)
+
 #if($property.container)
     ${property.modifier}get ${property.name}(): ${property.type} | null {
         return vmf.containerOf(this.__vmfContainerLink, ${property.ownerType}, [${property.owners}]) as ${property.type} | null;
@@ -166,10 +179,9 @@ ${type.declaration} {
 #end
 #if(!$type.hasBase)
 
+    /** Checks the declared multiplicities and value constraints of this object and of the objects it contains. */
     validate(): readonly vmf.ValidationIssue[] {
-        const issues: vmf.ValidationIssue[] = [];
-        this.__vmfValidateInto(issues, "");
-        return issues;
+        return vmf.validateTree(this);
     }
 
     /** True if the other object has the same type, scalar values and contained children. */
@@ -205,38 +217,7 @@ ${type.declaration} {
         return vmf.readOnly<${type.readOnlyType}>(this);
     }
 #end
-#if($type.emitValidation)
-
-    /** @internal */
-#if($type.hasBase)
-    override __vmfValidateInto(issues: vmf.ValidationIssue[], path: string): void {
-        super.__vmfValidateInto(issues, path);
-#elseif($type.hasValidation)
-    __vmfValidateInto(issues: vmf.ValidationIssue[], path: string): void {
-#else
-    __vmfValidateInto(_issues: vmf.ValidationIssue[], _path: string): void {
-#end
-#foreach($check in $type.multiplicities)
-        const ${check.variable} = ${check.count};
-        if (${check.condition}) {
-            issues.push({
-                code: "multiplicity",
-                path: path + "${check.name}",
-                message: "Expected ${check.expected}, found " + ${check.variable} + ".",
-            });
-        }
-#end
-#foreach($containment in $type.containments)
-#if($containment.many)
-        for (let index = 0; index < this.${containment.name}.count; index++) {
-            this.${containment.name}.at(index).__vmfValidateInto(issues, path + "${containment.name}[" + index + "].");
-        }
-#else
-        this.${containment.name}?.__vmfValidateInto(issues, path + "${containment.name}.");
-#end
-#end
-    }
-#end
+#parse("eu/mihosoft/vmf/typescript/validation.vm")
 }
 #end
 

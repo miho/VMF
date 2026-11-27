@@ -3,9 +3,9 @@
 How the rules of the [portable contract](../../conformance/portable/CONTRACT.md) appear in the generated
 TypeScript API. Rule ids (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, identity-equality, json, externals, behavior.
-JavaScript has no equality that a class can define, so TypeScript follows N3 instead of N2 (see
-[Equality](#equality-and-copies-q-n)).
+Claimed modules: core, views, events, history, reflection, identity-equality, json, validation, collections,
+externals, behavior. JavaScript has no equality that a class can define, so TypeScript follows N3 instead of
+N2 (see [Equality](#equality-and-copies-q-n)).
 
 ## Generating
 
@@ -143,6 +143,22 @@ parameter whose array the behavior receives. TypeScript has one method per name,
 their number of parameters; the class method dispatches on the argument count. As in C#, static methods, checked
 exceptions and `Object` methods other than `toString()` are rejected.
 
+## Collections (K)
+
+| Model | TypeScript |
+|---|---|
+| `Set<T>` of scalars | `vmf.ScalarSet<T>`: `add`, `addAll`, `remove`, `clear`, `contains`, `count`, `toArray` and iteration; values compare like a JavaScript `Set` |
+| `@Multiplicity(kind = ORDERED_SET)` list | a `ScalarList<T>` or `ReferenceList<T>` that holds each element once: `add` returns `false` for an element it holds, `insert` and `set` reject one |
+| `@Multiplicity(upper = n)` list of scalars | a `ScalarList<T>` that rejects `null` and edits beyond `n` (`RangeError`); `addAll` adds several values as one edit |
+| `VMap<K, V>` | `vmf.ScalarMap<K, V \| null>`: `put(key, value)` (inserts or replaces in place, returns the previous value), `add(key, value)` (rejects a present key), `putAll(entries)`, `get(key)` (`undefined` for an absent key), `has`, `remove`, `clear`, `count`, `keys()`, `values()`, `entries()`, `toMap()`; iteration yields `[key, value]` in insertion order |
+| `Set<T>` of model objects | `vmf.ReferenceSet<T>`, also with an opposite; `@Contains Set<T>` is a `vmf.ContainmentSet<TOwner, TChild>` |
+| `@Contains @Keyed(by = "sku")` | a `ContainmentList` (or `ContainmentSet`) that checks the keys, and `owner.findItemsBySku(key)` returning the entry or `null`; the read-only view has the same lookup |
+| in a read-only view or an `@Immutable` type | `vmf.ReadOnlySet<T>` and `vmf.ReadOnlyMap<K, V>` (typed `vmf.CollectionView` and `vmf.MapView` in `ReadOnlyX`); immutable values take sets as `Iterable<T>` and maps as `Iterable<[K, V]>`, for example a `Map` |
+
+A set or map edit is one change: `{ kind: "add" | "remove" | "replace", values, keys }` (maps carry `keys`, sets no
+`indices`). Undo restores a removed map entry at its former position. Documents write sets as arrays and maps as
+JSON objects (`String` keys) or arrays of `{"key": k, "value": v}`.
+
 ## Containment and references (C, R)
 
 Setting a containment property or adding to a containment list moves the child: it leaves its previous owner,
@@ -208,8 +224,28 @@ property order, each with `name` and `annotations` (`{ key, value }` pairs in de
 Large integers are read and written exactly (`bigint`). References to immutable values are written by value
 in every mode.
 
+## Validation (L)
+
+| Rule | TypeScript |
+|---|---|
+| validate | `x.validate()` returns a frozen array of issues for `x` and everything it contains; an empty array means valid |
+| an issue | `{ code, path, message, modelCode, modelPath, severity }` |
+| code and path as the contract defines them (L7) | `modelCode` (`"vmf.range"`) and `modelPath` (`"/segments/0/start"`) |
+| TypeScript code and path | `code` (`"range"`) and `path`, the member path (`"segments[0].start"`) |
+
+Declared constraints report `"error"` issues; the messages are those of C#, for example
+`"a finite number >= 0 and < 10"`. `long` ranges compare `bigint` values exactly. A `float` property holds a
+`number`; its range is checked on the value rounded to float precision (`Math.fround`), the value Java and C# read
+from a document. `@Length` counts code points, not `string.length`. A portable `@Pattern` becomes a `RegExp`
+without flags in which `$` matches only at the very end, and `test` finds a match anywhere in the value (L5). A
+Java-only pattern (`@Pattern(value = "...", portable = false)`) needs one
+`@Annotation(key = "vmf:pattern:typescript", value = "...")` with an ECMAScript regular expression, which is
+searched with the `u` flag; the generator rejects the model without it. Unlike Java and C#, TypeScript accepts an
+element beyond the upper bound of a scalar list; validation reports it (L2). Validation keeps its own stack, so deep
+containment chains do not exhaust the call stack.
+
 ## Not supported
 
-The TypeScript generator rejects models that use maps, sets or unique lists of scalars, generic immutable types,
-defaults of collections and reference sets, delegated methods of generic types and overloads with the same
-number of parameters. XML, YAML and journals are not available. None of these are part of the contract.
+The TypeScript generator rejects models that use generic immutable types, `@DefaultValue` on collections and
+reference sets, delegated methods of generic types and overloads with the same number of parameters. XML,
+YAML and journals are not available. None of these are part of the contract.

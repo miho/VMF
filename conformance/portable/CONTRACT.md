@@ -21,6 +21,8 @@ every target, Java included, runs the same scenarios ([README](README.md)).
 | equality-modes | N1, N2 (the language's own equality follows `@VMFEquals` and `@VMFModel(equality = ...)`) | optional |
 | identity-equality | N1, N3 (the language compares objects by identity only) | optional |
 | json | J (snapshot documents that every target writes and reads alike) | optional |
+| validation | L (declared multiplicities and value constraints) | optional |
+| collections | K (sets, ordered sets, bounded lists, maps, keyed containment) | optional |
 | externals | X (enum types, UUIDs, untyped `Object` values, host value types with codecs) | optional |
 | behavior | B (delegated methods and construction hooks, `@DelegateTo`) | optional |
 
@@ -155,8 +157,9 @@ back to the container (its opposite).
 
 ## Reflection (optional)
 
-- **F1** Properties are listed in this order: properties of supertypes before the type's own; within a
-  type, by `@PropertyOrder` index if all are given, otherwise alphabetically.
+- **F1** Properties are listed in this order: if a type gives each of its own properties a `@PropertyOrder`
+  index, the properties it inherits come first, in the order of the supertypes that declare them, then its own
+  by index; otherwise all its properties, inherited ones included, are sorted alphabetically.
 - **F2** `@Annotation` key/value pairs of types and properties are available in declaration order;
   repeated keys are allowed. Keys starting with `vmf:` are reserved for VMF and ignored by the scenarios.
 
@@ -197,6 +200,96 @@ are read by every other target.
   a mutable object cannot be written as a plain document: by default the writer rejects it. Every target offers
   an explicit option to leave such references out instead; the document then holds the containment tree only.
 - **J6** Writers reject a reference to an object outside the written containment tree.
+
+## Validation (optional)
+
+Validation checks a model against its declared multiplicities (`@Multiplicity`) and value constraints (`@Range`,
+`@Length`, `@Pattern`) and reports each violation as an issue. It does not change the model; a model may be
+invalid while it is being built.
+
+- **L1** Validating an object checks the object and every object contained in it, directly or indirectly, each
+  once. References and container properties are not followed: an object that is only referenced is not checked,
+  and neither is the container of the validated object.
+- **L2** A property whose number of values is below its lower bound or above its upper bound is reported as
+  `vmf.multiplicity`. A single-valued property has no value when it is `null` and one value otherwise; a list
+  has as many values as elements.
+- **L3** `@Range` on a byte, short, int, long, float or double property, primitive or boxed, is reported as
+  `vmf.range` when the value is below `min`, above `max` or equal to a bound declared exclusive. The bounds are
+  decimal numbers and comparisons are exact: an integer is compared with all its digits, the 64 bits of a `long`
+  included; a float or double is compared by its shortest decimal representation (the digits a JSON writer
+  writes), so the double `0.1` is equal to the bound `0.1`. A float property is compared at float precision.
+  NaN and infinities are outside every range.
+- **L4** `@Length` on a string is reported as `vmf.length` when its number of Unicode code points, not UTF-16 code
+  units, is below `min` or above `max` (`max = -1`: no maximum).
+- **L5** `@Pattern` on a string is reported as `vmf.pattern` when the regular expression matches no part of the
+  value. The search is not anchored: `\d` accepts every value that contains a digit. `^` and `$` anchor it, and `$`
+  matches only at the very end of the value, not before a final line break. A portable pattern means the same in
+  every target: printable ASCII; literal characters and escaped metacharacters; `\d` and `\w` (ASCII digits and
+  word characters); `\n`, `\r`, `\t` and `\f`; classes without negation, nesting or intersection; groups `(...)`
+  and `(?:...)`; alternation; the quantifiers `*`, `+`, `?`, `{n}`, `{n,}` and `{n,m}`, also lazy. The generator
+  rejects other patterns unless they are declared `portable = false`. Java checks such a pattern as written; the
+  other targets need an explicit counterpart in their own dialect (see the language mappings) and reject the
+  model without one.
+- **L6** `null` satisfies every range, length and pattern; only a lower bound (L2) requires a value.
+- **L7** An issue has the code `vmf.multiplicity`, `vmf.range`, `vmf.length` or `vmf.pattern` and a path: a JSON
+  pointer (RFC 6901) of model property names and list indices from the validated object to the property, such as
+  `/segments/0/code`. Paths use model property names, not wire names.
+- **L8** Issues are listed depth first: the validated object's issues, then those of each contained object and its
+  contents, contained objects in property order and, within a list, in list order. The issues of one object follow
+  its properties in reflection order (F1); for one property, `vmf.multiplicity` comes first, then `vmf.range`,
+  `vmf.length` and `vmf.pattern`.
+
+## Collections (optional)
+
+Besides ordinary lists (T5), a model declares sets (`Set<T>`), ordered sets (`@Multiplicity(kind = ORDERED_SET)` on a
+list), bounded lists (`@Multiplicity(upper = n)` on a list of scalars), maps (`VMap<K, V>` of scalar keys and values)
+and keyed containment (`@Contains @Keyed(by = "key")`). With the events, history, views and json modules, the K rules
+below extend those modules to these collections.
+
+- **K1** A set of scalar values holds each value at most once and never `null`. Adding a value it holds leaves it
+  unchanged and produces no event; adding `null` is rejected. Removing a value it does not hold changes nothing. The
+  iteration order of a set is not specified.
+- **K2** An ordered set keeps the order of a list and holds each element at most once; an ordered set of scalars holds
+  no `null`. Appending an element it holds leaves it unchanged; inserting an element it holds, or replacing an element
+  with one it holds at another index, is rejected.
+- **K3** Sets and ordered sets of model objects compare their elements by identity: content-equal but distinct
+  objects are distinct elements. With an opposite, both ends stay consistent as in R1 to R3.
+- **K4** A map has non-null keys; a value may be `null`, and a key with a `null` value is present. Entries keep the
+  order in which their keys were first put: putting a value for a new key appends an entry, putting a value for a
+  present key replaces the value and keeps the entry's position. Removing a key removes its entry; removing an absent
+  key changes nothing. A `null` key is rejected.
+- **K5** Sets, ordered sets, maps and bounded lists of scalars are bounded by `@Multiplicity(upper = n)`: an edit that
+  would make them hold more than n elements or entries is rejected and leaves them unchanged, also an edit that adds
+  several at once. Adding a value a set holds and replacing the value of a present key do not count. These
+  collections hold no `null` elements (map values excepted). An ordinary list (a list of scalars that is neither an
+  ordered set nor bounded) accepts `null` elements of boxed types. Lower bounds, and the bounds of collections of model
+  objects (containment and references), are left to validation: edits beyond them succeed.
+- **K6** In a keyed containment, every entry has a key (its property named by `@Keyed`) that is not `null` and that
+  no other entry of the same property has; scalar keys compare by value, model objects by identity. An edit that
+  would add, insert or replace in an entry without a key or with a key another entry has is rejected and leaves the
+  model unchanged; an entry moving in from elsewhere stays where it was. The owner finds an entry by its key
+  (`find<Property>By<Key>`), which returns the entry or none. While an entry is in the list, setting its key to `null`
+  or to the key of another entry is rejected; other key changes are allowed and the lookup follows them. An entry
+  that left the list can change its key freely.
+- **K7** Content equality (Q1) compares sets as sets and maps as sets of entries: iteration order does not matter,
+  but a key with a `null` value differs from an absent key. Ordered sets and keyed lists compare in order. A deep
+  copy (Q3) has the same set members and the same map entries in the same order.
+- **K8** A read-only view (V1, V2) shows sets, maps and keyed lists as read-only, live collections; its key lookup
+  returns read-only views. An `@Immutable` type receives its sets, ordered sets and maps at creation, checked like
+  those of a mutable type (a set keeps one of repeated values), and they cannot change afterwards (V3).
+- **K9** An edit of a set is reported with the added or removed values, without indices. An edit of a map is reported
+  per key: a new key as an added entry, a removed key as a removed entry, a new value for a present key as a replaced
+  entry, each with its key and its (new) value. Clearing reports all removed values or entries. As in E6, a bulk edit
+  may be reported as one event or several.
+- **K10** Edits of sets and maps are recorded and undone like other edits (H1 to H3). Undoing the removal of a map
+  key restores its entry; the entry's position in the iteration order is not specified.
+- **K11** A document (J1) writes a set as a JSON array of its values, in any order, and an ordered set like a list. A
+  map with `String` keys is a JSON object with one field per entry, in iteration order; a map with other keys is an
+  array of `{"key": k, "value": v}` objects in iteration order. A `null` value is written as `null`; empty sets and
+  maps are written as `[]` and `{}` (or `[]` for keys that are not strings). Readers keep the entry order of the
+  document and reject `null` and repeated keys in the array form and `null` and repeated set members. Keyed lists are
+  written like containment lists; readers reject entries without a key or with a repeated key, also when the key is a
+  reference that they resolve after the entry.
 
 ## Externals (optional)
 
@@ -255,6 +348,10 @@ across targets:
   index-based replacement in containment lists, and `null` entries in containment lists
 - recordings that cover only one side of a moved object (the previous owner is not covered)
 - whether a deep copy shares or copies immutable values, external values and untyped values
+- the iteration order of sets, and the position that undo gives a map key it puts back (K1, K10)
+- whether putting a value under a present key that already holds an equal value is reported as a change
+- whether `0.0` and `-0.0` (or NaN values) are distinct set elements or map keys
+- JSON objects of string-key maps with repeated field names
 - how a language represents untyped numbers: which integer and floating-point types it uses, whether an
   integral floating-point value such as `2.0` reads back as an integer, and how documents write such a value
 - untyped values that are not JSON values (Java writes any value that Jackson can serialize)
@@ -263,15 +360,19 @@ across targets:
 - the hooks of several supertypes: Java runs every inherited type-level hook, C# and TypeScript the one that
   the model selects
 - plain documents for models whose subtypes occur where a property declares their supertype
+- validation messages, severities and what an issue carries besides its code and path; the order of the issues
+  of a property whose constraints come from several declarations (a redeclared property)
+- whether an edit beyond the upper bound of a scalar list is rejected (Java and C# reject it)
 - `toString` formats and concrete hash code values; threading
 
 ## Not part of the cross-language contract
 
 Target-specific features may exist but are tested by that target's own tests: builder merge semantics
 (`applyFrom`, `applyTo`, appended collections), executable (bound) defaults, cursors and traversal APIs,
-reflection writes, journals and their file formats, XML and YAML, model diff, validation, maps and sets,
-generic model types. Each of these can become a module of its own with its own rules and scenarios once two
-targets need it.
+reflection writes, journals and their file formats, XML and YAML, model diff, validation rules beyond the
+declared constraints (Java's and C#'s `ModelValidator` with application rules or reference following),
+collection defaults (`@DefaultValue` of sets, lists and maps). Each of these can become a module of its own
+with its own rules and scenarios once two targets need it.
 
 The Workshop example additionally exchanges files between Java, C# and TypeScript
 (`:vmf:verifyTypeScriptWorkshop`); the JSON module states and checks the format those files share.

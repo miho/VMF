@@ -29,7 +29,8 @@ def portableGeneration = [:]
         group = 'vmf'
         description = "Generates the portable contract models for ${target}."
         dependsOn compilePortableGenerator
-        classpath = files(portableBuild.dir('classes/generator')) + sourceSets.main.runtimeClasspath
+        // The runtime provides VCollections types such as VMap that model declarations use.
+        classpath = files(portableBuild.dir('classes/generator')) + sourceSets.main.runtimeClasspath + portableRuntime
         mainClass = 'eu.mihosoft.vmf.portable.GeneratePortableModels'
         args target, portableOutput(target).asFile.absolutePath,
                 portableModels.asFile.absolutePath,

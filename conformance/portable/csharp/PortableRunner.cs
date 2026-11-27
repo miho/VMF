@@ -23,7 +23,8 @@ public static class PortableRunner
 
     private static readonly HashSet<string> Capabilities = new(StringComparer.Ordinal)
     {
-        "core", "views", "events", "history", "reflection", "equality-modes", "json", "externals", "behavior",
+        "core", "views", "events", "history", "reflection", "equality-modes", "json", "validation", "collections",
+        "externals", "behavior",
     };
 
     /// <summary>Modules that do not apply to the language, with the reason.</summary>
@@ -240,8 +241,9 @@ public static class PortableRunner
 internal sealed class ScenarioFailure(string message) : Exception(message);
 
 /// <summary>One received change notification, kept raw until a scenario compares it.</summary>
+/// <remarks><c>Keys</c> holds the keys of a map event, one per element.</remarks>
 internal sealed record Event(int Step, object? Source, string Property, string Kind, object? OldValue,
-    object? NewValue, List<object?> Elements, List<int> Indices);
+    object? NewValue, List<object?> Elements, List<int> Indices, List<object?>? Keys = null);
 
 /// <summary>JSON helpers that follow Jackson's <c>asText</c> conventions used by the Java runner.</summary>
 internal static class Json
@@ -271,7 +273,7 @@ internal sealed class Execution(string model)
         "new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual", "nativeEqual",
         "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf", "listen", "unlisten",
         "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write", "read", "calls",
-        "document", "call", "replaceBehavior",
+        "document", "validate", "put", "putAll", "removeKey", "find", "call", "replaceBehavior",
     ];
 
     private static readonly Dictionary<string, ModelReflectionRegistry> Registries = new(StringComparer.Ordinal);
@@ -372,6 +374,28 @@ internal sealed class Execution(string model)
                 break;
             case "clear":
                 ModelLists.Clear(MutableList(Json.Text(node["clear"])));
+                break;
+            case "put":
+            {
+                object map = MutableList(Json.Text(node["put"]));
+                var (key, value) = MapTypes(map);
+                ModelLists.Invoke(map, "Put", 2, ToClr(node["key"], key), ToClr(node["value"], value));
+                break;
+            }
+            case "putAll":
+            {
+                object map = MutableList(Json.Text(node["putAll"]));
+                ModelLists.Invoke(map, "PutAll", 1, Entries(node["entries"]!.AsArray(), MapTypes(map)));
+                break;
+            }
+            case "removeKey":
+            {
+                object map = MutableList(Json.Text(node["removeKey"]));
+                ModelLists.Invoke(map, "Remove", 1, ToClr(node["key"], MapTypes(map).Key));
+                break;
+            }
+            case "find":
+                Find(Json.Text(node["find"]), node);
                 break;
             case "check":
                 Check(Json.Text(node["check"]), node);
@@ -553,6 +577,9 @@ internal sealed class Execution(string model)
                 }
                 break;
             }
+            case "validate":
+                CheckIssues(Json.Text(node["validate"]), node["issues"]!.AsArray());
+                break;
             case "call":
                 Call(Json.Text(node["call"]), node);
                 break;
@@ -741,6 +768,12 @@ internal sealed class Execution(string model)
                     }
                     argument = items;
                 }
+                else if (value is JsonObject map && map.ContainsKey("entries") && ElementOf(parameter) is { } pair
+                    && pair.IsGenericType && pair.GetGenericTypeDefinition() == typeof(KeyValuePair<,>))
+                {
+                    var types = pair.GetGenericArguments();
+                    argument = Entries(map["entries"]!.AsArray(), (types[0], types[1]));
+                }
                 else if (value is JsonArray list && ElementOf(parameter) is { } element)
                 {
                     var items = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(element))!;
@@ -912,10 +945,69 @@ internal sealed class Execution(string model)
             else view!.Start();
         }
 
-        internal IDisposable Listen(Func<ModelChange, Event> local, Func<ReadOnlyModelChange, Event> projected,
-            Action<Event> receive, ModelChangeScope scope) => mutable is not null
+        internal IDisposable Listen(Func<ModelChange, List<Event>> local, Func<ReadOnlyModelChange, List<Event>> projected,
+            Action<List<Event>> receive, ModelChangeScope scope) => mutable is not null
             ? mutable.AddListener(change => receive(local(change)), scope)
             : view!.AddListener(change => receive(projected(change)), scope);
+    }
+
+    /// <summary>The key and value types of a scalar map or its read-only view.</summary>
+    private static (Type Key, Type Value) MapTypes(object map)
+    {
+        Type dictionary = map.GetType().GetInterfaces().Append(map.GetType())
+            .FirstOrDefault(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>))
+            ?? throw new ScenarioFailure(map.GetType().Name + " is not a map");
+        var arguments = dictionary.GetGenericArguments();
+        return (arguments[0], arguments[1]);
+    }
+
+    private static bool IsMap(object? value) => value is not null && value.GetType().GetInterfaces()
+        .Any(type => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IReadOnlyDictionary<,>));
+
+    /// <summary>Map entries written as <c>[[key, value], ...]</c>, as a list of key/value pairs.</summary>
+    private IList Entries(JsonArray pairs, (Type Key, Type Value) types)
+    {
+        Type pair = typeof(KeyValuePair<,>).MakeGenericType(types.Key, types.Value);
+        var entries = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(pair))!;
+        foreach (var item in pairs)
+        {
+            entries.Add(Activator.CreateInstance(pair, ToClr(item![0], types.Key), ToClr(item[1], types.Value)));
+        }
+        return entries;
+    }
+
+    private static (object? Key, object? Value) Entry(object? pair) =>
+        (pair!.GetType().GetProperty("Key")!.GetValue(pair), pair.GetType().GetProperty("Value")!.GetValue(pair));
+
+    /// <summary>Calls the generated lookup <c>Find&lt;Property&gt;By&lt;Key&gt;</c> of a keyed collection's owner.</summary>
+    private void Find(string path, JsonObject node)
+    {
+        var (owner, name, _) = Owner(path);
+        string lookup = "Find" + name + "By" + Json.Text(node["by"]);
+        MethodInfo method = owner!.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .FirstOrDefault(candidate => string.Equals(candidate.Name, lookup, StringComparison.OrdinalIgnoreCase)
+                && candidate.GetParameters().Length == 1)
+            ?? throw new ScenarioFailure("no lookup " + lookup);
+        object? found = InvokeOn(method, owner, ToClr(node["key"], method.GetParameters()[0].ParameterType));
+        object? expected = Object(node["obj"]);
+        if (!ReferenceEquals(found, expected))
+        {
+            throw new ScenarioFailure(lookup + "(" + Json.Show(node["key"]) + "): expected " + Render(expected)
+                + ", found " + Render(found));
+        }
+    }
+
+    private static object? InvokeOn(MethodInfo method, object target, params object?[] arguments)
+    {
+        try
+        {
+            return method.Invoke(target, arguments);
+        }
+        catch (TargetInvocationException error) when (error.InnerException is not null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(error.InnerException).Throw();
+            throw;
+        }
     }
 
     private object MutableList(string path)
@@ -977,7 +1069,15 @@ internal sealed class Execution(string model)
         {
             if (identity ? ReferenceEquals(element, target) : SameScalar(element, node["value"]))
             {
-                ModelLists.RemoveAt(list, position);
+                if (ModelLists.IsOrdered(list))
+                {
+                    ModelLists.RemoveAt(list, position);
+                }
+                else
+                {
+                    // Sets have no positions; they remove the element itself.
+                    ModelLists.Invoke(list, "Remove", 1, element);
+                }
                 return;
             }
             position++;
@@ -1183,6 +1283,12 @@ internal sealed class Execution(string model)
     private void Check(string path, JsonObject node)
     {
         object? actual = Resolve(path);
+        // An untyped value can be a dictionary too (externals); it is compared as a value.
+        if (IsMap(actual) && !node.ContainsKey("value"))
+        {
+            CheckMap(path, actual!, node);
+            return;
+        }
         if (node.ContainsKey("obj"))
         {
             object? expected = Object(node["obj"]);
@@ -1215,18 +1321,79 @@ internal sealed class Execution(string model)
                     throw new ScenarioFailure(path + ": expected " + Render(expected) + ", found " + Render(items));
                 }
             }
-            if (node["values"] is JsonArray values)
+            if (node["values"] is JsonArray values && !SameValues(items, values, Json.Bool(node["unordered"])))
             {
-                bool same = items.Count == values.Count;
-                for (int i = 0; same && i < items.Count; i++)
+                throw new ScenarioFailure(path + ": expected " + values.ToJsonString() + ", found " + Render(items));
+            }
+        }
+    }
+
+    /// <summary>Scalars in order, or in any order (each expected value matches one element).</summary>
+    private static bool SameValues(List<object?> items, JsonArray expected, bool unordered)
+    {
+        if (items.Count != expected.Count)
+        {
+            return false;
+        }
+        var remaining = new List<object?>(items);
+        foreach (var wanted in expected)
+        {
+            int match = -1;
+            for (int j = 0; j < (unordered ? remaining.Count : Math.Min(1, remaining.Count)); j++)
+            {
+                if (SameScalar(remaining[j], wanted))
                 {
-                    same = SameScalar(items[i], values[i]);
-                }
-                if (!same)
-                {
-                    throw new ScenarioFailure(path + ": expected " + values.ToJsonString() + ", found " + Render(items));
+                    match = j;
+                    break;
                 }
             }
+            if (match < 0)
+            {
+                return false;
+            }
+            remaining.RemoveAt(match);
+        }
+        return true;
+    }
+
+    /// <summary>A map: <c>size</c> and <c>entries</c> (<c>[[key, value], ...]</c>) in iteration order or unordered.</summary>
+    private void CheckMap(string path, object map, JsonObject node)
+    {
+        var entries = ((IEnumerable)map).Cast<object?>().Select(Entry).ToList();
+        string rendered = "[" + string.Join(", ", entries.Select(entry => "[" + Render(entry.Key) + ", "
+            + Render(entry.Value) + "]")) + "]";
+        if (node.ContainsKey("size") && entries.Count != Json.Int(node["size"]))
+        {
+            throw new ScenarioFailure(path + ": expected size " + Json.Show(node["size"]) + ", found " + entries.Count
+                + " " + rendered);
+        }
+        if (node["entries"] is JsonArray expected)
+        {
+            bool unordered = Json.Bool(node["unordered"]);
+            bool same = entries.Count == expected.Count;
+            foreach (var wanted in expected)
+            {
+                if (!same) break;
+                int match = -1;
+                for (int j = 0; j < (unordered ? entries.Count : Math.Min(1, entries.Count)); j++)
+                {
+                    if (SameScalar(entries[j].Key, wanted![0]) && SameScalar(entries[j].Value, wanted[1]))
+                    {
+                        match = j;
+                        break;
+                    }
+                }
+                same = match >= 0;
+                if (same) entries.RemoveAt(match);
+            }
+            if (!same)
+            {
+                throw new ScenarioFailure(path + ": expected " + expected.ToJsonString() + ", found " + rendered);
+            }
+        }
+        if (node.ContainsKey("obj") || node.ContainsKey("value") || node.ContainsKey("objs") || node.ContainsKey("values"))
+        {
+            throw new ScenarioFailure(path + " is a map");
         }
     }
 
@@ -1374,15 +1541,18 @@ internal sealed class Execution(string model)
             calls[Json.Text(logName)] = log = [];
         }
         var react = node["react"] as JsonObject;
-        void Receive(Event current)
+        void Receive(List<Event> currentEvents)
         {
-            received.Add(current);
-            log?.Add((name, current));
-            if (react is not null && Matches(react["when"]!.AsObject(), current))
+            foreach (var current in currentEvents)
             {
-                // the listener edits the model while the change is delivered
-                var edit = react["do"]!.AsObject();
-                Execute(Operation(edit), edit);
+                received.Add(current);
+                log?.Add((name, current));
+                if (react is not null && Matches(react["when"]!.AsObject(), current))
+                {
+                    // the listener edits the model while the change is delivered
+                    var edit = react["do"]!.AsObject();
+                    Execute(Operation(edit), edit);
+                }
             }
         }
         var subscription = Changes(Resolve(path)).Listen(ToEvent, ToEvent, Receive,
@@ -1414,18 +1584,49 @@ internal sealed class Execution(string model)
         }
     }
 
-    private Event ToEvent(ModelChange change) => change switch
+    private List<Event> ToEvent(ModelChange change) => change switch
     {
-        ModelCollectionChange collection => CollectionEvent(change.Source, change.PropertyName, collection.Added,
-            collection.Removed),
-        _ when change.Kind == ModelChangeKind.Property => new Event(step, change.Source, change.PropertyName, "set",
-            change.OldValue, change.NewValue, [], []),
-        _ => new Event(step, change.Source, change.PropertyName, "other", null, null, [], []),
+        ModelCollectionChange collection => CollectionEvents(change.Source, change.PropertyName, change.Kind,
+            collection.Added, collection.Removed),
+        _ when change.Kind == ModelChangeKind.Property => [new Event(step, change.Source, change.PropertyName, "set",
+            change.OldValue, change.NewValue, [], [])],
+        _ => [new Event(step, change.Source, change.PropertyName, "other", null, null, [], [])],
     };
 
-    private Event ToEvent(ReadOnlyModelChange change) => change.Kind == ModelChangeKind.Property
-        ? new Event(step, change.Source, change.PropertyName, "set", change.OldValue, change.NewValue, [], [])
-        : CollectionEvent(change.Source, change.PropertyName, change.Added, change.Removed);
+    private List<Event> ToEvent(ReadOnlyModelChange change) => change.Kind == ModelChangeKind.Property
+        ? [new Event(step, change.Source, change.PropertyName, "set", change.OldValue, change.NewValue, [], [])]
+        : CollectionEvents(change.Source, change.PropertyName, change.Kind, change.Added, change.Removed);
+
+    /// <summary>
+    /// A map change becomes per-key events (removed keys, replaced keys with their new values, added keys); a set
+    /// change becomes a remove and an add event; list changes stay one event.
+    /// </summary>
+    private List<Event> CollectionEvents(object source, string property, ModelChangeKind kind,
+        IReadOnlyList<ModelCollectionEntry> added, IReadOnlyList<ModelCollectionEntry> removed)
+    {
+        if (kind == ModelChangeKind.Map)
+        {
+            var events = new List<Event>();
+            void Add(string eventKind, IEnumerable<ModelCollectionEntry> entries)
+            {
+                var selected = entries.ToList();
+                if (selected.Count > 0)
+                {
+                    events.Add(new Event(step, source, property, eventKind, null, null,
+                        selected.Select(entry => entry.Value).ToList(), [], selected.Select(entry => entry.Key).ToList()));
+                }
+            }
+            Add("remove", removed.Where(entry => !added.Any(other => Equals(other.Key, entry.Key))));
+            Add("replace", added.Where(entry => removed.Any(other => Equals(other.Key, entry.Key))));
+            Add("add", added.Where(entry => !removed.Any(other => Equals(other.Key, entry.Key))));
+            return events;
+        }
+        if ((kind == ModelChangeKind.Set || kind == ModelChangeKind.ReferenceSet) && added.Count > 0 && removed.Count > 0)
+        {
+            return [CollectionEvent(source, property, [], removed), CollectionEvent(source, property, added, [])];
+        }
+        return [CollectionEvent(source, property, added, removed)];
+    }
 
     /// <summary>Like Java's list events: a slot replacement carries both sides, reported with the added side.</summary>
     private Event CollectionEvent(object source, string property, IReadOnlyList<ModelCollectionEntry> added,
@@ -1458,6 +1659,7 @@ internal sealed class Execution(string model)
                     NewValue = null,
                     Elements = [.. last.Elements, .. current.Elements],
                     Indices = [.. last.Indices, .. current.Indices],
+                    Keys = last.Keys is null && current.Keys is null ? null : [.. last.Keys ?? [], .. current.Keys ?? []],
                 };
             }
             else if (sameTarget && current.Kind == "set" && Chained(last!.NewValue, current.OldValue))
@@ -1534,6 +1736,7 @@ internal sealed class Execution(string model)
         if (wanted.ContainsKey("oldObj") && !ReferenceEquals(Object(wanted["oldObj"]), current.OldValue)) return false;
         if (wanted.ContainsKey("newObj") && !ReferenceEquals(Object(wanted["newObj"]), current.NewValue)) return false;
         if (wanted.ContainsKey("values") && !SameScalar(current.Elements, wanted["values"])) return false;
+        if (wanted.ContainsKey("keys") && !SameScalar(current.Keys ?? [], wanted["keys"])) return false;
         if (wanted["objs"] is JsonArray objs && !SameObjects(current.Elements, objs.Select(Object).ToList(), false))
         {
             return false;
@@ -1559,6 +1762,33 @@ internal sealed class Execution(string model)
         undone[label] = recorded;
     }
 
+    // ---------------------------------------------------------------------------------------- validation
+
+    /// <summary>
+    /// Validates an object and compares the issues, model code and model path in reported order, with the expected
+    /// ones: through the generated <c>Validate()</c> and through <see cref="ModelValidator"/>.
+    /// </summary>
+    private void CheckIssues(string path, JsonArray expected)
+    {
+        object root = Resolve(path) ?? throw new ScenarioFailure("cannot validate null");
+        var wanted = expected.Select(issue => Json.Text(issue!["code"]) + " " + Json.Text(issue!["path"])).ToList();
+        MethodInfo validate = root.GetType().GetMethod("Validate", Type.EmptyTypes)
+            ?? throw new MissingMethodException(root.GetType().Name, "Validate");
+        var generated = ((IEnumerable<ValidationIssue>)validate.Invoke(root, null)!)
+            .Select(issue => issue.ModelCode + " " + issue.ModelPath).ToList();
+        if (!generated.SequenceEqual(wanted))
+        {
+            throw new ScenarioFailure(path + ": expected issues " + List(wanted) + ", Validate() found " + List(generated));
+        }
+        var report = ModelValidator.NewBuilder(Registry(root)).Build().Validate(root);
+        var validated = report.Issues.Select(issue => issue.Code + " " + issue.Path).ToList();
+        if (!validated.SequenceEqual(wanted) || report.IsValid != (wanted.Count == 0))
+        {
+            throw new ScenarioFailure(path + ": expected issues " + List(wanted) + ", ModelValidator found "
+                + List(validated) + (report.IsValid ? " (valid)" : " (invalid)"));
+        }
+    }
+
     // ---------------------------------------------------------------------------------------- rendering
 
     private static string List(IEnumerable<string> items) => "[" + string.Join(", ", items) + "]";
@@ -1572,7 +1802,8 @@ internal sealed class Execution(string model)
             case Event e:
                 return "{" + Render(e.Source) + "." + e.Property + " " + e.Kind
                     + (e.Kind == "set" ? " " + Render(e.OldValue) + "->" + Render(e.NewValue)
-                        : " " + Render(e.Elements) + "@[" + string.Join(", ", e.Indices) + "]") + "}";
+                        : " " + Render(e.Elements) + "@" + (e.Keys is null ? "[" + string.Join(", ", e.Indices) + "]"
+                            : Render(e.Keys))) + "}";
             case string text:
                 return "\"" + text + "\"";
             case IEnumerable items:
@@ -1661,6 +1892,10 @@ internal static class ModelLists
 {
     internal static void Add(object list, object? item) => Invoke(list, "Add", 1, item);
 
+    /// <summary>True for collections with positions (lists, ordered sets); sets and maps have none.</summary>
+    internal static bool IsOrdered(object list) => list.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
+        .Any(method => method.Name == "RemoveAt" && method.GetParameters().Length == 1);
+
     internal static void Insert(object list, int index, object? item) => Invoke(list, "Insert", 2, index, item);
 
     internal static void RemoveAt(object list, int index) => Invoke(list, "RemoveAt", 1, index);
@@ -1698,15 +1933,28 @@ internal static class ModelLists
         list.GetType().GetInterfaces()
             .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>))
             ?.GetGenericArguments()[0]
+        ?? list.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
+            .FirstOrDefault(method => method.Name == "Add" && method.GetParameters().Length == 1)
+            ?.GetParameters()[0].ParameterType
         ?? throw new InvalidOperationException(list.GetType().Name + " is not an editable list");
 
-    private static void Invoke(object list, string name, int arity, params object?[] arguments)
+    internal static void Invoke(object list, string name, int arity, params object?[] arguments)
     {
         MethodInfo method = list.GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance)
             .Where(candidate => candidate.Name == name && candidate.GetParameters().Length == arity)
             .OrderBy(candidate => candidate.GetParameters().Any(p => p.ParameterType == typeof(object)) ? 1 : 0)
             .FirstOrDefault()
             ?? throw new InvalidOperationException(list.GetType().Name + " does not support " + name);
+        var parameters = method.GetParameters();
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            Type type = parameters[i].ParameterType;
+            // Reflection would pass default(T); C# code cannot pass null for a non-nullable value type at all.
+            if (arguments[i] is null && type.IsValueType && Nullable.GetUnderlyingType(type) is null)
+            {
+                throw new ArgumentNullException(parameters[i].Name, type.Name + " cannot hold null");
+            }
+        }
         method.Invoke(list, arguments);
     }
 }
