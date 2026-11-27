@@ -54,7 +54,10 @@ final class DeliveryOrder {
     private static WeakReference<Object> lastEvent = new WeakReference<>(null);
     private static long lastStamp;
 
-    private static final Map<IdentityKey, Relays> RELAYS = new HashMap<>();
+    // Each dispatcher's relay handlers, held weakly: the relays registered with the dispatcher keep them, so they
+    // live as long as the dispatcher has relays. Holding them strongly would keep every observed object alive,
+    // because the handlers reach the observers' models and those reach the dispatcher.
+    private static final Map<IdentityKey, WeakReference<Relays>> RELAYS = new HashMap<>();
     private static final ReferenceQueue<Object> EXPIRED_DISPATCHERS = new ReferenceQueue<>();
 
     private DeliveryOrder() {
@@ -143,7 +146,13 @@ final class DeliveryOrder {
         Relays relays;
         synchronized (DeliveryOrder.class) {
             purge(RELAYS, EXPIRED_DISPATCHERS);
-            relays = RELAYS.computeIfAbsent(new IdentityKey(dispatcher, EXPIRED_DISPATCHERS), key -> new Relays());
+            var key = new IdentityKey(dispatcher, EXPIRED_DISPATCHERS);
+            var existing = RELAYS.get(key);
+            relays = existing == null ? null : existing.get();
+            if (relays == null) {
+                relays = new Relays();
+                RELAYS.put(key, new WeakReference<>(relays));
+            }
         }
         var handler = new Handler(observer, observerModel, recursive, body, relays);
         relays.insert(handler, position);
