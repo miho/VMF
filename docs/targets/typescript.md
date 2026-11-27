@@ -8,10 +8,16 @@ equality that a class can define, so TypeScript follows N3 instead of N2 (see [E
 
 ## Generating
 
-`VMF.generate(GenerationTarget.TYPESCRIPT, outputDir, sourceFiles...)` reads the Java model interfaces and
-writes one `model.g.ts` per model namespace (`eu/mihosoft/vmf/portable/tree/model.g.ts`). Generated code is an
-ES2022 module that imports the runtime as `@vmf/runtime` (`typescript-runtime/`). Each module exports a
-`ModelSnapshot` class for documents.
+The Gradle plugin generates TypeScript with `vmf { targets = ['typescript'] }` (into
+`build/generated-src/vmf-main-typescript`), the Maven plugin with
+`<targets><target>typescript</target></targets>` (into `target/generated-sources/typescript-vmf`); from code,
+`VMF.generate(GenerationTarget.TYPESCRIPT, outputDir, sourceFiles...)` does the same. Each model namespace
+becomes one `model.g.ts` (`eu/mihosoft/vmf/portable/tree/model.g.ts`) that exports a `ModelSnapshot` class for
+documents.
+
+Generated code is an ES2022 module that imports the runtime as `@vmf/runtime` (`typescript-runtime/`).
+`./gradlew :vmf:packTypeScriptRuntime` packs it as `core/build/target-runtimes/vmf-runtime-<version>.tgz`, which
+`npm install` accepts; it is not published to the npm registry yet.
 
 ## Types and values (T)
 

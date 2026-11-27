@@ -7,11 +7,16 @@ Claimed modules: core, views, events, history, reflection, equality-modes, json.
 
 ## Generating
 
-`VMF.generate(GenerationTarget.CSHARP, outputDir, sourceFiles...)` reads the Java model interfaces and writes
-one `Model.g.cs` per model namespace: `eu.mihosoft.vmf.portable.tree` becomes the namespace
-`Eu.Mihosoft.Vmf.Portable.Tree` in `Eu/Mihosoft/Vmf/Portable/Tree/Model.g.cs`. Generated code targets .NET 8
-and depends on the `Vmf.Runtime` library (`csharp-runtime/`). Each namespace has a static `ModelSnapshot`
-class for documents, reflection and copies.
+The Gradle plugin generates C# with `vmf { targets = ['csharp'] }` (into
+`build/generated-src/vmf-main-csharp`), the Maven plugin with `<targets><target>csharp</target></targets>`
+(into `target/generated-sources/csharp-vmf`); from code, `VMF.generate(GenerationTarget.CSHARP, outputDir,
+sourceFiles...)` does the same. Each model namespace becomes one `Model.g.cs`: `eu.mihosoft.vmf.portable.tree`
+becomes the namespace `Eu.Mihosoft.Vmf.Portable.Tree` in `Eu/Mihosoft/Vmf/Portable/Tree/Model.g.cs`. Each
+namespace has a static `ModelSnapshot` class for documents, reflection and copies.
+
+Generated code targets .NET 8 and depends on the `Vmf.Runtime` library (`csharp-runtime/`).
+`./gradlew :vmf:packCSharpRuntime` packs it as `core/build/target-runtimes/Vmf.Runtime.<version>.nupkg`; it is
+not published to nuget.org yet.
 
 ## Types and values (T)
 

@@ -91,6 +91,30 @@ public class TestVMFMojo {
 	}
 
 	@Test
+	public void generatesCSharpAndTypeScriptBesidesJava() throws Exception {
+		GenerateVMFSourcesMojo mojo = new GenerateVMFSourcesMojo();
+		mojo.setSourceDirectory(new File("src/test/resources/test/vmf"));
+		File generated = temporaryFolder.newFolder("generated-sources");
+		mojo.setTargetDirectory(new File(generated, "java-vmf"));
+		mojo.setTargets(Arrays.asList("csharp", "TypeScript", "java"));
+		mojo.setProject(new MavenProject());
+		mojo.execute();
+		assertTrue(new File(generated, "csharp-vmf/Eu/Mihosoft/Model.g.cs").isFile());
+		assertTrue(new File(generated, "typescript-vmf/eu/mihosoft/model.g.ts").isFile());
+		assertEquals(1, mojo.getProject().getCompileSourceRoots().size());
+	}
+
+	@Test(expected = MojoExecutionException.class)
+	public void unknownTargetsFail() throws Exception {
+		GenerateVMFSourcesMojo mojo = new GenerateVMFSourcesMojo();
+		mojo.setSourceDirectory(new File("src/test/resources/test/vmf"));
+		mojo.setTargetDirectory(temporaryFolder.newFolder("java-vmf"));
+		mojo.setTargets(Collections.singletonList("kotlin"));
+		mojo.setProject(new MavenProject());
+		mojo.execute();
+	}
+
+	@Test
 	public void mainModelUsesProjectCompileClasspath() throws Exception {
 		File classes = compileExternalType("compilefixture", "MainValue");
 		GenerateVMFSourcesMojo mojo = new GenerateVMFSourcesMojo();

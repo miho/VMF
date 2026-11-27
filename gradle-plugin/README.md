@@ -18,6 +18,21 @@ vmf {
 }
 ```
 
+### Generating C# and TypeScript
+
+The plugin can also generate C# and TypeScript from the same model interfaces:
+
+```gradle
+vmf {
+    targets = ['csharp', 'typescript']
+}
+```
+
+Java is always generated. The other languages go to `build/generated-src/vmf-<source set>-csharp` and
+`build/generated-src/vmf-<source set>-typescript`, for example `build/generated-src/vmf-main-csharp`. The build
+fails if a model uses features a language does not support; the
+[language mappings](../docs/targets/) describe the generated code and its runtime.
+
 ## Building the VMF Gradle Plugin
 
 ### IDE
