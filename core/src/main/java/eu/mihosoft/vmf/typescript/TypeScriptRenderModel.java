@@ -537,6 +537,8 @@ final class TypeScriptRenderModel {
                 return "false";
             case INT64:
                 return "0n";
+            case CHAR:
+                return quoted("\u0000");
             default:
                 return "0";
         }
@@ -548,10 +550,20 @@ final class TypeScriptRenderModel {
                 return quoted(String.valueOf(value));
             case BOOLEAN:
                 return String.valueOf(value);
+            case INT8:
+            case INT16:
             case INT32:
                 return String.valueOf(((Number) value).intValue());
             case INT64:
                 return ((Number) value).longValue() + "n";
+            case CHAR:
+                return quoted(String.valueOf(value));
+            case FLOAT32: {
+                float number = ((Number) value).floatValue();
+                if (Float.isNaN(number)) return "Number.NaN";
+                if (Float.isInfinite(number)) return number > 0 ? "Number.POSITIVE_INFINITY" : "Number.NEGATIVE_INFINITY";
+                return Float.toString(number);
+            }
             case FLOAT64: {
                 double number = ((Number) value).doubleValue();
                 if (Double.isNaN(number)) return "Number.NaN";
@@ -607,11 +619,15 @@ final class TypeScriptRenderModel {
         switch (value.getKind()) {
             case BOOLEAN:
                 return "boolean";
+            case INT8:
+            case INT16:
             case INT32:
+            case FLOAT32:
             case FLOAT64:
                 return "number";
             case INT64:
                 return "bigint";
+            case CHAR:
             case STRING:
                 return "string";
             case PARAMETER:

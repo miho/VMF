@@ -825,6 +825,18 @@ public final class PortableRunner {
                 case "boolean":
                 case "java.lang.Boolean":
                     return Boolean.class;
+                case "byte":
+                case "java.lang.Byte":
+                    return Byte.class;
+                case "short":
+                case "java.lang.Short":
+                    return Short.class;
+                case "float":
+                case "java.lang.Float":
+                    return Float.class;
+                case "char":
+                case "java.lang.Character":
+                    return Character.class;
                 case "java.lang.String":
                     return String.class;
                 default:
@@ -858,6 +870,8 @@ public final class PortableRunner {
                 return value.asBoolean();
             }
             if (value.isTextual()) {
+                // A char is one UTF-16 code unit (T6).
+                if (box(type) == Character.class && value.asText().length() == 1) return value.asText().charAt(0);
                 return value.asText();
             }
             if (value.isNumber()) {
@@ -866,6 +880,8 @@ public final class PortableRunner {
                 if (boxed == Double.class) return value.asDouble();
                 if (boxed == Float.class) return (float) value.asDouble();
                 if (boxed == Integer.class) return value.asInt();
+                if (boxed == Short.class) return (short) value.asInt();
+                if (boxed == Byte.class) return (byte) value.asInt();
                 return value.isIntegralNumber() ? (Object) value.asInt() : (Object) value.asDouble();
             }
             throw new ScenarioFailure("cannot convert " + value);
@@ -954,7 +970,10 @@ public final class PortableRunner {
                     return false;
                 }
                 Number number = (Number) actual;
-                return expected.isIntegralNumber() && !(actual instanceof Double || actual instanceof Float)
+                if (actual instanceof Float) {
+                    return number.floatValue() == (float) expected.asDouble();
+                }
+                return expected.isIntegralNumber() && !(actual instanceof Double)
                         ? number.longValue() == expected.asLong()
                         : number.doubleValue() == expected.asDouble();
             }
@@ -962,7 +981,8 @@ public final class PortableRunner {
                 return actual.equals(expected.asBoolean());
             }
             if (expected.isTextual()) {
-                return actual instanceof String && actual.equals(expected.asText());
+                return (actual instanceof String || actual instanceof Character)
+                        && actual.toString().equals(expected.asText());
             }
             if (expected.isArray()) {
                 if (!(actual instanceof List) || ((List<?>) actual).size() != expected.size()) {

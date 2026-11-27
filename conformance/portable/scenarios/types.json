@@ -205,6 +205,7 @@
         {"set": "l.x", "value": 5},
         {"check": "l.x", "value": 5}
       ]
-    }
+    },
+    {"id": "small-numbers-and-characters", "model": "scalars", "rules": ["T2", "T4", "T5", "T6"], "steps": [{"new": "s", "type": "Scalars"}, {"check": "s.tiny", "value": 0}, {"check": "s.small", "value": 0}, {"check": "s.single", "value": 0.0}, {"check": "s.letter", "value": "\u0000"}, {"check": "s.optionalTiny", "value": null}, {"check": "s.optionalSingle", "value": null}, {"check": "s.optionalLetter", "value": null}, {"set": "s.tiny", "value": -128}, {"set": "s.small", "value": 32767}, {"set": "s.single", "value": -1.25}, {"set": "s.letter", "value": "\u03bb"}, {"set": "s.optionalTiny", "value": 127}, {"set": "s.optionalSingle", "value": 0.5}, {"set": "s.optionalLetter", "value": "x"}, {"check": "s.tiny", "value": -128}, {"check": "s.small", "value": 32767}, {"check": "s.single", "value": -1.25}, {"check": "s.letter", "value": "\u03bb"}, {"check": "s.optionalTiny", "value": 127}, {"check": "s.optionalSingle", "value": 0.5}, {"check": "s.optionalLetter", "value": "x"}, {"add": "s.smalls", "values": [-32768, 1]}, {"add": "s.singles", "values": [1.5, 0.25]}, {"add": "s.letters", "values": ["a", "b", "a"]}, {"check": "s.smalls", "values": [-32768, 1]}, {"check": "s.singles", "values": [1.5, 0.25]}, {"check": "s.letters", "values": ["a", "b", "a"]}]}
   ]
 }

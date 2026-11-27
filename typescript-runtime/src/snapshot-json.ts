@@ -489,6 +489,13 @@ function readId(value: JsonValue, path: string): string {
     throw invalid(path, "Expected a non-empty string or integer VMF ID");
 }
 
+const integralRanges = { int8: [-128, 127], int16: [-32768, 32767], int32: [-2147483648, 2147483647] } as const;
+const maxFloat32 = 3.4028234663852886e38;
+
+function isIntegral(type: string): type is keyof typeof integralRanges {
+    return type === "int8" || type === "int16" || type === "int32";
+}
+
 function isIntegerToken(text: string): boolean {
     return /^-?[0-9]+$/.test(text);
 }
@@ -497,10 +504,10 @@ function readScalar(value: JsonValue, property: ScalarProperty, path: string): S
     if (value === null && allowsNull(property)) {
         return null;
     }
-    if (property.scalarType === "int32" && value instanceof JsonNumber && isIntegerToken(value.text)) {
+    if (isIntegral(property.scalarType) && value instanceof JsonNumber && isIntegerToken(value.text)) {
         return requireScalar(Number(value.text), property, path);
     }
-    if (property.scalarType === "float64" && value instanceof JsonNumber) {
+    if ((property.scalarType === "float64" || property.scalarType === "float32") && value instanceof JsonNumber) {
         return requireScalar(Number(value.text), property, path);
     }
     if (property.scalarType === "int64" && value instanceof JsonNumber && isIntegerToken(value.text)) {
@@ -517,11 +524,18 @@ function requireScalar(value: unknown, property: ScalarProperty, path: string): 
     if (property.scalarType === "boolean" && typeof value === "boolean") {
         return value;
     }
-    if (property.scalarType === "int32" && typeof value === "number" && Number.isInteger(value)
-        && value >= -2147483648 && value <= 2147483647) {
+    if (isIntegral(property.scalarType) && typeof value === "number" && Number.isInteger(value)
+        && value >= integralRanges[property.scalarType][0] && value <= integralRanges[property.scalarType][1]) {
         return value === 0 ? 0 : value;
     }
     if (property.scalarType === "float64" && typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+    if (property.scalarType === "float32" && typeof value === "number" && Number.isFinite(value)
+        && Math.abs(value) <= maxFloat32) {
+        return value;
+    }
+    if (property.scalarType === "char" && typeof value === "string" && value.length === 1) {
         return value;
     }
     if (property.scalarType === "int64" && typeof value === "bigint" && value >= minInt64 && value <= maxInt64) {

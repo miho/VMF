@@ -27,6 +27,7 @@ not published to nuget.org yet.
 | `@InterfaceOnly` type | `abstract class`; with several supertypes, an `I<Name>` interface |
 | property `name` | property `Name` |
 | `int`, `long`, `double`, `boolean` | `int`, `long`, `double`, `bool`; boxed Java types become nullable (`int?`) |
+| `byte`, `short`, `float`, `char` | `sbyte`, `short`, `float`, `char` (T6) |
 | `String` | `string?` |
 | list property (`T[]`) | `ScalarList<T>`, `ContainmentList<TOwner, TChild>` or a reference list, each with `Add`, `Insert`, `RemoveAt`, `Clear` and an indexer |
 | `@DefaultValue` | the initial value of new objects |

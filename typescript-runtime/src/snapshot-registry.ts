@@ -10,7 +10,11 @@ interface SnapshotMember {
     readonly get: (owner: object) => unknown;
 }
 
-export type ScalarType = "string" | "boolean" | "int32" | "int64" | "float64";
+/**
+ * The scalar types of the portable contract. byte (int8), short (int16) and float (float32) are numbers and char
+ * a string of one UTF-16 code unit (rule T6); documents keep them within the range of the narrower type.
+ */
+export type ScalarType = "string" | "boolean" | "int8" | "int16" | "int32" | "int64" | "float32" | "float64" | "char";
 
 interface SnapshotScalar extends SnapshotMember {
     readonly kind: "scalar";

@@ -992,7 +992,11 @@ internal sealed class Execution(string model)
                     case JsonValueKind.False:
                         return false;
                     case JsonValueKind.String:
-                        return scalar.GetValue<string>();
+                    {
+                        // A char is one UTF-16 code unit (T6).
+                        string text = scalar.GetValue<string>();
+                        return (Nullable.GetUnderlyingType(type) ?? type) == typeof(char) && text.Length == 1 ? text[0] : text;
+                    }
                     case JsonValueKind.Number:
                     {
                         Type target = Nullable.GetUnderlyingType(type) ?? type;
@@ -1004,6 +1008,7 @@ internal sealed class Execution(string model)
                         if (target == typeof(int)) return integral ? (int)whole : (int)real;
                         if (target == typeof(short)) return integral ? (short)whole : (short)real;
                         if (target == typeof(byte)) return integral ? (byte)whole : (byte)real;
+                        if (target == typeof(sbyte)) return integral ? (sbyte)whole : (sbyte)real;
                         if (target == typeof(decimal)) return integral ? whole : (decimal)real;
                         return integral ? (int)whole : real;
                     }
@@ -1106,8 +1111,12 @@ internal sealed class Execution(string model)
                 {
                     return false;
                 }
+                if (actual is float single)
+                {
+                    return single == (float)expected.GetValue<double>();
+                }
                 bool integral = expected.AsValue().TryGetValue(out long whole);
-                return integral && actual is not (double or float)
+                return integral && actual is not double
                     ? Convert.ToInt64(actual, CultureInfo.InvariantCulture) == whole
                     : Convert.ToDouble(actual, CultureInfo.InvariantCulture) == expected.GetValue<double>();
             }
@@ -1115,7 +1124,8 @@ internal sealed class Execution(string model)
             case JsonValueKind.False:
                 return actual is bool flag && flag == (expected.GetValueKind() == JsonValueKind.True);
             case JsonValueKind.String:
-                return actual is string text && text == expected.GetValue<string>();
+                return actual is string text && text == expected.GetValue<string>()
+                    || actual is char letter && letter.ToString() == expected.GetValue<string>();
             case JsonValueKind.Array:
             {
                 if (actual is not IEnumerable collection || actual is string)

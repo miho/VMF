@@ -22,6 +22,7 @@ sources; `VMF.generate(outputDir, interfaces...)` does the same from code. Gener
 | several supertypes | the interface extends all of them |
 | property `name` | `getName()`, `setName(value)` |
 | `int`, `long`, `double`, `boolean` | the same primitives, never `null`; boxed types (`Integer`, ...) allow `null` |
+| `byte`, `short`, `float`, `char` | the same primitives (T6); boxed types allow `null` |
 | `String` and other object values | references that may be `null` |
 | list property (`T[]`) | `VList<T>`, a `java.util.List` that reports its changes |
 | `@DefaultValue` | the initial value of new objects |

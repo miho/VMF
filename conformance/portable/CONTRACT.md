@@ -51,6 +51,11 @@ must hold; the mapping says how to reach it in that language.
   `int` is 32-bit, `long` 64-bit (all 64 bits are kept), `double` IEEE-754 binary64, strings are Unicode text.
 - **T5** Lists keep insertion order. Scalar lists and plain reference lists may hold the same value several
   times. Index-based insert, replace and remove work as usual.
+- **T6** `byte` is 8-bit and `short` 16-bit, both signed; `float` is IEEE-754 binary32; `char` is one UTF-16 code
+  unit. Their defaults are `0`, `0`, `0.0` and U+0000. A language without these types maps them to a wider
+  type that holds every value of the narrower one (the language mapping says which); values written to a
+  document stay within the narrower type's range. Documents write `byte`, `short` and `float` as JSON
+  numbers and a `char` as a string of one code unit.
 
 ### C: Containment
 

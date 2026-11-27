@@ -41,9 +41,9 @@ import java.util.stream.Collectors;
 /** Checks the subset shared by portable model backends before opening any output files. */
 public final class PortableCapabilities {
     private static final Set<String> RESERVED_WIRE_FIELDS = Set.of("@vmf-type", "@vmf-id");
-    private static final Set<ValueType.Kind> TYPESCRIPT_TYPES = Set.of(ValueType.Kind.BOOLEAN, ValueType.Kind.INT32,
-            ValueType.Kind.INT64, ValueType.Kind.FLOAT64, ValueType.Kind.STRING, ValueType.Kind.MODEL,
-            ValueType.Kind.PARAMETER);
+    private static final Set<ValueType.Kind> TYPESCRIPT_TYPES = Set.of(ValueType.Kind.BOOLEAN, ValueType.Kind.INT8,
+            ValueType.Kind.INT16, ValueType.Kind.INT32, ValueType.Kind.INT64, ValueType.Kind.CHAR, ValueType.Kind.FLOAT32,
+            ValueType.Kind.FLOAT64, ValueType.Kind.STRING, ValueType.Kind.MODEL, ValueType.Kind.PARAMETER);
     private static final Set<String> OBJECT_METHODS = Set.of("equals", "hashCode", "toString", "clone", "finalize");
 
     enum Profile {
