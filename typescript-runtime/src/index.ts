@@ -12,3 +12,9 @@ export type { ModelConstructor, ScalarType, SnapshotProperty, SnapshotType } fro
 export { SnapshotJson } from "./snapshot-json.js";
 export type { ReferenceMode } from "./snapshot-json.js";
 export { declareSupertypes, isInstance } from "./model-types.js";
+export { declareModelType, modelTypeOf } from "./reflection.js";
+export type { AnnotationPairs, ModelAnnotation, ModelProperty, ModelType } from "./reflection.js";
+export {
+    isReadOnlyView, readOnly, ReadOnlyList, ReadOnlyModelChanges, ReadOnlySet, ReadOnlyView, rejectEdit, unwrapReadOnly,
+} from "./views.js";
+export type { CollectionView, ListView, ReadOnlyOf } from "./views.js";

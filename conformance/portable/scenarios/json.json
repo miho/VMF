@@ -164,6 +164,25 @@
       ]
     },
     {
+      "id": "immutable-values-are-written-by-value",
+      "model": "immutable",
+      "requires": ["json", "views"],
+      "rules": ["J2", "J5", "V3"],
+      "steps": [
+        {"new": "i", "type": "ImmutableType", "with": {"name": "red"}},
+        {"new": "p", "type": "Palette", "with": {"title": "warm", "primary": {"obj": "i"}}},
+        {"write": "p", "as": "d"},
+        {"document": "d", "is": {"primary": {"name": "red"}, "title": "warm"}},
+        {"read": "d", "type": "Palette", "as": "copy"},
+        {"equal": ["p", "copy"]},
+        {"equal": ["copy.primary", "i"]},
+        {"write": "p", "as": "plain", "plain": true},
+        {"document": "plain", "is": {"primary": {"name": "red"}, "title": "warm"}},
+        {"read": "plain", "type": "Palette", "as": "plainCopy", "plain": true},
+        {"check": "plainCopy.primary.name", "value": "red"}
+      ]
+    },
+    {
       "id": "rejects-references-outside-the-document",
       "requires": ["json"],
       "rules": ["J6"],

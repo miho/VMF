@@ -7,7 +7,11 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as vmf from "@vmf/runtime";
 
 const TARGET = "typescript";
-const CAPABILITIES = new Set(["core", "events", "history", "json"]);
+const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "json"]);
+/** Modules that do not apply to the language, with the reason. */
+const NOT_APPLICABLE = new Map([
+    ["equality-modes", "JavaScript has no overridable equality: === and Map/Set use identity"],
+]);
 const OPERATIONS = ["new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual",
     "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf",
     "listen", "unlisten", "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write",
@@ -51,7 +55,11 @@ async function main() {
             const model = scenario.model ?? root.model;
             const requires = scenario.requires ?? [];
             const result = { id, module: requires.length === 0 ? "core" : requires.join("+"), status: "", message: "" };
-            if (!requires.every(module => CAPABILITIES.has(module))) {
+            const inapplicable = requires.find(module => NOT_APPLICABLE.has(module));
+            if (inapplicable !== undefined) {
+                result.status = "skipped";
+                result.message = `${inapplicable} does not apply: ${NOT_APPLICABLE.get(inapplicable)}`;
+            } else if (!requires.every(module => CAPABILITIES.has(module))) {
                 result.status = "skipped";
                 result.message = `target does not claim [${requires.join(", ")}]`;
             } else if (unsupported.has(model)) {
@@ -183,13 +191,33 @@ function bigintJson(_key, value) {
 
 // ---------------------------------------------------------------------------------------------------- values
 
+/** Model objects and immutable values; read-only views are not models themselves. */
 function isModel(value) {
-    return typeof value === "object" && value !== null && value.__vmfContainerLink instanceof vmf.ContainmentLink;
+    if (typeof value !== "object" || value === null || vmf.isReadOnlyView(value)) {
+        return false;
+    }
+    try {
+        vmf.modelTypeOf(value);
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 function isCollection(value) {
     return value instanceof vmf.ContainmentList || value instanceof vmf.ScalarList || value instanceof vmf.ReferenceList
-        || value instanceof vmf.ReferenceSet;
+        || value instanceof vmf.ReferenceSet || isReadOnlyCollection(value);
+}
+
+function isReadOnlyCollection(value) {
+    return value instanceof vmf.ReadOnlyList || value instanceof vmf.ReadOnlySet;
+}
+
+/** A read-only list has no edit operations: an edit through it is rejected (it does not exist in the API). */
+function requireEditable(list, path) {
+    if (isReadOnlyCollection(list)) {
+        throw new TypeError(`${path} is read-only`);
+    }
 }
 
 function sameScalar(actual, expected) {
@@ -384,9 +412,12 @@ class Execution {
             case "remove":
                 this.remove(node.remove, node);
                 break;
-            case "clear":
-                this.list(node.clear).clear();
+            case "clear": {
+                const list = this.list(node.clear);
+                requireEditable(list, node.clear);
+                list.clear();
                 break;
+            }
             case "check":
                 this.check(node.check, node);
                 break;
@@ -428,6 +459,21 @@ class Execution {
                 break;
             case "copy":
                 this.labels.set(node.as, this.content(this.resolve(node.copy)).deepCopy());
+                break;
+            case "readOnly": {
+                const model = this.content(this.resolve(node.readOnly));
+                this.labels.set(node.as, model.asReadOnly());
+                break;
+            }
+            case "properties": {
+                const names = this.reflect(node.properties).properties.map(property => property.name);
+                if (names.length !== node.are.length || names.some((name, index) => name !== node.are[index])) {
+                    throw new ScenarioFailure(`expected properties ${JSON.stringify(node.are)}, found ${JSON.stringify(names)}`);
+                }
+                break;
+            }
+            case "annotations":
+                this.checkAnnotations(node.annotations, node.are);
                 break;
             case "instanceOf":
             case "notInstanceOf": {
@@ -527,10 +573,20 @@ class Execution {
         return model.vmfChanges;
     }
 
+    /** The listeners of a model object or read-only view. */
+    observable(path) {
+        const value = this.resolve(path);
+        const changes = typeof value === "object" && value !== null ? value.vmfChanges : undefined;
+        if (!(changes instanceof vmf.ModelChanges) && !(changes instanceof vmf.ReadOnlyModelChanges)) {
+            throw new ScenarioFailure(`not an observable model object: ${this.render(value)}`);
+        }
+        return changes;
+    }
+
     listen(path, name, scope) {
         const received = this.events.get(name) ?? [];
         this.events.set(name, received);
-        const remove = this.changes(this.resolve(path)).addListener(change => received.push({
+        const remove = this.observable(path).addListener(change => received.push({
             step: this.step,
             source: change.source,
             property: change.property,
@@ -606,14 +662,29 @@ class Execution {
 
     // ------------------------------------------------------------------------------------------------ objects
 
-    /** Creates an instance of a registered concrete type, then sets the initial values (TypeScript has no builders). */
+    /**
+     * Creates an instance of a registered concrete type, then sets the initial values (TypeScript has no builders).
+     * An immutable type receives its values in the constructor.
+     */
     create(type, initial) {
         const constructor = this.module[type];
         if (typeof constructor !== "function") {
             throw new ScenarioFailure(`unknown type ${type}`);
         }
-        if (!this.registry.types.some(registered => registered.runtimeType === constructor)) {
+        const registered = this.registry.types.find(candidate => candidate.runtimeType === constructor);
+        if (registered === undefined) {
             throw new TypeError(`${type} is interface-only and cannot be created.`);
+        }
+        if (registered.immutable === true) {
+            const values = {};
+            for (const [property, value] of Object.entries(initial ?? {})) {
+                const meta = registered.properties.find(candidate => (candidate.name ?? candidate.wireName) === property);
+                const scalarType = meta !== undefined && (meta.kind === "scalar" || meta.kind === "scalarList")
+                    ? meta.scalarType : undefined;
+                values[property] = Array.isArray(value) ? value.map(item => this.convert(item, scalarType))
+                    : this.convert(value, scalarType);
+            }
+            return new constructor(values);
         }
         const instance = new constructor();
         for (const [property, value] of Object.entries(initial ?? {})) {
@@ -739,6 +810,9 @@ class Execution {
         const current = this.get(owner, name);
         const value = this.single(node, this.scalarTypeOf(owner, name));
         if (index !== undefined) {
+            if (isCollection(current)) {
+                requireEditable(current, path);
+            }
             if (!isCollection(current) || typeof current.set !== "function") {
                 throw new ScenarioFailure(`${path} is not an indexed list`);
             }
@@ -757,6 +831,7 @@ class Execution {
         if (!isCollection(current)) {
             throw new ScenarioFailure(`${path} is not a list`);
         }
+        requireEditable(current, path);
         const scalarType = this.scalarTypeOf(owner, name);
         const values = has(node, "objs") || has(node, "values") ? this.many(node, scalarType) : [this.single(node, scalarType)];
         values.forEach((value, offset) => {
@@ -772,6 +847,7 @@ class Execution {
 
     remove(path, node) {
         const list = this.list(path);
+        requireEditable(list, path);
         const items = [...list];
         let position;
         if (has(node, "at")) {
@@ -838,6 +914,37 @@ class Execution {
         }
     }
 
+    /** The reflection of a model object, through its generated vmfType property. */
+    reflect(path) {
+        const value = this.resolve(path);
+        const type = typeof value === "object" && value !== null ? value.vmfType : undefined;
+        if (type === undefined || !Array.isArray(type.properties)) {
+            throw new ScenarioFailure(`no reflection for ${this.render(value)}`);
+        }
+        return type;
+    }
+
+    checkAnnotations(path, expected) {
+        let annotations;
+        if (path.includes(".")) {
+            const dot = path.lastIndexOf(".");
+            const name = path.substring(dot + 1);
+            const property = this.reflect(path.substring(0, dot)).property(name);
+            if (property === undefined) {
+                throw new ScenarioFailure(`${path}: no such property`);
+            }
+            annotations = property.annotations;
+        } else {
+            annotations = this.reflect(path).annotations;
+        }
+        const actual = annotations.filter(annotation => !annotation.key.startsWith("vmf:"))
+            .map(annotation => `${annotation.key}=${annotation.value}`);
+        const wanted = expected.map(([key, value]) => `${key}=${value}`);
+        if (actual.length !== wanted.length || actual.some((entry, index) => entry !== wanted[index])) {
+            throw new ScenarioFailure(`${path}: expected annotations ${JSON.stringify(wanted)}, found ${JSON.stringify(actual)}`);
+        }
+    }
+
     // ------------------------------------------------------------------------------------------------ rendering
 
     render(value) {
@@ -880,8 +987,8 @@ class Execution {
         }
         for (let index = 0; index < pending.length; index++) {
             const current = pending[index];
-            text += `#${ids.get(current)}^${reference(current.__vmfContainerLink.owner ?? null)}`
-                + `.${current.__vmfContainerLink.property ?? ""}{`;
+            const link = current.__vmfContainerLink;
+            text += `#${ids.get(current)}^${reference(link?.owner ?? null)}.${link?.property ?? ""}{`;
             const type = this.registry.types.find(candidate => candidate.runtimeType === current.constructor);
             for (const property of type?.properties ?? []) {
                 const value = property.get(current);

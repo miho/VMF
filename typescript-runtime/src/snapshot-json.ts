@@ -20,14 +20,21 @@ interface Definition {
     readonly fields: readonly Field[];
 }
 
+/** An immutable value in a reference position: written by value, without an id. */
+class ImmutableValue {
+    constructor(readonly definition: Definition) {
+    }
+}
+
 type Field =
     | { name: string; kind: "scalar"; value: Scalar }
     | { name: string; kind: "containment"; value: Definition }
     | { name: string; kind: "containmentList"; value: Definition[] }
     | { name: string; kind: "reference"; value: object }
+    | { name: string; kind: "value"; value: Definition }
     | { name: string; kind: "referenceSet"; value: object[] }
     | { name: string; kind: "scalarList"; value: (Scalar | null)[] }
-    | { name: string; kind: "referenceList"; value: object[] };
+    | { name: string; kind: "referenceList"; value: (object | ImmutableValue)[] };
 
 const minInt64 = -(2n ** 63n);
 const maxInt64 = 2n ** 63n - 1n;
@@ -38,7 +45,9 @@ interface ReferenceUse {
 }
 
 interface PendingReference {
-    readonly id: string;
+    /** The id of the target, or undefined for an immutable value read in place. */
+    readonly id?: string;
+    readonly value?: object;
     readonly path: string;
     readonly type: ModelConstructor<object>;
     readonly assign: (target: object) => void;
@@ -107,10 +116,13 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
     if (!references && actualType !== expectedType) {
         throw invalid(path, `Plain JSON requires a discriminator to restore '${type.wireName}' as '${expectedType.name}'`);
     }
-    if (contained.has(instance)) {
-        throw invalid(path, "Object occurs more than once in the containment tree");
+    // Immutable values are written where they are used; they are not part of the containment tree.
+    if (type.immutable !== true) {
+        if (contained.has(instance)) {
+            throw invalid(path, "Object occurs more than once in the containment tree");
+        }
+        contained.add(instance);
     }
-    contained.add(instance);
 
     const fields: Field[] = [];
     for (const property of type.properties) {
@@ -133,14 +145,23 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                 break;
             }
             case "referenceList": {
+                const modelType = property.modelType();
                 const members = [...(value as Iterable<unknown>)].map((item, index) =>
-                    requireModel(item, property.modelType(), childPath(fieldPath, index)));
-                if (members.length > 0 && !omit) {
+                    requireModel(item, modelType, childPath(fieldPath, index)));
+                const mutable = members.some(member => !isImmutable(member, registry, fieldPath));
+                if (mutable && !omit) {
                     requireReferences(references, fieldPath);
                 }
-                if (references) {
-                    members.forEach((target, index) => uses.push({ target, path: childPath(fieldPath, index) }));
-                    fields.push({ name, kind: property.kind, value: members });
+                if (references || (!mutable && members.length > 0)) {
+                    fields.push({ name, kind: property.kind, value: members.map((member, index) => {
+                        const memberPath = childPath(fieldPath, index);
+                        if (isImmutable(member, registry, memberPath)) {
+                            return new ImmutableValue(capture(member, modelType, memberPath, registry, references,
+                                contained, uses, omit));
+                        }
+                        uses.push({ target: member, path: memberPath });
+                        return member;
+                    }) });
                 }
                 break;
             }
@@ -169,11 +190,16 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
             }
             case "reference":
                 if (value !== null && value !== undefined) {
+                    const target = requireModel(value, property.modelType(), fieldPath);
+                    if (isImmutable(target, registry, fieldPath)) {
+                        fields.push({ name, kind: "value", value: capture(target, property.modelType(), fieldPath,
+                            registry, references, contained, uses, omit) });
+                        break;
+                    }
                     if (!references && omit) {
                         break;
                     }
                     requireReferences(references, fieldPath);
-                    const target = requireModel(value, property.modelType(), fieldPath);
                     uses.push({ target, path: fieldPath });
                     fields.push({ name, kind: property.kind, value: target });
                 }
@@ -235,6 +261,9 @@ function encode(node: Definition, registry: SnapshotRegistry, references: boolea
             case "reference":
                 result[name] = String(ids.get(value)!);
                 break;
+            case "value":
+                result[name] = encode(value, registry, references, ids);
+                break;
             case "referenceSet":
                 result[name] = value.map(member => ids.get(member)!).sort((left, right) => left - right).map(String);
                 break;
@@ -242,7 +271,8 @@ function encode(node: Definition, registry: SnapshotRegistry, references: boolea
                 result[name] = value as Encoded[];
                 break;
             case "referenceList":
-                result[name] = value.map(member => String(ids.get(member)!));
+                result[name] = value.map(member => member instanceof ImmutableValue
+                    ? encode(member.definition, registry, references, ids) : String(ids.get(member)!));
                 break;
         }
     }
@@ -279,6 +309,9 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
         type = registry.typeForClass(expectedType, path);
     }
 
+    if (type.immutable === true) {
+        return decodeImmutable(node, type, path, registry, references, ids, pending);
+    }
     const result = type.create();
     if (nativeType(result, path) !== type.runtimeType) {
         throw invalid(path, `Factory for '${type.wireName}' did not create the registered concrete type`);
@@ -304,15 +337,17 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
                     property.add(result, readScalar(item, property, childPath(fieldPath, index))));
                 break;
             case "referenceList": {
-                const members = array(value, fieldPath);
-                if (members.length > 0) {
-                    requireReferences(references, fieldPath);
-                }
                 const modelType = property.modelType();
-                members.forEach((member, index) => {
+                array(value, fieldPath).forEach((member, index) => {
                     const memberPath = childPath(fieldPath, index);
-                    pending.push({ id: readId(member, memberPath), path: memberPath, type: modelType,
-                        assign: target => property.add(result, target) });
+                    const assign = (target: object): void => property.add(result, target);
+                    if (member instanceof Map) {
+                        pending.push({ value: readImmutable(member, modelType, memberPath, registry, references, ids,
+                            pending), path: memberPath, type: modelType, assign });
+                    } else {
+                        requireReferences(references, fieldPath);
+                        pending.push({ id: readId(member, memberPath), path: memberPath, type: modelType, assign });
+                    }
                 });
                 break;
             }
@@ -332,6 +367,9 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
             case "reference":
                 if (value === null) {
                     property.set(result, null);
+                } else if (value instanceof Map) {
+                    property.set(result, readImmutable(value, property.modelType(), fieldPath, registry, references, ids,
+                        pending));
                 } else {
                     requireReferences(references, fieldPath);
                     pending.push({ id: readId(value, fieldPath), path: fieldPath, type: property.modelType(),
@@ -361,8 +399,69 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
     return result;
 }
 
+/** Reads an immutable object from its values; it has no identity and holds no containment. */
+function decodeImmutable(node: Map<string, JsonValue>, type: SnapshotType, path: string, registry: SnapshotRegistry,
+                         references: boolean, ids: Map<string, object>, pending: PendingReference[]): object {
+    if (node.has(idField)) {
+        throw invalid(childPath(path, idField), "An immutable value has no identity");
+    }
+    if (type.createWith === undefined) {
+        throw invalid(path, `No factory for the immutable type '${type.wireName}'`);
+    }
+    const values: Record<string, unknown> = Object.create(null);
+    for (const property of type.properties) {
+        const value = node.get(property.wireName);
+        if (value === undefined) {
+            continue;
+        }
+        const fieldPath = childPath(path, property.wireName);
+        const name = property.name ?? property.wireName;
+        switch (property.kind) {
+            case "scalar":
+                values[name] = readScalar(value, property, fieldPath);
+                break;
+            case "scalarList":
+                values[name] = array(value, fieldPath).map((item, index) =>
+                    readScalar(item, property, childPath(fieldPath, index)));
+                break;
+            case "reference":
+                values[name] = value === null ? null
+                    : readImmutable(value, property.modelType(), fieldPath, registry, references, ids, pending);
+                break;
+            case "referenceList":
+                values[name] = array(value, fieldPath).map((item, index) => readImmutable(item, property.modelType(),
+                    childPath(fieldPath, index), registry, references, ids, pending));
+                break;
+            default:
+                throw invalid(fieldPath, "An immutable value cannot hold containment");
+        }
+    }
+    const result = type.createWith(values);
+    if (nativeType(result, path) !== type.runtimeType) {
+        throw invalid(path, `Factory for '${type.wireName}' did not create the registered concrete type`);
+    }
+    return result;
+}
+
+/** A value written in a reference position, which must be an immutable object. */
+function readImmutable(node: JsonValue, expectedType: ModelConstructor<object>, path: string, registry: SnapshotRegistry,
+                       references: boolean, ids: Map<string, object>, pending: PendingReference[]): object {
+    const value = decode(node, expectedType, path, registry, references, ids, pending);
+    if (!isImmutable(value, registry, path)) {
+        throw invalid(path, "Expected a reference id or an immutable value");
+    }
+    return value;
+}
+
+function isImmutable(value: object, registry: SnapshotRegistry, path: string): boolean {
+    return registry.typeForClass(nativeType(value, path), path).immutable === true;
+}
+
 function resolveReference(reference: PendingReference, ids: Map<string, object>): object {
-    const target = ids.get(reference.id);
+    if (reference.value !== undefined) {
+        return reference.value;
+    }
+    const target = ids.get(reference.id!);
     if (target === undefined) {
         throw invalid(reference.path, `Unresolved reference '${reference.id}'`);
     }

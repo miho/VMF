@@ -130,6 +130,9 @@ back to the container (its opposite).
   `ALL` also takes references into account. `@VMFModel(equality = ...)` sets the mode for the whole
   model; `@VMFEquals` overrides it per type.
 
+The module applies only to languages whose equality can be overridden. JavaScript compares objects by identity
+(`===`, `Map`, `Set`), so TypeScript does not claim it; content equality (Q1) is available there as a method.
+
 ## JSON (optional)
 
 A snapshot document is the JSON form of a model and its containment tree. Documents written by one target
@@ -141,7 +144,8 @@ are read by every other target.
   doubles are JSON numbers, and readers accept `2` as well as `2.0`. Field order carries no meaning.
 - **J2** Contained objects are nested where they are contained. A reference is written as the `@vmf-id` of its
   target, a string. Writers number the referenced objects `"1"`, `"2"`, ... in the order in which they occur in
-  the document; reference lists keep their order and repeats.
+  the document; reference lists keep their order and repeats. A reference to an immutable value is written by
+  value, as a nested object without `@vmf-id`, in plain documents too: immutable values have no identity.
 - **J3** An object whose declared type has subtypes carries `@vmf-type`: the type's wire alias
   (`vmf:wire:type`) or its qualified name.
 - **J4** Readers restore an equal model with the same references from any document that follows J1 to J3,

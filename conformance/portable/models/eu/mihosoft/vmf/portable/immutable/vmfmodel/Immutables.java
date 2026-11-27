@@ -28,6 +28,20 @@ interface ImmutableObj extends WithName {
 interface MutableObj extends WithName {
 }
 
+// A getter-only trait that extends another one, implemented by an immutable and a mutable type.
+@InterfaceOnly
+interface WithTitle extends WithName {
+    @GetterOnly
+    String getTitle();
+}
+
+@Immutable
+interface Label extends WithTitle {
+}
+
+interface MutableLabel extends WithTitle {
+}
+
 // A mutable owner that refers to immutable values.
 interface Palette {
     String getTitle();

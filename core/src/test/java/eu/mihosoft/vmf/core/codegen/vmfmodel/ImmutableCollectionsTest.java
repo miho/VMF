@@ -142,8 +142,14 @@ public class ImmutableCollectionsTest {
         assertTrue(property(derived, "order").isOrdered());
         assertTrue(property(derived, "selection").isUnique());
         assertFalse(property(derived, "selection").isOrdered());
+        // TypeScript immutable classes hold scalars, ordered scalar lists and ordered lists of immutable values.
         var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains("ImmutableCollectionBase uses an immutable type"));
+        String message = typescript.getMessage();
+        assertTrue(message, message.contains("ImmutableCollectionBase.flags uses map properties"));
+        assertTrue(message, message.contains("ImmutableCollectionBase.levels needs an ordered scalar list"));
+        assertTrue(message, message.contains("ImmutableCollectionDerived.selection needs an ordered list on an immutable type"));
+        assertFalse(message, message.contains("ImmutableCollectionDerived.history"));
+        assertFalse(message, message.contains("uses an immutable type"));
     }
 
     @Test
@@ -170,9 +176,17 @@ public class ImmutableCollectionsTest {
         assertEquals("ImmutableCollectionBase", composed.getSuperTypes().get(0));
         assertTrue(property(composed, "title").isGetterOnly());
         assertEquals("local", property(composed, "source").getScalarDefault().orElseThrow().getValue());
+        // Only the map and the set of ImmutableCollectionBase are beyond TypeScript; traits and immutables are not.
         var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains("ImmutableTraitValue uses an immutable type"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains("ImmutableCollectionTrait.title uses read-only properties"));
+        String message = typescript.getMessage();
+        assertTrue(message, message.contains("ImmutableCollectionBase.flags uses map properties"));
+        assertFalse(message, message.contains("Trait"));
+    }
+
+    @Test
+    public void typescriptAcceptsGetterOnlyTraitsWithMutableAndImmutableImplementations() {
+        PortableCapabilities.validate(model(ImmutableCollectionTrait.class, InheritedImmutableCollectionTrait.class,
+                ImmutableSourceTrait.class, ImmutableTraitValue.class, MutableTraitValue.class), "TypeScript");
     }
 
     @Test

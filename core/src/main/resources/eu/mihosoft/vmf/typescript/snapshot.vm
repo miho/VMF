@@ -15,6 +15,10 @@ export class ModelSnapshot {
 #end
             ],
             writeType: ${type.writeType},
+#if($type.immutable)
+            immutable: true,
+            createWith: values => new ${type.name}(values as ConstructorParameters<typeof ${type.name}>[0]),
+#end
         },
 #end
     ], {

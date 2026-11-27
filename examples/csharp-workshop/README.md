@@ -115,7 +115,12 @@ TypeScript represents `long` as `bigint`. Every model object offers
 `vmfChanges` for local and recursive listeners and for recording edits that
 can be undone and redone. A TypeScript class extends one model supertype and
 implements further interface-only ones; `instanceof` works for all of them.
-TypeScript does not yet support immutable types or read-only views.
+`asReadOnly()` returns a live read-only view typed by a generated
+`ReadOnly<Type>` interface. `@Immutable` types are classes created with all
+their values (`new Type({ ... })`) and frozen; snapshots write them by value.
+`vmfType` lists a type's properties and annotations. TypeScript has no
+equality modes: JavaScript compares objects by identity, and content equality
+is the `contentEquals` method.
 
 The C# backend also generates live read-only projections of these mutable
 models and standalone immutable types with scalar properties and single

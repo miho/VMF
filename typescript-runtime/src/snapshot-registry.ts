@@ -51,6 +51,10 @@ export interface SnapshotType {
     readonly create: () => object;
     readonly properties: readonly SnapshotProperty[];
     readonly writeType?: boolean;
+    /** True for an `@Immutable` type: its objects are values, created with all their properties. */
+    readonly immutable?: boolean;
+    /** Creates an immutable object from property values by model property name. */
+    readonly createWith?: (values: Readonly<Record<string, unknown>>) => object;
 }
 
 /** An allowlist of concrete model types and optional aliases independent of native class names. */

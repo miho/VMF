@@ -47,9 +47,10 @@ final class TypeScriptRenderModel {
             "(?i:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])");
     private static final Set<String> RESERVED_MEMBERS = Set.of(
             "constructor", "__proto__", "validate", "__vmfValidateInto", "__vmfContainerLink",
-            "contentEquals", "contentHashCode", "deepCopy", "vmfChanges",
+            "contentEquals", "contentHashCode", "deepCopy", "vmfChanges", "asReadOnly", "vmfType",
             "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable", "toLocaleString", "toString", "valueOf");
     private static final String BRAND_PREFIX = "__vmfBrand_";
+    private static final String READ_ONLY_PREFIX = "ReadOnly";
     private static final String INTERNAL_PREFIX = "__vmf";
 
     private final ResolvedModel model;
@@ -57,6 +58,8 @@ final class TypeScriptRenderModel {
     private final Map<String, String> typeNames = new LinkedHashMap<>();
     private final List<Map<String, Object>> types;
     private final List<Map<String, String>> supertypeDeclarations = new ArrayList<>();
+    private final List<Map<String, Object>> readOnlyTypes;
+    private final List<String> modelTypes;
     private final TypeScriptSnapshotRenderModel snapshots;
 
     TypeScriptRenderModel(ResolvedModel model) {
@@ -74,9 +77,18 @@ final class TypeScriptRenderModel {
             }
             typeNames.put(type.getName(), emitted);
         }
+        for (Type type : model.getTypes()) {
+            String view = READ_ONLY_PREFIX + typeNames.get(type.getName());
+            if (!type.isImmutable() && !emittedNames.add(view)) {
+                throw invalidName(type.getQualifiedName(), view, "conflicts with the read-only view of another type");
+            }
+        }
 
         List<Type> ordered = parentFirst(model);
         types = ordered.stream().map(this::prepareType).collect(Collectors.toUnmodifiableList());
+        readOnlyTypes = ordered.stream().filter(type -> !type.isImmutable()).map(this::prepareReadOnly)
+                .collect(Collectors.toUnmodifiableList());
+        modelTypes = ordered.stream().map(this::modelTypeDeclaration).collect(Collectors.toUnmodifiableList());
         snapshots = new TypeScriptSnapshotRenderModel(this, ordered, model.polymorphicWireTypeNames());
     }
 
@@ -109,23 +121,49 @@ final class TypeScriptRenderModel {
         return snapshots;
     }
 
+    /** The read-only view interfaces of the mutable model types and getter-only traits. */
+    List<Map<String, Object>> getReadOnlyTypes() {
+        return readOnlyTypes;
+    }
+
+    /** The reflection declarations of all model types. */
+    List<String> getModelTypes() {
+        return modelTypes;
+    }
+
     /** Model supertypes a class implements besides its base class, for {@code instanceof}. */
     List<Map<String, String>> getSupertypeDeclarations() {
         return supertypeDeclarations;
     }
 
     /**
-     * The supertype a class extends: the first one that is not interface-only, else the first one. TypeScript
-     * classes have one base class; the other supertypes must be interface-only and are implemented.
+     * The supertype a class extends. TypeScript classes have one base class; the other supertypes must be
+     * interface-only and are implemented. A mutable class extends the first supertype that is not interface-only,
+     * else the first interface-only one; an immutable class extends its immutable supertype; a getter-only trait
+     * extends its first trait. Mutable and immutable classes implement getter-only traits.
      */
     private ValueType primarySupertype(Type type) {
         List<ValueType> applications = type.getSuperTypeApplications();
+        if (type.isGetterOnlyTrait()) {
+            return applications.isEmpty() ? null : applications.get(0);
+        }
+        ValueType firstInterfaceOnly = null;
         for (ValueType application : applications) {
-            if (!model.findType(application.getModelType()).orElseThrow().isInterfaceOnly()) {
+            Type parent = model.findType(application.getModelType()).orElseThrow();
+            if (parent.isGetterOnlyTrait()) {
+                continue;
+            }
+            if (type.isImmutable()) {
+                if (parent.isImmutable()) {
+                    return application;
+                }
+            } else if (!parent.isInterfaceOnly()) {
                 return application;
+            } else if (firstInterfaceOnly == null) {
+                firstInterfaceOnly = application;
             }
         }
-        return applications.isEmpty() ? null : applications.get(0);
+        return type.isImmutable() ? null : firstInterfaceOnly;
     }
 
     private Set<String> supertypeClosure(String typeName) {
@@ -208,17 +246,169 @@ final class TypeScriptRenderModel {
                 + (implemented.isEmpty() ? "" : " implements " + String.join(", ", implemented));
         String modifier = type.isInterfaceOnly() ? "abstract " : "";
         boolean hasValidation = !containments.isEmpty() || !multiplicities.isEmpty();
-        return Map.of(
-                "declaration", "export " + modifier + "class " + apply(name, declarations) + base,
-                // Interface-only types stay structural so that classes can implement them besides their base.
-                "brand", type.isInterfaceOnly() ? "" : BRAND_PREFIX + name,
-                "interfaceOnly", type.isInterfaceOnly(),
-                "hasBase", hasBase,
-                "hasValidation", hasValidation,
-                "emitValidation", !hasBase || hasValidation,
-                "properties", List.copyOf(properties),
-                "containments", List.copyOf(containments),
-                "multiplicities", List.copyOf(multiplicities));
+        String readOnlyType = apply(READ_ONLY_PREFIX + name, parameters);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("name", name);
+        result.put("declaration", "export " + modifier + "class " + apply(name, declarations) + base);
+        // Interface-only types stay structural so that classes can implement them besides their base.
+        result.put("brand", type.isInterfaceOnly() ? "" : BRAND_PREFIX + name);
+        result.put("interfaceOnly", type.isInterfaceOnly());
+        result.put("hasBase", hasBase);
+        result.put("readOnlyType", readOnlyType);
+        if (type.isGetterOnlyTrait()) {
+            result.put("kind", "trait");
+            result.put("members", traitMembers(type, inherited, hasBase, readOnlyType));
+        } else if (type.isImmutable()) {
+            result.put("kind", "immutable");
+            prepareImmutable(type, inherited, result);
+        } else {
+            result.put("kind", "model");
+            result.put("hasValidation", hasValidation);
+            result.put("emitValidation", !hasBase || hasValidation);
+            result.put("properties", List.copyOf(properties));
+            result.put("containments", List.copyOf(containments));
+            result.put("multiplicities", List.copyOf(multiplicities));
+        }
+        return result;
+    }
+
+    /** A getter-only trait is an abstract contract that mutable and immutable classes implement. */
+    private List<String> traitMembers(Type type, Set<String> inherited, boolean hasBase, String readOnlyType) {
+        List<String> members = new ArrayList<>();
+        for (Property property : type.getEffectiveProperties()) {
+            if (!inherited.contains(property.getName())) {
+                members.add("abstract get " + propertyName(type, property) + "(): " + valueType(property, false) + ";");
+            }
+        }
+        if (hasBase) {
+            members.add("abstract override asReadOnly(): " + readOnlyType + ";");
+        } else {
+            members.add("abstract asReadOnly(): " + readOnlyType + ";");
+            members.add("abstract contentEquals(other: unknown): boolean;");
+            members.add("abstract contentHashCode(): number;");
+            members.add("abstract get vmfType(): vmf.ModelType;");
+        }
+        return members;
+    }
+
+    /** An immutable class receives all its values in the constructor and freezes the finished object. */
+    private void prepareImmutable(Type type, Set<String> inherited, Map<String, Object> result) {
+        List<String> inputs = new ArrayList<>();
+        List<String> fields = new ArrayList<>();
+        List<String> assignments = new ArrayList<>();
+        List<String> getters = new ArrayList<>();
+        for (Property property : type.getEffectiveProperties()) {
+            String member = propertyName(type, property);
+            String stored = valueType(property, true);
+            String input = property.isCollection() ? "Iterable<" + elementType(property) + ">" : stored;
+            inputs.add("        readonly " + member + "?: " + input + ";");
+            if (inherited.contains(property.getName())) {
+                continue;
+            }
+            String field = "__vmfValue_" + member;
+            fields.add("/** @internal */\n    readonly " + field + ": " + stored + ";");
+            assignments.add(property.isCollection()
+                    ? "this." + field + " = vmf.ReadOnlyList.of(values." + member + " ?? []);"
+                    : "this." + field + " = values." + member + " !== undefined ? values." + member + " : "
+                        + initialValue(property) + ";");
+            getters.add("get " + member + "(): " + stored + " {\n        return this." + field + ";\n    }");
+        }
+        result.put("parameter", inputs.isEmpty() ? "values: Readonly<Record<string, never>> = {}"
+                : "values: {\n" + String.join("\n", inputs) + "\n    } = {}");
+        result.put("fields", List.copyOf(fields));
+        result.put("assignments", List.copyOf(assignments));
+        result.put("getters", List.copyOf(getters));
+    }
+
+    /** The read-only view interface of a mutable type or getter-only trait. */
+    private Map<String, Object> prepareReadOnly(Type type) {
+        String name = typeNames.get(type.getName());
+        List<String> parameters = new ArrayList<>();
+        List<String> declarations = new ArrayList<>();
+        for (var parameter : type.getTypeParameters()) {
+            String parameterName = typeIdentifier(parameter.getName(), type.getQualifiedName());
+            parameters.add(parameterName);
+            declarations.add(parameterName + " extends " + typeName(parameter.getBound()));
+        }
+        List<String> parents = type.getSuperTypeApplications().stream()
+                .map(application -> READ_ONLY_PREFIX + typeName(application)).collect(Collectors.toList());
+        List<String> members = new ArrayList<>();
+        for (Property property : type.getEffectiveProperties()) {
+            members.add("readonly " + propertyName(type, property) + ": " + readOnlyType(property) + ";");
+        }
+        members.add("asReadOnly(): " + apply(READ_ONLY_PREFIX + name, parameters) + ";");
+        members.add("contentEquals(other: unknown): boolean;");
+        members.add("contentHashCode(): number;");
+        members.add("readonly vmfType: vmf.ModelType;");
+        if (!type.isGetterOnlyTrait()) {
+            members.add("readonly vmfChanges: vmf.ReadOnlyModelChanges;");
+        }
+        return Map.of("type", name,
+                "declaration", "export interface " + apply(READ_ONLY_PREFIX + name, declarations)
+                        + (parents.isEmpty() ? "" : " extends " + String.join(", ", parents)),
+                "members", List.copyOf(members));
+    }
+
+    /** Registers the reflection data of a type: name, annotations and properties in VMF property order. */
+    private String modelTypeDeclaration(Type type) {
+        StringBuilder declaration = new StringBuilder("vmf.declareModelType(").append(typeNames.get(type.getName()))
+                .append(", ").append(quoted(type.getQualifiedName())).append(", ").append(type.isImmutable())
+                .append(", ").append(annotations(type.getAnnotations())).append(", [");
+        for (Property property : type.getEffectiveProperties()) {
+            declaration.append("\n    [").append(quoted(propertyName(type, property))).append(", ")
+                    .append(annotations(property.getAnnotations())).append("],");
+        }
+        if (!type.getEffectiveProperties().isEmpty()) {
+            declaration.append("\n");
+        }
+        return declaration.append("]);").toString();
+    }
+
+    private static String annotations(List<ResolvedModel.MetadataAnnotation> annotations) {
+        return annotations.stream().map(annotation -> "[" + quoted(annotation.getKey()) + ", "
+                + quoted(annotation.getValue()) + "]").collect(Collectors.joining(", ", "[", "]"));
+    }
+
+    /**
+     * The type of a property as a getter returns it. Mutable classes return their live lists, which getter-only
+     * traits declare as {@code vmf.ListView}; immutable classes return a {@code vmf.ReadOnlyList}.
+     */
+    private String valueType(Property property, boolean immutable) {
+        if (property.isCollection()) {
+            if (immutable) {
+                return "vmf.ReadOnlyList<" + elementType(property) + ">";
+            }
+            return (property.isOrdered() ? "vmf.ListView<" : "vmf.CollectionView<") + elementType(property) + ">";
+        }
+        ValueType value = property.getValueType();
+        return typeName(value) + (value.isPrimitive() ? "" : " | null");
+    }
+
+    private String elementType(Property property) {
+        return typeName(property.getValueType())
+                + (property.getKind() == Property.Kind.SCALAR && property.allowsNullElements() ? " | null" : "");
+    }
+
+    /** The type of a property in a read-only view: model values and lists are read-only too. */
+    private String readOnlyType(Property property) {
+        ValueType value = property.getValueType();
+        if (property.getKind() == Property.Kind.SCALAR) {
+            return property.isCollection() ? "vmf.ListView<" + elementType(property) + ">"
+                    : typeName(value) + (value.isPrimitive() ? "" : " | null");
+        }
+        String element = readOnlyTypeName(value);
+        if (!property.isCollection()) {
+            return element + " | null";
+        }
+        return (property.isOrdered() ? "vmf.ListView<" : "vmf.CollectionView<") + element + ">";
+    }
+
+    private String readOnlyTypeName(ValueType value) {
+        if (value.getKind() == ValueType.Kind.PARAMETER) {
+            return "vmf.ReadOnlyOf<" + typeName(value) + ">";
+        }
+        boolean immutable = model.findType(value.getModelType()).filter(Type::isImmutable).isPresent();
+        return immutable ? typeName(value) : READ_ONLY_PREFIX + typeName(value);
     }
 
     private Map<String, Object> prepareMember(String owner, String member, Property property) {

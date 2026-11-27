@@ -1,12 +1,15 @@
 import { ScalarList } from "./collections.js";
 import { ReferenceList, ReferenceSlot } from "./relationships.js";
 import { type ModelConstructor, SnapshotRegistry, type SnapshotType } from "./snapshot-registry.js";
+import { unwrapReadOnly } from "./views.js";
 
 /**
  * Content equality: same concrete type, equal scalar values and scalar lists, and content-equal contained children
  * in the same order. References and the container are not compared.
  */
 export function contentEquals(left: unknown, right: unknown, registry: SnapshotRegistry): boolean {
+    left = unwrapReadOnly(left);
+    right = unwrapReadOnly(right);
     if (left === right) {
         return true;
     }
@@ -77,13 +80,19 @@ export function contentHashCode(model: object, registry: SnapshotRegistry): numb
 /**
  * Copies the root and every object reachable from it through containment and references, but not through
  * container properties. References between copied objects point to the copies; the copied root has no container.
+ * Immutable values are shared, not copied.
  */
 export function deepCopy<T extends object>(root: T, registry: SnapshotRegistry): T {
     const copies = new Map<object, object>();
     const originals: object[] = [];
     const visit = (model: object): void => {
         if (!copies.has(model)) {
-            copies.set(model, typeOf(model, registry).create());
+            const type = typeOf(model, registry);
+            if (type.immutable === true) {
+                copies.set(model, model);
+                return;
+            }
+            copies.set(model, type.create());
             originals.push(model);
         }
     };

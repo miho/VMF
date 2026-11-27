@@ -441,7 +441,8 @@ public class HierarchyCapabilitiesTest {
         CSharpCapabilities.validate(model);
         var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
         assertTrue(typescript.getMessage(), typescript.getMessage().contains(".number redeclares an inherited property"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains("HierarchyMixedGetterOnly.name uses read-only properties"));
+        // TypeScript accepts getter-only properties of interface-only types; mutable subtypes can write them.
+        assertFalse(typescript.getMessage(), typescript.getMessage().contains("HierarchyMixedGetterOnly"));
     }
 
     @Test

@@ -99,6 +99,25 @@
       ]
     },
     {
+      "id": "inherited-getter-only-traits",
+      "model": "immutable",
+      "requires": ["views"],
+      "rules": ["V3", "T1"],
+      "steps": [
+        {"new": "l", "type": "Label", "with": {"name": "n", "title": "t"}},
+        {"new": "m", "type": "MutableLabel", "with": {"name": "n", "title": "t"}},
+        {"instanceOf": "l", "type": "WithName"},
+        {"instanceOf": "l", "type": "WithTitle"},
+        {"instanceOf": "m", "type": "WithTitle"},
+        {"notInstanceOf": "m", "type": "Label"},
+        {"check": "l.title", "value": "t"},
+        {"set": "l.title", "value": "x", "fails": true},
+        {"set": "m.title", "value": "x"},
+        {"check": "m.title", "value": "x"},
+        {"check": "m.name", "value": "n"}
+      ]
+    },
+    {
       "id": "mutable-owner-refers-to-immutable-value",
       "model": "immutable",
       "requires": ["views"],

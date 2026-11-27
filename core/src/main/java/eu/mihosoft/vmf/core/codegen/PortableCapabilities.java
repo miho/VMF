@@ -90,15 +90,22 @@ public final class PortableCapabilities {
             type.getEffectiveProperties().forEach(property -> validatePatternBindings(name, property, diagnostics));
         }
         if (type.isImmutable()) {
-            if (profile == Profile.TYPESCRIPT) {
-                diagnostics.add(name + " uses an immutable type");
-            } else if (type.isInterfaceOnly()) {
+            if (type.isInterfaceOnly()) {
                 diagnostics.add(name + " needs a concrete immutable declaration");
             } else {
-                PortableInheritance.checkCSharpImmutableBases(model, type, diagnostics);
+                if (profile == Profile.TYPESCRIPT) {
+                    checkTypeScriptImmutable(model, type, diagnostics);
+                } else {
+                    PortableInheritance.checkCSharpImmutableBases(model, type, diagnostics);
+                }
                 for (var property : type.getEffectiveProperties()) {
                     validateImmutableProperty(model, property, name + "." + property.getName(), diagnostics);
                 }
+            }
+        } else if (profile == Profile.TYPESCRIPT) {
+            for (String parent : type.getSuperTypes()) {
+                model.findType(parent).filter(Type::isImmutable).ifPresent(immutable -> diagnostics.add(
+                        name + " cannot extend the immutable type " + immutable.getQualifiedName()));
             }
         }
         if (profile == Profile.CSHARP && (!type.getEffectiveMethods().isEmpty() || type.getConstructionHook().isPresent())) {
@@ -837,7 +844,7 @@ public final class PortableCapabilities {
             diagnostics.add(name + " uses " + feature.getDescription());
         }
 
-        if (property.isGetterOnly() && (profile == Profile.TYPESCRIPT || (!owner.isImmutable() && !owner.isInterfaceOnly()))
+        if (property.isGetterOnly() && !owner.isImmutable() && !owner.isInterfaceOnly()
                 && !property.getFeatures().contains(Feature.READ_ONLY)) {
             diagnostics.add(name + " uses " + Feature.READ_ONLY.getDescription());
         }
@@ -889,8 +896,18 @@ public final class PortableCapabilities {
                                 + " reference set without an opposite";
                     diagnostics.add(name + " needs " + forms);
                 }
+                // Immutable owners report unordered collections in checkTypeScriptImmutable.
+                if (profile == Profile.TYPESCRIPT && !owner.isImmutable() && property.isCollection()
+                        && !property.isOrdered()
+                        && (isImmutableType(model, valueType) || isGetterOnlyTrait(model, valueType))) {
+                    diagnostics.add(name + " needs an ordered list for immutable values");
+                }
                 if (!property.getOppositeName().isEmpty()) {
                     checkOpposite(model, owner, property, Property.Kind.REFERENCE, profile, name, diagnostics);
+                    if (profile == Profile.TYPESCRIPT
+                            && (isImmutableType(model, valueType) || isGetterOnlyTrait(model, valueType))) {
+                        diagnostics.add(name + " needs a mutable model type for a reference with an opposite");
+                    }
                 }
                 break;
             case CONTAINMENT:
@@ -900,8 +917,11 @@ public final class PortableCapabilities {
                             : "a single-valued containment or an ordered collection of model objects";
                     diagnostics.add(name + " needs " + forms);
                 }
-                if (profile == Profile.CSHARP && isImmutableType(model, valueType)) {
+                if (isImmutableType(model, valueType)) {
                     diagnostics.add(name + " cannot contain an immutable value");
+                }
+                if (profile == Profile.TYPESCRIPT && isGetterOnlyTrait(model, valueType)) {
+                    diagnostics.add(name + " cannot use a getter-only trait as a containment target");
                 }
                 if (profile == Profile.CSHARP && isGetterOnlyTrait(model, valueType)
                         && !supportsOwningGetterRole(model, property)) {
@@ -1032,6 +1052,33 @@ public final class PortableCapabilities {
     }
 
     /** Properties that several supertypes provide must agree, because the class declares them once. */
+    /**
+     * A TypeScript immutable class extends at most one immutable class and implements getter-only traits. Its
+     * values are scalars, ordered scalar lists, and immutable values or ordered lists of them.
+     */
+    private static void checkTypeScriptImmutable(ResolvedModel model, Type type, List<String> diagnostics) {
+        String name = type.getQualifiedName();
+        boolean primary = false;
+        for (String parentName : type.getSuperTypes()) {
+            var parent = model.findType(parentName);
+            if (parent.isEmpty() || parent.get().isGetterOnlyTrait()) continue;
+            if (parent.get().isImmutable() && !parent.get().isInterfaceOnly() && !primary) {
+                primary = true;
+                continue;
+            }
+            diagnostics.add(name + " can extend one immutable type and getter-only traits, found "
+                    + parent.get().getQualifiedName());
+        }
+        if (!type.getTypeParameters().isEmpty()) {
+            diagnostics.add(name + " needs a nongeneric immutable type");
+        }
+        for (var property : type.getEffectiveProperties()) {
+            if (property.getKind() == Property.Kind.REFERENCE && property.isCollection() && !property.isOrdered()) {
+                diagnostics.add(name + "." + property.getName() + " needs an ordered list on an immutable type");
+            }
+        }
+    }
+
     private static void checkTypeScriptComposition(ResolvedModel model, Type type, List<String> diagnostics) {
         var declarations = new java.util.LinkedHashMap<String, Property>();
         var conflicts = new java.util.TreeSet<String>();

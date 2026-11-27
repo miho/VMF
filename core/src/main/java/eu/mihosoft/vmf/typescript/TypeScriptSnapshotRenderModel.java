@@ -62,7 +62,7 @@ final class TypeScriptSnapshotRenderModel {
                 .map(property -> prepareProperty(source, type, property))
                 .collect(Collectors.toUnmodifiableList());
         return Map.of("name", source.typeName(type), "wireName", literal(type.getQualifiedName()),
-                "writeType", Boolean.toString(writeType), "properties", properties);
+                "writeType", Boolean.toString(writeType), "properties", properties, "immutable", type.isImmutable());
     }
 
     private static Map<String, String> prepareProperty(TypeScriptRenderModel source, Type type, Property property) {
@@ -82,7 +82,8 @@ final class TypeScriptSnapshotRenderModel {
         }
         return Map.of("wireName", literal(property.getWireName()), "kind", propertyKind(property),
                 "data", data, "getter", "get: owner => " + member,
-                "mutator", prepareMutator(property, member, valueType));
+                "mutator", type.isImmutable() ? (property.isCollection() ? "add" : "set") + ": vmf.rejectEdit"
+                        : prepareMutator(property, member, valueType));
     }
 
     private static String scalarKind(ValueType value) {

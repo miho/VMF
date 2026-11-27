@@ -7,7 +7,7 @@ One set of scenario files, one small runner per target language. The rules are i
 conformance/portable/
   CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J optional modules)
   models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>)
-  scenarios/*.json            124 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
+  scenarios/*.json            126 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
   java/                       model generation helper and the Java runner
   csharp/                     the C# runner
@@ -105,7 +105,7 @@ list events of the same kind on the same property, and chains of set events (`a 
 2. Write a runner that reads these files and implements the steps above for the modules the target claims.
    The Java runner (`java/PortableRunner.java`, about 1,100 lines) is the reference; the C# runner
    (`csharp/PortableRunner.cs`, about 1,400 lines) and the TypeScript runner (`typescript/runner.mjs`, about
-   800 lines; core, events and history) follow it step by step.
+   1,000 lines) follow it step by step.
 3. Add a `runPortable<Target>` task and `expected-failures/<target>.txt`.
 
 How the runners reach the generated code:
@@ -125,15 +125,18 @@ How the runners reach the generated code:
   `contentEquals`, `contentHashCode` and `deepCopy` on every model object; `vmfChanges.addListener(listener,
   "local" | "recursive")` (returns a function that removes the listener), `vmfChanges.start()` and `history`,
   whose entries have `undo()` and `redo()`. Documents through `ModelSnapshot.write`, `read`, `writePlain` and
-  `readPlain`. `long` values are `bigint`; the runner parses large JSON integers exactly.
+  `readPlain`. `long` values are `bigint`; the runner parses large JSON integers exactly. `@Immutable` types
+  are created with `new Type({ ...values })` and frozen; their lists are `vmf.ReadOnlyList`. `asReadOnly()`
+  returns a live view typed by the generated `ReadOnly<Type>` interface, without setters or list edits.
+  Reflection through `vmfType` (`properties`, `annotations`, `property(name)`).
 
 ## Current results
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 16 of 16 | 124 of 124 | none |
-| C# | 16 of 16 | 124 of 124 | none |
-| TypeScript | 15 of 16 | 107 of 107 (claims core, events, history and json; 17 scenarios of views, reflection and equality modes skipped) | none |
+| Java | 16 of 16 | 126 of 126 | none |
+| C# | 16 of 16 | 126 of 126 | none |
+| TypeScript | 16 of 16 | 123 of 123 (all modules but equality modes, which do not apply to JavaScript: 3 scenarios skipped) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
@@ -141,9 +144,9 @@ change: documents without reference IDs used to leave out references to mutable 
 `WriteWithoutReferences`); all three languages now reject them by default and leave them out only on request:
 Java `ReferenceMode.OMIT`, C# `ReferenceMode.Omit`, TypeScript `"omit"`.
 
-The TypeScript generator also rejects `@Immutable` types (views module, not claimed yet). Before this contract
-it accepted 2 of the 15 models; supporting the core took about 700 lines of runtime code and 230 lines of
-generator changes.
+Before this contract the TypeScript generator accepted 2 of the 15 models. Supporting the core took about 700
+lines of runtime code and 230 lines of generator changes; the views and reflection modules and immutable values
+in documents took about 500 more lines of runtime code and 300 of generator changes.
 
 ## Where the scenarios come from
 
@@ -165,7 +168,7 @@ behavior.
 | FSMTest, LargeFlowModelTest (create and undo) | undo of a whole construction | history | `history.json` |
 | PropertyOrderTest (5), AnnotationsTest (4) | reflection | reflection | `reflection.json` (4 and 2 of them) |
 | SetterIdentityTest (16, 2026) | equal but distinct objects | core Q4, C | `equality.json` (6) |
-| WorkshopSnapshots, VMFJacksonModule tests | snapshot documents | json | `json.json` (13) |
+| WorkshopSnapshots, VMFJacksonModule tests | snapshot documents | json | `json.json` (14) |
 | OneToOneReassignmentTest (11), OneToManyReassignmentTest (13, 2026) | reference takeover | core R2 | `references.json` (6) |
 | ContainmentCycleTest (6, 2026) | cycle rejection | core C5 | `containment.json` (3) |
 | ReadOnlyExternalListTest (6, 2026) | live read-only lists | views | `views.json` (2) |

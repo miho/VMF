@@ -2,6 +2,66 @@
 import * as vmf from "@vmf/runtime";
 
 #foreach($type in $types)
+#if($type.kind == "trait")
+${type.declaration} {
+    static [Symbol.hasInstance](value: unknown): boolean {
+        return vmf.isInstance(value, this);
+    }
+#foreach($member in $type.members)
+
+    ${member}
+#end
+}
+#elseif($type.kind == "immutable")
+${type.declaration} {
+    declare protected readonly ${type.brand}: void;
+#foreach($field in $type.fields)
+
+    ${field}
+#end
+
+    constructor(${type.parameter}) {
+#if($type.hasBase)
+        super(values);
+#end
+#foreach($assignment in $type.assignments)
+        ${assignment}
+#end
+        if (new.target === ${type.name}) {
+            Object.freeze(this);
+        }
+    }
+#foreach($getter in $type.getters)
+
+    ${getter}
+#end
+#if(!$type.hasBase)
+
+    /** An immutable object is its own read-only view. */
+    asReadOnly(): this {
+        return this;
+    }
+
+    /** Immutable objects are values; copies share them. */
+    deepCopy(): this {
+        return this;
+    }
+
+    /** True if the other object has the same type and values. */
+    contentEquals(other: unknown): boolean {
+        return vmf.contentEquals(this, other, ModelSnapshot.registry);
+    }
+
+    contentHashCode(): number {
+        return vmf.contentHashCode(this, ModelSnapshot.registry);
+    }
+
+    get vmfType(): vmf.ModelType {
+        return vmf.modelTypeOf(this);
+    }
+#end
+}
+#else
 ${type.declaration} {
 #if($type.brand != "")
     declare protected readonly ${type.brand}: void;
@@ -62,6 +122,20 @@ ${type.declaration} {
     get vmfChanges(): vmf.ModelChanges {
         return vmf.changesOf(this);
     }
+
+    /** A read-only view of this object: it shows the current state and offers no way to change it. */
+    asReadOnly(): ${type.readOnlyType} {
+        return vmf.readOnly<${type.readOnlyType}>(this);
+    }
+
+    get vmfType(): vmf.ModelType {
+        return vmf.modelTypeOf(this);
+    }
+#else
+
+    override asReadOnly(): ${type.readOnlyType} {
+        return vmf.readOnly<${type.readOnlyType}>(this);
+    }
 #end
 #if($type.emitValidation)
 
@@ -96,6 +170,16 @@ ${type.declaration} {
     }
 #end
 }
+#end
+
+#end
+#foreach($view in $readOnlyTypes)
+/** The read-only view of {@link ${view.type}}: it shows the current state and offers no way to change it. */
+${view.declaration} {
+#foreach($member in $view.members)
+    ${member}
+#end
+}
 
 #end
 #foreach($declaration in $supertypeDeclarations)
@@ -104,4 +188,8 @@ vmf.declareSupertypes(${declaration.type}, [${declaration.supertypes}]);
 #if(!$supertypeDeclarations.isEmpty())
 
 #end
+#foreach($declaration in $modelTypes)
+${declaration}
+#end
+
 #parse("eu/mihosoft/vmf/typescript/snapshot.vm")
