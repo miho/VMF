@@ -1,0 +1,520 @@
+{
+  "model": "collections",
+  "scenarios": [
+    {
+      "id": "set-holds-each-value-once",
+      "from": "MultiplicityTest.setsPublishMembershipAndIgnoreOrder",
+      "rules": ["K1"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"add": "c.tags", "value": "a"},
+        {"add": "c.tags", "value": "b"},
+        {"add": "c.tags", "value": "a"},
+        {"check": "c.tags", "values": ["a", "b"], "unordered": true},
+        {"add": "c.tags", "value": null, "fails": true},
+        {"remove": "c.tags", "value": "a"},
+        {"check": "c.tags", "values": ["b"]},
+        {"add": "c.tags", "values": ["c", "b", "d"]},
+        {"check": "c.tags", "values": ["b", "c", "d"], "unordered": true},
+        {"clear": "c.tags"},
+        {"check": "c.tags", "size": 0}
+      ]
+    },
+    {
+      "id": "set-equality-ignores-order",
+      "from": "MultiplicityTest.setsPublishMembershipAndIgnoreOrder",
+      "rules": ["K1", "K6"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c1", "type": "Catalog", "with": {"tags": ["a", "b"]}},
+        {"new": "c2", "type": "Catalog", "with": {"tags": ["b", "a", "b"]}},
+        {"check": "c2.tags", "size": 2},
+        {"equal": ["c1", "c2"]},
+        {"add": "c2.tags", "value": "c"},
+        {"notEqual": ["c1", "c2"]}
+      ]
+    },
+    {
+      "id": "ordered-set-keeps-order-and-uniqueness",
+      "from": "MultiplicityTest.orderedUniqueEditsValidateBeforeChangingAnyElement",
+      "rules": ["K2"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"add": "c.stages", "value": "a"},
+        {"add": "c.stages", "value": "b"},
+        {"add": "c.stages", "value": "a"},
+        {"check": "c.stages", "values": ["a", "b"]},
+        {"insert": "c.stages", "at": 0, "value": "b", "fails": true},
+        {"set": "c.stages[0]", "value": "b", "fails": true},
+        {"set": "c.stages[1]", "value": "c"},
+        {"insert": "c.stages", "at": 0, "value": "x"},
+        {"check": "c.stages", "values": ["x", "a", "c"]},
+        {"remove": "c.stages", "at": 1},
+        {"check": "c.stages", "values": ["x", "c"]},
+        {"add": "c.stages", "value": null, "fails": true}
+      ]
+    },
+    {
+      "id": "map-put-replaces-in-place",
+      "from": "ManagedSettingsTest.replacementAndClonePreserveIterationOrderAcrossDefaultKeys",
+      "rules": ["K3"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"put": "c.ports", "key": "http", "value": 80},
+        {"put": "c.ports", "key": "ssh", "value": 22},
+        {"put": "c.ports", "key": "http", "value": 8080},
+        {"check": "c.ports", "entries": [["http", 8080], ["ssh", 22]]},
+        {"put": "c.ports", "key": "none", "value": null},
+        {"check": "c.ports", "size": 3},
+        {"check": "c.ports", "entries": [["http", 8080], ["ssh", 22], ["none", null]]},
+        {"removeKey": "c.ports", "key": "http"},
+        {"removeKey": "c.ports", "key": "absent"},
+        {"check": "c.ports", "entries": [["ssh", 22], ["none", null]]},
+        {"put": "c.ports", "key": "http", "value": 80},
+        {"check": "c.ports", "entries": [["ssh", 22], ["none", null], ["http", 80]]},
+        {"put": "c.ports", "key": null, "value": 1, "fails": true},
+        {"clear": "c.ports"},
+        {"check": "c.ports", "size": 0}
+      ]
+    },
+    {
+      "id": "map-with-integer-keys",
+      "rules": ["K3"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"put": "c.labels", "key": 2, "value": "two"},
+        {"put": "c.labels", "key": 1, "value": "one"},
+        {"check": "c.labels", "entries": [[2, "two"], [1, "one"]]},
+        {"put": "c.labels", "key": 2, "value": null},
+        {"check": "c.labels", "entries": [[2, null], [1, "one"]]}
+      ]
+    },
+    {
+      "id": "bounded-collections-reject-overflow",
+      "from": "MultiplicityTest.orderedSetAdditionsFilterDuplicatesBeforeCheckingCapacity",
+      "rules": ["K4"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"add": "c.codes", "value": 1},
+        {"add": "c.codes", "value": 2},
+        {"add": "c.codes", "value": 3, "fails": true},
+        {"add": "c.codes", "value": 2},
+        {"check": "c.codes", "values": [1, 2], "unordered": true},
+        {"remove": "c.codes", "value": 2},
+        {"add": "c.codes", "values": [5, 6], "fails": true},
+        {"check": "c.codes", "values": [1]},
+        {"add": "c.samples", "value": 1},
+        {"add": "c.samples", "value": 1},
+        {"add": "c.samples", "value": 1, "fails": true},
+        {"check": "c.samples", "values": [1, 1]},
+        {"add": "c.stages", "values": ["a", "b", "c"]},
+        {"add": "c.stages", "value": "d", "fails": true},
+        {"add": "c.stages", "value": "a"},
+        {"check": "c.stages", "values": ["a", "b", "c"]},
+        {"put": "c.labels", "key": 1, "value": "a"},
+        {"put": "c.labels", "key": 2, "value": "b"},
+        {"put": "c.labels", "key": 3, "value": "c", "fails": true},
+        {"put": "c.labels", "key": 1, "value": "z"},
+        {"putAll": "c.labels", "entries": [[2, "y"], [3, "c"]], "fails": true},
+        {"check": "c.labels", "entries": [[1, "z"], [2, "b"]]}
+      ]
+    },
+    {
+      "id": "bounded-lists-reject-null",
+      "rules": ["K4"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"add": "c.samples", "value": null, "fails": true},
+        {"add": "c.codes", "value": null, "fails": true},
+        {"check": "c.samples", "size": 0}
+      ]
+    },
+    {
+      "id": "ordinary-lists-and-model-collections-are-not-bounded",
+      "from": "CollectionContractTest.boundsDescribeTheFinishedContainmentTree",
+      "rules": ["K4"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"add": "c.notes", "values": ["a", null, "a"]},
+        {"check": "c.notes", "values": ["a", null, "a"]},
+        {"new": "i1", "type": "Item"},
+        {"new": "i2", "type": "Item"},
+        {"add": "c.spares", "obj": "i1"},
+        {"add": "c.spares", "obj": "i2"},
+        {"check": "c.spares", "objs": ["i1", "i2"]}
+      ]
+    },
+    {
+      "id": "keyed-lookup",
+      "from": "KeyedPropertyTest.attachedEntriesHaveUniqueEditableKeysAcrossMutableAndReadOnlyViews",
+      "rules": ["K5"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "a", "type": "Item", "with": {"sku": "a"}},
+        {"new": "b", "type": "Item", "with": {"sku": "b"}},
+        {"new": "c", "type": "Catalog", "with": {"items": [{"obj": "a"}, {"obj": "b"}]}},
+        {"find": "c.items", "by": "sku", "key": "a", "obj": "a"},
+        {"find": "c.items", "by": "sku", "key": "b", "obj": "b"},
+        {"find": "c.items", "by": "sku", "key": "x", "obj": null},
+        {"check": "a.catalog", "obj": "c"}
+      ]
+    },
+    {
+      "id": "keyed-entries-need-unique-keys",
+      "from": "KeyedPropertyTest.attachedEntriesHaveUniqueEditableKeysAcrossMutableAndReadOnlyViews",
+      "rules": ["K5"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"new": "a", "type": "Item", "with": {"sku": "a"}},
+        {"add": "c.items", "obj": "a"},
+        {"new": "duplicate", "type": "Item", "with": {"sku": "a"}},
+        {"add": "c.items", "obj": "duplicate", "fails": true},
+        {"insert": "c.items", "at": 0, "obj": "duplicate", "fails": true},
+        {"new": "missing", "type": "Item"},
+        {"add": "c.items", "obj": "missing", "fails": true},
+        {"check": "c.items", "objs": ["a"]},
+        {"check": "duplicate.catalog", "obj": null},
+        {"new": "b", "type": "Item", "with": {"sku": "b"}},
+        {"set": "c.items[0]", "obj": "duplicate"},
+        {"check": "c.items", "objs": ["duplicate"]},
+        {"add": "c.items", "obj": "b"},
+        {"set": "c.items[0]", "obj": "a"},
+        {"set": "c.items[0]", "obj": "missing", "fails": true},
+        {"check": "c.items", "objs": ["a", "b"]}
+      ]
+    },
+    {
+      "id": "keyed-key-edits-are-checked",
+      "from": "KeyedPropertyTest.attachedEntriesHaveUniqueEditableKeysAcrossMutableAndReadOnlyViews",
+      "rules": ["K5"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "a", "type": "Item", "with": {"sku": "a"}},
+        {"new": "b", "type": "Item", "with": {"sku": "b"}},
+        {"new": "c", "type": "Catalog", "with": {"items": [{"obj": "a"}, {"obj": "b"}]}},
+        {"set": "a.sku", "value": "b", "fails": true},
+        {"set": "a.sku", "value": null, "fails": true},
+        {"check": "a.sku", "value": "a"},
+        {"set": "a.sku", "value": "c"},
+        {"find": "c.items", "by": "sku", "key": "c", "obj": "a"},
+        {"find": "c.items", "by": "sku", "key": "a", "obj": null},
+        {"remove": "c.items", "obj": "a"},
+        {"set": "a.sku", "value": "b"},
+        {"set": "a.sku", "value": null},
+        {"check": "a.sku", "value": null}
+      ]
+    },
+    {
+      "id": "keyed-move-checks-the-destination",
+      "from": "KeyedPropertyTest.clonedAndMovedEntriesResolveWithinTheirCurrentOwner",
+      "rules": ["K5", "C2"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "a", "type": "Item", "with": {"sku": "x"}},
+        {"new": "b", "type": "Item", "with": {"sku": "x"}},
+        {"new": "c1", "type": "Catalog", "with": {"items": [{"obj": "a"}]}},
+        {"new": "c2", "type": "Catalog", "with": {"items": [{"obj": "b"}]}},
+        {"add": "c2.items", "obj": "a", "fails": true},
+        {"check": "c1.items", "objs": ["a"]},
+        {"check": "a.catalog", "obj": "c1"},
+        {"set": "b.sku", "value": "y"},
+        {"add": "c2.items", "obj": "a"},
+        {"check": "c1.items", "size": 0},
+        {"check": "c2.items", "objs": ["b", "a"]},
+        {"check": "a.catalog", "obj": "c2"},
+        {"find": "c2.items", "by": "sku", "key": "x", "obj": "a"},
+        {"find": "c1.items", "by": "sku", "key": "x", "obj": null}
+      ]
+    },
+    {
+      "id": "keyed-by-model-reference-uses-identity",
+      "from": "KeyedPropertyTest.referenceKeysUseIdentityAndValuesRetainTheirOwnRelationships",
+      "rules": ["K5"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "i1", "type": "Item", "with": {"sku": "same"}},
+        {"new": "i2", "type": "Item", "with": {"sku": "same"}},
+        {"new": "b1", "type": "Binding", "with": {"target": {"obj": "i1"}}},
+        {"new": "c", "type": "Catalog", "with": {"bindings": [{"obj": "b1"}]}},
+        {"find": "c.bindings", "by": "target", "key": {"obj": "i1"}, "obj": "b1"},
+        {"find": "c.bindings", "by": "target", "key": {"obj": "i2"}, "obj": null},
+        {"new": "b2", "type": "Binding", "with": {"target": {"obj": "i1"}}},
+        {"add": "c.bindings", "obj": "b2", "fails": true},
+        {"new": "b3", "type": "Binding", "with": {"target": {"obj": "i2"}}},
+        {"add": "c.bindings", "obj": "b3"},
+        {"set": "b3.target", "obj": "i1", "fails": true},
+        {"find": "c.bindings", "by": "target", "key": {"obj": "i2"}, "obj": "b3"},
+        {"check": "i1.catalog", "obj": null}
+      ]
+    },
+    {
+      "id": "copies-and-equality-of-sets-and-maps",
+      "from": "ManagedSettingsTest.buildersAndCopiesOwnIndependentMaps",
+      "rules": ["K6", "Q1", "Q3"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "a", "type": "Item", "with": {"sku": "a"}},
+        {"new": "c", "type": "Catalog", "with": {"tags": ["t", "u"], "items": [{"obj": "a"}]}},
+        {"put": "c.ports", "key": "http", "value": 80},
+        {"put": "c.ports", "key": "ssh", "value": 22},
+        {"put": "c.labels", "key": 7, "value": "seven"},
+        {"copy": "c", "as": "d"},
+        {"equal": ["c", "d"]},
+        {"check": "d.ports", "entries": [["http", 80], ["ssh", 22]]},
+        {"check": "d.labels", "entries": [[7, "seven"]]},
+        {"check": "d.tags", "values": ["t", "u"], "unordered": true},
+        {"find": "d.items", "by": "sku", "key": "a", "obj": "d.items[0]"},
+        {"notSame": ["d.items[0]", "a"]},
+        {"put": "d.ports", "key": "http", "value": 81},
+        {"notEqual": ["c", "d"]},
+        {"check": "c.ports", "entries": [["http", 80], ["ssh", 22]]},
+        {"new": "a2", "type": "Item", "with": {"sku": "a"}},
+        {"new": "e", "type": "Catalog", "with": {"tags": ["u", "t"], "items": [{"obj": "a2"}]}},
+        {"put": "e.labels", "key": 7, "value": "seven"},
+        {"put": "e.ports", "key": "ssh", "value": 22},
+        {"put": "e.ports", "key": "http", "value": 80},
+        {"equal": ["c", "e"]},
+        {"put": "e.ports", "key": "none", "value": null},
+        {"notEqual": ["c", "e"]}
+      ]
+    },
+    {
+      "id": "read-only-views-of-collections",
+      "from": "ManagedSettingsTest.entryWritesUseTheObservedViewAndInvalidBatchesHaveNoEffect",
+      "rules": ["K7", "V1", "V2"],
+      "requires": ["collections", "views"],
+      "steps": [
+        {"new": "a", "type": "Item", "with": {"sku": "a"}},
+        {"new": "c", "type": "Catalog", "with": {"tags": ["t"], "items": [{"obj": "a"}]}},
+        {"put": "c.ports", "key": "x", "value": 1},
+        {"readOnly": "c", "as": "v"},
+        {"readOnly": "a", "as": "av"},
+        {"check": "v.tags", "values": ["t"]},
+        {"check": "v.ports", "entries": [["x", 1]]},
+        {"add": "v.tags", "value": "u", "fails": true},
+        {"remove": "v.tags", "value": "t", "fails": true},
+        {"put": "v.ports", "key": "y", "value": 2, "fails": true},
+        {"removeKey": "v.ports", "key": "x", "fails": true},
+        {"clear": "v.ports", "fails": true},
+        {"find": "v.items", "by": "sku", "key": "a", "obj": "av"},
+        {"put": "c.ports", "key": "y", "value": 2},
+        {"add": "c.tags", "value": "u"},
+        {"check": "v.ports", "entries": [["x", 1], ["y", 2]]},
+        {"check": "v.tags", "values": ["t", "u"], "unordered": true}
+      ]
+    },
+    {
+      "id": "immutable-values-hold-sets-and-maps",
+      "from": "ManagedSettingsTest.buildersAndCopiesOwnIndependentMaps",
+      "rules": ["K7", "V3"],
+      "requires": ["collections", "views"],
+      "steps": [
+        {"new": "s", "type": "Settings", "with": {"flags": ["a", "b", "a"], "steps": ["x", "y"],
+          "switches": {"entries": [["on", true], ["off", false], ["unset", null]]}}},
+        {"check": "s.flags", "values": ["a", "b"], "unordered": true},
+        {"check": "s.steps", "values": ["x", "y"]},
+        {"check": "s.switches", "entries": [["on", true], ["off", false], ["unset", null]]},
+        {"add": "s.flags", "value": "c", "fails": true},
+        {"add": "s.steps", "value": "z", "fails": true},
+        {"put": "s.switches", "key": "on", "value": false, "fails": true},
+        {"removeKey": "s.switches", "key": "on", "fails": true},
+        {"new": "t", "type": "Settings", "with": {"flags": ["b", "a"], "steps": ["x", "y"],
+          "switches": {"entries": [["unset", null], ["off", false], ["on", true]]}}},
+        {"equal": ["s", "t"]},
+        {"new": "c", "type": "Catalog", "with": {"settings": {"obj": "s"}}},
+        {"copy": "c", "as": "d"},
+        {"equal": ["c", "d"]}
+      ]
+    },
+    {
+      "id": "set-and-map-events",
+      "from": "CollectionContractTest.nativeSetChangesHaveMembershipSemanticsAndReadOnlySources",
+      "rules": ["K8", "E1"],
+      "requires": ["collections", "events"],
+      "steps": [
+        {"new": "c", "type": "Catalog"},
+        {"listen": "c", "as": "L", "scope": "local"},
+        {"add": "c.tags", "value": "a"},
+        {"events": "L", "are": [{"on": "c", "prop": "tags", "kind": "add", "values": ["a"]}]},
+        {"add": "c.tags", "value": "a"},
+        {"events": "L", "count": 0},
+        {"remove": "c.tags", "value": "a"},
+        {"events": "L", "are": [{"on": "c", "prop": "tags", "kind": "remove", "values": ["a"]}]},
+        {"put": "c.ports", "key": "x", "value": 1},
+        {"events": "L", "are": [{"on": "c", "prop": "ports", "kind": "add", "keys": ["x"], "values": [1]}]},
+        {"put": "c.ports", "key": "x", "value": 2},
+        {"events": "L", "are": [{"on": "c", "prop": "ports", "kind": "replace", "keys": ["x"], "values": [2]}]},
+        {"put": "c.ports", "key": "y", "value": null},
+        {"events": "L", "are": [{"on": "c", "prop": "ports", "kind": "add", "keys": ["y"], "values": [null]}]},
+        {"removeKey": "c.ports", "key": "x"},
+        {"events": "L", "are": [{"on": "c", "prop": "ports", "kind": "remove", "keys": ["x"], "values": [2]}]},
+        {"removeKey": "c.ports", "key": "x"},
+        {"events": "L", "count": 0},
+        {"clear": "c.ports"},
+        {"events": "L", "are": [{"on": "c", "prop": "ports", "kind": "remove", "keys": ["y"], "values": [null]}]},
+        {"put": "c.labels", "key": 1, "value": "a"},
+        {"put": "c.labels", "key": 2, "value": "b"},
+        {"put": "c.labels", "key": 3, "value": "c", "fails": true},
+        {"events": "L", "are": [
+          {"on": "c", "prop": "labels", "kind": "add", "keys": [1], "values": ["a"]},
+          {"on": "c", "prop": "labels", "kind": "add", "keys": [2], "values": ["b"]}
+        ]}
+      ]
+    },
+    {
+      "id": "set-and-map-undo-redo",
+      "from": "CollectionContractTest.undoOfARemovalRespectsMembersAddedSinceTheChange",
+      "rules": ["K9", "H1", "H2", "H3"],
+      "requires": ["collections", "history"],
+      "steps": [
+        {"new": "c", "type": "Catalog", "with": {"tags": ["t"]}},
+        {"put": "c.ports", "key": "a", "value": 1},
+        {"put": "c.ports", "key": "b", "value": 2},
+        {"record": "c"},
+        {"put": "c.ports", "key": "a", "value": 10},
+        {"removeKey": "c.ports", "key": "b"},
+        {"put": "c.ports", "key": "z", "value": 26},
+        {"add": "c.tags", "value": "u"},
+        {"remove": "c.tags", "value": "t"},
+        {"recorded": "c", "count": 5},
+        {"undoAll": "c"},
+        {"check": "c.ports", "entries": [["a", 1], ["b", 2]], "unordered": true},
+        {"check": "c.tags", "values": ["t"]},
+        {"redoAll": "c"},
+        {"check": "c.ports", "entries": [["a", 10], ["z", 26]], "unordered": true},
+        {"check": "c.tags", "values": ["u"]}
+      ]
+    },
+    {
+      "id": "documents-of-sets-and-maps",
+      "rules": ["K10", "J1"],
+      "requires": ["collections", "json"],
+      "steps": [
+        {"new": "c", "type": "Catalog", "with": {"tags": ["a"], "codes": [7], "stages": ["s1", "s2"],
+          "samples": [3, 3], "notes": ["n", null]}},
+        {"put": "c.ports", "key": "http", "value": 80},
+        {"put": "c.ports", "key": "none", "value": null},
+        {"put": "c.labels", "key": 2, "value": "two"},
+        {"put": "c.labels", "key": 1, "value": "one"},
+        {"write": "c", "as": "d"},
+        {"document": "d", "is": {"tags": ["a"], "codes": [7], "stages": ["s1", "s2"], "samples": [3, 3],
+          "notes": ["n", null], "ports": {"http": 80, "none": null},
+          "labels": [{"key": 2, "value": "two"}, {"key": 1, "value": "one"}],
+          "items": [], "bindings": [], "spares": []}},
+        {"read": "d", "type": "Catalog", "as": "e"},
+        {"equal": ["c", "e"]},
+        {"check": "e.ports", "entries": [["http", 80], ["none", null]]},
+        {"check": "e.labels", "entries": [[2, "two"], [1, "one"]]},
+        {"new": "empty", "type": "Catalog"},
+        {"write": "empty", "as": "x"},
+        {"document": "x", "is": {"tags": [], "codes": [], "stages": [], "samples": [], "notes": [], "ports": {},
+          "labels": [], "items": [], "bindings": [], "spares": []}}
+      ]
+    },
+    {
+      "id": "read-sets-and-maps-from-another-writer",
+      "rules": ["K10", "J4"],
+      "requires": ["collections", "json"],
+      "steps": [
+        {"read": {"json": {"ports": {"b": 2, "a": 1, "10": 3}, "tags": ["x", "y"],
+          "labels": [{"key": 5, "value": null}, {"key": -1, "value": "m"}]}}, "type": "Catalog", "as": "c"},
+        {"check": "c.ports", "entries": [["b", 2], ["a", 1], ["10", 3]]},
+        {"check": "c.tags", "values": ["x", "y"], "unordered": true},
+        {"check": "c.labels", "entries": [[5, null], [-1, "m"]]},
+        {"check": "c.stages", "size": 0}
+      ]
+    },
+    {
+      "id": "readers-reject-repeated-keys-and-members",
+      "rules": ["K10", "K5"],
+      "requires": ["collections", "json"],
+      "steps": [
+        {"read": {"json": {"labels": [{"key": 1, "value": "a"}, {"key": 1, "value": "b"}]}}, "type": "Catalog",
+          "as": "c1", "fails": true},
+        {"read": {"json": {"tags": ["x", "x"]}}, "type": "Catalog", "as": "c2", "fails": true},
+        {"read": {"json": {"tags": [null]}}, "type": "Catalog", "as": "c3", "fails": true},
+        {"read": {"json": {"items": [{"sku": "a"}, {"sku": "a"}]}}, "type": "Catalog", "as": "c4", "fails": true},
+        {"read": {"json": {"items": [{"name": "no key"}]}}, "type": "Catalog", "as": "c5", "fails": true}
+      ]
+    },
+    {
+      "id": "keyed-documents-with-reference-keys",
+      "rules": ["K10", "K5", "J2"],
+      "requires": ["collections", "json"],
+      "steps": [
+        {"new": "i", "type": "Item", "with": {"sku": "a"}},
+        {"new": "b", "type": "Binding", "with": {"target": {"obj": "i"}, "note": "n"}},
+        {"new": "c", "type": "Catalog", "with": {"items": [{"obj": "i"}], "bindings": [{"obj": "b"}]}},
+        {"write": "c", "as": "d"},
+        {"document": "d", "is": {"tags": [], "codes": [], "stages": [], "samples": [], "notes": [], "ports": {},
+          "labels": [], "spares": [], "items": [{"@vmf-id": "1", "sku": "a"}],
+          "bindings": [{"target": "1", "note": "n"}]}},
+        {"read": "d", "type": "Catalog", "as": "e"},
+        {"equal": ["c", "e"]},
+        {"find": "e.bindings", "by": "target", "key": {"obj": "e.items[0]"}, "obj": "e.bindings[0]"},
+        {"read": {"json": {"bindings": [{"target": "7"}], "spares": [{"@vmf-id": "7", "sku": "s"}]}},
+          "type": "Catalog", "as": "f"},
+        {"find": "f.bindings", "by": "target", "key": {"obj": "f.spares[0]"}, "obj": "f.bindings[0]"}
+      ]
+    },
+    {
+      "id": "reference-sets-hold-each-object-once",
+      "from": "ReferenceEndsTest.boundedPositionalReferencesKeepTheirListAndSetSemantics",
+      "rules": ["K2", "R4"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "p", "type": "Picks"},
+        {"new": "i1", "type": "Item", "with": {"sku": "same"}},
+        {"new": "i2", "type": "Item", "with": {"sku": "same"}},
+        {"add": "p.choices", "obj": "i1"},
+        {"add": "p.choices", "obj": "i2"},
+        {"add": "p.choices", "obj": "i1"},
+        {"check": "p.choices", "objs": ["i1", "i2"]},
+        {"insert": "p.choices", "at": 0, "obj": "i2", "fails": true},
+        {"set": "p.choices[0]", "obj": "i2", "fails": true},
+        {"remove": "p.choices", "obj": "i1"},
+        {"insert": "p.choices", "at": 0, "obj": "i1"},
+        {"check": "p.choices", "objs": ["i1", "i2"]},
+        {"add": "p.favorites", "obj": "i1"},
+        {"add": "p.favorites", "obj": "i2"},
+        {"add": "p.favorites", "obj": "i1"},
+        {"check": "p.favorites", "objs": ["i1", "i2"], "unordered": true}
+      ]
+    },
+    {
+      "id": "reference-set-with-opposite",
+      "from": "ReferenceEndsTest",
+      "rules": ["K2", "R1", "R3"],
+      "requires": ["collections"],
+      "steps": [
+        {"new": "t", "type": "Team"},
+        {"new": "u", "type": "Team"},
+        {"new": "m1", "type": "Member", "with": {"name": "m1"}},
+        {"new": "m2", "type": "Member", "with": {"name": "m2"}},
+        {"add": "t.members", "obj": "m1"},
+        {"check": "m1.teams", "objs": ["t"]},
+        {"add": "m2.teams", "obj": "t"},
+        {"check": "t.members", "objs": ["m1", "m2"], "unordered": true},
+        {"add": "t.members", "obj": "m1"},
+        {"check": "t.members", "size": 2},
+        {"check": "m1.teams", "objs": ["t"]},
+        {"add": "m1.teams", "obj": "u"},
+        {"check": "u.members", "objs": ["m1"]},
+        {"remove": "t.members", "obj": "m1"},
+        {"check": "m1.teams", "objs": ["u"]},
+        {"clear": "t.members"},
+        {"check": "m2.teams", "size": 0},
+        {"remove": "m1.teams", "obj": "u"},
+        {"check": "u.members", "size": 0}
+      ]
+    }
+  ]
+}
