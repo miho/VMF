@@ -1,6 +1,8 @@
 package eu.mihosoft.vmf.portable.references.vmfmodel;
 
 import eu.mihosoft.vmf.core.Contains;
+import eu.mihosoft.vmf.core.GetterOnly;
+import eu.mihosoft.vmf.core.InterfaceOnly;
 import eu.mihosoft.vmf.core.Refers;
 
 // From test-suite vmftest/cross_ref (CrossRefTest, 2019; OneToOneReassignmentTest).
@@ -66,5 +68,25 @@ interface Holder {
 }
 
 interface Item {
+    String getName();
+}
+
+// The other end of a reference declared on a getter-only trait, from C# conformance inheritedopposites
+// (GetterRoleTeam): each implementation of the trait holds the reciprocal reference.
+interface RoleTeam {
+    String getName();
+
+    @Refers(opposite = "team")
+    RoleMember[] getMembers();
+}
+
+@InterfaceOnly
+interface RoleMember {
+    @GetterOnly
+    @Refers(opposite = "members")
+    RoleTeam getTeam();
+}
+
+interface RolePerson extends RoleMember {
     String getName();
 }

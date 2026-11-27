@@ -983,8 +983,10 @@ public final class PortableCapabilities {
                 }
                 if (!property.getOppositeName().isEmpty()) {
                     checkOpposite(model, owner, property, Property.Kind.REFERENCE, profile, name, diagnostics);
-                    if (profile == Profile.TYPESCRIPT
-                            && (isImmutableType(model, valueType) || isGetterOnlyTrait(model, valueType))) {
+                    // A getter-only trait can be the other end when every implementation is mutable: each one
+                    // declares the reciprocal reference itself.
+                    if (profile == Profile.TYPESCRIPT && (isImmutableType(model, valueType)
+                            || isGetterOnlyTrait(model, valueType) && !hasOnlyMutableImplementations(model, valueType))) {
                         diagnostics.add(name + " needs a mutable model type for a reference with an opposite");
                     }
                 }
@@ -1055,6 +1057,12 @@ public final class PortableCapabilities {
                 || model.externalAnnotations(type.getExternalType()).stream().anyMatch(annotation ->
                         annotation.getKey().equals("vmf:csharp:external-type")
                                 || annotation.getKey().equals("vmf:csharp:external-value-type")));
+    }
+
+    private static boolean hasOnlyMutableImplementations(ResolvedModel model, ValueType type) {
+        var implementations = model.getTypes().stream().filter(candidate -> !candidate.isInterfaceOnly()
+                && assignable(model, candidate, type.getModelType())).collect(java.util.stream.Collectors.toList());
+        return !implementations.isEmpty() && implementations.stream().noneMatch(Type::isImmutable);
     }
 
     private static boolean isImmutableType(ResolvedModel model, ValueType type) {
