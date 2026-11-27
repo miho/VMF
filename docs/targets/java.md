@@ -20,6 +20,8 @@ sources; `VMF.generate(outputDir, interfaces...)` does the same from code. Gener
 | create an object | `X.newInstance()`, or `X.newBuilder().withName("a").build()` |
 | `@InterfaceOnly` type | interface without factory methods |
 | several supertypes | the interface extends all of them |
+| property declared again (T7) | the getter declared again; a narrower return type narrows the property |
+| generic type (T8) | the same generic interface; a subtype binds its arguments |
 | property `name` | `getName()`, `setName(value)` |
 | `int`, `long`, `double`, `boolean` | the same primitives, never `null`; boxed types (`Integer`, ...) allow `null` |
 | `byte`, `short`, `float`, `char` | the same primitives (T6); boxed types allow `null` |

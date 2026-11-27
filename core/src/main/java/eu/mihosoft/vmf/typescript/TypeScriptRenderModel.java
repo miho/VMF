@@ -31,6 +31,7 @@ import eu.mihosoft.vmf.core.codegen.ResolvedModel.ValueType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,6 +62,12 @@ final class TypeScriptRenderModel {
     private final List<Map<String, Object>> readOnlyTypes;
     private final List<String> modelTypes;
     private final TypeScriptSnapshotRenderModel snapshots;
+    /** Getter-only properties of interface-only types that each subtype declares with its own storage. */
+    private final Map<String, Set<String>> abstractSlots = new HashMap<>();
+    /** The properties whose storage a class declares or inherits from its base classes. */
+    private final Map<String, Set<String>> storage = new HashMap<>();
+    /** Concrete types that other classes implement besides their base class; their brand is a public symbol. */
+    private final Set<String> symbolBrands = new java.util.TreeSet<>();
 
     TypeScriptRenderModel(ResolvedModel model) {
         this.model = model;
@@ -85,6 +92,14 @@ final class TypeScriptRenderModel {
         }
 
         List<Type> ordered = parentFirst(model);
+        for (Type type : ordered) {
+            prepareStorage(type);
+            for (String secondary : secondarySupertypes(type)) {
+                if (!model.findType(secondary).orElseThrow().isInterfaceOnly()) {
+                    symbolBrands.add(secondary);
+                }
+            }
+        }
         types = ordered.stream().map(this::prepareType).collect(Collectors.toUnmodifiableList());
         readOnlyTypes = ordered.stream().filter(type -> !type.isImmutable()).map(this::prepareReadOnly)
                 .collect(Collectors.toUnmodifiableList());
@@ -134,6 +149,94 @@ final class TypeScriptRenderModel {
     /** Model supertypes a class implements besides its base class, for {@code instanceof}. */
     List<Map<String, String>> getSupertypeDeclarations() {
         return supertypeDeclarations;
+    }
+
+    /** The brand symbols of concrete types that other classes implement besides their base class. */
+    List<String> getBrandSymbols() {
+        return symbolBrands.stream().map(name -> "declare const " + BRAND_PREFIX + typeNames.get(name) + ": unique symbol;")
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    private Type primaryType(Type type) {
+        ValueType primary = primarySupertype(type);
+        return primary == null ? null : model.findType(primary.getModelType()).orElseThrow();
+    }
+
+    /** The supertypes of a class that are not on the chain of its base classes. */
+    private Set<String> secondarySupertypes(Type type) {
+        ValueType primary = primarySupertype(type);
+        Set<String> secondary = supertypeClosure(type.getName());
+        if (primary != null) {
+            secondary.removeAll(supertypeClosure(primary.getModelType()));
+            secondary.remove(primary.getModelType());
+        }
+        return secondary;
+    }
+
+    /**
+     * Records which properties a class stores. A class stores what its base classes store and declares the rest;
+     * an interface-only type leaves a getter-only property abstract when a subtype declares it again with other
+     * storage (a narrower reference, or the containment or container end of a relationship), so each subtype
+     * declares its own. Getter-only traits store nothing.
+     */
+    private void prepareStorage(Type type) {
+        Type base = primaryType(type);
+        Set<String> inherited = base == null ? Set.of() : storage.get(base.getName());
+        Set<String> abstracted = new HashSet<>();
+        Set<String> stored = new HashSet<>(inherited);
+        if (!type.isGetterOnlyTrait()) {
+            for (Property property : type.getEffectiveProperties()) {
+                if (inherited.contains(property.getName())) continue;
+                if (type.isInterfaceOnly() && !type.isImmutable() && property.isGetterOnly()
+                        && redeclaredWithOtherStorage(type, property)) {
+                    abstracted.add(property.getName());
+                } else {
+                    stored.add(property.getName());
+                }
+            }
+        } else {
+            stored.clear();
+        }
+        abstractSlots.put(type.getName(), abstracted);
+        storage.put(type.getName(), stored);
+    }
+
+    private boolean redeclaredWithOtherStorage(Type owner, Property property) {
+        for (Type candidate : model.getTypes()) {
+            if (candidate == owner || !isSubtype(candidate, owner.getName())) continue;
+            for (Property declared : candidate.getProperties()) {
+                if (declared.getName().equals(property.getName()) && !sameStorage(declared, property)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean sameStorage(Property first, Property second) {
+        return first.getKind() == second.getKind() && first.isCollection() == second.isCollection()
+                && first.isOrdered() == second.isOrdered() && first.isUnique() == second.isUnique()
+                && first.allowsNullElements() == second.allowsNullElements()
+                && first.getOppositeName().equals(second.getOppositeName())
+                && sameValueType(first.getValueType(), second.getValueType());
+    }
+
+    private static boolean sameValueType(ValueType first, ValueType second) {
+        if (first.getKind() != second.getKind() || first.isPrimitive() != second.isPrimitive()
+                || !java.util.Objects.equals(first.getModelType(), second.getModelType())
+                || !java.util.Objects.equals(first.getExternalType(), second.getExternalType())
+                || !java.util.Objects.equals(first.getParameterName(), second.getParameterName())
+                || first.getArguments().size() != second.getArguments().size()) {
+            return false;
+        }
+        for (int i = 0; i < first.getArguments().size(); i++) {
+            if (!sameValueType(first.getArguments().get(i), second.getArguments().get(i))) return false;
+        }
+        return true;
+    }
+
+    private Optional<Property> effectiveProperty(Type type, String name) {
+        return type.getEffectiveProperties().stream().filter(property -> property.getName().equals(name)).findFirst();
     }
 
     /**
@@ -190,7 +293,7 @@ final class TypeScriptRenderModel {
                 throw invalidName(type.getQualifiedName(), parameterName, "conflicts with another type name");
             }
             parameters.add(parameterName);
-            declarations.add(parameterName + " extends " + typeName(parameter.getBound()));
+            declarations.add(parameterDeclaration(parameterName, parameter));
         }
 
         Set<String> members = new HashSet<>(RESERVED_MEMBERS);
@@ -203,38 +306,66 @@ final class TypeScriptRenderModel {
         }
 
         ValueType primary = primarySupertype(type);
+        Type base = primaryType(type);
         Set<String> inherited = new HashSet<>();
-        if (primary != null) {
-            model.findType(primary.getModelType()).orElseThrow().getEffectiveProperties()
-                    .forEach(property -> inherited.add(property.getName()));
+        if (base != null) {
+            if (type.isGetterOnlyTrait()) {
+                base.getEffectiveProperties().forEach(property -> inherited.add(property.getName()));
+            } else {
+                inherited.addAll(storage.get(base.getName()));
+            }
         }
+        Set<String> baseAbstract = base == null ? Set.of() : abstractSlots.get(base.getName());
         List<String> implemented = new ArrayList<>();
         for (ValueType application : type.getSuperTypeApplications()) {
             if (application != primary) {
                 implemented.add(typeName(application));
             }
         }
+        Set<String> secondary = secondarySupertypes(type);
         if (!implemented.isEmpty()) {
-            Set<String> secondary = supertypeClosure(type.getName());
-            secondary.removeAll(primary == null ? Set.of() : supertypeClosure(primary.getModelType()));
-            if (primary != null) {
-                secondary.remove(primary.getModelType());
-            }
             supertypeDeclarations.add(Map.of("type", name, "supertypes", secondary.stream()
                     .map(typeNames::get).collect(Collectors.joining(", "))));
+        }
+        // A concrete type's brand keeps structurally equal classes apart. Classes that other classes implement
+        // besides their base carry a public symbol brand, which the implementing classes declare too.
+        List<String> brands = new ArrayList<>();
+        if (!type.isInterfaceOnly()) {
+            brands.add(symbolBrands.contains(type.getName())
+                    ? "declare readonly [" + BRAND_PREFIX + name + "]: true;"
+                    : "declare protected readonly " + BRAND_PREFIX + name + ": void;");
+        }
+        for (String implementedType : secondary) {
+            if (symbolBrands.contains(implementedType)) {
+                brands.add("declare readonly [" + BRAND_PREFIX + typeNames.get(implementedType) + "]: true;");
+            }
         }
 
         List<Map<String, Object>> properties = new ArrayList<>();
         List<Map<String, Object>> containments = new ArrayList<>();
         List<Map<String, Object>> multiplicities = new ArrayList<>();
         String owner = apply(name, parameters);
-        // Properties of interface-only supertypes besides the base class are declared on the class itself.
+        // Properties of supertypes besides the base class are declared on the class itself.
+        Set<String> abstracted = abstractSlots.get(type.getName());
         for (Property property : type.getEffectiveProperties()) {
+            String member = propertyName(type, property);
             if (inherited.contains(property.getName())) {
+                // A redeclaration can change the literal default of the inherited storage.
+                if (!type.isGetterOnlyTrait() && !type.isImmutable()) {
+                    redeclaredDefault(base, property, member).ifPresent(properties::add);
+                }
                 continue;
             }
-            String member = propertyName(type, property);
-            properties.add(prepareMember(owner, member, property));
+            boolean override = baseAbstract.contains(property.getName());
+            if (abstracted.contains(property.getName())) {
+                Property earlier = override ? effectiveProperty(base, property.getName()).orElseThrow() : null;
+                if (earlier == null || !sameValueType(earlier.getValueType(), property.getValueType())) {
+                    properties.add(field("abstract " + (override ? "override " : "") + "get " + member + "(): "
+                            + valueType(property, false) + ";"));
+                }
+                continue;
+            }
+            properties.add(prepareMember(owner, member, property, override));
             if (property.getKind() == Property.Kind.CONTAINMENT) {
                 containments.add(Map.of("name", member, "many", property.isCollection()));
             }
@@ -242,25 +373,29 @@ final class TypeScriptRenderModel {
         }
 
         boolean hasBase = primary != null;
-        String base = (hasBase ? " extends " + typeName(primary) : "")
+        String extendsClause = (hasBase ? " extends " + typeName(primary) : "")
                 + (implemented.isEmpty() ? "" : " implements " + String.join(", ", implemented));
         String modifier = type.isInterfaceOnly() ? "abstract " : "";
         boolean hasValidation = !containments.isEmpty() || !multiplicities.isEmpty();
         String readOnlyType = apply(READ_ONLY_PREFIX + name, parameters);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("name", name);
-        result.put("declaration", "export " + modifier + "class " + apply(name, declarations) + base);
+        result.put("declaration", "export " + modifier + "class " + apply(name, declarations) + extendsClause);
         // Interface-only types stay structural so that classes can implement them besides their base.
-        result.put("brand", type.isInterfaceOnly() ? "" : BRAND_PREFIX + name);
+        result.put("brands", List.copyOf(brands));
         result.put("interfaceOnly", type.isInterfaceOnly());
+        result.put("hasInstance", type.isInterfaceOnly() || symbolBrands.contains(type.getName()));
+        // A subclass's constructor inherits Symbol.hasInstance (from Function at the latest), so redefining it
+        // needs the override modifier under noImplicitOverride.
+        result.put("staticOverride", base != null ? "override " : "");
         result.put("hasBase", hasBase);
         result.put("readOnlyType", readOnlyType);
         if (type.isGetterOnlyTrait()) {
             result.put("kind", "trait");
-            result.put("members", traitMembers(type, inherited, hasBase, readOnlyType));
+            result.put("members", traitMembers(type, base, inherited, hasBase, readOnlyType));
         } else if (type.isImmutable()) {
             result.put("kind", "immutable");
-            prepareImmutable(type, inherited, result);
+            prepareImmutable(type, base, inherited, result);
         } else {
             result.put("kind", "model");
             result.put("hasValidation", hasValidation);
@@ -273,11 +408,17 @@ final class TypeScriptRenderModel {
     }
 
     /** A getter-only trait is an abstract contract that mutable and immutable classes implement. */
-    private List<String> traitMembers(Type type, Set<String> inherited, boolean hasBase, String readOnlyType) {
+    private List<String> traitMembers(Type type, Type base, Set<String> inherited, boolean hasBase,
+                                      String readOnlyType) {
         List<String> members = new ArrayList<>();
         for (Property property : type.getEffectiveProperties()) {
             if (!inherited.contains(property.getName())) {
                 members.add("abstract get " + propertyName(type, property) + "(): " + valueType(property, false) + ";");
+            } else if (!sameValueType(effectiveProperty(base, property.getName()).orElseThrow().getValueType(),
+                    property.getValueType())) {
+                // A trait can narrow the getter it inherits.
+                members.add("abstract override get " + propertyName(type, property) + "(): "
+                        + valueType(property, false) + ";");
             }
         }
         if (hasBase) {
@@ -292,7 +433,7 @@ final class TypeScriptRenderModel {
     }
 
     /** An immutable class receives all its values in the constructor and freezes the finished object. */
-    private void prepareImmutable(Type type, Set<String> inherited, Map<String, Object> result) {
+    private void prepareImmutable(Type type, Type base, Set<String> inherited, Map<String, Object> result) {
         List<String> inputs = new ArrayList<>();
         List<String> fields = new ArrayList<>();
         List<String> assignments = new ArrayList<>();
@@ -303,6 +444,14 @@ final class TypeScriptRenderModel {
             String input = property.isCollection() ? "Iterable<" + elementType(property) + ">" : stored;
             inputs.add("        readonly " + member + "?: " + input + ";");
             if (inherited.contains(property.getName())) {
+                // A redeclaration can change the literal default the base class would store.
+                if (!property.isCollection() && !initialValue(property)
+                        .equals(initialValue(effectiveProperty(base, property.getName()).orElseThrow()))) {
+                    String field = "__vmfValue_" + member;
+                    assignments.add("if (values." + member + " === undefined) {\n"
+                            + "            (this as { " + field + ": " + stored + " })." + field + " = "
+                            + initialValue(property) + ";\n        }");
+                }
                 continue;
             }
             String field = "__vmfValue_" + member;
@@ -328,7 +477,7 @@ final class TypeScriptRenderModel {
         for (var parameter : type.getTypeParameters()) {
             String parameterName = typeIdentifier(parameter.getName(), type.getQualifiedName());
             parameters.add(parameterName);
-            declarations.add(parameterName + " extends " + typeName(parameter.getBound()));
+            declarations.add(parameterDeclaration(parameterName, parameter));
         }
         List<String> parents = type.getSuperTypeApplications().stream()
                 .map(application -> READ_ONLY_PREFIX + typeName(application)).collect(Collectors.toList());
@@ -409,6 +558,43 @@ final class TypeScriptRenderModel {
         }
         boolean immutable = model.findType(value.getModelType()).filter(Type::isImmutable).isPresent();
         return immutable ? typeName(value) : READ_ONLY_PREFIX + typeName(value);
+    }
+
+    /**
+     * The scalar field of an inherited property whose redeclaration changes the literal default; it starts with the
+     * new default when the object is created.
+     */
+    private Optional<Map<String, Object>> redeclaredDefault(Type base, Property property, String member) {
+        if (base == null || property.getKind() != Property.Kind.SCALAR || property.isCollection()) {
+            return Optional.empty();
+        }
+        Property earlier = effectiveProperty(base, property.getName()).orElseThrow();
+        String initial = initialValue(property);
+        if (initial.equals(initialValue(earlier))) {
+            return Optional.empty();
+        }
+        String type = typeName(property.getValueType()) + (property.getValueType().isPrimitive() ? "" : " | null");
+        return Optional.of(field("/** @internal */\n    override __vmfValue_" + member + ": " + type + " = "
+                + initial + ";"));
+    }
+
+    private Map<String, Object> prepareMember(String owner, String member, Property property, boolean override) {
+        Map<String, Object> declaration = prepareMember(owner, member, property);
+        if (!override) {
+            return declaration;
+        }
+        if (Boolean.TRUE.equals(declaration.get("container"))) {
+            Map<String, Object> container = new LinkedHashMap<>(declaration);
+            container.put("modifier", "override ");
+            return container;
+        }
+        String text = (String) declaration.get("declaration");
+        text = text.replace("    get " + member + "(", "    override get " + member + "(")
+                .replace("    set " + member + "(", "    override set " + member + "(");
+        if (text.startsWith("readonly " + member + " ")) {
+            text = "override " + text;
+        }
+        return field(text);
     }
 
     private Map<String, Object> prepareMember(String owner, String member, Property property) {
@@ -504,11 +690,18 @@ final class TypeScriptRenderModel {
         } else {
             String opposite = checkedIdentifier(property.getOppositeName(), owner + "." + member + " opposite");
             owners.add(opposite);
+            // Further containment properties of the container can name this end as their opposite.
+            for (Property alternate : containerType.getEffectiveProperties()) {
+                if (alternate.getKind() == Property.Kind.CONTAINMENT && !alternate.getName().equals(opposite)
+                        && alternate.getOppositeName().equals(property.getName())) {
+                    owners.add(alternate.getName());
+                }
+            }
             Property inverse = containerType.getEffectiveProperties().stream()
                     .filter(candidate -> candidate.getName().equals(opposite)).findFirst().orElseThrow();
             attach = inverse.isCollection() ? "value." + opposite + ".add(this)" : "value." + opposite + " = this";
         }
-        return Map.of("container", true, "name", member, "type", target,
+        return Map.of("container", true, "name", member, "type", target, "modifier", "",
                 "ownerType", typeName(containerType),
                 "owners", owners.stream().map(TypeScriptRenderModel::quoted).collect(Collectors.joining(", ")),
                 "settable", !attach.isEmpty(), "attach", attach);
@@ -613,6 +806,17 @@ final class TypeScriptRenderModel {
 
     String typeName(Type type) {
         return typeNames.get(type.getName());
+    }
+
+    /**
+     * A type parameter: unbounded and {@code Number}-bounded parameters hold scalars, which are numbers or bigints
+     * for {@code Number}; other parameters extend their model or parameter bound.
+     */
+    private String parameterDeclaration(String name, ResolvedModel.TypeParameter parameter) {
+        if (parameter.getBound() == null) {
+            return name;
+        }
+        return name + " extends " + (parameter.isNumberBound() ? "number | bigint" : typeName(parameter.getBound()));
     }
 
     String typeName(ValueType value) {

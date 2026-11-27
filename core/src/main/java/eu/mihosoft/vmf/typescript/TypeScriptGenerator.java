@@ -65,6 +65,7 @@ public final class TypeScriptGenerator {
         context.put("supertypeDeclarations", prepared.getSupertypeDeclarations());
         context.put("readOnlyTypes", prepared.getReadOnlyTypes());
         context.put("modelTypes", prepared.getModelTypes());
+        context.put("brandSymbols", prepared.getBrandSymbols());
         context.put("registrations", prepared.getSnapshots().getRegistrations());
         context.put("aliases", prepared.getSnapshots().getAliases());
         Engine.INSTANCE.getTemplate(MODEL_TEMPLATE, StandardCharsets.UTF_8.name()).merge(context, rendered);

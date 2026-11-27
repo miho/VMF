@@ -249,8 +249,13 @@ public class ImmutableCollectionsTest {
         assertEquals(1L, overridden.getEffectiveProperties().stream().filter(p -> p.getName().equals("names")).count());
         assertTrue(property(overridden, "names").allowsNullElements());
         CSharpCapabilities.validate(model);
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".names redeclares an inherited property"));
+        // TypeScript keeps the redeclared list in the base class's slot; other collection shapes may still be
+        // reported here.
+        try {
+            PortableCapabilities.validate(model, "TypeScript");
+        } catch (IllegalArgumentException rejected) {
+            assertFalse(rejected.getMessage(), rejected.getMessage().contains(".names redeclares an inherited property"));
+        }
     }
 
     private static ResolvedModel model(Class<?>... declarations) {

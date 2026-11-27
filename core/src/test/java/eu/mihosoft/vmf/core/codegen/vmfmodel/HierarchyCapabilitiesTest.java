@@ -299,9 +299,8 @@ public class HierarchyCapabilitiesTest {
         var named = open.findType("HierarchyNamedOpenDiamond").orElseThrow();
         assertEquals(2, named.getEffectiveProperties().size());
         assertTrue(named.getEffectiveProperties().stream().allMatch(property -> "HierarchyEntry".equals(property.getValueType().getModelType())));
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(open, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage()
-                .contains("HierarchyOpenDiamond combines several model supertypes with type parameters"));
+        // TypeScript extends the left branch and implements the right one; both reach the same bound base.
+        PortableCapabilities.validate(open, "TypeScript");
 
         var unrelated = model(HierarchyCommonLabel.class, HierarchyItems.class, HierarchyItemsLeft.class,
                 HierarchyUnrelatedCurrent.class, HierarchyOpenOverlap.class);
@@ -318,9 +317,8 @@ public class HierarchyCapabilitiesTest {
                 .findFirst().orElseThrow();
         assertEquals("HierarchyRedefined", name.getDeclaringType());
         assertEquals("name", name.getWireName());
-        var redefineError = assertThrows(IllegalArgumentException.class,
-                () -> PortableCapabilities.validate(redeclared, "TypeScript"));
-        assertTrue(redefineError.getMessage(), redefineError.getMessage().contains(".name redeclares an inherited property"));
+        // TypeScript keeps the inherited storage; documents use the redeclared wire name.
+        PortableCapabilities.validate(redeclared, "TypeScript");
     }
 
     @Test
@@ -334,9 +332,7 @@ public class HierarchyCapabilitiesTest {
                 .findFirst().orElseThrow().getValueType().getParameterName());
         assertEquals("HierarchyNarrowEntry", closed.getEffectiveProperties().stream()
                 .filter(property -> property.getName().equals("current")).findFirst().orElseThrow().getValueType().getModelType());
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage()
-                .contains("HierarchyOpenChoice combines several model supertypes with type parameters"));
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
@@ -439,29 +435,34 @@ public class HierarchyCapabilitiesTest {
                 .findFirst().orElseThrow().isGetterOnly());
 
         CSharpCapabilities.validate(model);
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".number redeclares an inherited property"));
-        // TypeScript accepts getter-only properties of interface-only types; mutable subtypes can write them.
-        assertFalse(typescript.getMessage(), typescript.getMessage().contains("HierarchyMixedGetterOnly"));
+        // TypeScript re-initializes the inherited field with the redeclared literal and accepts getter-only
+        // properties of interface-only types, which mutable subtypes can write.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
     public void csharpRequiresMatchingCollectionElementTypesAndRelationshipContracts() {
         var preserved = model(HierarchyMessage.class, HierarchySenders.class, HierarchyPreservedMessages.class);
         CSharpCapabilities.validate(preserved);
-        var typescript = assertThrows(IllegalArgumentException.class,
-                () -> PortableCapabilities.validate(preserved, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage().contains(".messages redeclares an inherited property"));
+        PortableCapabilities.validate(preserved, "TypeScript");
 
         var dropped = model(HierarchyMessage.class, HierarchySenders.class, HierarchyDroppedMessages.class);
         var missingOpposite = assertThrows(IllegalArgumentException.class, () -> CSharpCapabilities.validate(dropped));
         assertTrue(missingOpposite.getMessage(), missingOpposite.getMessage()
+                .contains("HierarchyDroppedMessages.messages redeclares an inherited property"));
+        var typescriptDropped = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(dropped, "TypeScript"));
+        assertTrue(typescriptDropped.getMessage(), typescriptDropped.getMessage()
                 .contains("HierarchyDroppedMessages.messages redeclares an inherited property"));
 
         var narrowed = model(HierarchyBasicEntry.class, HierarchyNarrowEntry.class,
                 HierarchyBasicCollection.class, HierarchyNarrowCollection.class);
         var covariance = assertThrows(IllegalArgumentException.class, () -> CSharpCapabilities.validate(narrowed));
         assertTrue(covariance.getMessage(), covariance.getMessage()
+                .contains("HierarchyNarrowCollection.entries redeclares an inherited property"));
+        var typescriptCovariance = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(narrowed, "TypeScript"));
+        assertTrue(typescriptCovariance.getMessage(), typescriptCovariance.getMessage()
                 .contains("HierarchyNarrowCollection.entries redeclares an inherited property"));
     }
 
@@ -470,10 +471,7 @@ public class HierarchyCapabilitiesTest {
         var qualified = model(HierarchyBasicEntry.class, HierarchyNarrowEntry.class, HierarchyEntryView.class,
                 HierarchyNarrowSelection.class, HierarchyExplicitSelection.class);
         CSharpCapabilities.validate(qualified);
-        var typescript = assertThrows(IllegalArgumentException.class,
-                () -> PortableCapabilities.validate(qualified, "TypeScript"));
-        assertTrue(typescript.getMessage(), typescript.getMessage()
-                .contains("HierarchyNarrowSelection.current redeclares an inherited property"));
+        PortableCapabilities.validate(qualified, "TypeScript");
 
         var inherited = model(HierarchyBasicEntry.class, HierarchyNarrowEntry.class, HierarchyEntryView.class,
                 HierarchyNarrowSelection.class, HierarchyInheritedSelection.class);
@@ -485,6 +483,11 @@ public class HierarchyCapabilitiesTest {
                 HierarchyWritableSelection.class, HierarchyUnsafeSelection.class);
         var unsafe = assertThrows(IllegalArgumentException.class, () -> CSharpCapabilities.validate(writable));
         assertTrue(unsafe.getMessage(), unsafe.getMessage().contains("HierarchyUnsafeSelection.current redeclares an inherited property"));
+        // A writable base reference cannot be narrowed in TypeScript either.
+        var typescriptUnsafe = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(writable, "TypeScript"));
+        assertTrue(typescriptUnsafe.getMessage(), typescriptUnsafe.getMessage()
+                .contains("HierarchyUnsafeSelection.current redeclares an inherited property"));
     }
 
     private static ResolvedModel model(Class<?>... declarations) {

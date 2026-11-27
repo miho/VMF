@@ -56,6 +56,15 @@ must hold; the mapping says how to reach it in that language.
   type that holds every value of the narrower one (the language mapping says which); values written to a
   document stay within the narrower type's range. Documents write `byte`, `short` and `float` as JSON
   numbers and a `char` as a string of one code unit.
+- **T7** A subtype can declare an inherited property again. With the same type it stays one property: stored
+  once, listed once (F1), and a `@DefaultValue` on the redeclaration is the default of the subtype's new
+  objects. A getter-only property of an `@InterfaceOnly` supertype can be declared again with a narrower model
+  type, or by each implementing type as its end of a containment (`@Contains` or `@Container`); the property
+  then behaves as the implementing type declares it.
+- **T8** A subtype binds the type parameters of a generic supertype to its type arguments. A property declared
+  with a type parameter behaves as a property of the argument type: a `Long` keeps all 64 bits, a `Double` is
+  binary64, strings and immutable values stay values, and a model type makes the property hold objects of
+  that type. Documents write the property as one of the argument type.
 
 ### C: Containment
 

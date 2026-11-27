@@ -628,7 +628,28 @@ internal sealed class Execution(string model)
 
     // ---------------------------------------------------------------------------------------- object access
 
-    private Type? FindModelType(string name) => assembly.GetType(Namespace + "." + name);
+    /// <summary>A generated type by its model name; a generic model type is found as its generic definition.</summary>
+    private Type? FindModelType(string name) => assembly.GetType(Namespace + "." + name)
+        ?? assembly.GetTypes().FirstOrDefault(type => type.Namespace == Namespace && type.IsGenericTypeDefinition
+            && type.DeclaringType is null && type.Name.StartsWith(name + "`", StringComparison.Ordinal));
+
+    /// <summary>An instance check that also accepts every construction of a generic type definition.</summary>
+    private static bool IsInstanceOf(Type type, object value)
+    {
+        if (!type.IsGenericTypeDefinition)
+        {
+            return type.IsInstanceOfType(value);
+        }
+        for (Type? current = value.GetType(); current is not null; current = current.BaseType)
+        {
+            if (current.IsGenericType && current.GetGenericTypeDefinition() == type)
+            {
+                return true;
+            }
+        }
+        return value.GetType().GetInterfaces()
+            .Any(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == type);
+    }
 
     private Type ModelType(string name) => FindModelType(name)
         ?? throw new TypeLoadException("no generated type " + Namespace + "." + name);
@@ -649,11 +670,12 @@ internal sealed class Execution(string model)
         {
             return false;
         }
-        if (direct?.IsInstanceOfType(value) == true || contract?.IsInstanceOfType(value) == true)
+        if (direct is not null && IsInstanceOf(direct, value) || contract is not null && IsInstanceOf(contract, value))
         {
             return true;
         }
-        return value is IImmutableModel && FindModelType("IReadOnly" + name)?.IsInstanceOfType(value) == true;
+        Type? view = FindModelType("IReadOnly" + name);
+        return value is IImmutableModel && view is not null && IsInstanceOf(view, value);
     }
 
     private object Create(string type, JsonNode? with)

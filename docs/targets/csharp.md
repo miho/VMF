@@ -25,6 +25,8 @@ not published to nuget.org yet.
 | model type `X` | `sealed class X` |
 | create an object | `new X()`, an object initializer, or `X.NewBuilder().WithName("a").Build()` |
 | `@InterfaceOnly` type | `abstract class`; with several supertypes, an `I<Name>` interface |
+| property declared again (T7) | one property; a narrowed getter or relationship end is a `new` property of the subtype |
+| generic type (T8) | a generic class (`Series<T>`, `NumericSeries<N>` for `Number` bounds); a subtype binds the arguments (`Temperatures : NumericSeries<double>`) |
 | property `name` | property `Name` |
 | `int`, `long`, `double`, `boolean` | `int`, `long`, `double`, `bool`; boxed Java types become nullable (`int?`) |
 | `byte`, `short`, `float`, `char` | `sbyte`, `short`, `float`, `char` (T6) |

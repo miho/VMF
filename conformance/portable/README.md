@@ -7,7 +7,7 @@ One set of scenario files, one small runner per target language. The rules are i
 conformance/portable/
   CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J optional modules)
   models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>)
-  scenarios/*.json            128 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
+  scenarios/*.json            the scenarios, each citing the rules it checks and, where one exists, the Java test it came from
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
   java/                       model generation helper and the Java runner
   csharp/                     the C# runner

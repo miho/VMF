@@ -377,6 +377,12 @@ final class PortableInheritance {
         return bindings;
     }
 
+    /** The key of a value type as a subtype inherits it through the given application of its supertype. */
+    static List<?> boundTypeKey(Type parent, ValueType application, ValueType type) {
+        if (parent.getTypeParameters().size() != application.getArguments().size()) return typeKey(type, Map.of());
+        return typeKey(type, bindings(parent, application));
+    }
+
     static boolean sameStorageSlot(Property declared, Property inherited, Type parent, ValueType application) {
         if (declared.hasDeclaredDefault() || inherited.hasDeclaredDefault()
                 || parent.getTypeParameters().size() != application.getArguments().size()) {
