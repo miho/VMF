@@ -154,8 +154,9 @@ back to the container (its opposite).
 
 ## Reflection (optional)
 
-- **F1** Properties are listed in this order: properties of supertypes before the type's own; within a
-  type, by `@PropertyOrder` index if all are given, otherwise alphabetically.
+- **F1** Properties are listed in this order: if a type gives each of its own properties a `@PropertyOrder`
+  index, the properties it inherits come first, in the order of the supertypes that declare them, then its own
+  by index; otherwise all its properties, inherited ones included, are sorted alphabetically.
 - **F2** `@Annotation` key/value pairs of types and properties are available in declaration order;
   repeated keys are allowed. Keys starting with `vmf:` are reserved for VMF and ignored by the scenarios.
 
