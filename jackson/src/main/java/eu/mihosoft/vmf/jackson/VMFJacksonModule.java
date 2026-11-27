@@ -746,8 +746,11 @@ public class VMFJacksonModule extends SimpleModule {
                                                 && !Immutable.class.isAssignableFrom(memberType)) {
                                             throw new IOException("Mutable reference collection " + fieldName + " requires withReferences(true)");
                                         }
+                                        // A host value's deserializer expects a parser positioned on its first token.
                                         collection.add(member.isValueNode() ? deserializeField(ctxt, member, elementType)
-                                                : ctxt.readValue(member.traverse(ctxt.getParser().getCodec()), memberType));
+                                                : isVMFObj(memberType)
+                                                        ? ctxt.readValue(member.traverse(ctxt.getParser().getCodec()), memberType)
+                                                        : ctxt.readTreeAsValue(member, memberType));
                                     }
                                 }
                                 // Invoke the builder method
