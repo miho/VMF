@@ -15,7 +15,7 @@ const NOT_APPLICABLE = new Map([
 const OPERATIONS = ["new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual",
     "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf",
     "listen", "unlisten", "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write",
-    "read", "document"];
+    "read", "document", "calls"];
 const generated = join(dirname(fileURLToPath(import.meta.url)), "build", "js", "build", "generated", "eu", "mihosoft",
     "vmf", "portable");
 
@@ -358,6 +358,8 @@ function operationOf(node) {
 class Execution {
     labels = new Map();
     events = new Map();
+    /** Shared call logs: which listener received which event, in delivery order. */
+    calls = new Map();
     subscriptions = new Map();
     undone = new Map();
     documents = new Map();
@@ -511,7 +513,10 @@ class Execution {
                 break;
             }
             case "listen":
-                this.listen(node.listen, node.as, node.scope ?? "recursive");
+                this.listen(node.listen, node.as, node.scope ?? "recursive", node);
+                break;
+            case "calls":
+                this.checkCalls(node.calls, node.are);
                 break;
             case "unlisten":
                 this.subscriptions.get(node.unlisten)();
@@ -606,20 +611,47 @@ class Execution {
         return changes;
     }
 
-    listen(path, name, scope) {
+    listen(path, name, scope, node) {
         const received = this.events.get(name) ?? [];
         this.events.set(name, received);
-        const remove = this.observable(path).addListener(change => received.push({
-            step: this.step,
-            source: change.source,
-            property: change.property,
-            kind: change.kind,
-            oldValue: change.oldValue ?? null,
-            newValue: change.newValue ?? null,
-            elements: [...(change.values ?? [])],
-            indices: [...(change.indices ?? [])],
-        }), scope === "local" ? "local" : "recursive");
+        let log;
+        if (has(node, "log")) {
+            log = this.calls.get(node.log) ?? [];
+            this.calls.set(node.log, log);
+        }
+        const remove = this.observable(path).addListener(change => {
+            const event = {
+                step: this.step,
+                source: change.source,
+                property: change.property,
+                kind: change.kind,
+                oldValue: change.oldValue ?? null,
+                newValue: change.newValue ?? null,
+                elements: [...(change.values ?? [])],
+                indices: [...(change.indices ?? [])],
+            };
+            received.push(event);
+            log?.push({ listener: name, event });
+            if (has(node, "react") && this.matches(node.react.when, event)) {
+                // the listener edits the model while the change is delivered
+                const edit = node.react.do;
+                this.execute(operationOf(edit), edit);
+            }
+        }, scope === "local" ? "local" : "recursive");
         this.subscriptions.set(name, remove);
+    }
+
+    checkCalls(name, expected) {
+        const log = this.calls.get(name) ?? [];
+        const received = [...log];
+        log.length = 0;
+        const rendered = `[${received.map(({ listener, event }) => `${listener} ${event.property} `
+            + `${this.render(event.oldValue)}->${this.render(event.newValue)}`).join(", ")}]`;
+        const same = received.length === expected.length && expected.every((wanted, index) =>
+            wanted.listener === received[index].listener && this.matches(wanted, received[index].event));
+        if (!same) {
+            throw new ScenarioFailure(`${name}: expected ${JSON.stringify(expected)}, received ${rendered}`);
+        }
     }
 
     checkEvents(name, node) {

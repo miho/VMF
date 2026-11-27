@@ -273,11 +273,13 @@ public final class PortableRunner {
         static final List<String> OPERATIONS = List.of("new", "set", "add", "insert", "remove", "clear", "check",
                 "let", "equal", "notEqual", "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly",
                 "instanceOf", "notInstanceOf", "listen", "unlisten", "events", "record", "recorded", "undoAll",
-                "redoAll", "properties", "annotations", "write", "read", "document");
+                "redoAll", "properties", "annotations", "write", "read", "document", "calls");
 
         final String model;
         final Map<String, Object> labels = new LinkedHashMap<>();
         final Map<String, List<Event>> events = new HashMap<>();
+        /** Shared call logs: which listener received which event, in delivery order. */
+        final Map<String, List<Object[]>> calls = new HashMap<>();
         final Map<String, Subscription> subscriptions = new HashMap<>();
         final Map<String, List<Change>> undone = new HashMap<>();
         final Map<String, String> documents = new HashMap<>();
@@ -423,7 +425,10 @@ public final class PortableRunner {
                     break;
                 case "listen":
                     listen(node.get("listen").asText(), node.get("as").asText(),
-                            node.path("scope").asText("recursive"));
+                            node.path("scope").asText("recursive"), node);
+                    break;
+                case "calls":
+                    checkCalls(node.get("calls").asText(), node.get("are"));
                     break;
                 case "unlisten":
                     subscriptions.remove(node.get("unlisten").asText()).unsubscribe();
@@ -1009,11 +1014,53 @@ public final class PortableRunner {
 
         // ---------------------------------------------------------------------------------------- events
 
-        void listen(String path, String name, String scope) {
+        void listen(String path, String name, String scope, JsonNode node) {
             List<Event> received = events.computeIfAbsent(name, key -> new ArrayList<>());
-            Subscription subscription = vobject(resolve(path)).vmf().changes().addListener(change ->
-                    received.add(toEvent(change)), !"local".equals(scope));
+            List<Object[]> log = node.has("log") ? calls.computeIfAbsent(node.get("log").asText(),
+                    key -> new ArrayList<>()) : null;
+            JsonNode react = node.get("react");
+            Subscription subscription = vobject(resolve(path)).vmf().changes().addListener(change -> {
+                Event event = toEvent(change);
+                received.add(event);
+                if (log != null) {
+                    log.add(new Object[]{name, event});
+                }
+                if (react != null && matches(react.get("when"), event)) {
+                    // the listener edits the model while the change is delivered
+                    JsonNode edit = react.get("do");
+                    try {
+                        execute(operation(edit), edit);
+                    } catch (RuntimeException e) {
+                        throw e;
+                    } catch (Exception e) {
+                        throw new IllegalStateException(e);
+                    }
+                }
+            }, !"local".equals(scope));
             subscriptions.put(name, subscription);
+        }
+
+        void checkCalls(String name, JsonNode expected) {
+            List<Object[]> log = calls.computeIfAbsent(name, key -> new ArrayList<>());
+            List<Object[]> received = new ArrayList<>(log);
+            log.clear();
+            StringBuilder rendered = new StringBuilder("[");
+            for (Object[] call : received) {
+                Event event = (Event) call[1];
+                rendered.append(rendered.length() > 1 ? ", " : "").append(call[0]).append(' ')
+                        .append(event.property).append(' ').append(render(event.oldValue)).append("->")
+                        .append(render(event.newValue));
+            }
+            rendered.append(']');
+            boolean same = received.size() == expected.size();
+            for (int i = 0; same && i < received.size(); i++) {
+                JsonNode wanted = expected.get(i);
+                same = wanted.get("listener").asText().equals(received.get(i)[0])
+                        && matches(wanted, (Event) received.get(i)[1]);
+            }
+            if (!same) {
+                throw new ScenarioFailure(name + ": expected " + expected + ", received " + rendered);
+            }
         }
 
         Event toEvent(Change change) {

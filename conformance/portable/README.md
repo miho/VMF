@@ -81,7 +81,8 @@ Values: `"obj": label` or `"objs": [labels]` for model objects (compared by iden
 | `{"copy": path, "as": l}` | deep copy (Q3) |
 | `{"readOnly": path, "as": l}` | read-only view (V1) |
 | `{"instanceOf": path, "type": T}` / `notInstanceOf` | type check (T1) |
-| `{"listen": path, "as": L, "scope": "local"/"recursive"}`, `{"unlisten": L}` | listeners (E) |
+| `{"listen": path, "as": L, "scope": "local"/"recursive"}`, `{"unlisten": L}` | listeners (E); optional `"log": name` also appends each event with the listener's name to a shared call log, and `"react": {"when": pattern, "do": step}` runs an edit inside the listener when an event matches |
+| `{"calls": name, "are": [{"listener": L, ...pattern}, ...]}` | compare and clear a call log: which listener received which event, in order (not merged) |
 | `{"events": L, "are": [...]}` or `"count": n` | compare and clear received events; optional `"anyOrder": true`, `"ignore": [patterns]` |
 | `{"record": path}`, `{"recorded": path, "count": n}` | start recording, count recorded changes (H1) |
 | `{"undoAll": path}`, `{"redoAll": path}` | stop recording, undo all in reverse order; redo them in order (H2, H3) |

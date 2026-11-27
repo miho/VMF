@@ -226,6 +226,66 @@
         {"add": "o.values", "value": 1},
         {"events": "L", "count": 0}
       ]
+    },
+    {
+      "id": "listeners-of-one-object-in-the-order-they-were-added",
+      "model": "tree",
+      "requires": ["events"],
+      "rules": ["E7"],
+      "steps": [
+        {"new": "n", "type": "Node"},
+        {"listen": "n", "as": "A", "scope": "local", "log": "calls"},
+        {"listen": "n", "as": "B", "scope": "recursive", "log": "calls"},
+        {"listen": "n", "as": "C", "scope": "local", "log": "calls"},
+        {"set": "n.name", "value": "x"},
+        {"calls": "calls", "are": [{"listener": "A", "new": "x"}, {"listener": "B", "new": "x"},
+          {"listener": "C", "new": "x"}]}
+      ]
+    },
+    {
+      "id": "changed-object-before-its-ancestors",
+      "model": "tree",
+      "requires": ["events"],
+      "rules": ["E8"],
+      "steps": [
+        {"new": "root", "type": "Node", "with": {"name": "root"}},
+        {"new": "mid", "type": "Node", "with": {"name": "mid"}},
+        {"new": "leaf", "type": "Node", "with": {"name": "leaf"}},
+        {"add": "root.children", "obj": "mid"},
+        {"add": "mid.children", "obj": "leaf"},
+        {"listen": "root", "as": "R", "log": "calls"},
+        {"listen": "mid", "as": "M", "log": "calls"},
+        {"listen": "leaf", "as": "L", "scope": "local", "log": "calls"},
+        {"set": "leaf.name", "value": "x"},
+        {"calls": "calls", "are": [{"listener": "L", "new": "x"}, {"listener": "M", "new": "x"},
+          {"listener": "R", "new": "x"}]},
+        {"set": "mid.name", "value": "y"},
+        {"calls": "calls", "are": [{"listener": "M", "new": "y"}, {"listener": "R", "new": "y"}]}
+      ]
+    },
+    {
+      "id": "edits-made-by-listeners-are-delivered-at-once",
+      "model": "tree",
+      "requires": ["events"],
+      "rules": ["E9"],
+      "steps": [
+        {"new": "p", "type": "Node", "with": {"name": "p"}},
+        {"new": "c", "type": "Node"},
+        {"add": "p.children", "obj": "c"},
+        {"listen": "c", "as": "C1", "scope": "local", "log": "calls",
+          "react": {"when": {"prop": "name", "new": "a"}, "do": {"set": "c.name", "value": "b"}}},
+        {"listen": "c", "as": "C2", "scope": "local", "log": "calls"},
+        {"listen": "p", "as": "P", "log": "calls"},
+        {"set": "c.name", "value": "a"},
+        {"check": "c.name", "value": "b"},
+        {"calls": "calls", "are": [
+          {"listener": "C1", "old": null, "new": "a"},
+          {"listener": "C1", "old": "a", "new": "b"},
+          {"listener": "C2", "old": "a", "new": "b"},
+          {"listener": "P", "old": "a", "new": "b"},
+          {"listener": "C2", "old": null, "new": "a"},
+          {"listener": "P", "old": null, "new": "a"}]}
+      ]
     }
   ]
 }

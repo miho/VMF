@@ -124,6 +124,47 @@
         {"equal": ["root", "built"]},
         {"check": "b.parent", "obj": "c"}
       ]
+    },
+    {
+      "id": "edits-made-by-listeners-are-recorded-after-their-cause",
+      "model": "tree",
+      "requires": ["events", "history"],
+      "rules": ["H4", "H2", "H3", "E9"],
+      "steps": [
+        {"new": "p", "type": "Node", "with": {"name": "p"}},
+        {"new": "c", "type": "Node"},
+        {"add": "p.children", "obj": "c"},
+        {"listen": "c", "as": "C1", "scope": "local",
+          "react": {"when": {"prop": "name", "new": "a"}, "do": {"set": "c.name", "value": "b"}}},
+        {"record": "p"},
+        {"set": "c.name", "value": "a"},
+        {"check": "c.name", "value": "b"},
+        {"recorded": "p", "count": 2},
+        {"unlisten": "C1"},
+        {"undoAll": "p"},
+        {"check": "c.name", "value": null},
+        {"redoAll": "p"},
+        {"check": "c.name", "value": "b"}
+      ]
+    },
+    {
+      "id": "edits-made-by-ancestor-listeners-are-recorded-after-their-cause",
+      "model": "tree",
+      "requires": ["events", "history"],
+      "rules": ["H4", "H2", "E8", "E9"],
+      "steps": [
+        {"new": "p", "type": "Node", "with": {"name": "p"}},
+        {"new": "c", "type": "Node"},
+        {"add": "p.children", "obj": "c"},
+        {"record": "p"},
+        {"listen": "p", "as": "P", "react": {"when": {"prop": "name", "new": "a"}, "do": {"set": "c.name", "value": "b"}}},
+        {"set": "c.name", "value": "a"},
+        {"check": "c.name", "value": "b"},
+        {"recorded": "p", "count": 2},
+        {"unlisten": "P"},
+        {"undoAll": "p"},
+        {"check": "c.name", "value": null}
+      ]
     }
   ]
 }

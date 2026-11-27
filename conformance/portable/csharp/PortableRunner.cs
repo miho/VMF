@@ -269,7 +269,7 @@ internal sealed class Execution(string model)
     [
         "new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual", "nativeEqual",
         "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf", "listen", "unlisten",
-        "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write", "read",
+        "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write", "read", "calls",
         "document",
     ];
 
@@ -461,7 +461,10 @@ internal sealed class Execution(string model)
             }
             case "listen":
                 Listen(Json.Text(node["listen"]), Json.Text(node["as"]),
-                    node.ContainsKey("scope") ? Json.Text(node["scope"]) : "recursive");
+                    node.ContainsKey("scope") ? Json.Text(node["scope"]) : "recursive", node);
+                break;
+            case "calls":
+                CheckCalls(Json.Text(node["calls"]), node["are"]!.AsArray());
                 break;
             case "unlisten":
             {
@@ -881,9 +884,9 @@ internal sealed class Execution(string model)
         }
 
         internal IDisposable Listen(Func<ModelChange, Event> local, Func<ReadOnlyModelChange, Event> projected,
-            List<Event> received, ModelChangeScope scope) => mutable is not null
-            ? mutable.AddListener(change => received.Add(local(change)), scope)
-            : view!.AddListener(change => received.Add(projected(change)), scope);
+            Action<Event> receive, ModelChangeScope scope) => mutable is not null
+            ? mutable.AddListener(change => receive(local(change)), scope)
+            : view!.AddListener(change => receive(projected(change)), scope);
     }
 
     private object MutableList(string path)
@@ -1168,15 +1171,56 @@ internal sealed class Execution(string model)
 
     // ---------------------------------------------------------------------------------------- events
 
-    private void Listen(string path, string name, string scope)
+    private void Listen(string path, string name, string scope, JsonObject node)
     {
         if (!events.TryGetValue(name, out var received))
         {
             events[name] = received = [];
         }
-        var subscription = Changes(Resolve(path)).Listen(ToEvent, ToEvent, received,
+        List<(string Listener, Event Event)>? log = null;
+        if (node["log"] is JsonNode logName && !calls.TryGetValue(Json.Text(logName), out log))
+        {
+            calls[Json.Text(logName)] = log = [];
+        }
+        var react = node["react"] as JsonObject;
+        void Receive(Event current)
+        {
+            received.Add(current);
+            log?.Add((name, current));
+            if (react is not null && Matches(react["when"]!.AsObject(), current))
+            {
+                // the listener edits the model while the change is delivered
+                var edit = react["do"]!.AsObject();
+                Execute(Operation(edit), edit);
+            }
+        }
+        var subscription = Changes(Resolve(path)).Listen(ToEvent, ToEvent, Receive,
             scope == "local" ? ModelChangeScope.Local : ModelChangeScope.Recursive);
         subscriptions[name] = subscription;
+    }
+
+    private readonly Dictionary<string, List<(string Listener, Event Event)>> calls = new(StringComparer.Ordinal);
+
+    private void CheckCalls(string name, JsonArray expected)
+    {
+        if (!calls.TryGetValue(name, out var log))
+        {
+            calls[name] = log = [];
+        }
+        var received = new List<(string Listener, Event Event)>(log);
+        log.Clear();
+        string rendered = "[" + string.Join(", ", received.Select(call => call.Listener + " " + call.Event.Property + " "
+            + Render(call.Event.OldValue) + "->" + Render(call.Event.NewValue))) + "]";
+        bool same = received.Count == expected.Count;
+        for (int index = 0; same && index < received.Count; index++)
+        {
+            var wanted = expected[index]!.AsObject();
+            same = Json.Text(wanted["listener"]) == received[index].Listener && Matches(wanted, received[index].Event);
+        }
+        if (!same)
+        {
+            throw new ScenarioFailure(name + ": expected " + expected.ToJsonString() + ", received " + rendered);
+        }
     }
 
     private Event ToEvent(ModelChange change) => change switch

@@ -116,6 +116,14 @@ back to the container (its opposite).
 - **E5** A removed listener receives no further events.
 - **E6** A bulk list edit may be reported as one event or several. One property change of an edit may be
   reported as a chain (`a -> null`, `null -> b`). Runners merge both forms before comparing.
+- **E7** The listeners of one object are called in the order in which they were added, whether they observe
+  the object alone or also the objects it contains.
+- **E8** A change reaches the listeners of the changed object first, then the recursive listeners of its
+  container, then those of the container's container: nearest first. The order in which listeners of
+  different objects were added does not matter.
+- **E9** A listener may edit the model. The edit takes effect at once, and its changes are delivered before the
+  current change reaches the remaining listeners. A listener called later may therefore receive a change whose
+  new value is no longer current.
 
 ## History (optional)
 
@@ -126,6 +134,8 @@ back to the container (its opposite).
 - **H2** Undoing all recorded changes, in reverse order, restores the state before them: values,
   containment (including the previous owner and list position of a moved object) and opposites.
 - **H3** Redoing them in recorded order restores the state after them.
+- **H4** An edit made by a listener is recorded after the edit whose delivery triggered it. Undoing all recorded
+  changes in reverse order therefore restores the state before them also when listeners edited the model.
 
 ## Reflection (optional)
 
@@ -177,8 +187,8 @@ across targets:
 
 - names and API shape: builders or object initializers, getters or properties, list types
 - exception types and messages; only "rejected and unchanged" is specified
-- the order in which several listeners are called, edits made inside listeners (reentrancy), exceptions
-  thrown by listeners
+- listeners added or removed while a change is delivered, exceptions thrown by listeners, and recordings
+  started or stopped inside a listener
 - whether a recursive listener sees the container-property event of an object that enters, leaves or
   moves within its subtree during that edit
 - adding an object to the containment list that already holds it, duplicate entries created by
