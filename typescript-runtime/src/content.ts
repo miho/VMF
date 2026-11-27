@@ -196,11 +196,13 @@ function sameScalar(property: ScalarProperty, left: unknown, right: unknown): bo
     if (property.scalarType === "object") {
         return sameJsonLike(left, right);
     }
-    if (property.scalarType === "external" && left !== null && right !== null) {
-        const equals = property.codec!().equals;
-        return equals !== undefined ? left === right || equals(left, right) : left === right;
+    if (left === right) {
+        return true;
     }
-    return left === right;
+    if (property.scalarType === "external" && left !== null && right !== null) {
+        return property.codec!().equals?.(left, right) ?? false;
+    }
+    return false;
 }
 
 function valueHash(property: ScalarProperty, value: unknown): number {
