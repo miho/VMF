@@ -11,6 +11,7 @@ import eu.mihosoft.vmf.runtime.core.Change;
 import eu.mihosoft.vmf.runtime.core.Property;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.runtime.core.VObject;
+import eu.mihosoft.vmf.runtime.core.ValidationReport;
 import vjavax.observer.Subscription;
 
 import java.io.IOException;
@@ -48,7 +49,7 @@ public final class PortableRunner {
     static final String TARGET = "java";
     static final String BASE_PACKAGE = "eu.mihosoft.vmf.portable.";
     static final Set<String> CAPABILITIES = Set.of(
-            "core", "views", "events", "history", "reflection", "equality-modes", "json");
+            "core", "views", "events", "history", "reflection", "equality-modes", "json", "validation");
     /** Modules that do not apply to the language, with the reason. */
     static final Map<String, String> NOT_APPLICABLE = Map.of(
             "identity-equality", "Java's equals and hashCode follow the declared mode (N2)");
@@ -273,7 +274,7 @@ public final class PortableRunner {
         static final List<String> OPERATIONS = List.of("new", "set", "add", "insert", "remove", "clear", "check",
                 "let", "equal", "notEqual", "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly",
                 "instanceOf", "notInstanceOf", "listen", "unlisten", "events", "record", "recorded", "undoAll",
-                "redoAll", "properties", "annotations", "write", "read", "document", "calls");
+                "redoAll", "properties", "annotations", "write", "read", "document", "calls", "validate");
 
         final String model;
         final Map<String, Object> labels = new LinkedHashMap<>();
@@ -486,6 +487,9 @@ public final class PortableRunner {
                     }
                     break;
                 }
+                case "validate":
+                    checkIssues(node.get("validate").asText(), node.get("issues"));
+                    break;
                 default:
                     throw new ScenarioFailure("unsupported operation " + operation);
             }
@@ -1029,6 +1033,24 @@ public final class PortableRunner {
             expected.forEach(pair -> wanted.add(pair.get(0).asText() + "=" + pair.get(1).asText()));
             if (!actual.equals(wanted)) {
                 throw new ScenarioFailure(path + ": expected annotations " + wanted + ", found " + actual);
+            }
+        }
+
+        // ---------------------------------------------------------------------------------------- validation
+
+        /** Validates an object and compares the issues, code and path in reported order, with the expected ones. */
+        void checkIssues(String path, JsonNode expected) {
+            ValidationReport report = vobject(resolve(path)).vmf().content().validate();
+            List<String> actual = report.getIssues().stream()
+                    .map(issue -> issue.getCode() + " " + issue.getPath()).collect(Collectors.toList());
+            List<String> wanted = new ArrayList<>();
+            expected.forEach(issue -> wanted.add(issue.get("code").asText() + " " + issue.get("path").asText()));
+            if (!actual.equals(wanted)) {
+                throw new ScenarioFailure(path + ": expected issues " + wanted + ", found " + actual);
+            }
+            if (report.isValid() != wanted.isEmpty()) {
+                throw new ScenarioFailure(path + ": the report is " + (report.isValid() ? "valid" : "invalid")
+                        + " with the issues " + actual);
             }
         }
 

@@ -1,0 +1,250 @@
+{
+  "model": "validation",
+  "scenarios": [
+    {
+      "id": "valid-tree-has-no-issues",
+      "from": "ModelValidationTest.checksDeclaredBoundsAndValuesOnRootAndChildren",
+      "rules": ["L1", "L2"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "n", "type": "Network", "with": {"name": "net"}},
+        {"new": "s", "type": "Segment", "with": {"code": "abc", "lanes": 2}},
+        {"add": "n.segments", "obj": "s"},
+        {"validate": "n", "issues": []},
+        {"validate": "s", "issues": []}
+      ]
+    },
+    {
+      "id": "lower-bounds-of-values-and-lists",
+      "from": "ModelValidationTest.checksDeclaredBoundsAndValuesOnRootAndChildren",
+      "rules": ["L2", "L6", "L7"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "n", "type": "Network"},
+        {"validate": "n", "issues": [
+          {"code": "vmf.multiplicity", "path": "/name"},
+          {"code": "vmf.multiplicity", "path": "/segments"}
+        ]},
+        {"set": "n.name", "value": "net"},
+        {"validate": "n", "issues": [{"code": "vmf.multiplicity", "path": "/segments"}]},
+        {"new": "s", "type": "Segment", "with": {"lanes": 1}},
+        {"add": "n.segments", "obj": "s"},
+        {"validate": "n", "issues": [{"code": "vmf.multiplicity", "path": "/segments/0/code"}]},
+        {"set": "s.code", "value": "abc"},
+        {"validate": "n", "issues": []}
+      ]
+    },
+    {
+      "id": "upper-bound-of-a-list",
+      "rules": ["L2"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "n", "type": "Network", "with": {"name": "net"}},
+        {"new": "s1", "type": "Segment", "with": {"code": "aa", "lanes": 1}},
+        {"new": "s2", "type": "Segment", "with": {"code": "bb", "lanes": 1}},
+        {"new": "s3", "type": "Segment", "with": {"code": "cc", "lanes": 1}},
+        {"new": "s4", "type": "Segment", "with": {"code": "dd", "lanes": 1}},
+        {"add": "n.segments", "objs": ["s1", "s2", "s3"]},
+        {"validate": "n", "issues": []},
+        {"add": "n.segments", "obj": "s4"},
+        {"validate": "n", "issues": [{"code": "vmf.multiplicity", "path": "/segments"}]},
+        {"remove": "n.segments", "at": 0},
+        {"validate": "n", "issues": []}
+      ]
+    },
+    {
+      "id": "inclusive-and-exclusive-bounds",
+      "rules": ["L1", "L3"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "s", "type": "Segment", "with": {"code": "abc", "lanes": 1}},
+        {"validate": "s", "issues": []},
+        {"set": "s.lanes", "value": 4},
+        {"validate": "s", "issues": []},
+        {"set": "s.lanes", "value": 5},
+        {"validate": "s", "issues": [{"code": "vmf.range", "path": "/lanes"}]},
+        {"set": "s.lanes", "value": 0},
+        {"validate": "s", "issues": [{"code": "vmf.range", "path": "/lanes"}]},
+        {"set": "s.lanes", "value": 2},
+        {"set": "s.start", "value": 10},
+        {"validate": "s", "issues": [{"code": "vmf.range", "path": "/start"}]},
+        {"set": "s.start", "value": 9.999999999999998},
+        {"validate": "s", "issues": []},
+        {"set": "s.start", "value": -0.5},
+        {"validate": "s", "issues": [{"code": "vmf.range", "path": "/start"}]}
+      ]
+    },
+    {
+      "id": "integers-compare-exactly",
+      "rules": ["L3", "L6", "T4"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "s", "type": "Segment", "with": {"code": "abc", "lanes": 1, "serial": 9223372036854775807}},
+        {"validate": "s", "issues": [{"code": "vmf.range", "path": "/serial"}]},
+        {"set": "s.serial", "value": 9223372036854775806},
+        {"validate": "s", "issues": []},
+        {"set": "s.serial", "value": -9223372036854775808},
+        {"validate": "s", "issues": []},
+        {"new": "p", "type": "Part", "with": {"big": 9007199254740993}},
+        {"validate": "p", "issues": []},
+        {"set": "p.big", "value": 9007199254740992},
+        {"validate": "p", "issues": [{"code": "vmf.range", "path": "/big"}]},
+        {"set": "p.big", "value": null},
+        {"validate": "p", "issues": []}
+      ]
+    },
+    {
+      "id": "floating-values-compare-by-shortest-decimal",
+      "rules": ["L3", "L6", "T6"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "s", "type": "Segment", "with": {"code": "abc", "lanes": 1, "ratio": 0.1}},
+        {"validate": "s", "issues": [{"code": "vmf.range", "path": "/ratio"}]},
+        {"set": "s.ratio", "value": 0.10000000000000002},
+        {"validate": "s", "issues": []},
+        {"set": "s.ratio", "value": null},
+        {"validate": "s", "issues": []},
+        {"new": "p", "type": "Part", "with": {"level": 0.1}},
+        {"validate": "p", "issues": []},
+        {"set": "p.level", "value": 0.10000001},
+        {"validate": "p", "issues": [{"code": "vmf.range", "path": "/level"}]},
+        {"set": "p.level", "value": -1000000},
+        {"validate": "p", "issues": []}
+      ]
+    },
+    {
+      "id": "length-counts-code-points",
+      "rules": ["L4"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "s", "type": "Segment", "with": {"code": "abc", "lanes": 1}},
+        {"new": "n", "type": "Network", "with": {"name": "\ud83d\ude00\ud83d\ude00"}},
+        {"add": "n.segments", "obj": "s"},
+        {"validate": "n", "issues": [{"code": "vmf.length", "path": "/name"}]},
+        {"set": "n.name", "value": "a\ud83d\ude00b"},
+        {"validate": "n", "issues": []},
+        {"set": "n.name", "value": "\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00\ud83d\ude00"},
+        {"validate": "n", "issues": []},
+        {"set": "n.name", "value": "abcdefghi"},
+        {"validate": "n", "issues": [{"code": "vmf.length", "path": "/name"}]}
+      ]
+    },
+    {
+      "id": "patterns-search-the-value",
+      "rules": ["L5"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "p", "type": "Part", "with": {"note": "abc"}},
+        {"validate": "p", "issues": [{"code": "vmf.pattern", "path": "/note"}]},
+        {"set": "p.note", "value": "a1c"},
+        {"validate": "p", "issues": []},
+        {"set": "p.label", "value": "A1"},
+        {"validate": "p", "issues": []},
+        {"set": "p.label", "value": "a1"},
+        {"validate": "p", "issues": [{"code": "vmf.pattern", "path": "/label"}]},
+        {"set": "p.label", "value": "A1\n"},
+        {"validate": "p", "issues": [{"code": "vmf.pattern", "path": "/label"}]},
+        {"set": "p.label", "value": "A"},
+        {"set": "p.key", "value": "caf\u00e9"},
+        {"validate": "p", "issues": [{"code": "vmf.pattern", "path": "/key"}]},
+        {"set": "p.key", "value": "cafe_1"},
+        {"validate": "p", "issues": []}
+      ]
+    },
+    {
+      "id": "issues-in-property-order",
+      "rules": ["L2", "L3", "L4", "L5", "L8"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "s", "type": "Segment", "with": {"lanes": 0, "ratio": 0.1, "serial": 9223372036854775807, "start": 10}},
+        {"validate": "s", "issues": [
+          {"code": "vmf.multiplicity", "path": "/code"},
+          {"code": "vmf.range", "path": "/lanes"},
+          {"code": "vmf.range", "path": "/ratio"},
+          {"code": "vmf.range", "path": "/serial"},
+          {"code": "vmf.range", "path": "/start"}
+        ]},
+        {"set": "s.code", "value": "1"},
+        {"validate": "s", "issues": [
+          {"code": "vmf.length", "path": "/code"},
+          {"code": "vmf.pattern", "path": "/code"},
+          {"code": "vmf.range", "path": "/lanes"},
+          {"code": "vmf.range", "path": "/ratio"},
+          {"code": "vmf.range", "path": "/serial"},
+          {"code": "vmf.range", "path": "/start"}
+        ]}
+      ]
+    },
+    {
+      "id": "paths-through-containment",
+      "from": "ModelValidationTest.checksDeclaredBoundsAndValuesOnRootAndChildren",
+      "rules": ["L1", "L7", "L8"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "n", "type": "Network", "with": {"name": "net"}},
+        {"new": "m", "type": "Segment", "with": {"code": "Main", "lanes": 1}},
+        {"new": "s0", "type": "Segment", "with": {"code": "abc", "lanes": 9}},
+        {"new": "s1", "type": "Segment", "with": {"code": "def", "lanes": 1}},
+        {"new": "p0", "type": "Part", "with": {"label": "toolong"}},
+        {"new": "p1", "type": "Part", "with": {"note": "x"}},
+        {"set": "n.main", "obj": "m"},
+        {"add": "n.segments", "objs": ["s0", "s1"]},
+        {"add": "s1.parts", "objs": ["p0", "p1"]},
+        {"validate": "n", "issues": [
+          {"code": "vmf.pattern", "path": "/main/code"},
+          {"code": "vmf.range", "path": "/segments/0/lanes"},
+          {"code": "vmf.length", "path": "/segments/1/parts/0/label"},
+          {"code": "vmf.pattern", "path": "/segments/1/parts/0/label"},
+          {"code": "vmf.pattern", "path": "/segments/1/parts/1/note"}
+        ]},
+        {"validate": "s1", "issues": [
+          {"code": "vmf.length", "path": "/parts/0/label"},
+          {"code": "vmf.pattern", "path": "/parts/0/label"},
+          {"code": "vmf.pattern", "path": "/parts/1/note"}
+        ]}
+      ]
+    },
+    {
+      "id": "references-and-containers-are-not-followed",
+      "from": "ModelValidationTest.followsReferencesOnceWithoutChangingContainmentPaths",
+      "rules": ["L1"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "n", "type": "Network", "with": {"name": "net"}},
+        {"new": "s", "type": "Segment", "with": {"code": "abc", "lanes": 1}},
+        {"new": "r", "type": "Segment", "with": {"lanes": 7}},
+        {"add": "n.segments", "obj": "s"},
+        {"set": "n.remote", "obj": "r"},
+        {"validate": "n", "issues": []},
+        {"validate": "r", "issues": [
+          {"code": "vmf.multiplicity", "path": "/code"},
+          {"code": "vmf.range", "path": "/lanes"}
+        ]},
+        {"new": "unnamed", "type": "Network"},
+        {"new": "t", "type": "Segment", "with": {"code": "abc", "lanes": 1}},
+        {"add": "unnamed.segments", "obj": "t"},
+        {"validate": "t", "issues": []},
+        {"validate": "unnamed", "issues": [{"code": "vmf.multiplicity", "path": "/name"}]}
+      ]
+    },
+    {
+      "id": "moved-objects-are-validated-where-they-are",
+      "rules": ["L1", "L7", "C2"],
+      "requires": ["validation"],
+      "steps": [
+        {"new": "n", "type": "Network", "with": {"name": "net"}},
+        {"new": "s0", "type": "Segment", "with": {"code": "abc", "lanes": 1}},
+        {"new": "s1", "type": "Segment", "with": {"code": "def", "lanes": 1}},
+        {"new": "p", "type": "Part", "with": {"note": "x"}},
+        {"add": "n.segments", "objs": ["s0", "s1"]},
+        {"add": "s0.parts", "obj": "p"},
+        {"validate": "n", "issues": [{"code": "vmf.pattern", "path": "/segments/0/parts/0/note"}]},
+        {"add": "s1.parts", "obj": "p"},
+        {"validate": "n", "issues": [{"code": "vmf.pattern", "path": "/segments/1/parts/0/note"}]},
+        {"remove": "n.segments", "obj": "s1"},
+        {"validate": "n", "issues": []},
+        {"validate": "s1", "issues": [{"code": "vmf.pattern", "path": "/parts/0/note"}]}
+      ]
+    }
+  ]
+}

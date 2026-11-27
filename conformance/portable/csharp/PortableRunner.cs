@@ -22,7 +22,7 @@ public static class PortableRunner
 
     private static readonly HashSet<string> Capabilities = new(StringComparer.Ordinal)
     {
-        "core", "views", "events", "history", "reflection", "equality-modes", "json",
+        "core", "views", "events", "history", "reflection", "equality-modes", "json", "validation",
     };
 
     /// <summary>Modules that do not apply to the language, with the reason.</summary>
@@ -270,7 +270,7 @@ internal sealed class Execution(string model)
         "new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual", "nativeEqual",
         "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf", "listen", "unlisten",
         "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write", "read", "calls",
-        "document",
+        "document", "validate",
     ];
 
     private static readonly Dictionary<string, ModelReflectionRegistry> Registries = new(StringComparer.Ordinal);
@@ -552,6 +552,9 @@ internal sealed class Execution(string model)
                 }
                 break;
             }
+            case "validate":
+                CheckIssues(Json.Text(node["validate"]), node["issues"]!.AsArray());
+                break;
             default:
                 throw new ScenarioFailure("unsupported operation " + operation);
         }
@@ -1376,6 +1379,33 @@ internal sealed class Execution(string model)
             recorded[i].Undo();
         }
         undone[label] = recorded;
+    }
+
+    // ---------------------------------------------------------------------------------------- validation
+
+    /// <summary>
+    /// Validates an object and compares the issues, model code and model path in reported order, with the expected
+    /// ones: through the generated <c>Validate()</c> and through <see cref="ModelValidator"/>.
+    /// </summary>
+    private void CheckIssues(string path, JsonArray expected)
+    {
+        object root = Resolve(path) ?? throw new ScenarioFailure("cannot validate null");
+        var wanted = expected.Select(issue => Json.Text(issue!["code"]) + " " + Json.Text(issue!["path"])).ToList();
+        MethodInfo validate = root.GetType().GetMethod("Validate", Type.EmptyTypes)
+            ?? throw new MissingMethodException(root.GetType().Name, "Validate");
+        var generated = ((IEnumerable<ValidationIssue>)validate.Invoke(root, null)!)
+            .Select(issue => issue.ModelCode + " " + issue.ModelPath).ToList();
+        if (!generated.SequenceEqual(wanted))
+        {
+            throw new ScenarioFailure(path + ": expected issues " + List(wanted) + ", Validate() found " + List(generated));
+        }
+        var report = ModelValidator.NewBuilder(Registry(root)).Build().Validate(root);
+        var validated = report.Issues.Select(issue => issue.Code + " " + issue.Path).ToList();
+        if (!validated.SequenceEqual(wanted) || report.IsValid != (wanted.Count == 0))
+        {
+            throw new ScenarioFailure(path + ": expected issues " + List(wanted) + ", ModelValidator found "
+                + List(validated) + (report.IsValid ? " (valid)" : " (invalid)"));
+        }
     }
 
     // ---------------------------------------------------------------------------------------- rendering

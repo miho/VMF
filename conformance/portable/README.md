@@ -5,9 +5,9 @@ One set of scenario files, one small runner per target language. The rules are i
 
 ```
 conformance/portable/
-  CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J optional modules)
+  CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J, L optional modules)
   models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>)
-  scenarios/*.json            128 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
+  scenarios/*.json            147 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
   java/                       model generation helper and the Java runner
   csharp/                     the C# runner
@@ -91,6 +91,7 @@ Values: `"obj": label` or `"objs": [labels]` for model objects (compared by iden
 | `{"write": path, "as": d, "plain": true?, "references": "omit"?}` | write a snapshot document (J), plain without metadata, optionally leaving references out |
 | `{"read": d or {"json": ...}, "type": T, "as": l, "plain": true?}` | read a written or a literal document |
 | `{"document": d, "is": json}` | compare a written document; key order is ignored, numbers compare by value |
+| `{"validate": path, "issues": [{"code": c, "path": p}]}` | validate an object and compare its issues, code and JSON pointer, in reported order (L) |
 
 Any edit step may carry `"fails": true`: the edit must be rejected, and the runner checks that every object
 reachable from a label is unchanged afterwards.
@@ -115,11 +116,14 @@ How the runners reach the generated code (for users, the [language mappings](../
   equality and copies, `vmf().changes()` for listeners and recording, `Change.undo()` and
   `Change.apply(change.object())` for undo and redo, vmf-jackson (`VMFJacksonModule` with
   `withModelWireTypeAliases(...)` and `withReferences(true)`, or without both for plain documents).
+  Validation through `vmf().content().validate()`.
 - C#: constructors and `NewBuilder()`, properties through `<namespace>.ModelSnapshot.Reflection` (model names,
   declared order), lists through their public `Add`, `Insert`, `RemoveAt`, `Clear` and indexer,
   `ContentEquals`/`ContentHashCode`, `Reflection.DeepCopy`, `ModelChanges.For(x)` with `History`,
   `ModelChange.Undo()` and `Redo()`. Interface-only types are abstract classes; several supertypes become
   `I<Name>` interfaces. Documents through `ModelSnapshot.Write`, `Read<T>`, `WritePlain<T>` and `ReadPlain<T>`.
+  Validation through the generated `Validate()` (`ModelCode`, `ModelPath`) and, with the same expected issues,
+  `ModelValidator.NewBuilder(ModelSnapshot.Reflection).Build().Validate(x)`.
 - TypeScript: `new` on the classes listed in `ModelSnapshot.registry` (interface-only types are abstract and
   not registered), then plain property assignment for initial values; properties and list objects by model
   name; `instanceof` also for interface-only supertypes a class implements besides its base class;
@@ -129,15 +133,16 @@ How the runners reach the generated code (for users, the [language mappings](../
   `readPlain`. `long` values are `bigint`; the runner parses large JSON integers exactly. `@Immutable` types
   are created with `new Type({ ...values })` and frozen; their lists are `vmf.ReadOnlyList`. `asReadOnly()`
   returns a live view typed by the generated `ReadOnly<Type>` interface, without setters or list edits.
-  Reflection through `vmfType` (`properties`, `annotations`, `property(name)`).
+  Reflection through `vmfType` (`properties`, `annotations`, `property(name)`). Validation through `validate()`
+  (`modelCode`, `modelPath`).
 
 ## Current results
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 16 of 16 | 127 of 127 (the identity-equality scenario does not apply) | none |
-| C# | 16 of 16 | 127 of 127 (the identity-equality scenario does not apply) | none |
-| TypeScript | 16 of 16 | 124 of 124 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
+| Java | 18 of 18 | 146 of 146 (the identity-equality scenario does not apply) | none |
+| C# | 18 of 18 | 146 of 146 (the identity-equality scenario does not apply) | none |
+| TypeScript | 18 of 18 | 143 of 143 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
@@ -147,7 +152,9 @@ Java `ReferenceMode.OMIT`, C# `ReferenceMode.Omit`, TypeScript `"omit"`.
 
 Before this contract the TypeScript generator accepted 2 of the 15 models. Supporting the core took about 700
 lines of runtime code and 230 lines of generator changes; the views and reflection modules and immutable values
-in documents took about 500 more lines of runtime code and 300 of generator changes.
+in documents took about 500 more lines of runtime code and 300 of generator changes. The validation module needed
+no change in Java or C#; TypeScript gained value constraints with about 220 lines of runtime code and 150 more
+lines of generator code.
 
 ## Where the scenarios come from
 
@@ -172,6 +179,7 @@ behavior.
 | WorkshopSnapshots, VMFJacksonModule tests | snapshot documents | json | `json.json` (14) |
 | OneToOneReassignmentTest (11), OneToManyReassignmentTest (13, 2026) | reference takeover | core R2 | `references.json` (6) |
 | ContainmentCycleTest (6, 2026) | cycle rejection | core C5 | `containment.json` (3) |
+| ModelValidationTest (3, 2026) | multiplicities, ranges, lengths, patterns, paths | validation | `validation.json` (12) |
 | ReadOnlyExternalListTest (6, 2026) | live read-only lists | views | `views.json` (2) |
 | parentcontainment01 (2) | parent lookup through `@DelegateTo` | Java only (delegation) | none |
 | ToStringTest (3), ExternalTypesTest (2), StaticReflectionTest (1), PropertyTypeTest (3), CustomLoaderPropertyTest (1), ModelRegistryTest (2), GeneratedDispatchTest (4) | Java API | Java only | none |
