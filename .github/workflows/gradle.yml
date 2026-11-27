@@ -76,7 +76,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Set up Node for the TypeScript baseline
+      - name: Set up Node for the TypeScript targets
         if: matrix.jdk == 17 && runner.os != 'macOS'
         uses: actions/setup-node@v7
         with:
@@ -85,12 +85,12 @@ jobs:
       - name: Check generated C# and TypeScript models on Linux
         if: matrix.jdk == 17 && runner.os == 'Linux'
         shell: bash
-        run: ./gradlew --console=plain :vmf:verifyCSharpConformance :vmf:verifyTypeScriptWorkshop
+        run: ./gradlew --console=plain :vmf:verifyCSharpConformance :vmf:verifyTypeScriptWorkshop :vmf:verifyPortableContract
 
       - name: Check generated C# and TypeScript models on Windows
         if: matrix.jdk == 17 && runner.os == 'Windows'
         shell: cmd
-        run: call gradlew.bat --console=plain :vmf:verifyCSharpConformance :vmf:verifyTypeScriptWorkshop
+        run: call gradlew.bat --console=plain :vmf:verifyCSharpConformance :vmf:verifyTypeScriptWorkshop :vmf:verifyPortableContract
 
       - name: Set up Python for snapshot schema verification
         if: matrix.jdk == 17 && runner.os == 'Linux'
