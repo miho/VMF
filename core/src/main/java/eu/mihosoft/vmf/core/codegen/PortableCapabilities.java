@@ -893,8 +893,8 @@ public final class PortableCapabilities {
                 diagnostics.add(name + " declares @SyncWith, which is inactive in the Java generator");
                 continue;
             }
-            if (profile == Profile.CSHARP && feature == Feature.MAP) continue;
-            if (profile == Profile.CSHARP && feature == Feature.KEYED) {
+            if (feature == Feature.MAP) continue;
+            if (feature == Feature.KEYED) {
                 var key = property.getEntryKey().orElseThrow().getValueType();
                 var element = property.getValueType();
                 boolean concreteEntry = element.getKind() == ValueType.Kind.MODEL && !containsTypeParameter(element);
@@ -950,11 +950,7 @@ public final class PortableCapabilities {
         switch (property.getKind()) {
             case SCALAR:
                 if (property.isCollection()) {
-                    if (profile == Profile.TYPESCRIPT) {
-                        if (!property.isOrdered() || property.isUnique()) {
-                            diagnostics.add(name + " needs an ordered scalar list");
-                        }
-                    } else if (!external && !objectValue && !isScalarSlot(owner, valueType)) {
+                    if (profile == Profile.CSHARP && !external && !objectValue && !isScalarSlot(owner, valueType)) {
                         diagnostics.add(name + " needs a concrete portable scalar element type");
                     }
                 } else if (!isSupportedSingularBound(property, profile)) {
@@ -962,24 +958,14 @@ public final class PortableCapabilities {
                 }
                 break;
             case MAP:
-                if (profile == Profile.CSHARP
-                        && (!isScalarSlot(owner, property.getKeyType()) || !isScalarSlot(owner, valueType))) {
+                if (!isScalarSlot(owner, property.getKeyType()) || !isScalarSlot(owner, valueType)) {
                     diagnostics.add(name + " needs concrete portable scalar map key and value types");
                 }
                 break;
             case REFERENCE:
                 if (!isSupportedReference(property, profile)) {
-                    String forms = profile == Profile.CSHARP
-                            ? "a single-valued reference, an ordered reference sequence, or an identity reference set"
-                            : "a single-valued reference, an ordered reference list, or an unbounded unordered identity"
-                                + " reference set without an opposite";
-                    diagnostics.add(name + " needs " + forms);
-                }
-                // Immutable owners report unordered collections in checkTypeScriptImmutable.
-                if (profile == Profile.TYPESCRIPT && !owner.isImmutable() && property.isCollection()
-                        && !property.isOrdered()
-                        && (isImmutableType(model, valueType) || isGetterOnlyTrait(model, valueType))) {
-                    diagnostics.add(name + " needs an ordered list for immutable values");
+                    diagnostics.add(name + " needs a single-valued reference, an ordered reference sequence, or an identity"
+                            + " reference set");
                 }
                 if (!property.getOppositeName().isEmpty()) {
                     checkOpposite(model, owner, property, Property.Kind.REFERENCE, profile, name, diagnostics);
@@ -991,10 +977,7 @@ public final class PortableCapabilities {
                 break;
             case CONTAINMENT:
                 if (valueType.getModelType() == null || !isSupportedContainment(property, profile)) {
-                    String forms = profile == Profile.CSHARP
-                            ? "a single-valued containment, an ordered collection, or an identity set"
-                            : "a single-valued containment or an ordered collection of model objects";
-                    diagnostics.add(name + " needs " + forms);
+                    diagnostics.add(name + " needs a single-valued containment, an ordered collection, or an identity set");
                 }
                 if (isImmutableType(model, valueType)) {
                     diagnostics.add(name + " cannot contain an immutable value");
@@ -1068,7 +1051,7 @@ public final class PortableCapabilities {
 
     private static boolean isSupportedContainment(Property property, Profile profile) {
         if (property.isCollection()) {
-            if (!property.isOrdered()) return profile == Profile.CSHARP && property.isUnique()
+            if (!property.isOrdered()) return property.isUnique()
                     && (property.getEntryKey().isEmpty() || property.getOppositeName().isEmpty());
             // A child has one container, so every ordered containment list holds each child once.
             return true;
@@ -1077,7 +1060,8 @@ public final class PortableCapabilities {
     }
 
     private static boolean isSupportedSingularBound(Property property, Profile profile) {
-        return property.getUpperBound() == 1 || profile == Profile.CSHARP && property.getUpperBound() == 0;
+        // An upper bound of 0 is a validation rule: the value must stay unset.
+        return property.getUpperBound() == 1 || property.getUpperBound() == 0;
     }
 
     private static boolean isBoundKeyedEntry(ResolvedModel model, Type owner, Property property, ValueType key) {
@@ -1105,11 +1089,8 @@ public final class PortableCapabilities {
     private static boolean isSupportedReference(Property property, Profile profile) {
         if (property.getValueType().getModelType() == null) return false;
         if (!property.isCollection()) return isSupportedSingularBound(property, profile);
-        boolean opposite = !property.getOppositeName().isEmpty();
-        // TypeScript reference lists allow repeats unless an opposite keeps each member once.
-        if (property.isOrdered()) return profile == Profile.CSHARP || !property.isUnique() || opposite;
-        return property.isUnique() && (profile == Profile.CSHARP
-                || !opposite && property.getLowerBound() == 0 && property.getUpperBound() == -1);
+        // Ordered lists and sets, and unordered identity sets; bounds of model collections are validated only.
+        return property.isOrdered() || property.isUnique();
     }
 
     private static void checkOpposite(ResolvedModel model, Type owner, Property property,
@@ -1137,7 +1118,7 @@ public final class PortableCapabilities {
     /** Properties that several supertypes provide must agree, because the class declares them once. */
     /**
      * A TypeScript immutable class extends at most one immutable class and implements getter-only traits. Its
-     * values are scalars, ordered scalar lists, and immutable values or ordered lists of them.
+     * values are scalars, scalar collections and maps, and immutable values or collections of them.
      */
     private static void checkTypeScriptImmutable(ResolvedModel model, Type type, List<String> diagnostics) {
         String name = type.getQualifiedName();
@@ -1154,11 +1135,6 @@ public final class PortableCapabilities {
         }
         if (!type.getTypeParameters().isEmpty()) {
             diagnostics.add(name + " needs a nongeneric immutable type");
-        }
-        for (var property : type.getEffectiveProperties()) {
-            if (property.getKind() == Property.Kind.REFERENCE && property.isCollection() && !property.isOrdered()) {
-                diagnostics.add(name + "." + property.getName() + " needs an ordered list on an immutable type");
-            }
         }
     }
 

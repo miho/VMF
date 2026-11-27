@@ -167,10 +167,13 @@ ${type.declaration} {
         }
 #end
 #foreach($containment in $type.containments)
-#if($containment.many)
+#if($containment.many && $containment.ordered)
         for (let index = 0; index < this.${containment.name}.count; index++) {
             this.${containment.name}.at(index).__vmfValidateInto(issues, path + "${containment.name}[" + index + "].");
         }
+#elseif($containment.many)
+        [...this.${containment.name}].forEach((child, index) =>
+            child.__vmfValidateInto(issues, path + "${containment.name}[" + index + "]."));
 #else
         this.${containment.name}?.__vmfValidateInto(issues, path + "${containment.name}.");
 #end

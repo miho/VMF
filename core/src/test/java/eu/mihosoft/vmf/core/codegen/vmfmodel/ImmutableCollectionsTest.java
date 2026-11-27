@@ -142,14 +142,8 @@ public class ImmutableCollectionsTest {
         assertTrue(property(derived, "order").isOrdered());
         assertTrue(property(derived, "selection").isUnique());
         assertFalse(property(derived, "selection").isOrdered());
-        // TypeScript immutable classes hold scalars, ordered scalar lists and ordered lists of immutable values.
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        String message = typescript.getMessage();
-        assertTrue(message, message.contains("ImmutableCollectionBase.flags uses map properties"));
-        assertTrue(message, message.contains("ImmutableCollectionBase.levels needs an ordered scalar list"));
-        assertTrue(message, message.contains("ImmutableCollectionDerived.selection needs an ordered list on an immutable type"));
-        assertFalse(message, message.contains("ImmutableCollectionDerived.history"));
-        assertFalse(message, message.contains("uses an immutable type"));
+        // TypeScript immutable classes hold scalar lists, sets and maps, and lists and sets of immutable values.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
@@ -176,11 +170,8 @@ public class ImmutableCollectionsTest {
         assertEquals("ImmutableCollectionBase", composed.getSuperTypes().get(0));
         assertTrue(property(composed, "title").isGetterOnly());
         assertEquals("local", property(composed, "source").getScalarDefault().orElseThrow().getValue());
-        // Only the map and the set of ImmutableCollectionBase are beyond TypeScript; traits and immutables are not.
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        String message = typescript.getMessage();
-        assertTrue(message, message.contains("ImmutableCollectionBase.flags uses map properties"));
-        assertFalse(message, message.contains("Trait"));
+        // TypeScript implements the traits and holds the map and the set of ImmutableCollectionBase too.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test
