@@ -3,7 +3,7 @@
 How the rules of the [portable contract](../../conformance/portable/CONTRACT.md) appear in the generated
 TypeScript API. Rule ids (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, identity-equality, json, validation. JavaScript has no
+Claimed modules: core, views, events, history, reflection, identity-equality, json, validation, collections. JavaScript has no
 equality that a class can define, so TypeScript follows N3 instead of N2 (see [Equality](#equality-and-copies-q-n)).
 
 ## Generating
@@ -38,6 +38,22 @@ Generated code is an ES2022 module that imports the runtime as `@vmf/runtime` (`
 | `String` and other optional values | `string \| null` |
 | list property (`T[]`) | `ScalarList<T>`, `ContainmentList<TOwner, TChild>` or `ReferenceList<T>` with `add`, `insert`, `set`, `remove`, `removeAt`, `clear`, `at`, `indexOf`, `contains`, `count` and iteration; an unordered reference collection is a `ReferenceSet<T>` with `add`, `remove`, `clear`, `contains` and `count` |
 | `@DefaultValue` (scalars) | the initial value of new objects |
+
+## Collections (K)
+
+| Model | TypeScript |
+|---|---|
+| `Set<T>` of scalars | `vmf.ScalarSet<T>`: `add`, `addAll`, `remove`, `clear`, `contains`, `count`, `toArray` and iteration; values compare like a JavaScript `Set` |
+| `@Multiplicity(kind = ORDERED_SET)` list | a `ScalarList<T>` or `ReferenceList<T>` that holds each element once: `add` returns `false` for an element it holds, `insert` and `set` reject one |
+| `@Multiplicity(upper = n)` list of scalars | a `ScalarList<T>` that rejects `null` and edits beyond `n` (`RangeError`); `addAll` adds several values as one edit |
+| `VMap<K, V>` | `vmf.ScalarMap<K, V \| null>`: `put(key, value)` (inserts or replaces in place, returns the previous value), `add(key, value)` (rejects a present key), `putAll(entries)`, `get(key)` (`undefined` for an absent key), `has`, `remove`, `clear`, `count`, `keys()`, `values()`, `entries()`, `toMap()`; iteration yields `[key, value]` in insertion order |
+| `Set<T>` of model objects | `vmf.ReferenceSet<T>`, also with an opposite; `@Contains Set<T>` is a `vmf.ContainmentSet<TOwner, TChild>` |
+| `@Contains @Keyed(by = "sku")` | a `ContainmentList` (or `ContainmentSet`) that checks the keys, and `owner.findItemsBySku(key)` returning the entry or `null`; the read-only view has the same lookup |
+| in a read-only view or an `@Immutable` type | `vmf.ReadOnlySet<T>` and `vmf.ReadOnlyMap<K, V>` (typed `vmf.CollectionView` and `vmf.MapView` in `ReadOnlyX`); immutable values take sets as `Iterable<T>` and maps as `Iterable<[K, V]>`, for example a `Map` |
+
+A set or map edit is one change: `{ kind: "add" | "remove" | "replace", values, keys }` (maps carry `keys`, sets no
+`indices`). Undo restores a removed map entry at its former position. Documents write sets as arrays and maps as
+JSON objects (`String` keys) or arrays of `{"key": k, "value": v}`.
 
 ## Containment and references (C, R)
 
@@ -126,6 +142,6 @@ containment chains do not exhaust the call stack.
 
 ## Not supported
 
-The TypeScript generator rejects models that use maps, sets or unique lists of scalars, generic immutable types,
-behavior delegation, executable defaults or custom external value types. XML, YAML and journals are not
+The TypeScript generator rejects models that use generic immutable types, behavior delegation, executable
+defaults, `@DefaultValue` on collections or custom external value types. XML, YAML and journals are not
 available. None of these are part of the contract.

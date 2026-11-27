@@ -5,7 +5,7 @@ One set of scenario files, one small runner per target language. The rules are i
 
 ```
 conformance/portable/
-  CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J, L optional modules)
+  CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J, L, K optional modules)
   models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>)
   scenarios/*.json            the scenarios, each citing the rules it checks and, where one exists, the Java test it came from
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
@@ -63,7 +63,7 @@ to its language.
 
 Values: `"obj": label` or `"objs": [labels]` for model objects (compared by identity), `"value": v` or
 `"values": [v]` for scalars (JSON numbers, strings, booleans, `null`). In `with`, a model object is written
-`{"obj": label}`.
+`{"obj": label}` and a map `{"entries": [[key, value], ...]}`.
 
 | Step | Meaning |
 |---|---|
@@ -72,8 +72,11 @@ Values: `"obj": label` or `"objs": [labels]` for model objects (compared by iden
 | `{"add": path, "obj"/"value"/"objs"/"values": x}` | append one or several elements |
 | `{"insert": path, "at": i, "obj"/"value": x}` | insert at index |
 | `{"remove": path, "obj": l}` / `"value": v` / `"at": i` | remove the identical object, the first equal scalar, or by index |
-| `{"clear": path}` | remove all elements |
-| `{"check": path, ...}` | `obj`, `value`, `objs`, `values`, `size`, optional `"unordered": true` |
+| `{"clear": path}` | remove all elements (of a list, set or map) |
+| `{"put": path, "key": k, "value": v}`, `{"putAll": path, "entries": [[k, v], ...]}` | put one entry, or several in one edit, into a map (K4) |
+| `{"removeKey": path, "key": k}` | remove a key from a map |
+| `{"find": path, "by": keyProperty, "key": k, "obj": l}` | look up an entry of a keyed containment by key (`find<Property>By<Key>`) and compare it with `l` (`null`: none); a model key is `{"obj": label}` (K6) |
+| `{"check": path, ...}` | `obj`, `value`, `objs`, `values`, `size`, `entries` (`[[key, value], ...]` of a map), optional `"unordered": true` for `objs`, `values` and `entries` |
 | `{"let": l, "path": path}` | label the object at a path |
 | `{"equal": [p1, p2, ...]}` / `notEqual` | content equality and content hash (Q1) of the first with each other |
 | `{"nativeEqual": [...]}` / `nativeNotEqual` | the language's own equality (N2, or identity under N3) |
@@ -98,8 +101,10 @@ reachable from a label is unchanged afterwards.
 
 Expected events match partially: only the fields given are compared (`on`, `prop`, `kind` = `set`, `add`,
 `remove` or `replace`, `old`/`new` for scalars, `oldObj`/`newObj` for objects, `values`/`objs` and `index` for
-lists). Before comparing, a runner merges the events of one step that differ only in form (E6): consecutive
-list events of the same kind on the same property, and chains of set events (`a -> null`, `null -> b`).
+lists, `keys` with `values` for maps). Runners report a map edit per key (removed, replaced with the new value,
+added) and a set edit as removed and added values, whatever form their language uses (K9). Before comparing, a
+runner merges the events of one step that differ only in form (E6): consecutive list events of the same kind on
+the same property, and chains of set events (`a -> null`, `null -> b`).
 
 ## Adding a target
 
@@ -130,19 +135,24 @@ How the runners reach the generated code (for users, the [language mappings](../
   `contentEquals`, `contentHashCode` and `deepCopy` on every model object, `===` as the language's equality (N3); `vmfChanges.addListener(listener,
   "local" | "recursive")` (returns a function that removes the listener), `vmfChanges.start()` and `history`,
   whose entries have `undo()` and `redo()`. Documents through `ModelSnapshot.write`, `read`, `writePlain` and
-  `readPlain`. `long` values are `bigint`; the runner parses large JSON integers exactly. `@Immutable` types
-  are created with `new Type({ ...values })` and frozen; their lists are `vmf.ReadOnlyList`. `asReadOnly()`
-  returns a live view typed by the generated `ReadOnly<Type>` interface, without setters or list edits.
-  Reflection through `vmfType` (`properties`, `annotations`, `property(name)`). Validation through `validate()`
+  `readPlain`. `long` values are `bigint`; the runner parses large JSON integers exactly and keeps the key
+  order of literal documents. `@Immutable` types are created with `new Type({ ...values })` and frozen; their
+  lists, sets and maps are `vmf.ReadOnlyList`, `vmf.ReadOnlySet` and `vmf.ReadOnlyMap`. Sets through `add`,
+  `addAll`, `remove`, maps through `put`, `putAll`, `remove`, keyed lookups through the generated
+  `find<Property>By<Key>`. `asReadOnly()` returns a live view typed by the generated `ReadOnly<Type>` interface,
+  without setters or list edits. Reflection through `vmfType` (`properties`, `annotations`, `property(name)`). Validation through `validate()`
   (`modelCode`, `modelPath`).
+- Java also edits sets through `java.util.Set`, reference sets through `RefSet` and `OrderedRefSet`, and maps
+  through `java.util.Map`; keyed lookups return `Optional`. C# edits sets and maps through `Add`, `AddRange`,
+  `Remove`, `Put`, `PutAll`, and calls `Find<Property>By<Key>`.
 
 ## Current results
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 18 of 18 | 146 of 146 (the identity-equality scenario does not apply) | none |
-| C# | 18 of 18 | 146 of 146 (the identity-equality scenario does not apply) | none |
-| TypeScript | 18 of 18 | 143 of 143 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
+| Java | 21 of 21 | 191 of 191 (the identity-equality scenario does not apply) | none |
+| C# | 21 of 21 | 191 of 191 (the identity-equality scenario does not apply) | none |
+| TypeScript | 21 of 21 | 188 of 188 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
@@ -177,6 +187,7 @@ behavior.
 | PropertyOrderTest (5), AnnotationsTest (4) | reflection | reflection | `reflection.json` (4 and 2 of them) |
 | SetterIdentityTest (16, 2026) | equal but distinct objects | core Q4, C | `equality.json` (6) |
 | WorkshopSnapshots, VMFJacksonModule tests | snapshot documents | json | `json.json` (14) |
+| MultiplicityTest (8), ManagedSettingsTest (6), KeyedPropertyTest (14), CollectionContractTest (9), ReferenceEndsTest (18), 2025 and 2026 | sets, ordered sets, bounds, maps, keyed containment | collections | `collections.json` (24) |
 | OneToOneReassignmentTest (11), OneToManyReassignmentTest (13, 2026) | reference takeover | core R2 | `references.json` (6) |
 | ContainmentCycleTest (6, 2026) | cycle rejection | core C5 | `containment.json` (3) |
 | ModelValidationTest (3, 2026) | multiplicities, ranges, lengths, patterns, paths | validation | `validation.json` (12) |

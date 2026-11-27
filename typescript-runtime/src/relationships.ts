@@ -1,3 +1,4 @@
+import { sameValue } from "./collections.js";
 import { __vmfEffect as effect, __vmfUseContainers, edit } from "./changes.js";
 
 type ModelClass<T> = abstract new (...args: never[]) => T;
@@ -8,9 +9,11 @@ interface Attachment {
     readonly property: string;
     /** The child's container property that names this containment, if any. */
     readonly opposite: string | undefined;
-    readonly collection: object;
+    collection: object;
     /** Removes the child as part of the active edit, because it moves elsewhere or its container is cleared. */
     leave(child: object): void;
+    /** Rejects a change of the child's key property that a keyed containment does not allow. */
+    requireKey?(child: object, property: string, value: unknown): void;
 }
 
 const attachments = new WeakMap<ContainmentLink, Attachment>();
@@ -96,19 +99,46 @@ function containerChanged(child: object, property: string | undefined, oldOwner:
     }
 }
 
-/** An ordered identity collection that maintains containment when a child moves. */
+/** The key rule of a keyed containment (`@Keyed(by = "...")`). */
+export interface ContainmentKey<TChild> {
+    /** The entry property that holds the key. */
+    readonly property: string;
+    /** Reads the key of an entry. Scalar keys compare by value, model objects by identity. */
+    readonly of: (child: TChild) => unknown;
+}
+
+/** Options of a containment list. */
+export interface ContainmentOptions<TChild> {
+    /** Makes the list keyed: every entry has a non-null key that no other entry has. */
+    readonly key?: ContainmentKey<TChild>;
+}
+
+/**
+ * An ordered identity collection that maintains containment when a child moves. A keyed list requires every child
+ * to have a key that no other child of the list has, and finds children by key.
+ */
 export class ContainmentList<TParent extends object, TChild extends object> implements Iterable<TChild> {
     readonly #items: TChild[] = [];
     readonly #attachment: Attachment;
+    readonly #key: ContainmentKey<TChild> | undefined;
+    #indexed = true;
 
     constructor(readonly owner: TParent, readonly property: string,
-                private readonly getLink: (child: TChild) => ContainmentLink, readonly opposite?: string) {
+                private readonly getLink: (child: TChild) => ContainmentLink, readonly opposite?: string,
+                options: ContainmentOptions<TChild> = {}) {
+        this.#key = options.key;
+        const key = this.#key;
         this.#attachment = {
             owner,
             property,
             opposite,
             collection: this,
             leave: child => this.#removeAt(this.#items.indexOf(child as TChild)),
+            requireKey: key === undefined ? undefined : (child, changed, value) => {
+                if (changed === key.property) {
+                    this.#requireKeys([], [], child as TChild, value);
+                }
+            },
         };
     }
 
@@ -129,12 +159,25 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         return this.#items.includes(child);
     }
 
+    /** The child whose key equals the given key (model keys by identity), or null. Only keyed lists have keys. */
+    findByKey(key: unknown): TChild | null {
+        if (this.#key === undefined) {
+            throw new TypeError(`'${this.property}' is not a keyed containment.`);
+        }
+        if (key === null || key === undefined) {
+            throw new TypeError("A lookup key must not be null.");
+        }
+        const of = this.#key.of;
+        return this.#items.find(child => sameValue(of(child), key)) ?? null;
+    }
+
     /** Appends the child, moving it from its previous container. Returns false if it is already here. */
     add(child: TChild): boolean {
         requireObject(child);
         if (this.contains(child)) {
             return false;
         }
+        this.#requireKeys([child], []);
         edit(this.owner, () => this.#attach(this.count, child));
         return true;
     }
@@ -145,6 +188,7 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         if (this.contains(child)) {
             throw new Error("The child is already in this containment.");
         }
+        this.#requireKeys([child], []);
         edit(this.owner, () => this.#attach(index, child));
     }
 
@@ -159,6 +203,7 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         if (this.contains(child)) {
             throw new Error("The child is already in this containment.");
         }
+        this.#requireKeys([child], [previous]);
         edit(this.owner, () => {
             requireNoCycle(this.owner, child);
             const link = this.#link(child);
@@ -204,7 +249,7 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
             const links = children.map(child => this.getLink(child));
             links.forEach(link => attachments.delete(link));
             effect({ source: this.owner, property: this.property, kind: "remove", values: [...children],
-                indices: children.map((_, index) => index) }, () => {
+                indices: this.#positions(children.map((_, index) => index)) }, () => {
                 this.#items.push(...children);
                 links.forEach(link => attachments.set(link, this.#attachment));
             }, () => {
@@ -231,8 +276,50 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         });
     }
 
+    toArray(): TChild[] {
+        return [...this.#items];
+    }
+
     [Symbol.iterator](): IterableIterator<TChild> {
         return this.#items.values();
+    }
+
+    /** @internal Lets an unordered containment present this list as itself; its changes carry no indices. */
+    __vmfUnordered(collection: object): void {
+        this.#attachment.collection = collection;
+        this.#indexed = false;
+    }
+
+    #positions(indices: number[]): number[] | undefined {
+        return this.#indexed ? indices : undefined;
+    }
+
+    /**
+     * Rejects incoming children without a key or with a key that another child would share. `outgoing` children
+     * leave the list in the same edit. A changed key of an existing child is checked with `changed` and `value`.
+     */
+    #requireKeys(incoming: readonly TChild[], outgoing: readonly TChild[], changed?: TChild, value?: unknown): void {
+        if (this.#key === undefined) {
+            return;
+        }
+        const { property, of } = this.#key;
+        if (changed !== undefined && !this.#items.includes(changed)) {
+            return;
+        }
+        const keys = this.#items.filter(child => child !== changed && !outgoing.includes(child)).map(of);
+        const check = (key: unknown): void => {
+            if (key === null || key === undefined) {
+                throw new TypeError(`A keyed entry needs a '${property}'.`);
+            }
+            if (keys.some(other => sameValue(other, key))) {
+                throw new Error(`Another entry already has this '${property}'.`);
+            }
+            keys.push(key);
+        };
+        if (changed !== undefined) {
+            check(value);
+        }
+        incoming.forEach(child => check(of(child)));
     }
 
     #link(child: TChild): ContainmentLink {
@@ -249,7 +336,8 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         leavePrevious(link, child);
         this.#items.splice(index, 0, child);
         attachments.set(link, this.#attachment);
-        effect({ source: this.owner, property: this.property, kind: "add", values: [child], indices: [index] }, () => {
+        effect({ source: this.owner, property: this.property, kind: "add", values: [child],
+            indices: this.#positions([index]) }, () => {
             this.#items.splice(index, 1);
             attachments.delete(link);
         }, () => {
@@ -267,7 +355,8 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         }
         this.#items.splice(index, 1);
         attachments.delete(link);
-        effect({ source: this.owner, property: this.property, kind: "remove", values: [child], indices: [index] }, () => {
+        effect({ source: this.owner, property: this.property, kind: "remove", values: [child],
+            indices: this.#positions([index]) }, () => {
             this.#items.splice(index, 0, child);
             attachments.set(link, this.#attachment);
         }, () => {
@@ -275,6 +364,54 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
             attachments.delete(link);
         });
         containerChanged(child, this.opposite, this.owner, null);
+    }
+}
+
+/**
+ * An unordered containment (`@Contains Set<T>`): each child once, compared by identity, without positions. A keyed
+ * set finds children by key like a keyed list.
+ */
+export class ContainmentSet<TParent extends object, TChild extends object> implements Iterable<TChild> {
+    readonly #children: ContainmentList<TParent, TChild>;
+
+    constructor(readonly owner: TParent, readonly property: string, getLink: (child: TChild) => ContainmentLink,
+                readonly opposite?: string, options: ContainmentOptions<TChild> = {}) {
+        this.#children = new ContainmentList(owner, property, getLink, opposite, options);
+        this.#children.__vmfUnordered(this);
+    }
+
+    get count(): number {
+        return this.#children.count;
+    }
+
+    contains(child: TChild): boolean {
+        return this.#children.contains(child);
+    }
+
+    /** The child whose key equals the given key (model keys by identity), or null. */
+    findByKey(key: unknown): TChild | null {
+        return this.#children.findByKey(key);
+    }
+
+    /** Adds the child, moving it from its previous container. Returns false if it is already here. */
+    add(child: TChild): boolean {
+        return this.#children.add(child);
+    }
+
+    remove(child: TChild): boolean {
+        return this.#children.remove(child);
+    }
+
+    clear(): void {
+        this.#children.clear();
+    }
+
+    toArray(): TChild[] {
+        return this.#children.toArray();
+    }
+
+    [Symbol.iterator](): IterableIterator<TChild> {
+        return this.#children[Symbol.iterator]();
     }
 }
 
@@ -351,11 +488,14 @@ export class ContainmentSlot<TParent extends object, TChild extends object> {
     }
 }
 
-/** An unordered collection of distinct model references, compared by identity. */
+/**
+ * An unordered collection of distinct model references, compared by identity. With an opposite, the opposite
+ * property of every member points back to the owner.
+ */
 export class ReferenceSet<T extends object> implements Iterable<T> {
     readonly #items = new Set<T>();
 
-    constructor(readonly owner: object, readonly property: string) {
+    constructor(readonly owner: object, readonly property: string, private readonly opposite?: string) {
     }
 
     get count(): number {
@@ -368,9 +508,10 @@ export class ReferenceSet<T extends object> implements Iterable<T> {
             return false;
         }
         edit(this.owner, () => {
-            this.#items.add(item);
-            effect({ source: this.owner, property: this.property, kind: "add", values: [item] },
-                () => { this.#items.delete(item); }, () => { this.#items.add(item); });
+            if (this.opposite !== undefined) {
+                linkFrom(item, this.opposite, this.owner, this.property);
+            }
+            this.#add(item);
         });
         return true;
     }
@@ -380,9 +521,10 @@ export class ReferenceSet<T extends object> implements Iterable<T> {
             return false;
         }
         edit(this.owner, () => {
-            this.#items.delete(item);
-            effect({ source: this.owner, property: this.property, kind: "remove", values: [item] },
-                () => { this.#items.add(item); }, () => { this.#items.delete(item); });
+            this.#delete(item);
+            if (this.opposite !== undefined) {
+                unlink(item, this.opposite, this.owner);
+            }
         });
         return true;
     }
@@ -400,11 +542,51 @@ export class ReferenceSet<T extends object> implements Iterable<T> {
             this.#items.clear();
             effect({ source: this.owner, property: this.property, kind: "remove", values: items },
                 () => items.forEach(item => this.#items.add(item)), () => { this.#items.clear(); });
+            if (this.opposite !== undefined) {
+                for (const item of items) {
+                    unlink(item, this.opposite, this.owner);
+                }
+            }
         });
+    }
+
+    toArray(): T[] {
+        return [...this.#items];
     }
 
     [Symbol.iterator](): IterableIterator<T> {
         return this.#items.values();
+    }
+
+    /** @internal Adds as part of the active edit, without touching the opposite. */
+    __vmfLinkAppend(item: object): void {
+        if (!this.#items.has(item as T)) {
+            this.#add(item as T);
+        }
+    }
+
+    /** @internal Removes as part of the active edit, without touching the opposite. */
+    __vmfLinkRemove(item: object): void {
+        if (this.#items.has(item as T)) {
+            this.#delete(item as T);
+        }
+    }
+
+    /** @internal Adds outside of any edit, for copies whose opposite ends are copied too. */
+    __vmfAppendRaw(item: object): void {
+        this.#items.add(item as T);
+    }
+
+    #add(item: T): void {
+        this.#items.add(item);
+        effect({ source: this.owner, property: this.property, kind: "add", values: [item] },
+            () => { this.#items.delete(item); }, () => { this.#items.add(item); });
+    }
+
+    #delete(item: T): void {
+        this.#items.delete(item);
+        effect({ source: this.owner, property: this.property, kind: "remove", values: [item] },
+            () => { this.#items.add(item); }, () => { this.#items.delete(item); });
     }
 }
 
@@ -436,7 +618,14 @@ export class ReferenceSlot<T extends object> {
     }
 }
 
-type ReferenceEnd = { readonly slot: ReferenceSlot<object> } | { readonly list: ReferenceList<object> };
+/** A many-valued reference end: a reference list or set that can be linked without touching its own opposite. */
+interface ReferenceMany {
+    contains(item: object): boolean;
+    __vmfLinkAppend(item: object): void;
+    __vmfLinkRemove(item: object): void;
+}
+
+type ReferenceEnd = { readonly slot: ReferenceSlot<object> } | { readonly many: ReferenceMany };
 
 function endOf(model: object, property: string): ReferenceEnd {
     const members = model as Record<string, unknown>;
@@ -444,9 +633,9 @@ function endOf(model: object, property: string): ReferenceEnd {
     if (slot instanceof ReferenceSlot) {
         return { slot };
     }
-    const list = members[property];
-    if (list instanceof ReferenceList) {
-        return { list };
+    const many = members[property];
+    if (many instanceof ReferenceList || many instanceof ReferenceSet) {
+        return { many: many as ReferenceMany };
     }
     throw new TypeError(`'${property}' is not a reference with an opposite.`);
 }
@@ -458,7 +647,7 @@ function unlink(target: object, opposite: string, owner: object): void {
             end.slot.__vmfAssign(null);
         }
     } else {
-        end.list.__vmfLinkRemove(owner);
+        end.many.__vmfLinkRemove(owner);
     }
 }
 
@@ -466,8 +655,28 @@ function link(target: object, opposite: string, owner: object): void {
     const end = endOf(target, opposite);
     if ("slot" in end) {
         end.slot.__vmfAssign(owner);
-    } else if (!end.list.contains(owner)) {
-        end.list.__vmfLinkAppend(owner);
+    } else if (!end.many.contains(owner)) {
+        end.many.__vmfLinkAppend(owner);
+    }
+}
+
+/**
+ * Points the item's opposite to the owner of a many-valued end as part of the active edit. A single-valued opposite
+ * leaves its previous owner, whose end (`property`) loses the item.
+ */
+function linkFrom(item: object, opposite: string, owner: object, property: string): void {
+    const end = endOf(item, opposite);
+    if ("slot" in end) {
+        const previous = end.slot.value;
+        if (previous !== null && previous !== owner) {
+            const previousEnd = endOf(previous, property);
+            if ("many" in previousEnd) {
+                previousEnd.many.__vmfLinkRemove(item);
+            }
+        }
+        end.slot.__vmfAssign(owner);
+    } else if (!end.many.contains(owner)) {
+        end.many.__vmfLinkAppend(owner);
     }
 }
 
@@ -507,13 +716,20 @@ export function setReference(owner: object, value: object | null, property: stri
     });
 }
 
-/** Sets a single-valued scalar or plain reference property stored as `__vmfValue_<property>`. */
+/**
+ * Sets a single-valued scalar or plain reference property stored as `__vmfValue_<property>`. The key of an entry in
+ * a keyed containment cannot become `null` or the key of another entry.
+ */
 export function setValue(owner: object, property: string, value: unknown): void {
     const storage = owner as Record<string, unknown>;
     const key = "__vmfValue_" + property;
     const previous = storage[key];
     if (Object.is(previous, value)) {
         return;
+    }
+    const link = linkOf(owner);
+    if (link !== undefined) {
+        attachments.get(link)?.requireKey?.(owner, property, value);
     }
     edit(owner, () => {
         storage[key] = value;
@@ -522,14 +738,24 @@ export function setValue(owner: object, property: string, value: unknown): void 
     });
 }
 
+/** Options of a reference list. */
+export interface ReferenceListOptions {
+    /** Each object occurs at most once (an ordered set, `@Multiplicity(kind = ORDERED_SET)`). */
+    readonly unique?: boolean;
+}
+
 /**
- * An ordered list of model references. Without an opposite it may hold the same object several times; with an
- * opposite each object occurs once and the opposite property of every member points back to the owner.
+ * An ordered list of model references. Without an opposite it may hold the same object several times unless it is
+ * unique (an ordered set); with an opposite each object occurs once and the opposite property of every member points
+ * back to the owner.
  */
 export class ReferenceList<T extends object> implements Iterable<T> {
     readonly #items: T[] = [];
+    readonly #unique: boolean;
 
-    constructor(readonly owner: object, readonly property: string, private readonly opposite?: string) {
+    constructor(readonly owner: object, readonly property: string, private readonly opposite?: string,
+                options: ReferenceListOptions = {}) {
+        this.#unique = options.unique === true || opposite !== undefined;
     }
 
     get count(): number {
@@ -549,15 +775,15 @@ export class ReferenceList<T extends object> implements Iterable<T> {
         return this.#items.includes(item);
     }
 
-    /** Appends the item. Returns false if a list with an opposite already holds it. */
+    /** Appends the item. Returns false if a unique list already holds it. */
     add(item: T): boolean {
         requireObject(item);
-        if (this.opposite !== undefined && this.#linked(item)) {
+        if (this.opposite !== undefined ? this.#linked(item) : this.#unique && this.contains(item)) {
             return false;
         }
         edit(this.owner, () => {
             if (this.opposite !== undefined) {
-                this.#linkFrom(item);
+                linkFrom(item, this.opposite, this.owner, this.property);
             }
             this.#insert(this.count, item);
         });
@@ -567,12 +793,12 @@ export class ReferenceList<T extends object> implements Iterable<T> {
     insert(index: number, item: T): void {
         requireIndex(index, this.count);
         requireObject(item);
-        if (this.opposite !== undefined && this.contains(item)) {
+        if (this.#unique && this.contains(item)) {
             throw new Error("The reference is already in this list.");
         }
         edit(this.owner, () => {
             if (this.opposite !== undefined) {
-                this.#linkFrom(item);
+                linkFrom(item, this.opposite, this.owner, this.property);
             }
             this.#insert(index, item);
         });
@@ -585,6 +811,9 @@ export class ReferenceList<T extends object> implements Iterable<T> {
         if (previous === item) {
             return previous;
         }
+        if (this.#unique && this.contains(item)) {
+            throw new Error("The reference is already in this list.");
+        }
         if (this.opposite === undefined) {
             edit(this.owner, () => {
                 this.#items[index] = item;
@@ -594,12 +823,9 @@ export class ReferenceList<T extends object> implements Iterable<T> {
             });
             return previous;
         }
-        if (this.contains(item)) {
-            throw new Error("The reference is already in this list.");
-        }
         edit(this.owner, () => {
             this.#removeAt(index);
-            this.#linkFrom(item);
+            linkFrom(item, this.opposite!, this.owner, this.property);
             this.#insert(index, item);
         });
         return previous;
@@ -636,6 +862,10 @@ export class ReferenceList<T extends object> implements Iterable<T> {
                 }
             }
         });
+    }
+
+    toArray(): T[] {
+        return [...this.#items];
     }
 
     [Symbol.iterator](): IterableIterator<T> {
@@ -681,23 +911,6 @@ export class ReferenceList<T extends object> implements Iterable<T> {
     #linked(item: T): boolean {
         const end = endOf(item, this.opposite!);
         return "slot" in end ? end.slot.value === this.owner : this.contains(item);
-    }
-
-    /** Points the item's opposite to this owner as part of the active edit. */
-    #linkFrom(item: T): void {
-        const end = endOf(item, this.opposite!);
-        if ("slot" in end) {
-            const previous = end.slot.value;
-            if (previous !== null && previous !== this.owner) {
-                const list = endOf(previous, this.property);
-                if ("list" in list) {
-                    list.list.__vmfLinkRemove(item);
-                }
-            }
-            end.slot.__vmfAssign(this.owner);
-        } else if (!end.list.contains(this.owner)) {
-            end.list.__vmfLinkAppend(this.owner);
-        }
     }
 }
 

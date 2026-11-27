@@ -3,7 +3,7 @@
 How the rules of the [portable contract](../../conformance/portable/CONTRACT.md) appear in the generated C#
 API. Rule ids (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, equality-modes, json, validation.
+Claimed modules: core, views, events, history, reflection, equality-modes, json, validation, collections.
 
 ## Generating
 
@@ -35,6 +35,18 @@ not published to nuget.org yet.
 | `@DefaultValue` | the initial value of new objects |
 
 Generated classes also implement `INotifyPropertyChanged`.
+
+## Collections (K)
+
+| Model | C# |
+|---|---|
+| `Set<T>` of scalars | `ScalarSet<T>` with `Add`, `AddRange`, `Remove`, `Clear`, `Contains` and `Count` |
+| `@Multiplicity(kind = ORDERED_SET)` list | `ScalarList<T>` or `OrderedReferenceSet<T>` that holds each element once |
+| `@Multiplicity(upper = n)` list of scalars | `ScalarList<T>` that rejects edits beyond `n` |
+| `VMap<K, V>` | `ScalarMap<TKey, TValue?>`: `Put` (inserts or replaces in place), `Add` (rejects a present key), `PutAll`, `Remove`, `Clear`, the indexer and `TryGetValue`; an `IReadOnlyDictionary` in insertion order |
+| `Set<T>` of model objects | `ReferenceSet<T>`, also with an opposite; `@Contains Set<T>` is a `ContainmentSet<TOwner, TChild>` |
+| `@Contains @Keyed(by = "sku")` | a keyed `ContainmentList` (or `ContainmentSet`) and `owner.FindItemsBySku(key)` returning the entry or `null` |
+| in a read-only view or an `@Immutable` type | `IReadOnlyScalarSet<T>`, `IReadOnlyScalarList<T>` and `IReadOnlyDictionary<TKey, TValue>` |
 
 ## Containment and references (C, R)
 

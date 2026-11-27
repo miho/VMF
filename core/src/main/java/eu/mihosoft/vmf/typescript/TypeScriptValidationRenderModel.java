@@ -143,6 +143,15 @@ final class TypeScriptValidationRenderModel {
     private static String child(Property property, String name, int number) {
         String pointer = "/" + property.getName().replace("~", "~0").replace("/", "~1");
         String member = "this." + name;
+        if (property.isCollection() && !property.isOrdered()) {
+            // A containment set has no indices; its children are numbered in iteration order.
+            String children = "children" + number;
+            return "const " + children + " = " + member + ".toArray();\n"
+                    + "        for (let index = " + children + ".length - 1; index >= 0; index--) {\n"
+                    + "            pending.push([" + children + "[index], path + " + TypeScriptRenderModel.quoted(name + "[")
+                    + " + index + \"].\", modelPath + " + TypeScriptRenderModel.quoted(pointer + "/") + " + index]);\n"
+                    + "        }";
+        }
         if (property.isCollection()) {
             return "for (let index = " + member + ".count - 1; index >= 0; index--) {\n"
                     + "            pending.push([" + member + ".at(index), path + " + TypeScriptRenderModel.quoted(name + "[")

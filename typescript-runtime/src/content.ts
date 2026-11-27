@@ -1,11 +1,12 @@
-import { ScalarList } from "./collections.js";
-import { ReferenceList, ReferenceSlot } from "./relationships.js";
-import { type ModelConstructor, SnapshotRegistry, type SnapshotType } from "./snapshot-registry.js";
-import { unwrapReadOnly } from "./views.js";
+import { sameValue, ScalarList } from "./collections.js";
+import { ReferenceList, ReferenceSet, ReferenceSlot } from "./relationships.js";
+import { type ModelConstructor, SnapshotRegistry, type SnapshotProperty, type SnapshotType } from "./snapshot-registry.js";
+import { type MapView, unwrapReadOnly } from "./views.js";
 
 /**
- * Content equality: same concrete type, equal scalar values and scalar lists, and content-equal contained children
- * in the same order. References and the container are not compared.
+ * Content equality: same concrete type, equal scalar values, scalar lists in order, scalar sets and maps in any
+ * order, and content-equal contained children (in order for lists, in any order for sets). References and the
+ * container are not compared.
  */
 export function contentEquals(left: unknown, right: unknown, registry: SnapshotRegistry): boolean {
     left = unwrapReadOnly(left);
@@ -30,6 +31,16 @@ export function contentEquals(left: unknown, right: unknown, registry: SnapshotR
                     return false;
                 }
                 break;
+            case "scalarSet":
+                if (!sameMembers(a, b, sameValue)) {
+                    return false;
+                }
+                break;
+            case "scalarMap":
+                if (!sameEntries(a as MapView<unknown, unknown>, b as MapView<unknown, unknown>)) {
+                    return false;
+                }
+                break;
             case "containment":
                 if (!contentEquals(a ?? null, b ?? null, registry)) {
                     return false;
@@ -37,6 +48,11 @@ export function contentEquals(left: unknown, right: unknown, registry: SnapshotR
                 break;
             case "containmentList":
                 if (!sameItems(a, b, (x, y) => contentEquals(x, y, registry))) {
+                    return false;
+                }
+                break;
+            case "containmentSet":
+                if (!sameMembers(a, b, (x, y) => contentEquals(x, y, registry))) {
                     return false;
                 }
                 break;
@@ -62,6 +78,13 @@ export function contentHashCode(model: object, registry: SnapshotRegistry): numb
                     hash = mix(hash, scalarHash(item));
                 }
                 break;
+            case "scalarSet":
+                hash = mix(hash, unorderedHash(value as Iterable<unknown>, scalarHash));
+                break;
+            case "scalarMap":
+                hash = mix(hash, unorderedHash(value as Iterable<[unknown, unknown]>,
+                    ([key, entry]) => scalarHash(key) ^ scalarHash(entry)));
+                break;
             case "containment":
                 hash = mix(hash, value === null || value === undefined ? 0 : contentHashCode(value as object, registry));
                 break;
@@ -69,6 +92,9 @@ export function contentHashCode(model: object, registry: SnapshotRegistry): numb
                 for (const child of value as Iterable<object>) {
                     hash = mix(hash, contentHashCode(child, registry));
                 }
+                break;
+            case "containmentSet":
+                hash = mix(hash, unorderedHash(value as Iterable<object>, child => contentHashCode(child, registry)));
                 break;
             default:
                 break;
@@ -109,6 +135,7 @@ export function deepCopy<T extends object>(root: T, registry: SnapshotRegistry):
                     }
                     break;
                 case "containmentList":
+                case "containmentSet":
                 case "referenceList":
                 case "referenceSet":
                     for (const item of value as Iterable<object>) {
@@ -121,51 +148,98 @@ export function deepCopy<T extends object>(root: T, registry: SnapshotRegistry):
         }
     }
 
+    // Values and plain references first, so that keyed containments receive entries with their keys; then
+    // containment; then references with opposites, whose ends are all copied.
     const copyOf = (model: unknown): object | null => isObject(model) ? copies.get(model)! : null;
-    for (const original of originals) {
-        const copy = copies.get(original)!;
-        for (const property of typeOf(original, registry).properties) {
-            const value = property.get(original);
-            switch (property.kind) {
-                case "scalar":
-                    property.set(copy, value);
-                    break;
-                case "scalarList": {
-                    const target = property.get(copy) as ScalarList<unknown>;
-                    for (const item of value as Iterable<unknown>) {
-                        target.add(item);
-                    }
-                    break;
-                }
-                case "containment":
-                    property.set(copy, copyOf(value));
-                    break;
-                case "containmentList":
-                case "referenceSet":
-                    for (const item of value as Iterable<object>) {
-                        property.add(copy, copyOf(item)!);
-                    }
-                    break;
-                case "reference":
-                    if (property.opposite === undefined) {
-                        property.set(copy, copyOf(value));
-                    } else {
-                        // Both ends are copied, so copy the stored value without updating the opposite again.
-                        const slot = (copy as Record<string, unknown>)["__vmfRef_" + (property.name ?? property.wireName)];
-                        (slot as ReferenceSlot<object>).__vmfInitialize(copyOf(value));
-                    }
-                    break;
-                case "referenceList": {
-                    const target = property.get(copy) as ReferenceList<object>;
-                    for (const item of value as Iterable<object>) {
-                        target.__vmfAppendRaw(copyOf(item)!);
-                    }
-                    break;
-                }
+    for (const stage of [copyValues, copyContainment, copyReferences]) {
+        for (const original of originals) {
+            const copy = copies.get(original)!;
+            for (const property of typeOf(original, registry).properties) {
+                stage(property, property.get(original), copy, copyOf);
             }
         }
     }
     return copies.get(root) as T;
+}
+
+type CopyOf = (model: unknown) => object | null;
+
+function copyValues(property: SnapshotProperty, value: unknown, copy: object, copyOf: CopyOf): void {
+    switch (property.kind) {
+        case "scalar":
+            property.set(copy, value);
+            break;
+        case "scalarList": {
+            const target = property.get(copy) as ScalarList<unknown>;
+            for (const item of value as Iterable<unknown>) {
+                target.add(item);
+            }
+            break;
+        }
+        case "scalarSet":
+            for (const item of value as Iterable<unknown>) {
+                property.add(copy, item);
+            }
+            break;
+        case "scalarMap":
+            for (const [key, entry] of value as Iterable<[unknown, unknown]>) {
+                property.put(copy, key, entry);
+            }
+            break;
+        case "reference":
+            if (property.opposite === undefined) {
+                property.set(copy, copyOf(value));
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+function copyContainment(property: SnapshotProperty, value: unknown, copy: object, copyOf: CopyOf): void {
+    switch (property.kind) {
+        case "containment":
+            property.set(copy, copyOf(value));
+            break;
+        case "containmentList":
+        case "containmentSet":
+            for (const item of value as Iterable<object>) {
+                property.add(copy, copyOf(item)!);
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+function copyReferences(property: SnapshotProperty, value: unknown, copy: object, copyOf: CopyOf): void {
+    switch (property.kind) {
+        case "reference":
+            if (property.opposite !== undefined) {
+                // Both ends are copied, so copy the stored value without updating the opposite again.
+                const slot = (copy as Record<string, unknown>)["__vmfRef_" + (property.name ?? property.wireName)];
+                (slot as ReferenceSlot<object>).__vmfInitialize(copyOf(value));
+            }
+            break;
+        case "referenceSet":
+            for (const item of value as Iterable<object>) {
+                if (property.opposite === undefined) {
+                    property.add(copy, copyOf(item)!);
+                } else {
+                    (property.get(copy) as ReferenceSet<object>).__vmfAppendRaw(copyOf(item)!);
+                }
+            }
+            break;
+        case "referenceList": {
+            const target = property.get(copy) as ReferenceList<object>;
+            for (const item of value as Iterable<object>) {
+                target.__vmfAppendRaw(copyOf(item)!);
+            }
+            break;
+        }
+        default:
+            break;
+    }
 }
 
 function typeOf(model: object, registry: SnapshotRegistry): SnapshotType {
@@ -184,6 +258,44 @@ function sameItems(left: unknown, right: unknown, same: (a: unknown, b: unknown)
     const a = [...(left as Iterable<unknown>)];
     const b = [...(right as Iterable<unknown>)];
     return a.length === b.length && a.every((item, index) => same(item, b[index]));
+}
+
+/** The same members in any order: each member of one matches a distinct member of the other. */
+function sameMembers(left: unknown, right: unknown, same: (a: unknown, b: unknown) => boolean): boolean {
+    const a = [...(left as Iterable<unknown>)];
+    const remaining = [...(right as Iterable<unknown>)];
+    if (a.length !== remaining.length) {
+        return false;
+    }
+    for (const item of a) {
+        const match = remaining.findIndex(candidate => same(item, candidate));
+        if (match < 0) {
+            return false;
+        }
+        remaining.splice(match, 1);
+    }
+    return true;
+}
+
+/** The same keys with the same values (`===`), in any order. */
+function sameEntries(left: MapView<unknown, unknown>, right: MapView<unknown, unknown>): boolean {
+    if (left.count !== right.count) {
+        return false;
+    }
+    for (const [key, value] of left) {
+        if (!right.has(key) || right.get(key) !== value) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function unorderedHash<T>(items: Iterable<T>, hash: (item: T) => number): number {
+    let sum = 0;
+    for (const item of items) {
+        sum = (sum + hash(item)) | 0;
+    }
+    return sum;
 }
 
 function scalarHash(value: unknown): number {

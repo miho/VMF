@@ -4,7 +4,7 @@ Java is the reference target: the rules of the [portable contract](../../conform
 restate what VMF's Java code does. This page says how each rule appears in the generated Java API. Rule ids
 (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, equality-modes, json, validation.
+Claimed modules: core, views, events, history, reflection, equality-modes, json, validation, collections.
 
 ## Generating
 
@@ -28,6 +28,17 @@ sources; `VMF.generate(outputDir, interfaces...)` does the same from code. Gener
 | `String` and other object values | references that may be `null` |
 | list property (`T[]`) | `VList<T>`, a `java.util.List` that reports its changes |
 | `@DefaultValue` | the initial value of new objects |
+
+## Collections (K)
+
+| Model | Java |
+|---|---|
+| `Set<T>` of scalars | `VSet<T>`, a `java.util.Set` that reports its changes (`Change.setChange()`) |
+| `@Multiplicity(kind = ORDERED_SET)` or `upper = n` list of scalars | a `VList<T>` that holds each value once or at most `n` values |
+| `VMap<K, V>` | `VMap<K, V>`, a `java.util.Map` in insertion order that reports its changes (`Change.mapChange()`) |
+| `Set<T>` of model objects, `ORDERED_SET` model list | `RefSet<T>`, `OrderedRefSet<T>` (`Change.referenceSetChange()`) |
+| `@Contains @Keyed(by = "sku")` | a keyed `VList<T>` and `owner.findItemsBySku(key)` returning an `Optional` |
+| in a read-only view or an `@Immutable` type | the same types, unmodifiable |
 
 ## Containment and references (C, R)
 
