@@ -10,4 +10,5 @@ export type { ValidationIssue } from "./validation.js";
 export { SnapshotRegistry } from "./snapshot-registry.js";
 export type { ModelConstructor, ScalarType, SnapshotProperty, SnapshotType } from "./snapshot-registry.js";
 export { SnapshotJson } from "./snapshot-json.js";
+export type { ReferenceMode } from "./snapshot-json.js";
 export { declareSupertypes, isInstance } from "./model-types.js";

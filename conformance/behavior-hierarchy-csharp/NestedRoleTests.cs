@@ -47,7 +47,7 @@ public class NestedRoleTests
         foreach (bool references in new[] { false, true })
         {
             string suffix = $"-nested-roles-{(references ? "true" : "false")}.json";
-            string wire = references ? ModelSnapshot.Write(graph) : ModelSnapshot.WriteWithoutReferences(graph);
+            string wire = references ? ModelSnapshot.Write(graph) : ModelSnapshot.WriteWithoutReferences(graph, global::Vmf.Runtime.ReferenceMode.Omit);
             if (exchange is not null)
             {
                 string java = File.ReadAllText(Path.Combine(exchange, "java" + suffix));

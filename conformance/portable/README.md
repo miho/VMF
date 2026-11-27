@@ -7,7 +7,7 @@ One set of scenario files, one small runner per target language. The rules are i
 conformance/portable/
   CONTRACT.md                 the rules (T, C, R, Q core; V, E, H, F, N, J optional modules)
   models/                     model declarations, one small package per topic (eu.mihosoft.vmf.portable.<model>)
-  scenarios/*.json            123 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
+  scenarios/*.json            124 scenarios, each citing the rules it checks and, where one exists, the Java test it came from
   expected-failures/<target>.txt   known failures per target, one scenario id per line with a reason
   java/                       model generation helper and the Java runner
   csharp/                     the C# runner
@@ -87,7 +87,7 @@ Values: `"obj": label` or `"objs": [labels]` for model objects (compared by iden
 | `{"undoAll": path}`, `{"redoAll": path}` | stop recording, undo all in reverse order; redo them in order (H2, H3) |
 | `{"properties": path, "are": [names]}` | reflected property names in order (F1) |
 | `{"annotations": path, "are": [[key, value]]}` | annotations of an object, or of a property if the path ends in one (F2) |
-| `{"write": path, "as": d, "plain": true?}` | write a snapshot document (J), plain without metadata |
+| `{"write": path, "as": d, "plain": true?, "references": "omit"?}` | write a snapshot document (J), plain without metadata, optionally leaving references out |
 | `{"read": d or {"json": ...}, "type": T, "as": l, "plain": true?}` | read a written or a literal document |
 | `{"document": d, "is": json}` | compare a written document; key order is ignored, numbers compare by value |
 
@@ -131,14 +131,15 @@ How the runners reach the generated code:
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 16 of 16 | 123 of 123 | none |
-| C# | 16 of 16 | 123 of 123 | none |
-| TypeScript | 15 of 16 | 106 of 106 (claims core, events, history and json; 17 scenarios of views, reflection and equality modes skipped) | none |
+| Java | 16 of 16 | 124 of 124 | none |
+| C# | 16 of 16 | 124 of 124 | none |
+| TypeScript | 15 of 16 | 107 of 107 (claims core, events, history and json; 17 scenarios of views, reflection and equality modes skipped) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
-change: Java's plain documents used to leave out references to mutable objects; they now reject them like C#
-and TypeScript, and `VMFJacksonModule.ReferenceMode.OMIT` restores the old behavior.
+change: documents without reference IDs used to leave out references to mutable objects in Java (and in C#'s
+`WriteWithoutReferences`); all three languages now reject them by default and leave them out only on request:
+Java `ReferenceMode.OMIT`, C# `ReferenceMode.Omit`, TypeScript `"omit"`.
 
 The TypeScript generator also rejects `@Immutable` types (views module, not claimed yet). Before this contract
 it accepted 2 of the 15 models; supporting the core took about 700 lines of runtime code and 230 lines of
@@ -164,7 +165,7 @@ behavior.
 | FSMTest, LargeFlowModelTest (create and undo) | undo of a whole construction | history | `history.json` |
 | PropertyOrderTest (5), AnnotationsTest (4) | reflection | reflection | `reflection.json` (4 and 2 of them) |
 | SetterIdentityTest (16, 2026) | equal but distinct objects | core Q4, C | `equality.json` (6) |
-| WorkshopSnapshots, VMFJacksonModule tests | snapshot documents | json | `json.json` (12) |
+| WorkshopSnapshots, VMFJacksonModule tests | snapshot documents | json | `json.json` (13) |
 | OneToOneReassignmentTest (11), OneToManyReassignmentTest (13, 2026) | reference takeover | core R2 | `references.json` (6) |
 | ContainmentCycleTest (6, 2026) | cycle rejection | core C5 | `containment.json` (3) |
 | ReadOnlyExternalListTest (6, 2026) | live read-only lists | views | `views.json` (2) |

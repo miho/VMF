@@ -44,7 +44,7 @@ public class PrimarySpineTests
         foreach (bool references in new[] { true, false })
         {
             string suffix = references ? "-primary-spine-reference.json" : "-primary-spine-by-value.json";
-            string wire = references ? ModelSnapshot.Write(flow) : ModelSnapshot.WriteWithoutReferences(flow);
+            string wire = references ? ModelSnapshot.Write(flow) : ModelSnapshot.WriteWithoutReferences(flow, global::Vmf.Runtime.ReferenceMode.Omit);
             if (exchange is not null)
             {
                 var java = File.ReadAllText(Path.Combine(exchange, "java" + suffix));

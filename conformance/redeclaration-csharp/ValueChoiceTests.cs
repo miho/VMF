@@ -75,7 +75,7 @@ public sealed class ValueChoiceTests
         var value = new ObjectOption { Value = new OptionObject() };
         Assert.Same(value.Value, ((ValueChoice)value).Value);
         Assert.False(typeof(ValueChoice).GetProperty(nameof(ValueChoice.Value))!.CanWrite);
-        Assert.Null(JsonNode.Parse(ModelSnapshot.WriteWithoutReferences(value))!["value"]);
+        Assert.Null(JsonNode.Parse(ModelSnapshot.WriteWithoutReferences(value, global::Vmf.Runtime.ReferenceMode.Omit))!["value"]);
         Assert.Throws<JsonException>(() => ModelSnapshot.Write(value));
     }
 

@@ -44,6 +44,12 @@ interface PendingReference {
     readonly assign: (target: object) => void;
 }
 
+/**
+ * How a document treats non-containment references to model objects: "ids" writes them as `@vmf-id` strings,
+ * "reject" fails to write a model that has one, and "omit" leaves them out.
+ */
+export type ReferenceMode = "ids" | "reject" | "omit";
+
 /** Reads and writes VMF snapshots using only the explicitly registered model types. */
 export class SnapshotJson {
     static write(root: object, registry: SnapshotRegistry): string {
@@ -54,9 +60,16 @@ export class SnapshotJson {
         return read(json, rootType, registry, true);
     }
 
-    /** Writes a typed document with no VMF metadata. References and ambiguous types are rejected. */
-    static writePlain<T extends object>(root: T, rootType: ModelConstructor<T>, registry: SnapshotRegistry): string {
-        return write(root, rootType, registry, false);
+    /**
+     * Writes a typed document with no VMF metadata. Ambiguous types are rejected; references are rejected unless
+     * `references` is "omit", which leaves them out.
+     */
+    static writePlain<T extends object>(root: T, rootType: ModelConstructor<T>, registry: SnapshotRegistry,
+                                        references: Exclude<ReferenceMode, "ids"> = "reject"): string {
+        if (references !== "reject" && references !== "omit") {
+            throw new TypeError(`Plain JSON rejects or omits references, not '${String(references)}'.`);
+        }
+        return write(root, rootType, registry, false, references === "omit");
     }
 
     static readPlain<T extends object>(json: string, rootType: ModelConstructor<T>, registry: SnapshotRegistry): T {
@@ -64,10 +77,11 @@ export class SnapshotJson {
     }
 }
 
-function write(root: object, rootType: ModelConstructor<object>, registry: SnapshotRegistry, references: boolean): string {
+function write(root: object, rootType: ModelConstructor<object>, registry: SnapshotRegistry, references: boolean,
+               omit = false): string {
     const contained = new Set<object>();
     const uses: ReferenceUse[] = [];
-    const definition = capture(root, rootType, "$", registry, references, contained, uses);
+    const definition = capture(root, rootType, "$", registry, references, contained, uses, omit);
     const targets = new Set<object>();
     for (const use of uses) {
         if (!contained.has(use.target)) {
@@ -86,7 +100,7 @@ function write(root: object, rootType: ModelConstructor<object>, registry: Snaps
 }
 
 function capture(instance: object, expectedType: ModelConstructor<object>, path: string, registry: SnapshotRegistry,
-                 references: boolean, contained: Set<object>, uses: ReferenceUse[]): Definition {
+                 references: boolean, contained: Set<object>, uses: ReferenceUse[], omit: boolean): Definition {
     const actualType = nativeType(instance, path);
     const type = registry.typeForClass(actualType, path);
     requireModel(instance, expectedType, path);
@@ -121,7 +135,7 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
             case "referenceList": {
                 const members = [...(value as Iterable<unknown>)].map((item, index) =>
                     requireModel(item, property.modelType(), childPath(fieldPath, index)));
-                if (members.length > 0) {
+                if (members.length > 0 && !omit) {
                     requireReferences(references, fieldPath);
                 }
                 if (references) {
@@ -143,18 +157,21 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                 if (value !== null && value !== undefined) {
                     const modelType = property.modelType();
                     fields.push({ name, kind: property.kind, value: capture(requireModel(value, modelType, fieldPath),
-                        modelType, fieldPath, registry, references, contained, uses) });
+                        modelType, fieldPath, registry, references, contained, uses, omit) });
                 }
                 break;
             case "containmentList": {
                 const modelType = property.modelType();
                 const children = readMembers(value, modelType, fieldPath).map((member, index) =>
-                    capture(member, modelType, childPath(fieldPath, index), registry, references, contained, uses));
+                    capture(member, modelType, childPath(fieldPath, index), registry, references, contained, uses, omit));
                 fields.push({ name, kind: property.kind, value: children });
                 break;
             }
             case "reference":
                 if (value !== null && value !== undefined) {
+                    if (!references && omit) {
+                        break;
+                    }
                     requireReferences(references, fieldPath);
                     const target = requireModel(value, property.modelType(), fieldPath);
                     uses.push({ target, path: fieldPath });
@@ -163,7 +180,7 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                 break;
             case "referenceSet": {
                 const members = readMembers(value, property.modelType(), fieldPath);
-                if (members.length > 0) {
+                if (members.length > 0 && !omit) {
                     requireReferences(references, fieldPath);
                 }
                 if (references) {

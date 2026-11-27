@@ -44,6 +44,19 @@ public static partial class SnapshotXml
     public static string WriteWithoutReferences(object root, Type rootType, SnapshotRegistry registry) =>
         Write(root, rootType, registry, Profile.TypedValues);
 
+    /// <summary>Writes typed values without graph IDs; <paramref name="references"/> is
+    /// <see cref="ReferenceMode.Reject"/> or <see cref="ReferenceMode.Omit"/>.</summary>
+    public static string WriteWithoutReferences(object root, SnapshotRegistry registry, ReferenceMode references)
+    {
+        ArgumentNullException.ThrowIfNull(root);
+        return Write(root, root.GetType(), registry, Profile.TypedValues, null, references);
+    }
+
+    /// <summary>Writes a typed value snapshot for the declared root contract with the given reference mode.</summary>
+    public static string WriteWithoutReferences(object root, Type rootType, SnapshotRegistry registry,
+        ReferenceMode references) =>
+        Write(root, rootType, registry, Profile.TypedValues, null, references);
+
     /// <summary>Writes a snapshot without graph IDs under the registered alias for its XML root.</summary>
     public static string WriteWithoutReferences(object root, SnapshotRegistry registry, string rootAlias)
     {
@@ -59,6 +72,15 @@ public static partial class SnapshotXml
     /// <summary>Writes plain XML when the expected root type is available at runtime.</summary>
     public static string WritePlain(object root, Type rootType, SnapshotRegistry registry) =>
         Write(root, rootType, registry, Profile.Plain);
+
+    /// <summary>Writes plain XML; <paramref name="references"/> is <see cref="ReferenceMode.Reject"/> or
+    /// <see cref="ReferenceMode.Omit"/>.</summary>
+    public static string WritePlain<T>(T root, SnapshotRegistry registry, ReferenceMode references) where T : class =>
+        Write(root, typeof(T), registry, Profile.Plain, null, references);
+
+    /// <summary>Writes plain XML when the expected root type is available at runtime, with the given reference mode.</summary>
+    public static string WritePlain(object root, Type rootType, SnapshotRegistry registry, ReferenceMode references) =>
+        Write(root, rootType, registry, Profile.Plain, null, references);
 
     /// <summary>Writes plain XML under the registered alias for its root.</summary>
     public static string WritePlain<T>(T root, SnapshotRegistry registry, string rootAlias) where T : class =>
@@ -83,7 +105,8 @@ public static partial class SnapshotXml
     public static T ReadPlain<T>(string xml, SnapshotRegistry registry) where T : class =>
         Read<T>(xml, registry, Profile.Plain);
 
-    private static string Write(object root, Type rootType, SnapshotRegistry registry, Profile profile, string? rootAlias = null)
+    private static string Write(object root, Type rootType, SnapshotRegistry registry, Profile profile, string? rootAlias = null,
+        ReferenceMode references = ReferenceMode.Reject)
     {
         ArgumentNullException.ThrowIfNull(root);
         ArgumentNullException.ThrowIfNull(rootType);
@@ -98,8 +121,8 @@ public static partial class SnapshotXml
 
             string json = profile switch
             {
-                Profile.Plain => SnapshotJson.WritePlain(root, rootType, registry),
-                Profile.TypedValues => SnapshotJson.WriteWithoutReferences(root, rootType, registry),
+                Profile.Plain => SnapshotJson.WritePlain(root, rootType, registry, references),
+                Profile.TypedValues => SnapshotJson.WriteWithoutReferences(root, rootType, registry, references),
                 _ => SnapshotJson.Write(root, rootType, registry)
             };
             using var data = JsonDocument.Parse(json, new JsonDocumentOptions { MaxDepth = 1000 });

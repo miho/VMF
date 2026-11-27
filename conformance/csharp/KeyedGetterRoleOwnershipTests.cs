@@ -68,7 +68,7 @@ public sealed class KeyedGetterRoleOwnershipTests
         var task = KeyedTask.NewBuilder().WithTaskId("T").Build();
         var note = KeyedNote.NewBuilder().WithKey("note").WithMessage("M").Build();
         var folder = KeyedFolder.NewBuilder().WithEntries([task, note]).WithSelected(task).Build();
-        string document = references ? ModelSnapshot.Write(folder) : ModelSnapshot.WriteWithoutReferences(folder);
+        string document = references ? ModelSnapshot.Write(folder) : ModelSnapshot.WriteWithoutReferences(folder, global::Vmf.Runtime.ReferenceMode.Omit);
         KeyedFolder Read(string input) => references ? ModelSnapshot.Read<KeyedFolder>(input)
             : ModelSnapshot.ReadWithoutReferences<KeyedFolder>(input);
         Verify(Read(document), references);

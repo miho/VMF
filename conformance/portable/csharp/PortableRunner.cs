@@ -510,10 +510,12 @@ internal sealed class Execution(string model)
             {
                 object root = Resolve(Json.Text(node["write"])) ?? throw new ScenarioFailure("cannot write null");
                 bool plain = node["plain"] is JsonNode flag && flag.GetValue<bool>();
-                MethodInfo write = plain
-                    ? SnapshotMethod("WritePlain", 1).MakeGenericMethod(root.GetType())
-                    : SnapshotMethod("Write", 1);
-                documents[Json.Text(node["as"])] = (string)Invoke(write, root)!;
+                bool omit = node["references"] is JsonNode mode && mode.GetValue<string>() == "omit";
+                documents[Json.Text(node["as"])] = (string)(plain
+                    ? omit
+                        ? Invoke(SnapshotMethod("WritePlain", 2).MakeGenericMethod(root.GetType()), root, ReferenceMode.Omit)
+                        : Invoke(SnapshotMethod("WritePlain", 1).MakeGenericMethod(root.GetType()), root)
+                    : Invoke(SnapshotMethod("Write", 1), root))!;
                 break;
             }
             case "read":

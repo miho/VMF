@@ -137,10 +137,10 @@ public sealed class TypedValueReferencesTests
     {
         var archive = ValueModels.Read<ArchiveRoot>(Fixture("archive-references"));
         var head = Assert.IsType<ArchiveNode>(archive.Head);
-        Reject(format, () => Write(format, archive, ValueModels.Registry));
+        Reject(format, () => Write(format, archive, ValueModels.Registry, ReferenceMode.Reject));
         head.Featured.Clear();
         head.Peers.Add(new ArchiveNode());
-        Reject(format, () => Write(format, archive, ValueModels.Registry));
+        Reject(format, () => Write(format, archive, ValueModels.Registry, ReferenceMode.Reject));
         head.Peers.Clear();
         Reject(format, () => WritePlain(format, archive));
 
@@ -148,7 +148,7 @@ public sealed class TypedValueReferencesTests
         archive.Review.Add(null);
         Assert.DoesNotContain("review", Write(format, archive, ValueModels.Registry));
         var inventory = ValueModels.Read<KeyedInventory>(Fixture("keyed-inventory"));
-        Reject(format, () => Write(format, inventory, ValueModels.Registry));
+        Reject(format, () => Write(format, inventory, ValueModels.Registry, ReferenceMode.Reject));
         Assert.Same(inventory.Parts[0], inventory.Assignments[0].Part);
     }
 
@@ -165,11 +165,12 @@ public sealed class TypedValueReferencesTests
         Assert.NotSame(archive.Review[0], archive.Review[1]);
     }
 
-    private static string Write(string format, object root, SnapshotRegistry registry) => format switch
+    private static string Write(string format, object root, SnapshotRegistry registry,
+        ReferenceMode references = ReferenceMode.Omit) => format switch
     {
-        "json" => SnapshotJson.WriteWithoutReferences(root, registry),
-        "yaml" => SnapshotYaml.WriteWithoutReferences(root, registry),
-        _ => SnapshotXml.WriteWithoutReferences(root, registry),
+        "json" => SnapshotJson.WriteWithoutReferences(root, registry, references),
+        "yaml" => SnapshotYaml.WriteWithoutReferences(root, registry, references),
+        _ => SnapshotXml.WriteWithoutReferences(root, registry, references),
     };
 
     private static T Read<T>(string format, string text, SnapshotRegistry registry) where T : class => format switch

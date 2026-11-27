@@ -57,10 +57,15 @@ and `ModelSnapshot.WritePlain(inventory)`. In TypeScript, use
 `ModelSnapshot.writePlain(inventory, ExternalInventory)`.
 
 Plain mode uses the supplied root type and the model's declared containment
-types. The C# and TypeScript plain writers reject populated non-owning
-references and subtypes that need a discriminator. Use reference-aware
-snapshots for those graphs. Java's default mapper retains its existing
-polymorphism and reference behavior.
+types. The C# and TypeScript plain writers reject subtypes that need a
+discriminator. All three writers reject a populated non-owning reference to a
+mutable model object unless you ask them to leave it out: Java
+`withReferences(VMFJacksonModule.ReferenceMode.OMIT)`, C#
+`ModelSnapshot.WritePlain(model, ReferenceMode.Omit)` (and the
+`WriteWithoutReferences`, XML and YAML variants), TypeScript
+`ModelSnapshot.writePlain(model, Type, "omit")`. Use reference-aware snapshots
+to keep the references. Java's default mapper retains its existing
+polymorphism behavior.
 
 ## Generate your own model
 

@@ -32,7 +32,7 @@ public class QualifiedBindingTests
         foreach (bool references in new[] { false, true })
         {
             string suffix = $"-qualified-bindings-{(references ? "true" : "false")}.json";
-            string wire = references ? ModelSnapshot.Write(archive) : ModelSnapshot.WriteWithoutReferences(archive);
+            string wire = references ? ModelSnapshot.Write(archive) : ModelSnapshot.WriteWithoutReferences(archive, global::Vmf.Runtime.ReferenceMode.Omit);
             if (exchange is not null)
             {
                 string java = File.ReadAllText(Path.Combine(exchange, "java" + suffix));

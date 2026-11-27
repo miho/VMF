@@ -52,7 +52,7 @@ public class TrioRoleTests
         foreach (bool references in new[] { true, false })
         {
             string suffix = references ? "-trio-role-reference.json" : "-trio-role-by-value.json";
-            string wire = references ? ModelSnapshot.Write(graph) : ModelSnapshot.WriteWithoutReferences(graph);
+            string wire = references ? ModelSnapshot.Write(graph) : ModelSnapshot.WriteWithoutReferences(graph, global::Vmf.Runtime.ReferenceMode.Omit);
             if (exchange is not null)
             {
                 var java = File.ReadAllText(Path.Combine(exchange, "java" + suffix));

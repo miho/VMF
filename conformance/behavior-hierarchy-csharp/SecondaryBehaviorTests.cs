@@ -58,7 +58,7 @@ public class SecondaryBehaviorTests
         foreach (bool references in new[] { true, false })
         {
             string suffix = references ? "-secondary-behavior-reference.json" : "-secondary-behavior-by-value.json";
-            string wire = references ? ModelSnapshot.Write(fleet) : ModelSnapshot.WriteWithoutReferences(fleet);
+            string wire = references ? ModelSnapshot.Write(fleet) : ModelSnapshot.WriteWithoutReferences(fleet, global::Vmf.Runtime.ReferenceMode.Omit);
             if (exchange is not null)
             {
                 string java = File.ReadAllText(Path.Combine(exchange, "java" + suffix));

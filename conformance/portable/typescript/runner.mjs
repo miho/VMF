@@ -480,7 +480,8 @@ class Execution {
             case "write": {
                 const root = this.resolve(node.write);
                 const snapshot = this.module.ModelSnapshot;
-                this.documents.set(node.as, node.plain === true ? snapshot.writePlain(root, root.constructor)
+                this.documents.set(node.as, node.plain === true
+                    ? snapshot.writePlain(root, root.constructor, node.references === "omit" ? "omit" : "reject")
                     : snapshot.write(root));
                 break;
             }

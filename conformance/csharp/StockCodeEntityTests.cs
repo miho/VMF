@@ -26,7 +26,7 @@ public class StockCodeEntityTests
         Assert.Same(root, right.Parent);
         Assert.Same(right, deep.Parent);
 
-        string wire = ModelSnapshot.WriteWithoutReferences(left);
+        string wire = ModelSnapshot.WriteWithoutReferences(left, global::Vmf.Runtime.ReferenceMode.Omit);
         var restored = ModelSnapshot.ReadWithoutReferences<NumberExpression>(wire);
         Assert.Equal(3.2, restored.Value);
         Assert.Null(restored.Parent);

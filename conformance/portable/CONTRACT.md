@@ -147,8 +147,8 @@ are read by every other target.
 - **J4** Readers restore an equal model with the same references from any document that follows J1 to J3,
   and reject unknown type names, unresolved ids and duplicate ids.
 - **J5** A plain document is the same without `@vmf-id` and `@vmf-type`. A model with a non-empty reference to
-  a mutable object cannot be written as a plain document: by default the writer rejects it. A target may offer
-  an explicit option to leave such references out instead (Java: `VMFJacksonModule.ReferenceMode.OMIT`).
+  a mutable object cannot be written as a plain document: by default the writer rejects it. Every target offers
+  an explicit option to leave such references out instead; the document then holds the containment tree only.
 - **J6** Writers reject a reference to an object outside the written containment tree.
 
 ## Deliberately unspecified

@@ -61,9 +61,12 @@ public sealed class StockJsonTests
 
     private static (Func<T, string> Write, Func<string, T> Read) Codecs<T>(string format) where T : Val => format switch
     {
-        "xml" => (ModelSnapshot.WriteXmlWithoutReferences, ModelSnapshot.ReadXmlWithoutReferences<T>),
-        "yaml" => (ModelSnapshot.WriteYamlWithoutReferences, ModelSnapshot.ReadYamlWithoutReferences<T>),
-        _ => (ModelSnapshot.WriteWithoutReferences, ModelSnapshot.ReadWithoutReferences<T>),
+        "xml" => (model => ModelSnapshot.WriteXmlWithoutReferences(model, global::Vmf.Runtime.ReferenceMode.Omit),
+            ModelSnapshot.ReadXmlWithoutReferences<T>),
+        "yaml" => (model => ModelSnapshot.WriteYamlWithoutReferences(model, global::Vmf.Runtime.ReferenceMode.Omit),
+            ModelSnapshot.ReadYamlWithoutReferences<T>),
+        _ => (model => ModelSnapshot.WriteWithoutReferences(model, global::Vmf.Runtime.ReferenceMode.Omit),
+            ModelSnapshot.ReadWithoutReferences<T>),
     };
 
     private static (Func<ChangeJournal, string> Write, Func<string, ChangeJournal> Read) JournalCodecs(string format) =>

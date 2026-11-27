@@ -456,13 +456,13 @@ public final class PortableRunner {
                     break;
                 case "write": {
                     Object root = resolve(node.get("write").asText());
-                    documents.put(node.get("as").asText(),
-                            mapper(modelInterface(root), node.path("plain").asBoolean(false)).writeValueAsString(root));
+                    documents.put(node.get("as").asText(), mapper(modelInterface(root), node.path("plain").asBoolean(false),
+                            "omit".equals(node.path("references").asText())).writeValueAsString(root));
                     break;
                 }
                 case "read": {
                     Class<?> type = modelClass(node.get("type").asText());
-                    labels.put(node.get("as").asText(), mapper(type, node.path("plain").asBoolean(false))
+                    labels.put(node.get("as").asText(), mapper(type, node.path("plain").asBoolean(false), false)
                             .readValue(document(node.get("read")), type));
                     break;
                 }
@@ -493,11 +493,13 @@ public final class PortableRunner {
             return new ObjectMapper().writeValueAsString(source.get("json"));
         }
 
-        static ObjectMapper mapper(Class<?> modelType, boolean plain) {
+        static ObjectMapper mapper(Class<?> modelType, boolean plain, boolean omitReferences) {
             VMFJacksonModule module = VMFJacksonModule.newInstance(VMFJacksonModule.RUNTIME_TYPE.EXPERIMENTAL);
             @SuppressWarnings("unchecked")
             Class<? extends VObject> vmfType = (Class<? extends VObject>) modelType;
-            return new ObjectMapper().registerModule(plain ? module
+            return new ObjectMapper().registerModule(plain
+                    ? module.withReferences(omitReferences ? VMFJacksonModule.ReferenceMode.OMIT
+                            : VMFJacksonModule.ReferenceMode.REJECT)
                     : module.withModelWireTypeAliases(vmfType).withReferences(true));
         }
 

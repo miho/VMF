@@ -39,7 +39,7 @@ public sealed class GetterRoleOwnershipTests
     public void GetterRoleOwnershipExchangesConcreteValuesAndReferenceAliases(bool references)
     {
         var (folder, _, _) = MoveChildren();
-        string document = references ? ModelSnapshot.Write(folder) : ModelSnapshot.WriteWithoutReferences(folder);
+        string document = references ? ModelSnapshot.Write(folder) : ModelSnapshot.WriteWithoutReferences(folder, global::Vmf.Runtime.ReferenceMode.Omit);
         Folder Read(string input) => references ? ModelSnapshot.Read<Folder>(input)
             : ModelSnapshot.ReadWithoutReferences<Folder>(input);
         Verify(Read(document), references);
@@ -86,7 +86,7 @@ public sealed class GetterRoleOwnershipTests
         var reference = ModelSnapshot.Read<TaskFolder>(ModelSnapshot.Write(destination));
         Assert.Same(reference.Active, reference.Head);
         Assert.Equal("base", reference.Head!.Caption);
-        var byValue = ModelSnapshot.ReadWithoutReferences<TaskFolder>(ModelSnapshot.WriteWithoutReferences(destination));
+        var byValue = ModelSnapshot.ReadWithoutReferences<TaskFolder>(ModelSnapshot.WriteWithoutReferences(destination, global::Vmf.Runtime.ReferenceMode.Omit));
         Assert.Null(byValue.Active);
         Assert.Equal("T", byValue.Head!.TaskId);
     }

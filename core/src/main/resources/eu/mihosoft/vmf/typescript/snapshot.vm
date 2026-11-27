@@ -31,8 +31,9 @@ export class ModelSnapshot {
         return vmf.SnapshotJson.read(json, rootType, this.registry);
     }
 
-    static writePlain<T extends object>(root: T, rootType: vmf.ModelConstructor<T>): string {
-        return vmf.SnapshotJson.writePlain(root, rootType, this.registry);
+    static writePlain<T extends object>(root: T, rootType: vmf.ModelConstructor<T>,
+                                        references: Exclude<vmf.ReferenceMode, "ids"> = "reject"): string {
+        return vmf.SnapshotJson.writePlain(root, rootType, this.registry, references);
     }
 
     static readPlain<T extends object>(json: string, rootType: vmf.ModelConstructor<T>): T {

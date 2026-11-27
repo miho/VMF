@@ -146,6 +146,24 @@
       ]
     },
     {
+      "id": "plain-json-can-omit-references",
+      "model": "equality",
+      "requires": ["json"],
+      "rules": ["J5"],
+      "steps": [
+        {"new": "r", "type": "Reference", "with": {"name": "r"}},
+        {"new": "c", "type": "Child", "with": {"name": "c"}},
+        {"new": "m", "type": "Model", "with": {"name": "m", "child": {"obj": "c"}, "reference": {"obj": "r"}}},
+        {"write": "m", "as": "rejected", "plain": true, "fails": true},
+        {"write": "m", "as": "d", "plain": true, "references": "omit"},
+        {"document": "d", "is": {"name": "m", "child": {"name": "c"}}},
+        {"read": "d", "type": "Model", "as": "copy", "plain": true},
+        {"check": "copy.reference", "obj": null},
+        {"check": "copy.child.name", "value": "c"},
+        {"check": "m.reference", "obj": "r"}
+      ]
+    },
+    {
       "id": "rejects-references-outside-the-document",
       "requires": ["json"],
       "rules": ["J6"],
