@@ -10,8 +10,17 @@ public sealed partial class ModelChanges
 
     internal static long NextObservationOrder() => Interlocked.Increment(ref observationOrder);
 
-    internal static void RegisterContainment(object owner, IContainment containment) =>
+    internal static void RegisterContainment(object owner, IContainment containment)
+    {
+        // The containment is registered where the state of the object is kept. An object that names its link only
+        // later would be looked up there from then on, and recursive listeners would not find this containment.
+        if (owner is IModelLinkAccess { VmfContainmentLink: null })
+        {
+            throw new InvalidOperationException(
+                "A model object needs its containment link before it creates its containments.");
+        }
         GetObservationNode(owner).AddContainment(containment);
+    }
 
     internal static IContainmentCursorSlot? FindContainmentSlot(object owner, object child)
     {

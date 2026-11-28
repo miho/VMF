@@ -5,7 +5,8 @@ namespace Vmf.CSharp.Conformance;
 
 /// <summary>
 /// A model written by hand uses the runtime without the interfaces of generated code: it has a containment link, but
-/// does not name it. The change streams keep what they know about such an object by its identity.
+/// does not name it. The change streams keep what they know about such an object by its identity. A hand-written
+/// class may name its link as generated classes do (<see cref="IModelLinkAccess"/>); then its state is kept there.
 /// </summary>
 public class HandWrittenModelObservationTests
 {
@@ -94,6 +95,72 @@ public class HandWrittenModelObservationTests
         Assert.Equal(new ModelCollectionEntry(child, Index: 0), Assert.Single(changes[0].Added));
         Assert.Equal(new ModelCollectionEntry("first", Index: 0), Assert.Single(changes[2].Removed));
         Assert.Equal(new ModelCollectionEntry("second", Index: 0), Assert.Single(changes[2].Added));
+    }
+
+    [Fact]
+    public void AHandWrittenModelThatNamesItsLinkIsObservedLikeAGeneratedOne()
+    {
+        var root = new Named("root");
+        var child = new Named("child");
+        var seen = new List<(object Source, string Property)>();
+        using var watch = ModelChanges.For(root).AddListener(change => seen.Add((change.Source, change.PropertyName)));
+
+        root.Children.Add(child);
+        child.Name = "renamed";
+        root.Children.Remove(child);
+        child.Name = "unobserved";
+
+        Assert.Same(ModelChanges.For(root), ModelChanges.For(root));
+        Assert.Equal(new (object, string)[] { (root, "children"), (child, "name"), (child, "parent"), (root, "children") },
+            seen);
+    }
+
+    [Fact]
+    public void AModelThatNamesItsLinkNeedsItBeforeItsContainments()
+    {
+        // Its containments would be registered in the table and looked for at the link: listeners would miss them.
+        var error = Assert.Throws<InvalidOperationException>(() => new LateLink());
+
+        Assert.Contains("containment link", error.Message);
+    }
+
+    /// <summary>Names its link, as generated classes do: the runtime keeps the state of the object there.</summary>
+    private sealed class Named : IModelLinkAccess
+    {
+        private readonly ContainmentLink link = new();
+        private string? name;
+
+        public Named(string name)
+        {
+            this.name = name;
+            Children = new(this, link, static child => child.link, new ModelChangeSource(this, link, "children"), "parent");
+        }
+
+        ContainmentLink IModelLinkAccess.VmfContainmentLink => link;
+
+        public ContainmentList<Named, Named> Children { get; }
+
+        public string? Name
+        {
+            get => name;
+            set => ModelChanges.SetProperty(this, link, "name", ref name, value,
+                static model => model.Name, static (model, value) => model.Name = value, isModelReference: false);
+        }
+    }
+
+    private sealed class LateLink : IModelLinkAccess
+    {
+        private readonly ContainmentLink? link;
+
+        public LateLink()
+        {
+            Children = new(this, static child => child.link!);
+            link = new();
+        }
+
+        ContainmentLink IModelLinkAccess.VmfContainmentLink => link!;
+
+        public ContainmentList<LateLink, LateLink> Children { get; }
     }
 
     private sealed class Folder
