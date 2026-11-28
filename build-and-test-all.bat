@@ -19,6 +19,10 @@ if errorlevel 1 goto finish
 call gradlew.bat clean test --no-daemon %*
 if errorlevel 1 goto finish
 
+echo Testing generated models in a Maven build
+call maven.bat clean verify %*
+if errorlevel 1 goto finish
+
 echo Building and testing Jackson integration
 cd ..\jackson
 if errorlevel 1 goto finish
