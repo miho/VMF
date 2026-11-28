@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noEmitOnError": true,
+    "rootDir": ".",
+    "outDir": "build/js"
+  },
+  "include": [
+    "build/generated/**/*.ts",
+    "model-scenarios.ts"
+  ]
+}

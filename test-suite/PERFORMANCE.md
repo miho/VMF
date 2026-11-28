@@ -17,6 +17,31 @@ Each operation is the unit in its case name. For example, a listener lifecycle o
 
 The ordered journal cases vary node count and retained tags independently and exercise one, eight, and 32 frames per sealed session on the large graph. Every frame includes a write followed by restoration of the old value. The report includes median and p99 for the sealed session and for ticks from opening a transaction through verified publication. Tick samples exclude opening and finishing the recorder.
 
+## C# and TypeScript lanes
+
+The tasks above measure the Java runtime. The C# and the TypeScript runtime have a lane each. A lane generates the gate's model for its language and builds a worker program that runs the model cases of the Java lane against the generated code. The coordinator of the Java lane starts the worker, so the protocol, the failure threshold, the baseline and the report are the same for every language.
+
+| | Java | C# | TypeScript |
+|---|---|---|---|
+| Save a baseline | `performanceBaseline` | `performanceBaselineCSharp` | `performanceBaselineTypeScript` |
+| Compare with the baseline | `performanceTest` | `performanceTestCSharp` | `performanceTestTypeScript` |
+| Measure only | `performanceReport` | `performanceReportCSharp` | `performanceReportTypeScript` |
+| Baseline in `.gradle/vmf-performance` | `baseline.json` | `baseline-csharp.json` | `baseline-typescript.json` |
+| Reports in `build/reports/performance` | `<mode>.json` | `csharp/<mode>.json` | `typescript/<mode>.json` |
+| Cases in `test-suite/src/performance` | `java/perf/ModelScenarios.java` | `csharp/ModelScenarios.cs` | `typescript/model-scenarios.ts` |
+
+`performanceBaselineAllTargets`, `performanceTestAllTargets` and `performanceReportAllTargets` run the three lanes one after the other. The C# lane needs the .NET 8 SDK, the TypeScript lane Node.js with npm. The C# worker runs with workstation garbage collection and four processors, as the Java lane limits its JVMs; the TypeScript worker runs with Node's defaults. A baseline records the version of the language runtime and is rejected on another one.
+
+A case has the same name, graph and operation count in every lane that has it, so the lanes can be read side by side. The lanes differ where the languages do:
+
+- C# and TypeScript swap two children with two `Move` calls; Java uses `Collections.swap`.
+- TypeScript has no sort and no transactions: the lane has no sort case, and its recording case starts a recording, makes two edits and stops it. Its reflective case reads and writes the property by its name.
+- The journal cases exist only in Java.
+
+`checkPerformanceTargets` builds both workers and runs every case once with its checks, without measuring. CI runs it, so that these lanes stay runnable as well.
+
+A lane for another language is a worker with the commands `check`, `describe` and `measure` (see `WorkerLane` in `PerformanceGate`), registered with `performanceLane` in `performance.gradle`. When a case of a worker changes what it measures, bump the lane protocol in that worker.
+
 ## Observer and verified-frame diagnostics
 
 Run `performanceObserverReport` for selective scalar and containment observation. Run
