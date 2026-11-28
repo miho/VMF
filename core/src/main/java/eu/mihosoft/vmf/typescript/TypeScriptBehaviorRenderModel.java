@@ -53,6 +53,9 @@ final class TypeScriptBehaviorRenderModel {
             "implements", "interface", "package", "private", "protected", "public", "await", "arguments", "eval",
             "caller", "args");
     static final String REPLACE = "replaceBehavior";
+    /** The members of Object.prototype, which every class inherits. */
+    private static final Set<String> OBJECT_MEMBERS = Set.of("constructor", "toString", "toLocaleString", "valueOf",
+            "hasOwnProperty", "isPrototypeOf", "propertyIsEnumerable");
 
     private final ResolvedModel model;
     private final TypeScriptRenderModel source;
@@ -190,8 +193,9 @@ final class TypeScriptBehaviorRenderModel {
                 throw new IllegalArgumentException("Cannot generate TypeScript for " + type.getQualifiedName() + "."
                         + name + ": the method name conflicts with another TypeScript member");
             }
-            boolean override = base != null && base.getEffectiveMethods().stream()
-                    .anyMatch(candidate -> candidate.getName().equals(group.getKey()));
+            // A class with a base class overrides the members of Object.prototype (toString) too.
+            boolean override = base != null && (OBJECT_MEMBERS.contains(group.getKey())
+                    || base.getEffectiveMethods().stream().anyMatch(candidate -> candidate.getName().equals(group.getKey())));
             result.add(group.getValue().size() == 1 ? single(name, group.getValue().get(0), override)
                     : overloads(type, name, group.getValue(), override));
         }
@@ -200,15 +204,10 @@ final class TypeScriptBehaviorRenderModel {
 
     /** {@code replaceBehavior} of a mutable class whose delegated methods differ from its base class. */
     String replace(Type type, Type base) {
-        if (type.isImmutable() || type.isGetterOnlyTrait() || type.getEffectiveMethods().isEmpty()) return "";
-        var contracts = new LinkedHashSet<String>();
-        type.getEffectiveMethods().forEach(method -> contracts.add(interfaceName(method.getDeclaringType())));
-        boolean override = base != null && !base.getEffectiveMethods().isEmpty();
-        if (override) {
-            var inherited = new LinkedHashSet<String>();
-            base.getEffectiveMethods().forEach(method -> inherited.add(interfaceName(method.getDeclaringType())));
-            if (inherited.equals(contracts)) return "";
-        }
+        if (!replaces(type)) return "";
+        var contracts = contracts(type);
+        boolean override = base != null && replaces(base);
+        if (override && contracts(base).equals(contracts)) return "";
         return "/**\n"
                 + "     * Replaces the behavior of this object: its delegated methods call the replacement from now on, which\n"
                 + "     * must implement all of them. Copies and objects read from documents use the default behavior.\n"
@@ -216,6 +215,30 @@ final class TypeScriptBehaviorRenderModel {
                 + "    " + (override ? "override " : "") + REPLACE + "(behavior: " + String.join(" & ", contracts) + "): void {\n"
                 + "        vmf.replaceBehavior(this, behavior);\n"
                 + "    }";
+    }
+
+    private static boolean replaces(Type type) {
+        return !type.isImmutable() && !type.isGetterOnlyTrait() && !type.getEffectiveMethods().isEmpty();
+    }
+
+    /**
+     * The behavior interfaces a replacement must implement: those of the type's delegated methods. A class that
+     * implements supertypes with delegated methods besides its base class also takes the interfaces that their
+     * {@code replaceBehavior} and its base class's take, so that it is compatible with all of them.
+     */
+    private Set<String> contracts(Type type) {
+        var result = new LinkedHashSet<String>();
+        type.getEffectiveMethods().forEach(method -> result.add(interfaceName(method.getDeclaringType())));
+        Type base = source.primaryType(type);
+        var secondaries = type.getSuperTypes().stream().map(this::declaringType)
+                .filter(parent -> parent != base && replaces(parent)).collect(Collectors.toList());
+        if (!secondaries.isEmpty()) {
+            if (base != null && replaces(base)) {
+                result.addAll(contracts(base));
+            }
+            secondaries.forEach(parent -> result.addAll(contracts(parent)));
+        }
+        return result;
     }
 
     private String single(String name, CallableMethod method, boolean override) {

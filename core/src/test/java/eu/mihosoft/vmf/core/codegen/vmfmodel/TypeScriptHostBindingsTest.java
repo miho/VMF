@@ -160,6 +160,45 @@ interface TsDefaultRedeclaration extends TsDefaultBase {
     List<String> getTags();
 }
 
+interface TsLeftRole {
+    @DelegateTo(className = "example.Sides")
+    int left();
+}
+
+interface TsRightRole {
+    @DelegateTo(className = "example.Sides")
+    int right();
+}
+
+interface TsBothRoles extends TsLeftRole, TsRightRole {
+}
+
+interface TsMixedBase {
+    @DelegateTo(className = "example.First")
+    int first();
+}
+
+interface TsMixedRole extends TsMixedBase {
+    @DelegateTo(className = "example.Second")
+    int second();
+
+    @DelegateTo(className = "example.Third")
+    int third();
+}
+
+interface TsMixedOwner extends TsLeftRole, TsMixedRole {
+}
+
+interface TsPlainCaption {
+    String getLabel();
+}
+
+interface TsCaption extends TsPlainCaption {
+    @Override
+    @DelegateTo(className = "example.Caption")
+    String toString();
+}
+
 interface TsNullableBoundDefault {
     @DefaultValue("example.Defaults.numbers()")
     @Annotation(key = "vmf:typescript:bind-default", value = "true")
@@ -245,6 +284,21 @@ public class TypeScriptHostBindingsTest {
     }
 
     @Test
+    public void classesDeclareTheMethodsOfBehaviorRolesTheyImplement() throws IOException {
+        String source = generate(TsLeftRole.class, TsRightRole.class, TsBothRoles.class);
+        assertTrue(source.contains("export class TsBothRoles extends TsLeftRole implements TsRightRole {"));
+        // The method of the implemented role calls the behavior of the type that declares it.
+        assertTrue(source.contains("return vmf.behaviorOf<TsRightRoleBehavior>(this, \"TsRightRole\","
+                + " __vmfBehavior_TsRightRole).right(this);"));
+        // A replacement implements the behaviors of the base class and of the implemented role.
+        assertTrue(source.contains("override replaceBehavior(behavior: TsLeftRoleBehavior & TsRightRoleBehavior): void {"));
+
+        // A class with a base class overrides Object.prototype.toString.
+        String caption = generate(TsPlainCaption.class, TsCaption.class);
+        assertTrue(caption.contains("override toString(): string | null {"));
+    }
+
+    @Test
     public void rejectsWhatTypeScriptCannotBind() {
         var sameArity = assertThrows(IllegalArgumentException.class,
                 () -> PortableCapabilities.validate(model(HostedSameArity.class), "TypeScript"));
@@ -262,6 +316,12 @@ public class TypeScriptHostBindingsTest {
                 () -> PortableCapabilities.validate(model(TsNullableBoundDefault.class), "TypeScript"));
         assertTrue(nullable.getMessage(), nullable.getMessage().contains("TsNullableBoundDefault.numbers needs a"
                 + " non-literal @DefaultValue of a scalar, a list or set of non-null portable scalars"));
+
+        // As in C#, an implemented supertype contributes data or the behavior of a bound behavior role.
+        var mixed = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(
+                model(TsLeftRole.class, TsMixedBase.class, TsMixedRole.class, TsMixedOwner.class), "TypeScript"));
+        assertTrue(mixed.getMessage(), mixed.getMessage().contains("TsMixedOwner needs a data-only secondary supertype"
+                + " or a bound behavior role"));
 
         // A redeclaration would give subclasses a second default.
         var redeclared = assertThrows(IllegalArgumentException.class,

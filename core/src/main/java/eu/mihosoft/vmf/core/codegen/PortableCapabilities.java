@@ -627,8 +627,11 @@ public final class PortableCapabilities {
     }
 
     /**
-     * The supertypes a TypeScript class implements besides its base class contribute only data: their methods and
-     * construction hooks would not run for it.
+     * The supertypes a TypeScript class implements besides its base class. The class declares their properties and
+     * their delegated methods itself; a method calls the behavior of the type that declares it, as in its base
+     * class. As in C#, a concrete supertype that is not on the base class chain contributes data only, or behavior as
+     * a bound behavior role: a type whose delegated methods all have bindings, alone or along its own base chain.
+     * Its construction hook runs only when the model selects that hook for the class, as in Java and C#.
      */
     private static void checkTypeScriptSecondaries(ResolvedModel model, Type type, List<String> diagnostics) {
         var chain = new HashSet<String>();
@@ -642,10 +645,15 @@ public final class PortableCapabilities {
             if (chain.contains(name) || !seen.add(name)) continue;
             var secondary = model.findType(name).orElse(null);
             if (secondary == null) continue;
+            // An immutable value has no construction hook; its class declares the delegated methods it implements.
+            if (type.isImmutable() && secondary.isImmutable()) continue;
+            if (CSharpCapabilities.isBoundBehaviorRole(model, secondary)
+                    || CSharpCapabilities.hasBoundBehaviorBranches(model, secondary)) continue;
             if (!secondary.isInterfaceOnly()
                     && (!secondary.getEffectiveMethods().isEmpty() || secondary.getConstructionHook().isPresent())) {
-                diagnostics.add(type.getQualifiedName() + " needs a data-only secondary supertype instead of "
-                        + secondary.getQualifiedName());
+                diagnostics.add(type.getQualifiedName() + " needs a data-only secondary supertype or a bound behavior"
+                        + " role (delegated methods that all have bindings, from one binding along its base chain)"
+                        + " instead of " + secondary.getQualifiedName());
             }
             pending.addAll(secondary.getSuperTypes());
         }

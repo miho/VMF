@@ -368,6 +368,8 @@ across targets:
   set every property, C# and TypeScript only the given ones
 - the hooks of several supertypes: Java runs every inherited type-level hook, C# and TypeScript the one that
   the model selects
+- whether several types of an object that bind the same behavior class share one behavior: Java and C# create
+  one per object and class, TypeScript one per object and declaring type
 - plain documents for models whose subtypes occur where a property declares their supertype
 - validation messages, severities and what an issue carries besides its code and path; the order of the issues
   of a property whose constraints come from several declarations (a redeclared property)

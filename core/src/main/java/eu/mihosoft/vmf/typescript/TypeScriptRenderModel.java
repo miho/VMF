@@ -280,7 +280,8 @@ final class TypeScriptRenderModel {
                 .collect(Collectors.toUnmodifiableList());
     }
 
-    private Type primaryType(Type type) {
+    /** The base class of a class, or null. */
+    Type primaryType(Type type) {
         ValueType primary = primarySupertype(type);
         return primary == null ? null : model.findType(primary.getModelType()).orElseThrow();
     }
