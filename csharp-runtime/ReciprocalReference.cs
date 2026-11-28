@@ -1,13 +1,25 @@
 namespace Vmf.Runtime;
 
-/// <summary>Stores a single non-owning model reference with a reciprocal endpoint.</summary>
-public sealed class ReciprocalReference<T> where T : class
+/// <summary>Finds the endpoint at the other end of a reciprocal reference, on the object it points to.</summary>
+internal interface IReciprocalOpposite
 {
+    ReciprocalEndpoint OppositeOf(object target);
+}
+
+/// <summary>Stores a single non-owning model reference with a reciprocal endpoint.</summary>
+public sealed class ReciprocalReference<T> : IReciprocalOpposite where T : class
+{
+    private readonly Func<T, ReciprocalEndpoint> opposite;
+
     public ReciprocalReference(ModelChangeSource source, Func<T, ReciprocalEndpoint> opposite)
     {
         ArgumentNullException.ThrowIfNull(opposite);
-        Endpoint = new(source, target => opposite((T)target));
+        this.opposite = opposite;
+        // The reference resolves the opposite for its endpoint itself: no closure per reference.
+        Endpoint = new(source, this);
     }
+
+    ReciprocalEndpoint IReciprocalOpposite.OppositeOf(object target) => opposite((T)target);
 
     public ReciprocalEndpoint Endpoint { get; }
 
@@ -22,17 +34,26 @@ public sealed class ReciprocalReference<T> where T : class
 public sealed class ReciprocalEndpoint
 {
     private readonly ModelChangeSource source;
-    private readonly Func<object, ReciprocalEndpoint> opposite;
+    private readonly IReciprocalOpposite opposite;
     private readonly ReciprocalCollection? collection;
     private bool updating;
 
-    internal ReciprocalEndpoint(ModelChangeSource source, Func<object, ReciprocalEndpoint> opposite,
-        ReciprocalCollection? collection = null)
+    internal ReciprocalEndpoint(ModelChangeSource source, IReciprocalOpposite opposite, ReciprocalCollection? collection = null)
     {
         if (!source.IsTracked) throw new ArgumentException("A reciprocal reference requires an owner.", nameof(source));
         this.source = source;
         this.opposite = opposite;
         this.collection = collection;
+    }
+
+    internal ReciprocalEndpoint(ModelChangeSource source, Func<object, ReciprocalEndpoint> opposite,
+        ReciprocalCollection? collection = null) : this(source, new DelegatedOpposite(opposite), collection)
+    {
+    }
+
+    private sealed class DelegatedOpposite(Func<object, ReciprocalEndpoint> resolve) : IReciprocalOpposite
+    {
+        public ReciprocalEndpoint OppositeOf(object target) => resolve(target);
     }
 
     internal object Owner => source.Owner;
@@ -42,7 +63,7 @@ public sealed class ReciprocalEndpoint
     internal bool IsOrdered => collection?.RestoreSequence is not null;
     internal bool IsUnique => collection?.Unique ?? true;
     internal IEnumerable<object?> Values => collection?.Values() ?? (Value is null ? [] : [Value]);
-    internal ReciprocalEndpoint Opposite(object target) => opposite(target);
+    internal ReciprocalEndpoint Opposite(object target) => opposite.OppositeOf(target);
 
     internal void Assign(object? value)
     {
@@ -51,8 +72,8 @@ public sealed class ReciprocalEndpoint
         RequireAvailable();
 
         object? oldValue = Value;
-        var next = value is null ? null : opposite(value);
-        var previous = oldValue is null ? null : opposite(oldValue);
+        var next = value is null ? null : Opposite(value);
+        var previous = oldValue is null ? null : Opposite(oldValue);
         if ((next ?? previous)?.collection is not null) AssignToCollection(oldValue, value, previous, next);
         else AssignToScalar(oldValue, value, previous, next);
     }
@@ -60,7 +81,7 @@ public sealed class ReciprocalEndpoint
     private void AssignToScalar(object? oldValue, object? value, ReciprocalEndpoint? previous, ReciprocalEndpoint? next)
     {
         next?.RequireAvailable();
-        var displaced = next?.Value is { } oldOwner ? next.opposite(oldOwner) : null;
+        var displaced = next?.Value is { } oldOwner ? next.Opposite(oldOwner) : null;
         if (displaced == this) displaced = null;
         displaced?.RequireAvailable();
         displaced?.source.RequireKeyChange(null);
@@ -140,7 +161,7 @@ public sealed class ReciprocalEndpoint
         foreach (var (target, delta) in deltas)
         {
             if (delta == 0) continue;
-            var destination = opposite(target);
+            var destination = Opposite(target);
             if (destination.collection is not null) continue;
             if (edit.Removal?.Scalar == destination) continue;
             destination.RequireAvailable();
@@ -160,7 +181,7 @@ public sealed class ReciprocalEndpoint
         var deltas = CollectionDeltas(removed, added);
         if (collection is { Unique: false } && (removed.Count == 0 || added.Count == 0)
             && deltas.Values.Any(static delta => delta is < -1 or > 1)
-            && deltas.Keys.All(target => opposite(target).collection is { Unique: false }))
+            && deltas.Keys.All(target => Opposite(target).collection is { Unique: false }))
         {
             // Ordinary opposite lists observe one mirror edit per occurrence, in source order.
             var occurrences = added.Count == 0 ? removed : added;
@@ -186,14 +207,14 @@ public sealed class ReciprocalEndpoint
     {
         for (int index = 0; index < targets.Count; index++)
         {
-            if (targets[index] is { } target && opposite(target).collection is null) return false;
+            if (targets[index] is { } target && Opposite(target).collection is null) return false;
         }
         return true;
     }
 
     private void Synchronize(object target, bool added, ref Exception? failure, int maximumSteps = int.MaxValue)
     {
-        var destination = opposite(target);
+        var destination = Opposite(target);
         int count = collection!.Count(target);
         if (destination == this) return;
         if (destination.collection is { } many)
@@ -235,7 +256,7 @@ public sealed class ReciprocalEndpoint
             destination.Value = Owner;
             if (old is not null)
             {
-                var previous = destination.opposite(old).collection!;
+                var previous = destination.Opposite(old).collection!;
                 Attempt(() => previous.Remove(target, true, ReciprocalEdit.TransferRemoval()), ref failure);
             }
             destination.Publish(old, Owner, isInverse: true, null, ref failure);

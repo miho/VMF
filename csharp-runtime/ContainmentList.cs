@@ -400,9 +400,13 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
 
     private void ReplaceContents(IReadOnlyList<object?> values)
     {
-        var children = values.Select(value => value is null && IsOrdinaryList ? default!
-            : value as TChild ?? throw new ArgumentException($"Expected a containment child of type '{typeof(TChild)}'."))
-            .ToArray();
+        TChild[] children = values.Count == 0 ? [] : new TChild[values.Count];
+        for (int index = 0; index < children.Length; index++)
+        {
+            object? value = values[index];
+            children[index] = value is null && IsOrdinaryList ? default!
+                : value as TChild ?? throw new ArgumentException($"Expected a containment child of type '{typeof(TChild)}'.");
+        }
         ReplaceRange(0, Count, children);
     }
 

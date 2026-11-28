@@ -16,8 +16,9 @@ public sealed partial class ModelChanges
     internal static IContainmentCursorSlot? FindContainmentSlot(object owner, object child)
     {
         if (FindObservationNode(owner) is not { } node) return null;
-        foreach (var containment in node.Containments)
+        for (int index = 0; index < node.ContainmentCount; index++)
         {
+            var containment = node.ContainmentAt(index);
             if (containment is IContainmentCursorSlot slot && containment.FindChild(child) >= 0
                 && ReferenceEquals(containment.GetChildLink(child).CurrentCollection, containment))
             {
@@ -62,8 +63,9 @@ public sealed partial class ModelChanges
     internal sealed class ObservationNode
     {
         private ModelChanges? stream;
+        // The containments of the object: none, the only one, or an array of them. Most objects have one.
+        private object? containments;
 
-        internal IContainment[] Containments { get; private set; } = [];
         internal ObservationRegistration[] Groups { get; set; } = [];
         internal bool HasObservedCollections { get; set; }
         // The containment link of a node that a recursive group walked into; it names the current container (E8).
@@ -75,7 +77,23 @@ public sealed partial class ModelChanges
         internal ModelChanges StreamOf(object owner) =>
             stream ?? Interlocked.CompareExchange(ref stream, new ModelChanges(owner), null) ?? stream;
 
-        internal void AddContainment(IContainment containment) => Containments = [.. Containments, containment];
+        internal int ContainmentCount => containments switch
+        {
+            null => 0,
+            IContainment[] several => several.Length,
+            _ => 1,
+        };
+
+        internal IContainment ContainmentAt(int index) =>
+            containments is IContainment[] several ? several[index] : (IContainment)containments!;
+
+        internal void AddContainment(IContainment containment) => containments = containments switch
+        {
+            null => containment,
+            IContainment[] several => (IContainment[])[.. several, containment],
+            IContainment only => new[] { only, containment },
+            _ => throw new InvalidOperationException(),
+        };
     }
 
     internal readonly record struct ObservationRegistration(ObserverGroup Group, long Order,
@@ -247,9 +265,9 @@ public sealed partial class ModelChanges
                 }
 
                 var state = GetObservationNode(node);
-                for (int index = state.Containments.Length - 1; index >= 0; index--)
+                for (int index = state.ContainmentCount - 1; index >= 0; index--)
                 {
-                    IContainment relationship = state.Containments[index];
+                    IContainment relationship = state.ContainmentAt(index);
                     for (int slot = relationship.SlotCount - 1; slot >= 0; slot--)
                     {
                         if (relationship.ChildAt(slot) is not { } child) continue;
