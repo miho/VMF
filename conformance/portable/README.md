@@ -116,9 +116,9 @@ the same property, and chains of set events (`a -> null`, `null -> b`).
 
 1. Make the generator produce the target from `models/` (`GeneratePortableModels <target> ...`).
 2. Write a runner that reads these files and implements the steps above for the modules the target claims.
-   The Java runner (`java/PortableRunner.java`, about 1,100 lines) is the reference; the C# runner
-   (`csharp/PortableRunner.cs`, about 1,400 lines) and the TypeScript runner (`typescript/runner.mjs`, about
-   1,000 lines) follow it step by step.
+   The Java runner (`java/PortableRunner.java`, about 1,700 lines) is the reference; the C# runner
+   (`csharp/PortableRunner.cs`, about 2,000 lines) and the TypeScript runner (`typescript/runner.mjs`, about
+   1,300 lines) follow it step by step.
 3. Add a `runPortable<Target>` task and `expected-failures/<target>.txt`.
 
 How the runners reach the generated code (for users, the [language mappings](../../docs/targets/) say the same per language):
