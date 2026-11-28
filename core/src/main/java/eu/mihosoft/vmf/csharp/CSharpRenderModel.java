@@ -481,7 +481,8 @@ final class CSharpRenderModel {
         if (!hasBase) {
             parent += (parent.isEmpty() ? " : " : ", ") + (immutableType
                     ? "global::Vmf.Runtime.IImmutableModel"
-                    : "global::System.ComponentModel.INotifyPropertyChanged, global::Vmf.Runtime.IModelReadOnlyProjection");
+                    : "global::System.ComponentModel.INotifyPropertyChanged, global::Vmf.Runtime.IModelReadOnlyProjection"
+                        + ", global::Vmf.Runtime.IModelLinkAccess");
         }
         var propertyChangedNames = immutableType ? List.<Map<String, String>>of()
                 : type.getEffectiveProperties().stream().filter(property -> !property.isCollection())

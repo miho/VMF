@@ -62,18 +62,26 @@ public sealed partial class ModelChanges
         return subscription;
     }
 
-    private static DirectPropertyDelivery SnapshotDirectPropertyObservers(object owner, string propertyName) =>
-        Volatile.Read(ref hasDirectPropertyObservers) != 0 && Streams.TryGetValue(owner, out var stream)
+    private static DirectPropertyDelivery SnapshotDirectPropertyObservers(ObservationNode? node, string propertyName) =>
+        Volatile.Read(ref hasDirectPropertyObservers) != 0 && node?.Stream is { } stream
             && Volatile.Read(ref stream.directPropertyObservers) is { } observers
             ? observers.Capture(propertyName) : default;
 
-    internal static Action<ModelChange>? CapturePropertyDelivery(object owner, string propertyName,
+    /// <param name="link">The containment link of the owner, which keeps its observation state.</param>
+    internal static Action<ModelChange>? CapturePropertyDelivery(object owner, ContainmentLink link, string propertyName,
         IContainment? relationship = null)
     {
-        var direct = SnapshotDirectPropertyObservers(owner, propertyName);
-        if (!direct.HasObservers) return CaptureDelivery(owner, relationship);
+        if (Volatile.Read(ref hasStreams) == 0) return null;
+        var node = link.ObservationOf(owner);
+        var direct = SnapshotDirectPropertyObservers(node, propertyName);
+        return direct.HasObservers ? DirectPropertyDeliveryTo(node!, direct, relationship)
+            : CaptureDelivery(node, relationship);
+    }
 
-        var groups = SnapshotGroups(owner);
+    private static Action<ModelChange> DirectPropertyDeliveryTo(ObservationNode node, DirectPropertyDelivery direct,
+        IContainment? relationship)
+    {
+        var groups = node.Groups;
         var recorders = SnapshotRecorders(groups);
         return change => DeliverDirectProperty(groups, recorders, direct, change, relationship);
     }

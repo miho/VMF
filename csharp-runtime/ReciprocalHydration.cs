@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Runtime.InteropServices;
 
 namespace Vmf.Runtime;
 
@@ -10,36 +11,37 @@ internal static class ReciprocalHydration
     internal static void Apply(IReadOnlyList<Field> fields)
     {
         if (fields.Count == 0) return;
-        var declarations = new Dictionary<ReciprocalEndpoint, Declaration>(ReferenceEqualityComparer.Instance);
-        foreach (var field in fields)
+        var declarations = new Dictionary<ReciprocalEndpoint, Declaration>(fields.Count, ReferenceEqualityComparer.Instance);
+        for (int index = 0; index < fields.Count; index++)
         {
+            var field = fields[index];
             var endpoint = field.Property.Reciprocal!(field.Owner);
-            object?[] values = endpoint.IsCollection ? ((IEnumerable)field.Value!).Cast<object?>().ToArray()
-                : field.Value is null ? [] : [field.Value];
-            if (!declarations.TryAdd(endpoint, new(field, values, Count(values))))
+            Declaration declaration;
+            if (endpoint.IsCollection)
+            {
+                object?[] values = ((IEnumerable)field.Value!).Cast<object?>().ToArray();
+                declaration = new(field, null, values, Count(values));
+            }
+            else
+            {
+                // A single reference names at most one opposite and needs no table of counts.
+                declaration = new(field, field.Value, null, null);
+            }
+            if (!declarations.TryAdd(endpoint, declaration))
             {
                 throw new InvalidOperationException($"Duplicate reciprocal field '{endpoint.Name}'.");
             }
         }
 
-        var singles = new Dictionary<ReciprocalEndpoint, object>(ReferenceEqualityComparer.Instance);
+        var singles = new Dictionary<ReciprocalEndpoint, object>(fields.Count, ReferenceEqualityComparer.Instance);
         foreach (var (endpoint, declaration) in declarations)
         {
-            foreach (var (member, occurrences) in declaration.Counts)
+            if (declaration.Counts is null)
             {
-                var peer = endpoint.Opposite(member);
-                if (!ReferenceEquals(peer.Opposite(endpoint.Owner), endpoint))
-                {
-                    throw new InvalidOperationException($"Invalid opposite declaration for '{endpoint.Name}'.");
-                }
-                Claim(endpoint, member, singles);
-                Claim(peer, endpoint.Owner, singles);
-                if (!endpoint.IsUnique && !peer.IsUnique && declarations.TryGetValue(peer, out var opposite)
-                    && opposite.Counts.TryGetValue(endpoint.Owner, out int inverseOccurrences) && occurrences != inverseOccurrences)
-                {
-                    throw new InvalidOperationException($"Conflicting reciprocal sequence counts at '{endpoint.Name}'.");
-                }
+                if (declaration.Member is { } single) Declare(endpoint, single, 1);
+                continue;
             }
+            foreach (var (member, occurrences) in declaration.Counts) Declare(endpoint, member, occurrences);
         }
 
         foreach (var (endpoint, member) in singles)
@@ -50,7 +52,7 @@ internal static class ReciprocalHydration
         {
             if (!endpoint.IsCollection) continue;
             var current = Count(endpoint.Values);
-            foreach (var (member, desiredCount) in declaration.Counts)
+            foreach (var (member, desiredCount) in declaration.Counts!)
             {
                 int present = current.GetValueOrDefault(member);
                 for (int index = present; index < desiredCount; index++)
@@ -61,32 +63,53 @@ internal static class ReciprocalHydration
         }
         foreach (var (endpoint, declaration) in declarations)
         {
-            if (endpoint.IsCollection && endpoint.IsUnique
-                && !Count(endpoint.Values).Keys.ToHashSet(ReferenceEqualityComparer.Instance).SetEquals(declaration.Counts.Keys))
+            if (!endpoint.IsCollection) continue;
+            var counts = declaration.Counts!;
+            if (endpoint.IsUnique
+                && !Count(endpoint.Values).Keys.ToHashSet(ReferenceEqualityComparer.Instance).SetEquals(counts.Keys))
             {
                 throw new InvalidOperationException($"Conflicting reciprocal membership at '{endpoint.Name}'.");
             }
             if (!endpoint.IsOrdered) continue;
-            var sequence = new List<object?>(declaration.Values);
+            var sequence = new List<object?>(declaration.Values!);
             foreach (object? member in endpoint.Values)
             {
                 // Explicit positions take precedence. Opposites omitted from this end are appended.
                 if (member is null) continue;
-                if (!declaration.Counts.TryGetValue(member, out int remaining) || remaining == 0) sequence.Add(member);
-                else declaration.Counts[member] = remaining - 1;
+                if (!counts.TryGetValue(member, out int remaining) || remaining == 0) sequence.Add(member);
+                else counts[member] = remaining - 1;
             }
             endpoint.RestoreSnapshotSequence(sequence);
+        }
+
+        void Declare(ReciprocalEndpoint endpoint, object member, int occurrences)
+        {
+            var peer = endpoint.Opposite(member);
+            if (!ReferenceEquals(peer.Opposite(endpoint.Owner), endpoint))
+            {
+                throw new InvalidOperationException($"Invalid opposite declaration for '{endpoint.Name}'.");
+            }
+            Claim(endpoint, member, singles);
+            Claim(peer, endpoint.Owner, singles);
+            if (!endpoint.IsUnique && !peer.IsUnique && declarations.TryGetValue(peer, out var opposite)
+                && opposite.Counts!.TryGetValue(endpoint.Owner, out int inverseOccurrences) && occurrences != inverseOccurrences)
+            {
+                throw new InvalidOperationException($"Conflicting reciprocal sequence counts at '{endpoint.Name}'.");
+            }
         }
     }
 
     private static void Claim(ReciprocalEndpoint endpoint, object member, Dictionary<ReciprocalEndpoint, object> singles)
     {
         if (endpoint.IsCollection) return;
-        if (endpoint.Value is { } current && !ReferenceEquals(current, member)
-            || !singles.TryAdd(endpoint, member) && !ReferenceEquals(singles[endpoint], member))
+        bool conflict = endpoint.Value is { } current && !ReferenceEquals(current, member);
+        if (!conflict)
         {
-            throw new InvalidOperationException($"Conflicting reciprocal scalar values at '{endpoint.Name}'.");
+            ref object? claimed = ref CollectionsMarshal.GetValueRefOrAddDefault(singles, endpoint, out bool exists);
+            if (exists) conflict = !ReferenceEquals(claimed, member);
+            else claimed = member;
         }
+        if (conflict) throw new InvalidOperationException($"Conflicting reciprocal scalar values at '{endpoint.Name}'.");
     }
 
     private static Dictionary<object, int> Count(IEnumerable<object?> values)
@@ -99,5 +122,10 @@ internal static class ReciprocalHydration
         return counts;
     }
 
-    private sealed record Declaration(Field Field, IReadOnlyList<object?> Values, Dictionary<object, int> Counts);
+    /// <summary>
+    /// The opposites that one endpoint declares: the one of a single reference, or the values of a collection
+    /// with the number of occurrences of each.
+    /// </summary>
+    private readonly record struct Declaration(Field Field, object? Member, IReadOnlyList<object?>? Values,
+        Dictionary<object, int>? Counts);
 }

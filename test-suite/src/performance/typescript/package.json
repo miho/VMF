@@ -1,0 +1,12 @@
+{
+  "name": "vmf-performance-lane",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@vmf/runtime": "file:../../../../typescript-runtime"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3"
+  }
+}

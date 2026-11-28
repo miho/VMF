@@ -4,19 +4,30 @@ namespace Vmf.Runtime;
 
 public sealed partial class ModelChanges
 {
+    // The observation state of objects that do not name a containment link to keep it at.
     private static readonly ConditionalWeakTable<object, ObservationNode> ObservationNodes = new();
     private static long observationOrder;
 
     internal static long NextObservationOrder() => Interlocked.Increment(ref observationOrder);
 
-    internal static void RegisterContainment(object owner, IContainment containment) =>
-        GetObservationNode(owner).Containments.Add(containment);
+    internal static void RegisterContainment(object owner, IContainment containment)
+    {
+        // The containment is registered where the state of the object is kept. An object that names its link only
+        // later would be looked up there from then on, and recursive listeners would not find this containment.
+        if (owner is IModelLinkAccess { VmfContainmentLink: null })
+        {
+            throw new InvalidOperationException(
+                "A model object needs its containment link before it creates its containments.");
+        }
+        GetObservationNode(owner).AddContainment(containment);
+    }
 
     internal static IContainmentCursorSlot? FindContainmentSlot(object owner, object child)
     {
-        if (!ObservationNodes.TryGetValue(owner, out var node)) return null;
-        foreach (var containment in node.Containments)
+        if (FindObservationNode(owner) is not { } node) return null;
+        for (int index = 0; index < node.ContainmentCount; index++)
         {
+            var containment = node.ContainmentAt(index);
             if (containment is IContainmentCursorSlot slot && containment.FindChild(child) >= 0
                 && ReferenceEquals(containment.GetChildLink(child).CurrentCollection, containment))
             {
@@ -26,17 +37,29 @@ public sealed partial class ModelChanges
         return null;
     }
 
-    private static ObservationNode GetObservationNode(object owner) =>
-        ObservationNodes.GetValue(owner, static _ => new ObservationNode());
+    /// <summary>
+    /// What the change streams know about a model object, or null if nothing yet. A generated mutable object names
+    /// its containment link, and its state is a field of that link; the state of any other object is in a table.
+    /// </summary>
+    internal static ObservationNode? FindObservationNode(object owner)
+    {
+        if (owner is IModelLinkAccess { VmfContainmentLink: { } link } && link.IsHeldBy(owner)) return link.Observation;
+        return ObservationNodes.TryGetValue(owner, out var node) ? node : null;
+    }
 
-    private static ObservationRegistration[] SnapshotGroups(object owner) =>
-        ObservationNodes.TryGetValue(owner, out var node) ? node.Groups : [];
+    private static ObservationNode GetObservationNode(object owner)
+    {
+        if (owner is IModelLinkAccess { VmfContainmentLink: { } link } && link.IsHeldBy(owner)) return link.RequireObservation();
+        return ObservationNodes.GetValue(owner, static _ => new ObservationNode());
+    }
+
+    private static ObservationRegistration[] SnapshotGroups(object owner) => FindObservationNode(owner)?.Groups ?? [];
 
     internal static bool HasObservedCollections(object owner) =>
-        ObservationNodes.TryGetValue(owner, out var node) && node.HasObservedCollections;
+        FindObservationNode(owner) is { HasObservedCollections: true };
 
-    internal static void ReconcileUntrackedContainment(IContainment relationship, IEnumerable<object> removed,
-        IEnumerable<object> added, bool useMemberIndex)
+    internal static void ReconcileUntrackedContainment(IContainment relationship, object?[] removed,
+        object?[] added, bool useMemberIndex)
     {
         if (Volatile.Read(ref hasStreams) == 0) return;
         foreach (var registration in SnapshotGroups(relationship.OwnerObject))
@@ -45,16 +68,44 @@ public sealed partial class ModelChanges
         }
     }
 
-    private sealed class ObservationNode
+    /// <summary>What the change streams know about one model object.</summary>
+    internal sealed class ObservationNode
     {
-        internal List<IContainment> Containments { get; } = [];
+        private ModelChanges? stream;
+        // The containments of the object: none, the only one, or an array of them. Most objects have one.
+        private object? containments;
+
         internal ObservationRegistration[] Groups { get; set; } = [];
         internal bool HasObservedCollections { get; set; }
         // The containment link of a node that a recursive group walked into; it names the current container (E8).
         internal ContainmentLink? ContainerLink { get; set; }
+
+        /// <summary>The change stream of the object, if one was asked for.</summary>
+        internal ModelChanges? Stream => stream;
+
+        internal ModelChanges StreamOf(object owner) =>
+            stream ?? Interlocked.CompareExchange(ref stream, new ModelChanges(owner), null) ?? stream;
+
+        internal int ContainmentCount => containments switch
+        {
+            null => 0,
+            IContainment[] several => several.Length,
+            _ => 1,
+        };
+
+        internal IContainment ContainmentAt(int index) =>
+            containments is IContainment[] several ? several[index] : (IContainment)containments!;
+
+        internal void AddContainment(IContainment containment) => containments = containments switch
+        {
+            null => containment,
+            IContainment[] several => (IContainment[])[.. several, containment],
+            IContainment only => new[] { only, containment },
+            _ => throw new InvalidOperationException(),
+        };
     }
 
-    private readonly record struct ObservationRegistration(ObserverGroup Group, long Order,
+    internal readonly record struct ObservationRegistration(ObserverGroup Group, long Order,
         IReadOnlyDictionary<string, IDisposable>? ProjectionRelays)
     {
         internal bool IsProjected(string name) => ProjectionRelays?.ContainsKey(name) == true;
@@ -160,12 +211,11 @@ public sealed partial class ModelChanges
 
         internal void ReconcileChange(ModelChange change, IContainment? relationship)
         {
-            if (!isRecursive || relationship is null) return;
+            if (!isRecursive || relationship is null || !enabled || !observed.Contains(relationship.OwnerObject)) return;
             if (change is ModelCollectionChange collection)
             {
-                Reconcile(relationship, collection.Removed.Select(entry => entry.Value).OfType<object>(),
-                    collection.Added.Select(entry => entry.Value).OfType<object>(),
-                    collection.Removed.Count + collection.Added.Count > 1);
+                Reconcile(relationship, collection.RemovedObjects, collection.AddedObjects,
+                    collection.RemovedCount + collection.AddedCount > 1);
             }
             else
             {
@@ -173,14 +223,14 @@ public sealed partial class ModelChanges
             }
         }
 
-        internal void Reconcile(IContainment relationship, IEnumerable<object> removed, IEnumerable<object> added,
-            bool useMemberIndex = false)
+        internal void Reconcile(IContainment relationship, object?[] removed, object?[] added, bool useMemberIndex = false)
         {
             if (!isRecursive || !enabled || !observed.Contains(relationship.OwnerObject)) return;
             var members = useMemberIndex ? new HashSet<object>(relationship.Children, ReferenceEqualityComparer.Instance) : null;
 
-            foreach (object child in added)
+            foreach (object? child in added)
             {
+                if (child is null) continue;
                 var link = relationship.GetChildLink(child);
                 if (ReferenceEquals(link.CurrentCollection, relationship) && IsPresent(relationship, child))
                 {
@@ -188,9 +238,9 @@ public sealed partial class ModelChanges
                     ObserveSubtree(child, attach: true);
                 }
             }
-            foreach (object child in removed)
+            foreach (object? child in removed)
             {
-                if (ReferenceEquals(child, owner) || !observed.Contains(child)) continue;
+                if (child is null || ReferenceEquals(child, owner) || !observed.Contains(child)) continue;
                 var current = relationship.GetChildLink(child).CurrentCollection;
                 if (current is null || !observed.Contains(current.OwnerObject) || !IsPresent(current, child))
                 {
@@ -224,11 +274,12 @@ public sealed partial class ModelChanges
                 }
 
                 var state = GetObservationNode(node);
-                for (int index = state.Containments.Count - 1; index >= 0; index--)
+                for (int index = state.ContainmentCount - 1; index >= 0; index--)
                 {
-                    IContainment relationship = state.Containments[index];
-                    foreach (object child in relationship.Children.Reverse())
+                    IContainment relationship = state.ContainmentAt(index);
+                    for (int slot = relationship.SlotCount - 1; slot >= 0; slot--)
                     {
+                        if (relationship.ChildAt(slot) is not { } child) continue;
                         var link = relationship.GetChildLink(child);
                         if (ReferenceEquals(link.CurrentCollection, relationship))
                         {
@@ -263,8 +314,11 @@ public sealed partial class ModelChanges
         private void RemoveGroup(object node)
         {
             var state = GetObservationNode(node);
-            int index = Array.FindIndex(state.Groups, registration => ReferenceEquals(registration.Group, this));
-            if (index >= 0) state.Groups = [.. state.Groups.AsSpan(0, index), .. state.Groups.AsSpan(index + 1)];
+            var groups = state.Groups;
+            int index = 0;
+            while (index < groups.Length && !ReferenceEquals(groups[index].Group, this)) index++;
+            if (index == groups.Length) return;
+            state.Groups = groups.Length == 1 ? [] : [.. groups.AsSpan(0, index), .. groups.AsSpan(index + 1)];
         }
 
         private sealed class ScopeSubscription(ObserverGroup owner, IDisposable subscription) : IDisposable
@@ -277,15 +331,15 @@ public sealed partial class ModelChanges
         }
     }
 
-    private static IEnumerable<object> Members(object? member) => member is null ? [] : [member];
+    private static object?[] Members(object? member) => member is null ? [] : [member];
 
     private static void RememberContainerLink(object child, ContainmentLink link) =>
         GetObservationNode(child).ContainerLink ??= link;
 
-    /// <summary>The current container of a node that a recursive group walked into.</summary>
+    /// <summary>The current container of a node: of its own link, or of the link a recursive group walked in by.</summary>
     private static object? ContainerOf(object node) =>
-        (node as IModelGraphAccess)?.VmfContainmentLink.Owner
-        ?? (ObservationNodes.TryGetValue(node, out var state) ? state.ContainerLink?.Owner : null);
+        node is IModelLinkAccess linked ? linked.VmfContainmentLink.Owner
+            : ObservationNodes.TryGetValue(node, out var state) ? state.ContainerLink?.Owner : null;
 
     /// <summary>
     /// The observers farther away than the observer of one owner: those whose owner contains it (E8). One instance

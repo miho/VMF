@@ -80,6 +80,8 @@ def compilePerformanceBenchmarks = tasks.register('compilePerformanceBenchmarks'
     options.release = 11
 }
 
+def performanceBaselines = layout.projectDirectory.dir('.gradle/vmf-performance')
+
 def performanceTask = { String name, String mode, String purpose ->
     tasks.register(name, JavaExec) {
         group = 'verification'
@@ -87,17 +89,121 @@ def performanceTask = { String name, String mode, String purpose ->
         dependsOn compilePerformanceBenchmarks
         classpath = files(benchmarkClasses) + configurations.performanceRuntime
         mainClass = 'perf.PerformanceGate'
-        def baseline = layout.projectDirectory.file('.gradle/vmf-performance/baseline.json')
-        args mode, baseline.asFile.absolutePath, performanceReports.get().file("${mode}.json").asFile.absolutePath
+        args mode, performanceBaselines.file('baseline.json').asFile.absolutePath,
+                performanceReports.get().file("${mode}.json").asFile.absolutePath
     }
 }
 
-def performanceTestTask = performanceTask('performanceTest', 'test', 'Fail on performance regressions against this machineâ€™s saved baseline.')
-performanceTask('performanceBaseline', 'baseline', 'Measure and explicitly replace this machineâ€™s saved performance baseline.')
-performanceTask('performanceReport', 'report', 'Measure performance without comparing or replacing the saved baseline.')
+def performanceTestTask = performanceTask('performanceTest', 'test', "Fail on performance regressions of the Java runtime against this machine's saved baseline.")
+performanceTask('performanceBaseline', 'baseline', "Measure the Java runtime and explicitly replace this machine's saved performance baseline.")
+performanceTask('performanceReport', 'report', 'Measure the Java runtime without comparing or replacing the saved baseline.')
 performanceTask('performanceObserverReport', 'observer-report', 'Measure selective observer latency and allocation.')
 performanceTask('performanceFrameReport', 'frame-report', 'Measure native and verified journal frame publication.')
 
 if (providers.gradleProperty('withPerformanceTests').isPresent()) {
     tasks.named('check') { dependsOn performanceTestTask }
+}
+
+// The lanes of the other target languages. A lane generates the model above for its language and builds a worker
+// program with the model cases of the Java lane. The coordinator of the Java lane (perf.PerformanceGate) runs the
+// worker, so that protocol, threshold, baseline and report are the same for every language.
+def generatePerformanceModelsFor = { String name, String target, Provider<Directory> output ->
+    tasks.register(name, JavaExec) {
+        classpath = configurations.performanceGenerator
+        mainClass = 'eu.mihosoft.vmf.cli.GenerateModel'
+        inputs.files(performanceModelFiles).withPathSensitivity(PathSensitivity.RELATIVE)
+        outputs.dir(output)
+        argumentProviders.add({
+            [target, output.get().asFile.absolutePath] + performanceModelFiles.files.sort().collect { it.absolutePath }
+        } as org.gradle.process.CommandLineArgumentProvider)
+        doFirst {
+            def folder = output.get().asFile
+            delete(folder)
+            folder.mkdirs()
+        }
+    }
+}
+
+def performanceLane = { String title, String lane, List<String> worker, Map<String, String> settings, buildWorker ->
+    def laneTask = { String name, String mode, String purpose ->
+        tasks.register(name, JavaExec) {
+            group = 'verification'
+            description = purpose
+            dependsOn compilePerformanceBenchmarks, buildWorker
+            classpath = files(benchmarkClasses) + configurations.performanceRuntime
+            mainClass = 'perf.PerformanceGate'
+            environment settings
+            args mode, performanceBaselines.file("baseline-${lane}.json").asFile.absolutePath,
+                    performanceReports.get().file("${lane}/${mode}.json").asFile.absolutePath, lane
+            args worker
+        }
+    }
+    laneTask("performanceTest${title}", 'test', "Fail on performance regressions of the ${title} runtime against this machine's saved baseline.")
+    laneTask("performanceBaseline${title}", 'baseline', "Measure the ${title} runtime and explicitly replace this machine's saved performance baseline.")
+    laneTask("performanceReport${title}", 'report', "Measure the ${title} runtime without comparing or replacing the saved baseline.")
+    tasks.register("checkPerformance${title}", Exec) {
+        group = 'verification'
+        description = "Builds the ${title} performance lane and runs every case once, without measuring."
+        dependsOn buildWorker
+        commandLine worker + ['check']
+    }
+}
+
+def csharpLane = file("${performanceDir}/csharp")
+def generatePerformanceModelsCSharp = generatePerformanceModelsFor('generatePerformanceModelsCSharp', 'csharp',
+        performanceBuild.map { it.dir('csharp/generated') })
+def buildPerformanceCSharp = tasks.register('buildPerformanceCSharp', Exec) {
+    dependsOn generatePerformanceModelsCSharp
+    workingDir csharpLane
+    commandLine 'dotnet', 'build', 'VmfPerformance.csproj', '--configuration', 'Release', '--nologo', '--warnaserror'
+    inputs.files(fileTree(csharpLane) { exclude 'bin/**', 'obj/**' })
+    inputs.files(fileTree('csharp-runtime') { exclude 'bin/**', 'obj/**' })
+    inputs.files(generatePerformanceModelsCSharp)
+    outputs.dir(new File(csharpLane, 'bin/Release'))
+}
+// Four processors and workstation garbage collection, as the Java lane limits its JVMs.
+performanceLane('CSharp', 'csharp',
+        ['dotnet', new File(csharpLane, 'bin/Release/net8.0/VmfPerformance.dll').absolutePath],
+        [DOTNET_PROCESSOR_COUNT: '4', DOTNET_gcServer: '0'], buildPerformanceCSharp)
+
+def typescriptLane = file("${performanceDir}/typescript")
+def typescriptLaneCompiler = new File(typescriptLane, 'node_modules/typescript/bin/tsc').absolutePath
+def generatePerformanceModelsTypeScript = generatePerformanceModelsFor('generatePerformanceModelsTypeScript',
+        'typescript', layout.dir(provider { new File(typescriptLane, 'build/generated') }))
+def installPerformanceTypeScript = tasks.register('installPerformanceTypeScript', Exec) {
+    workingDir typescriptLane
+    commandLine System.getProperty('os.name').startsWith('Windows') ? 'npm.cmd' : 'npm',
+            'ci', '--ignore-scripts', '--no-audit', '--no-fund'
+    if (gradle.startParameter.offline) {
+        args '--offline'
+    }
+    inputs.files(new File(typescriptLane, 'package.json'), new File(typescriptLane, 'package-lock.json'),
+            file('typescript-runtime/package.json'))
+    outputs.dir(new File(typescriptLane, 'node_modules'))
+}
+def compilePerformanceTypeScript = tasks.register('compilePerformanceTypeScript', Exec) {
+    // The runtime is linked into node_modules; :vmf builds it for the other TypeScript checks as well.
+    dependsOn generatePerformanceModelsTypeScript, installPerformanceTypeScript, ':vmf:buildWorkshopTypeScriptRuntime'
+    workingDir typescriptLane
+    commandLine 'node', typescriptLaneCompiler, '-p', new File(typescriptLane, 'tsconfig.json').absolutePath
+    inputs.files(new File(typescriptLane, 'tsconfig.json'), new File(typescriptLane, 'model-scenarios.ts'),
+            new File(typescriptLane, 'package-lock.json'))
+    inputs.files(generatePerformanceModelsTypeScript)
+    inputs.dir('typescript-runtime/dist')
+    outputs.dir(new File(typescriptLane, 'build/js'))
+}
+performanceLane('TypeScript', 'typescript', ['node', new File(typescriptLane, 'worker.mjs').absolutePath], [:],
+        compilePerformanceTypeScript)
+
+['Test', 'Baseline', 'Report'].each { String step ->
+    tasks.register("performance${step}AllTargets") {
+        group = 'verification'
+        description = "Runs performance${step} for Java, C# and TypeScript, one after the other."
+        dependsOn "performance${step}", "performance${step}CSharp", "performance${step}TypeScript"
+    }
+}
+tasks.register('checkPerformanceTargets') {
+    group = 'verification'
+    description = 'Builds the C# and TypeScript performance lanes and runs every case once, without measuring.'
+    dependsOn 'checkPerformanceCSharp', 'checkPerformanceTypeScript'
 }

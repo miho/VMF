@@ -4,20 +4,17 @@ public sealed partial class ContainmentList<TParent, TChild>
     where TParent : class
     where TChild : class?
 {
-    private void InsertOrdinaryRange(int index, IReadOnlyList<TChild> added)
+    private void InsertOrdinaryRange(int index, TChild[] added)
     {
-        var seen = new HashSet<TChild>(ReferenceEqualityComparer.Instance);
-        bool hasRepeatedChild = added.Any(child => child is not null
-            && (ReferenceEquals(getLink(child).CurrentCollection, this) || !seen.Add(child)));
-        if (!hasRepeatedChild)
+        if (!RepeatsChild(added))
         {
-            ReplaceRange(index, 0, added.ToArray());
+            ReplaceRange(index, 0, added);
             return;
         }
 
+        var seen = new HashSet<TChild>(ReferenceEqualityComparer.Instance);
         var desired = new List<TChild>(items);
         desired.InsertRange(index, added);
-        seen.Clear();
         foreach (var child in added)
         {
             if (child is null) continue;
@@ -41,6 +38,19 @@ public sealed partial class ContainmentList<TParent, TChild>
             newEnd--;
         }
         ReplaceRange(first, oldEnd - first, desired.GetRange(first, newEnd - first).ToArray());
+    }
+
+    /// <summary>Whether an insertion names a child that this list already holds, or names one child twice.</summary>
+    private bool RepeatsChild(TChild[] added)
+    {
+        var seen = added.Length <= ScannedEditSize ? null : new HashSet<TChild>(ReferenceEqualityComparer.Instance);
+        for (int position = 0; position < added.Length; position++)
+        {
+            if (added[position] is not { } child) continue;
+            if (ReferenceEquals(getLink(child).CurrentCollection, this)) return true;
+            if (!(seen?.Add(child) ?? IndexOfIdentity(added, child, position) < 0)) return true;
+        }
+        return false;
     }
 
     private void ReplayOrdinarySlots(int[] positions, int removedCount, TChild[] restored)

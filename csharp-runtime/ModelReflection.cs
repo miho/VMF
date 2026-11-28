@@ -208,7 +208,14 @@ public sealed partial class ModelReflectionRegistry
             Fields = fields.ToArray();
             ContentFields = fields.Where(property => property.Field.ParticipatesInContentEquality)
                 .Select(property => property.Snapshot!).ToArray();
+            positions = new(fields.Count, StringComparer.Ordinal);
+            for (int position = 0; position < fields.Count; position++) positions.Add(fields[position].Field.Name, position);
         }
+
+        private readonly Dictionary<string, int> positions;
+
+        /// <summary>The position of the field with the given logical name in <see cref="Fields"/>, or -1.</summary>
+        internal int IndexOf(string name) => positions.TryGetValue(name, out int position) ? position : -1;
 
         internal SnapshotType Snapshot { get; }
         internal IReadOnlyList<ModelAnnotation> Annotations { get; }
@@ -235,27 +242,39 @@ public sealed partial class ModelReflectionRegistry
 public sealed partial class ModelReflection
 {
     private readonly ModelReflectionRegistry.ModelBinding model;
-    private readonly Dictionary<string, ModelProperty> byName;
+    // The properties bound so far, by field position. A property is bound once, when it is first asked for.
+    private ModelProperty?[]? bound;
+    private IReadOnlyList<ModelProperty>? properties;
 
-    internal ModelReflection(ModelReflectionRegistry.ModelBinding model)
-    {
-        this.model = model;
-        var fields = model.Schema.Fields.Select(property => new ModelProperty(model, property)).ToArray();
-        Properties = Array.AsReadOnly(fields);
-        byName = fields.ToDictionary(property => property.Name, StringComparer.Ordinal);
-    }
+    internal ModelReflection(ModelReflectionRegistry.ModelBinding model) => this.model = model;
 
     public string TypeName => model.Schema.Snapshot.WireName;
     public Type RuntimeType => model.Schema.Snapshot.RuntimeType;
     public bool IsReadOnly => model.IsReadOnly;
     public bool IsImmutable => model.Schema.Snapshot.IsImmutable;
-    public IReadOnlyList<ModelProperty> Properties { get; }
+    public IReadOnlyList<ModelProperty> Properties => properties ?? BindAll();
 
     /// <summary>Finds a field by its logical VMF name, with exact case.</summary>
     public ModelProperty? FindProperty(string name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return byName.GetValueOrDefault(name);
+        int position = model.Schema.IndexOf(name);
+        return position < 0 ? null : Bind(position);
+    }
+
+    private ModelProperty Bind(int position)
+    {
+        var slots = bound ?? Interlocked.CompareExchange(ref bound, new ModelProperty?[model.Schema.Fields.Count], null) ?? bound;
+        return slots[position]
+            ?? Interlocked.CompareExchange(ref slots[position], new(model, model.Schema.Fields[position]), null)
+            ?? slots[position]!;
+    }
+
+    private IReadOnlyList<ModelProperty> BindAll()
+    {
+        var all = new ModelProperty[model.Schema.Fields.Count];
+        for (int position = 0; position < all.Length; position++) all[position] = Bind(position);
+        return Interlocked.CompareExchange(ref properties, Array.AsReadOnly(all), null) ?? properties;
     }
 }
 

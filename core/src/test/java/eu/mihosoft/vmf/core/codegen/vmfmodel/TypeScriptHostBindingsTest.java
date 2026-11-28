@@ -235,7 +235,8 @@ public class TypeScriptHostBindingsTest {
         assertTrue(source.contains("[\"externals.HostDate\", \"externals.HostImage\", \"defaults.HostedValues.created\"]"));
         assertTrue(source.contains("export function installModelBindings(bindings: ModelBindings): void {"));
         // UUIDs are canonical strings; untyped values are unknown.
-        assertTrue(source.contains("vmf.setValue(this, \"id\", vmf.canonicalUuid(value));"));
+        assertTrue(source.contains("const next = vmf.canonicalUuid(value);"));
+        assertTrue(source.contains("this.__vmfValue_id = next;"));
         assertTrue(source.contains("scalarType: \"uuid\""));
         assertTrue(source.contains("scalarType: \"object\""));
         assertTrue(source.contains("literals: [\"LOW\", \"HIGH\"], writeNull: true"));

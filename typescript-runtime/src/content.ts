@@ -1,6 +1,6 @@
 import { sameValue, ScalarList } from "./collections.js";
 import { hashJsonLike, sameJsonLike } from "./json-values.js";
-import { ReferenceList, ReferenceSet, ReferenceSlot } from "./relationships.js";
+import { __vmfSlotOf as slotOf, ReferenceList, ReferenceSet } from "./relationships.js";
 import { type ModelConstructor, SnapshotRegistry, type SnapshotProperty, type SnapshotType } from "./snapshot-registry.js";
 import { type MapView, unwrapReadOnly } from "./views.js";
 
@@ -112,6 +112,8 @@ export function contentHashCode(model: object, registry: SnapshotRegistry): numb
 export function deepCopy<T extends object>(root: T, registry: SnapshotRegistry): T {
     const copies = new Map<object, object>();
     const originals: object[] = [];
+    const targets: object[] = [];
+    const plans: CopyPlan[] = [];
     const visit = (model: object): void => {
         if (!copies.has(model)) {
             const type = typeOf(model, registry);
@@ -119,32 +121,25 @@ export function deepCopy<T extends object>(root: T, registry: SnapshotRegistry):
                 copies.set(model, model);
                 return;
             }
-            copies.set(model, type.create());
+            const copy = type.create();
+            copies.set(model, copy);
             originals.push(model);
+            targets.push(copy);
+            plans.push(planOf(type));
         }
     };
     visit(root);
     for (let index = 0; index < originals.length; index++) {
-        const original = originals[index];
-        for (const property of typeOf(original, registry).properties) {
-            const value = property.get(original);
-            switch (property.kind) {
-                case "containment":
-                case "reference":
-                    if (isObject(value)) {
-                        visit(value);
-                    }
-                    break;
-                case "containmentList":
-                case "containmentSet":
-                case "referenceList":
-                case "referenceSet":
-                    for (const item of value as Iterable<object>) {
-                        visit(item);
-                    }
-                    break;
-                default:
-                    break;
+        for (const property of plans[index].links) {
+            const value = property.get(originals[index]);
+            if (property.kind === "containment" || property.kind === "reference") {
+                if (isObject(value)) {
+                    visit(value);
+                }
+            } else {
+                for (const item of value as Iterable<object>) {
+                    visit(item);
+                }
             }
         }
     }
@@ -152,18 +147,55 @@ export function deepCopy<T extends object>(root: T, registry: SnapshotRegistry):
     // Values and plain references first, so that keyed containments receive entries with their keys; then
     // containment; then references with opposites, whose ends are all copied.
     const copyOf = (model: unknown): object | null => isObject(model) ? copies.get(model)! : null;
-    for (const stage of [copyValues, copyContainment, copyReferences]) {
-        for (const original of originals) {
-            const copy = copies.get(original)!;
-            for (const property of typeOf(original, registry).properties) {
-                stage(property, property.get(original), copy, copyOf);
-            }
+    for (let index = 0; index < originals.length; index++) {
+        for (const property of plans[index].values) {
+            copyValues(property, property.get(originals[index]), targets[index], copyOf);
+        }
+    }
+    for (let index = 0; index < originals.length; index++) {
+        for (const property of plans[index].containment) {
+            copyContainment(property, property.get(originals[index]), targets[index], copyOf);
+        }
+    }
+    for (let index = 0; index < originals.length; index++) {
+        for (const property of plans[index].references) {
+            copyReferences(property, property.get(originals[index]), targets[index], copyOf);
         }
     }
     return copies.get(root) as T;
 }
 
 type CopyOf = (model: unknown) => object | null;
+
+/** The properties of a type that each pass of a copy works on, so that no pass looks at the others. */
+interface CopyPlan {
+    /** Containment and references: what else the copy reaches. */
+    readonly links: readonly SnapshotProperty[];
+    readonly values: readonly SnapshotProperty[];
+    readonly containment: readonly SnapshotProperty[];
+    readonly references: readonly SnapshotProperty[];
+}
+
+const copyPlans = new WeakMap<SnapshotType, CopyPlan>();
+
+function planOf(type: SnapshotType): CopyPlan {
+    let plan = copyPlans.get(type);
+    if (plan === undefined) {
+        const isValue = (property: SnapshotProperty): boolean => property.kind.startsWith("scalar")
+            || (property.kind === "reference" && property.opposite === undefined);
+        const isContainment = (property: SnapshotProperty): boolean => property.kind.startsWith("containment");
+        plan = {
+            links: type.properties.filter(property => !property.kind.startsWith("scalar")),
+            // A collection with a declared default is emptied in the first pass, whatever it holds.
+            values: type.properties.filter(property => isValue(property)
+                || ("hasDefault" in property && property.hasDefault === true)),
+            containment: type.properties.filter(isContainment),
+            references: type.properties.filter(property => !isValue(property) && !isContainment(property)),
+        };
+        copyPlans.set(type, plan);
+    }
+    return plan;
+}
 
 function copyValues(property: SnapshotProperty, value: unknown, copy: object, copyOf: CopyOf): void {
     // The copy started with the declared default of the collection; it gets the values of the original instead.
@@ -222,8 +254,7 @@ function copyReferences(property: SnapshotProperty, value: unknown, copy: object
         case "reference":
             if (property.opposite !== undefined) {
                 // Both ends are copied, so copy the stored value without updating the opposite again.
-                const slot = (copy as Record<string, unknown>)["__vmfRef_" + (property.name ?? property.wireName)];
-                (slot as ReferenceSlot<object>).__vmfInitialize(copyOf(value));
+                slotOf(copy, property.name ?? property.wireName).__vmfInitialize(copyOf(value));
             }
             break;
         case "referenceSet":
