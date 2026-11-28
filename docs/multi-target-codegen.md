@@ -80,9 +80,12 @@ C# and TypeScript were added the same way; a further language follows these step
    (names, creation, collections, numbers, equality, listeners, documents) and what it does not support.
 5. **Build integration.** Accept the target in the Gradle plugin (`vmf { targets = [...] }`) and the Maven plugin
    (`<targets>`), with an output folder of its own.
-6. **Qualification.** Generate the test-suite, jackson and C# conformance model packages with the new target and
-   compile the output; the rejections it reports are the remaining gaps. Add a CI step that runs the runner on
-   Linux and Windows.
+6. **Qualification.** Generate the test-suite and vmf-jackson model packages with the new target and compile the
+   output: `conformance/stock-java/GenerateStockModels.java` takes the target as its first argument, and
+   `:vmf:generateCSharpStockModels` / `:vmf:verifyTypeScriptStockModels` in `conformance/conformance.gradle` show the
+   gate for C# and TypeScript. The rejections the generator reports are the remaining gaps; the C# conformance model
+   packages are a further corpus. Add CI steps that run the stock gate and the contract runner on Linux and
+   Windows.
 
 Contract scenarios grow with the targets: when a target needs a behavior that the rules do not pin yet, add the
 rule and a scenario that Java (the reference), C# and TypeScript pass too, rather than a test for one language.

@@ -629,8 +629,8 @@ def stockSources = ['jackson/src/test/vmf', 'test-suite/src/test/vmf'].collect {
 }
 def stockClasses = conformance.dir('build/classes/stock-java')
 def stockGenerated = conformance.dir('build/generated/stock-csharp')
-def compileStockGenerator = tasks.register('compileStockCSharpModelGenerator', JavaCompile) {
-    source conformance.file('stock-java/GenerateStockCSharpModels.java')
+def compileStockGenerator = tasks.register('compileStockModelGenerator', JavaCompile) {
+    source conformance.file('stock-java/GenerateStockModels.java')
     classpath = modelClasspath
     destinationDirectory = stockClasses
     javaCompiler = javaToolchains.compilerFor { languageVersion = JavaLanguageVersion.of(11) }
@@ -640,10 +640,38 @@ def compileStockGenerator = tasks.register('compileStockCSharpModelGenerator', J
 def generateStockModels = tasks.register('generateCSharpStockModels', JavaExec) {
     dependsOn compileStockGenerator
     classpath = files(stockClasses) + modelClasspath
-    mainClass = 'eu.mihosoft.vmf.conformance.GenerateStockCSharpModels'
-    args rootProject.projectDir.absolutePath, stockGenerated.asFile.absolutePath, stockPackages.asFile.absolutePath
+    mainClass = 'eu.mihosoft.vmf.conformance.GenerateStockModels'
+    args 'csharp', rootProject.projectDir.absolutePath, stockGenerated.asFile.absolutePath,
+            stockPackages.asFile.absolutePath
     inputs.file stockPackages
     inputs.files stockSources
     outputs.dir stockGenerated
 }
 verifyDotNet.configure { dependsOn generateStockModels }
+
+// The same packages for TypeScript, type-checked (strict, noImplicitOverride) against the runtime sources. Host
+// types that the models import from "@vmftest/hosts" live in stock-typescript/hosts.
+def stockTypeScript = conformance.dir('stock-typescript')
+def stockTypeScriptGenerated = conformance.dir('build/generated/stock-typescript')
+def generateTypeScriptStockModels = tasks.register('generateTypeScriptStockModels', GenerateConformanceModelTask) {
+    dependsOn compileStockGenerator
+    classpath = files(stockClasses) + modelClasspath
+    mainClass = 'eu.mihosoft.vmf.conformance.GenerateStockModels'
+    args 'typescript', rootProject.projectDir.absolutePath, stockTypeScriptGenerated.asFile.absolutePath,
+            stockPackages.asFile.absolutePath
+    inputs.file stockPackages
+    inputs.files stockSources
+    outputs.dir stockTypeScriptGenerated
+    doFirst {
+        // A package removed from the list must not leave its previous output behind.
+        fileSystemOperations.delete { delete(stockTypeScriptGenerated) }
+    }
+}
+tasks.register('verifyTypeScriptStockModels', Exec) {
+    group = 'verification'
+    description = 'Generates TypeScript from every test-suite and vmf-jackson model package and type-checks it.'
+    dependsOn generateTypeScriptStockModels, 'installPortableTypeScript'
+    workingDir stockTypeScript.asFile
+    commandLine 'node', rootProject.file('conformance/portable/typescript/node_modules/typescript/bin/tsc').absolutePath,
+            '-p', stockTypeScript.file('tsconfig.json').asFile.absolutePath
+}

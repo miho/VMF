@@ -257,6 +257,12 @@ containment chains do not exhaust the call stack.
 ## Not supported
 
 The TypeScript generator rejects models that use generic immutable types, collection defaults that are
-redeclared or declared by interface-only or generic types, delegated methods of generic types and overloads
-with the same number of parameters. XML, YAML and journals are not available. None of these are part of the
-contract.
+redeclared or declared by interface-only or generic types, delegated methods of generic types, overloads
+with the same number of parameters, delegated `Object` methods other than `toString()` (`equals`, `hashCode`)
+and immutable types that implement a getter-only trait whose supertypes are not getter-only traits. External
+types and default expressions need their TypeScript binding (`vmf:typescript:external-type`,
+`vmf:typescript:bind-default`); a model that has only the C# one is rejected. XML, YAML and journals are not
+available. None of these are part of the contract.
+
+`:vmf:verifyTypeScriptStockModels` generates every model package of the test-suite and of vmf-jackson and
+type-checks the output.
