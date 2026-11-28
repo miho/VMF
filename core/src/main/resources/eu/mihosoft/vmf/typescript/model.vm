@@ -75,7 +75,7 @@ ${type.declaration} {
 
     constructor(${type.parameter}) {
 #if($type.hasBase)
-        super(values);
+        super(${type.superValues});
 #end
 #foreach($assignment in $type.assignments)
         ${assignment}

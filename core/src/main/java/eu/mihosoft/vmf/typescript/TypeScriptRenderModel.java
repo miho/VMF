@@ -77,6 +77,8 @@ final class TypeScriptRenderModel {
     private final TypeScriptBehaviorRenderModel behaviors;
     /** Mutable classes whose declared defaults are applied after the construction hook, as in Java. */
     private final Set<String> deferredDefaults = new HashSet<>();
+    /** The statements of __vmfApplyDefaults by class; an abstract class has those of its base class. */
+    private final Map<String, List<String>> appliedDefaults = new HashMap<>();
     /** Bound defaults by declaring type and property: the TypeScript type of the value. */
     private final Map<String, Map<String, String>> boundDefaults = new java.util.TreeMap<>();
     /** External types whose document codec the bindings supply, by member name. */
@@ -136,13 +138,16 @@ final class TypeScriptRenderModel {
      * A construction hook runs before the declared defaults, as in Java: the hook sees the zero values, and the
      * defaults replace what it set. Every class of a base class family with a hook therefore starts with zero
      * values and applies its defaults in __vmfApplyDefaults(), which the constructor of the concrete class calls
-     * after the hook. Collection defaults are applied there too, hook or not.
+     * after the hook. Collection defaults and bound defaults are applied there too, hook or not, so that each
+     * object evaluates the bindings of its effective defaults once.
      */
     private void prepareDeferredDefaults(List<Type> ordered) {
         Set<String> roots = new HashSet<>();
         for (Type type : ordered) {
             if (!type.isInterfaceOnly() && !type.isImmutable() && (behaviors.hasHook(type)
-                    || type.getEffectiveProperties().stream().anyMatch(TypeScriptCapabilities::hasCollectionDefault))) {
+                    || type.getEffectiveProperties().stream().anyMatch(property ->
+                            TypeScriptCapabilities.hasCollectionDefault(property)
+                                    || TypeScriptCapabilities.bindsDefault(property)))) {
                 roots.add(familyRoot(type).getName());
             }
         }
@@ -496,18 +501,18 @@ final class TypeScriptRenderModel {
         // Properties of supertypes besides the base class are declared on the class itself.
         Set<String> abstracted = abstractSlots.get(type.getName());
         boolean deferred = deferredDefaults.contains(type.getName());
+        // A concrete class of a deferred family applies the effective default of every property it stores.
         List<String> defaults = new ArrayList<>();
         for (Property property : type.getEffectiveProperties()) {
             String member = propertyName(type, property);
+            if (deferred && !type.isInterfaceOnly()
+                    && (inherited.contains(property.getName()) || !abstracted.contains(property.getName()))) {
+                defaultStatement(member, property).ifPresent(defaults::add);
+            }
             if (inherited.contains(property.getName())) {
                 // A redeclaration can change the literal default of the inherited storage.
-                if (!type.isGetterOnlyTrait() && !type.isImmutable()) {
-                    if (deferred) {
-                        redeclaredDefault(base, property, member).ifPresent(unused ->
-                                defaults.add("this.__vmfValue_" + member + " = " + initialValue(property) + ";"));
-                    } else {
-                        redeclaredDefault(base, property, member).ifPresent(properties::add);
-                    }
+                if (!type.isGetterOnlyTrait() && !type.isImmutable() && !deferred) {
+                    redeclaredDefault(base, property, member).ifPresent(properties::add);
                 }
                 continue;
             }
@@ -521,14 +526,11 @@ final class TypeScriptRenderModel {
                 continue;
             }
             properties.add(prepareMember(owner, member, property, override));
-            if (deferred && property.getKind() == Property.Kind.SCALAR && !property.isCollection()
-                    && !initialValue(property).equals(zeroValue(property))) {
-                defaults.add("this.__vmfValue_" + member + " = " + initialValue(property) + ";");
-            }
-            if (deferred && TypeScriptCapabilities.hasCollectionDefault(property)) {
-                defaults.add(collectionDefault(member, property));
-            }
         }
+        // An abstract class keeps the method of its base class: only concrete classes are created.
+        List<String> applied = type.isInterfaceOnly() && base != null
+                ? appliedDefaults.getOrDefault(base.getName(), List.of()) : List.copyOf(defaults);
+        appliedDefaults.put(type.getName(), applied);
 
         boolean hasBase = primary != null;
         String extendsClause = (hasBase ? " extends " + typeName(primary) : "")
@@ -564,8 +566,10 @@ final class TypeScriptRenderModel {
                 result.put("kind", "model");
                 result.put("properties", List.copyOf(properties));
                 result.put("construct", deferred && !type.isInterfaceOnly() ? construct(type, name, hasBase) : "");
-                result.put("applyDefaults", deferred && (base == null || !defaults.isEmpty())
-                        ? applyDefaults(base != null, defaults) : "");
+                // The base class's method applies the same defaults, or the declaration of an abstract base class.
+                boolean inheritsDefaults = base != null
+                        && applied.equals(appliedDefaults.getOrDefault(base.getName(), List.of()));
+                result.put("applyDefaults", deferred && !inheritsDefaults ? applyDefaults(base != null, defaults) : "");
                 result.put("replace", behaviors.replace(type, base));
             }
         }
@@ -584,14 +588,28 @@ final class TypeScriptRenderModel {
                 + "    }";
     }
 
+    /**
+     * The method that applies the effective defaults of a class: the constructor of the concrete class calls it once,
+     * after the construction hook, so that every default, a bound one included, is evaluated once.
+     */
     private static String applyDefaults(boolean override, List<String> assignments) {
         StringBuilder text = new StringBuilder("/** @internal Applies the declared defaults; constructors call it after the"
                 + " construction hook. */\n    " + (override ? "override " : "") + "__vmfApplyDefaults(): void {\n");
-        if (override) {
-            text.append("        super.__vmfApplyDefaults();\n");
-        }
         assignments.forEach(assignment -> text.append("        ").append(assignment).append("\n"));
         return text.append("    }").toString();
+    }
+
+    /** How a new object gets the default of a property, unless it starts with it (the zero value). */
+    private Optional<String> defaultStatement(String member, Property property) {
+        if (TypeScriptCapabilities.hasCollectionDefault(property)) {
+            return Optional.of(collectionDefault(member, property));
+        }
+        if (property.getKind() != Property.Kind.SCALAR || property.isCollection()) {
+            return Optional.empty();
+        }
+        String initial = initialValue(property);
+        return initial.equals(zeroValue(property)) ? Optional.empty()
+                : Optional.of("this.__vmfValue_" + member + " = " + initial + ";");
     }
 
     /** A getter-only trait is an abstract contract that mutable and immutable classes implement. */
@@ -628,6 +646,7 @@ final class TypeScriptRenderModel {
         List<String> fields = new ArrayList<>();
         List<String> assignments = new ArrayList<>();
         List<String> getters = new ArrayList<>();
+        List<String> redeclared = new ArrayList<>();
         for (Property property : type.getEffectiveProperties()) {
             String member = propertyName(type, property);
             String stored = valueType(property, true);
@@ -638,11 +657,11 @@ final class TypeScriptRenderModel {
             if (inherited.contains(property.getName())) {
                 Property earlier = effectiveProperty(base, property.getName()).orElseThrow();
                 String field = "__vmfValue_" + member;
-                // A redeclaration can change the literal default the base class would store.
+                // A redeclaration can change the default the base class would store: the base class gets it as the
+                // value, so that only the effective default is evaluated.
                 if (!property.isCollection() && !initialValue(property).equals(initialValue(earlier))) {
-                    assignments.add("if (values." + member + " === undefined) {\n"
-                            + "            (this as { " + field + ": " + stored + " })." + field + " = "
-                            + initialValue(property) + ";\n        }");
+                    redeclared.add(member + ": values." + member + " !== undefined ? values." + member + " : "
+                            + initialValue(property));
                 }
                 // A narrowed reference keeps the base class's field; the constructor only accepts the narrower type.
                 if (!sameValueType(earlier.getValueType(), property.getValueType())) {
@@ -667,6 +686,7 @@ final class TypeScriptRenderModel {
         }
         result.put("parameter", inputs.isEmpty() ? "values: Readonly<Record<string, never>> = {}"
                 : "values: {\n" + String.join("\n", inputs) + "\n    } = {}");
+        result.put("superValues", redeclared.isEmpty() ? "values" : "{ ...values, " + String.join(", ", redeclared) + " }");
         result.put("fields", List.copyOf(fields));
         result.put("assignments", List.copyOf(assignments));
         result.put("getters", List.copyOf(getters));

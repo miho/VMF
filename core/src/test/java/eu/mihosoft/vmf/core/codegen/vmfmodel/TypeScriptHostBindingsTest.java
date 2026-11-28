@@ -199,6 +199,19 @@ interface TsCaption extends TsPlainCaption {
     String toString();
 }
 
+interface TsBoundBase {
+    @DefaultValue("example.Labels.base()")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
+    String getLabel();
+}
+
+interface TsBoundRedeclaration extends TsBoundBase {
+    @Override
+    @DefaultValue("example.Labels.derived()")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
+    String getLabel();
+}
+
 interface TsNullableBoundDefault {
     @DefaultValue("example.Defaults.numbers()")
     @Annotation(key = "vmf:typescript:bind-default", value = "true")
@@ -212,8 +225,10 @@ public class TypeScriptHostBindingsTest {
         String source = generate(HostLevel.class, HostImage.class, HostDate.class, HostedValues.class);
         assertTrue(source.contains("import type { HostImage } from \"./hosts.js\";"));
         assertTrue(source.contains("export type HostLevel = \"LOW\" | \"HIGH\";"));
-        // A default that names a literal of the union needs no binding.
-        assertTrue(source.contains("__vmfValue_level: HostLevel | null = \"HIGH\";"));
+        // A default that names a literal of the union needs no binding. With a bound default in the class, the
+        // constructor applies the defaults, each once.
+        assertTrue(source.contains("__vmfValue_level: HostLevel | null = null;"));
+        assertTrue(source.contains("this.__vmfValue_level = \"HIGH\";"));
         assertTrue(source.contains("readonly HostImage: vmf.ExternalCodec<HostImage>;"));
         assertTrue(source.contains("readonly created: () => Date | null;"));
         assertTrue(source.contains("__vmfBindings.use(\"defaults.HostedValues.created\", bindings => bindings.defaults.HostedValues.created)()"));
@@ -281,6 +296,17 @@ public class TypeScriptHostBindingsTest {
         String frozen = generate(TsFrozenSeed.class, TsFrozenCollectionDefaults.class);
         assertTrue(frozen.contains("values.seeds ?? [new TsFrozenSeed({ name: \"first\" })]"));
         assertTrue(frozen.contains("values.choices ?? [[4, \"ready\"]]"));
+    }
+
+    @Test
+    public void aRedeclaredBoundDefaultEvaluatesOnlyTheEffectiveBinding() throws IOException {
+        String source = generate(TsBoundBase.class, TsBoundRedeclaration.class);
+        int derived = source.indexOf("export class TsBoundRedeclaration");
+        String body = source.substring(derived);
+        assertTrue(body, body.contains("override __vmfApplyDefaults(): void {\n        this.__vmfValue_label ="
+                + " __vmfBindings.use(\"defaults.TsBoundRedeclaration.label\""));
+        assertFalse(body, body.contains("super.__vmfApplyDefaults();"));
+        assertFalse(body, body.contains("defaults.TsBoundBase.label"));
     }
 
     @Test

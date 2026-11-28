@@ -113,7 +113,8 @@ an object keeps the default behaviors it already created. Models that need no ho
 
 Defaults of mutable objects are applied in the constructor, after the construction hook (B3); a default replaces
 what the hook added to its collection. `@Immutable` types use a default when the constructor gets no value for the
-property. A nullable property that holds `null` while its default is not `null` is written as `null` in documents,
+property. Each new object evaluates the effective default of each property once: a redeclared default replaces the
+inherited one, whose binding is not called. A nullable property that holds `null` while its default is not `null` is written as `null` in documents,
 so that readers keep `null` (J1). Collections with a default are written also when they are empty; a field in a
 document replaces the default, and a deep copy holds the original's values (K12). A collection default belongs to a
 concrete nongeneric declaration that is the only one in its hierarchy to declare the property: subtypes inherit it
