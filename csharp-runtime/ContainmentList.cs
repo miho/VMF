@@ -6,12 +6,24 @@ namespace Vmf.Runtime;
 /// <summary>Tracks the single containing relationship for a generated child.</summary>
 public class ContainmentLink
 {
-    internal IContainment? CurrentCollection { get; set; }
+    private IContainment? currentCollection;
+    // The current collection if it checks entry keys. Every setter of a child asks; few collections are keyed.
+    private IKeyedContainment? keyedCollection;
     private IContainment? pendingDestination;
     private bool pending;
     // The object that named this link as its own (IModelLinkAccess), and what the change streams know about it.
     private object? holder;
     private ModelChanges.ObservationNode? observation;
+
+    internal IContainment? CurrentCollection
+    {
+        get => currentCollection;
+        set
+        {
+            currentCollection = value;
+            keyedCollection = value is IKeyedContainment { HasKey: true } keyed ? keyed : null;
+        }
+    }
 
     public object? Owner => CurrentCollection?.OwnerObject;
 
@@ -79,11 +91,8 @@ public class ContainmentLink
 
     internal void RequireKeyChange<TValue>(object child, string propertyName, TValue value)
     {
-        if (CurrentCollection is IKeyedContainment { HasKey: true } current)
-        {
-            current.RequireKeyChange(child, propertyName, value);
-        }
-        if (!ReferenceEquals(CurrentCollection, pendingDestination)
+        keyedCollection?.RequireKeyChange(child, propertyName, value);
+        if (pendingDestination is not null && !ReferenceEquals(currentCollection, pendingDestination)
             && pendingDestination is IKeyedContainment { HasKey: true } destination)
         {
             destination.RequireKeyChange(child, propertyName, value);
@@ -698,8 +707,7 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
         {
             if (!changeSource.IsTracked)
             {
-                ModelChanges.ReconcileUntrackedContainment(this, removed.OfType<object>(), added.OfType<object>(),
-                    removed.Length + added.Length > 1);
+                ModelChanges.ReconcileUntrackedContainment(this, removed, added, removed.Length + added.Length > 1);
             }
             return;
         }
@@ -744,27 +752,40 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
     }
 
     private ModelCollectionChange RangeChange(int index, TChild[] removed, TChild[] added, int countBefore,
-        bool transferRemoval, bool reorder)
-    {
-        int countAfter = countBefore - removed.Length + added.Length;
-        return changeSource.Create(orderedSet ? ModelChangeKind.ReferenceSet : ModelChangeKind.List, isModelReference: true,
-            removed.Select((child, offset) => new ModelCollectionEntry(child, Index: index + offset)),
-            added.Select((child, offset) => new ModelCollectionEntry(child, Index: index + offset)),
-            matches: undo => undo ? Matches(index, added, removed, countAfter, undo: true)
-                : Matches(index, removed, added, countBefore, undo: false),
-            replay: undo =>
-            {
-                if (undo) ReplayRange(index, added, removed, reorder);
-                else ReplayRange(index, removed, added, reorder);
-            },
-            apply: target =>
-            {
-                if (changeSource.IsOwner(target)) ReplayRange(index, removed, added, reorder);
-                else if (!changeSource.TryApplyNullListRange(target, index, removed.Length, added.Length))
-                    changeSource.ResolveTarget<IOrdinaryModelListMembership<TChild>>(target).ApplyRange(index, removed.Length, added);
-            },
+        bool transferRemoval, bool reorder) =>
+        changeSource.Create(orderedSet ? ModelChangeKind.ReferenceSet : ModelChangeKind.List, isModelReference: true,
+            new RangeEdit(this, index, removed, added, countBefore, reorder),
             isContainment: true, isOrdinaryCollection: IsOrdinaryList, isKeyedContainment: key is not null,
             isTransferRemoval: transferRemoval, allowCompatibleNulls: IsOrdinaryList && !transferRemoval);
+
+    /// <summary>An edit of one range of the list, as its change records it.</summary>
+    private sealed class RangeEdit(ContainmentList<TParent, TChild> list, int index, TChild[] removed, TChild[] added,
+        int countBefore, bool reorder) : ModelCollectionEdit
+    {
+        internal override int RemovedCount => removed.Length;
+        internal override int AddedCount => added.Length;
+        internal override ModelCollectionEntry[] RemovedEntries() => Entries(index, removed);
+        internal override ModelCollectionEntry[] AddedEntries() => Entries(index, added);
+        internal override object?[] RemovedObjects => removed;
+        internal override object?[] AddedObjects => added;
+
+        internal override bool Matches(bool undo) => undo
+            ? list.Matches(index, added, removed, countBefore - removed.Length + added.Length, undo: true)
+            : list.Matches(index, removed, added, countBefore, undo: false);
+
+        internal override void Replay(bool undo)
+        {
+            if (undo) list.ReplayRange(index, added, removed, reorder);
+            else list.ReplayRange(index, removed, added, reorder);
+        }
+
+        internal override void Apply(object target)
+        {
+            var source = list.changeSource;
+            if (source.IsOwner(target)) list.ReplayRange(index, removed, added, reorder);
+            else if (!source.TryApplyNullListRange(target, index, removed.Length, added.Length))
+                source.ResolveTarget<IOrdinaryModelListMembership<TChild>>(target).ApplyRange(index, removed.Length, added);
+        }
     }
 
     private bool CanRestoreKeyedEntries(TChild[] restoring)

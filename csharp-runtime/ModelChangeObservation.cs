@@ -48,8 +48,8 @@ public sealed partial class ModelChanges
     internal static bool HasObservedCollections(object owner) =>
         FindObservationNode(owner) is { HasObservedCollections: true };
 
-    internal static void ReconcileUntrackedContainment(IContainment relationship, IEnumerable<object> removed,
-        IEnumerable<object> added, bool useMemberIndex)
+    internal static void ReconcileUntrackedContainment(IContainment relationship, object?[] removed,
+        object?[] added, bool useMemberIndex)
     {
         if (Volatile.Read(ref hasStreams) == 0) return;
         foreach (var registration in SnapshotGroups(relationship.OwnerObject))
@@ -184,12 +184,11 @@ public sealed partial class ModelChanges
 
         internal void ReconcileChange(ModelChange change, IContainment? relationship)
         {
-            if (!isRecursive || relationship is null) return;
+            if (!isRecursive || relationship is null || !enabled || !observed.Contains(relationship.OwnerObject)) return;
             if (change is ModelCollectionChange collection)
             {
-                Reconcile(relationship, collection.Removed.Select(entry => entry.Value).OfType<object>(),
-                    collection.Added.Select(entry => entry.Value).OfType<object>(),
-                    collection.Removed.Count + collection.Added.Count > 1);
+                Reconcile(relationship, collection.RemovedObjects, collection.AddedObjects,
+                    collection.RemovedCount + collection.AddedCount > 1);
             }
             else
             {
@@ -197,14 +196,14 @@ public sealed partial class ModelChanges
             }
         }
 
-        internal void Reconcile(IContainment relationship, IEnumerable<object> removed, IEnumerable<object> added,
-            bool useMemberIndex = false)
+        internal void Reconcile(IContainment relationship, object?[] removed, object?[] added, bool useMemberIndex = false)
         {
             if (!isRecursive || !enabled || !observed.Contains(relationship.OwnerObject)) return;
             var members = useMemberIndex ? new HashSet<object>(relationship.Children, ReferenceEqualityComparer.Instance) : null;
 
-            foreach (object child in added)
+            foreach (object? child in added)
             {
+                if (child is null) continue;
                 var link = relationship.GetChildLink(child);
                 if (ReferenceEquals(link.CurrentCollection, relationship) && IsPresent(relationship, child))
                 {
@@ -212,9 +211,9 @@ public sealed partial class ModelChanges
                     ObserveSubtree(child, attach: true);
                 }
             }
-            foreach (object child in removed)
+            foreach (object? child in removed)
             {
-                if (ReferenceEquals(child, owner) || !observed.Contains(child)) continue;
+                if (child is null || ReferenceEquals(child, owner) || !observed.Contains(child)) continue;
                 var current = relationship.GetChildLink(child).CurrentCollection;
                 if (current is null || !observed.Contains(current.OwnerObject) || !IsPresent(current, child))
                 {
@@ -305,7 +304,7 @@ public sealed partial class ModelChanges
         }
     }
 
-    private static IEnumerable<object> Members(object? member) => member is null ? [] : [member];
+    private static object?[] Members(object? member) => member is null ? [] : [member];
 
     private static void RememberContainerLink(object child, ContainmentLink link) =>
         GetObservationNode(child).ContainerLink ??= link;

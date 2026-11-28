@@ -160,31 +160,70 @@ internal sealed partial class ModelSequence<T>(ModelChangeSource source, IEquali
         ReciprocalEdit reciprocal = default, Exception? failure = null, ModelChange? prepared = null)
     {
         var edit = delivery.ListObservers.Count == 0 ? default : ModelListListeners<T>.Delivery.CreateEdit(index, removed, added);
-        Dispatch(delivery, edit, owner => prepared ?? CreateRangeChange(owner, index, removed, added, countBefore, reciprocal),
-            failure, prepared is not null);
+        if (delivery.Shared is not null)
+        {
+            PublishShared(delivery, edit, index, removed, added, countBefore, reciprocal, failure, prepared);
+        }
+        else if (delivery.Ordered is { } ordered)
+        {
+            var change = prepared ?? CreateRangeChange(source, index, removed, added, countBefore, reciprocal);
+            ModelObserverFailures.Rethrow(ordered.Dispatch(change, delivery.ListObservers, edit, failure, prepared is not null));
+        }
+        else
+        {
+            // The change is created only for a model observer; a list observer receives the edit.
+            if (delivery.Single is { } single)
+            {
+                ContainmentEdits.Notify(single,
+                    prepared ?? CreateRangeChange(source, index, removed, added, countBefore, reciprocal), ref failure);
+            }
+            if (delivery.ListObservers.HasObservers) failure = delivery.ListObservers.Notify(edit, failure);
+            ModelObserverFailures.Rethrow(failure);
+        }
     }
 
+    // Every owner of a shared list receives a change of its own.
+    private void PublishShared(SequenceDelivery delivery, ModelListListeners<T>.ListEdit edit, int index, T[] removed,
+        T[] added, int countBefore, ReciprocalEdit reciprocal, Exception? failure, ModelChange? prepared) =>
+        Dispatch(delivery, edit, owner => prepared ?? CreateRangeChange(owner, index, removed, added, countBefore, reciprocal),
+            failure, prepared is not null);
+
     private ModelChange CreateRangeChange(ModelChangeSource owner, int index, T[] removed, T[] added, int countBefore,
-        ReciprocalEdit reciprocal)
-    {
-        int countAfter = countBefore - removed.Length + added.Length;
-        return owner.Create(kind, isModelReference,
-            removed.Select((value, offset) => new ModelCollectionEntry(value, Index: index + offset)),
-            added.Select((value, offset) => new ModelCollectionEntry(value, Index: index + offset)),
-            matches: undo => undo ? Matches(index, added, removed, countAfter) : Matches(index, removed, added, countBefore),
-            replay: undo =>
-            {
-                if (undo) ApplyRange(index, added.Length, removed);
-                else ApplyRange(index, removed.Length, added);
-            },
-            apply: target =>
-            {
-                if (owner.IsOwner(target)) ApplyRange(index, removed.Length, added);
-                else if (!isModelReference || !owner.TryApplyNullListRange(target, index, removed.Length, added.Length))
-                    owner.ResolveTarget<IOrdinaryModelListMembership<T>>(target).ApplyRange(index, removed.Length, added);
-            }, reciprocal: reciprocal, isOrdinaryCollection: Reciprocal is null || !unique,
+        ReciprocalEdit reciprocal) =>
+        owner.Create(kind, isModelReference, new RangeEdit(this, owner, index, removed, added, countBefore),
+            reciprocal: reciprocal, isOrdinaryCollection: Reciprocal is null || !unique,
             isTransferRemoval: reciprocal.IsTransferRemoval,
             allowCompatibleNulls: !unique && !reciprocal.IsInverse && !reciprocal.IsTransferRemoval);
+
+    /// <summary>An edit of one range of the sequence, as the change of one of its owners records it.</summary>
+    private sealed class RangeEdit(ModelSequence<T> sequence, ModelChangeSource owner, int index, T[] removed, T[] added,
+        int countBefore) : ModelCollectionEdit
+    {
+        internal override int RemovedCount => removed.Length;
+        internal override int AddedCount => added.Length;
+        internal override ModelCollectionEntry[] RemovedEntries() => Entries(index, removed);
+        internal override ModelCollectionEntry[] AddedEntries() => Entries(index, added);
+        internal override object?[]? RemovedObjects => removed as object?[];
+        internal override object?[]? AddedObjects => added as object?[];
+
+        internal override bool Matches(bool undo) => undo
+            ? sequence.Matches(index, added, removed, countBefore - removed.Length + added.Length)
+            : sequence.Matches(index, removed, added, countBefore);
+
+        internal override void Replay(bool undo)
+        {
+            if (undo) sequence.ApplyRange(index, added.Length, removed);
+            else sequence.ApplyRange(index, removed.Length, added);
+        }
+
+        internal override void Apply(object target) => sequence.ApplyRecordedRange(owner, target, index, removed, added);
+    }
+
+    private void ApplyRecordedRange(ModelChangeSource owner, object target, int index, T[] removed, T[] added)
+    {
+        if (owner.IsOwner(target)) ApplyRange(index, removed.Length, added);
+        else if (!isModelReference || !owner.TryApplyNullListRange(target, index, removed.Length, added.Length))
+            owner.ResolveTarget<IOrdinaryModelListMembership<T>>(target).ApplyRange(index, removed.Length, added);
     }
 
     private void Dispatch(SequenceDelivery delivery, ModelListListeners<T>.ListEdit edit,
@@ -277,9 +316,8 @@ internal sealed partial class ModelSequence<T>(ModelChangeSource source, IEquali
         if (!edit.IsInverse) Reciprocal.UpdateCollectionOpposites(removed!, added, ref failure);
         if (delivery.HasObservers)
         {
-            var inverseFailure = failure;
-            ReciprocalEndpoint.Attempt(() => Publish(delivery, index, removed!, added, countBefore, edit, inverseFailure, prepared),
-                ref failure);
+            try { Publish(delivery, index, removed!, added, countBefore, edit, failure, prepared); }
+            catch (Exception error) { failure = ModelObserverFailures.Add(failure, error); }
         }
         ModelObserverFailures.Rethrow(failure);
     }
