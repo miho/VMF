@@ -2,14 +2,23 @@ using System.ComponentModel;
 
 namespace Vmf.Runtime;
 
+/// <summary>
+/// Names the containment link of a generated mutable model object. The runtime keeps what it knows about the
+/// object there (who observes it, what it contains) instead of looking that up by the object's identity.
+/// </summary>
+[EditorBrowsable(EditorBrowsableState.Never)]
+public interface IModelLinkAccess
+{
+    ContainmentLink VmfContainmentLink { get; }
+}
+
 /// <summary>Provides graph bookkeeping for generated model interfaces.</summary>
 [EditorBrowsable(EditorBrowsableState.Never)]
-public interface IModelGraphAccess : IModelValidationView
+public interface IModelGraphAccess : IModelValidationView, IModelLinkAccess
 {
     ModelChanges VmfChanges { get; }
     bool ContentEquals(object? other);
     int ContentHashCode();
-    ContainmentLink VmfContainmentLink { get; }
     void ValidateInto(List<ValidationIssue> issues, string path, string modelPath, Stack<Action> pending);
 }
 

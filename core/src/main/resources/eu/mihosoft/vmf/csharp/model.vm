@@ -83,6 +83,8 @@ ${type.declaration}
 #if(!$type.hasBase)
     internal global::Vmf.Runtime.ContainmentLink __vmfContainerLink { get; } = new();
 
+    global::Vmf.Runtime.ContainmentLink global::Vmf.Runtime.IModelLinkAccess.VmfContainmentLink => __vmfContainerLink;
+
     public global::Vmf.Runtime.ModelChanges VmfChanges => global::Vmf.Runtime.ModelChanges.For(this);
 
     object global::Vmf.Runtime.IModelReadOnlyProjection.VmfAsReadOnly() => AsReadOnly();
@@ -290,8 +292,6 @@ ${type.declaration}
 
 #end
 #if($type.addsGraphAccess)
-    global::Vmf.Runtime.ContainmentLink global::Vmf.Runtime.IModelGraphAccess.VmfContainmentLink => __vmfContainerLink;
-
     void global::Vmf.Runtime.IModelGraphAccess.ValidateInto(
         global::System.Collections.Generic.List<global::Vmf.Runtime.ValidationIssue> issues,
         string path, string modelPath, global::System.Collections.Generic.Stack<global::System.Action> pending) =>

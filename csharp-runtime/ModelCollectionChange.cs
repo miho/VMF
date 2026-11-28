@@ -45,9 +45,9 @@ public readonly struct ModelChangeSource
     internal void RequireKeyChange(object? value) => link!.RequireKeyChange(owner!, modelName!, value);
 
     internal Action<ModelChange>? CaptureDelivery(IContainment? relationship = null) =>
-        owner is null ? null : ModelChanges.CaptureDelivery(owner, relationship);
+        owner is null ? null : ModelChanges.CaptureDelivery(owner, link!, relationship);
     internal Action<ModelChange>? CapturePropertyDelivery(IContainment? relationship = null) =>
-        owner is null ? null : ModelChanges.CapturePropertyDelivery(owner, modelName!, relationship);
+        owner is null ? null : ModelChanges.CapturePropertyDelivery(owner, link!, modelName!, relationship);
     internal bool IsOwner(object target) => ReferenceEquals(target, owner);
 
     internal Func<object?, object?>? ReadOnlyAliasResolver => resolveReadOnly;

@@ -9,8 +9,26 @@ public class ContainmentLink
     internal IContainment? CurrentCollection { get; set; }
     private IContainment? pendingDestination;
     private bool pending;
+    // The object that named this link as its own (IModelLinkAccess), and what the change streams know about it.
+    private object? holder;
+    private ModelChanges.ObservationNode? observation;
 
     public object? Owner => CurrentCollection?.OwnerObject;
+
+    /// <summary>
+    /// The observation state of the object this link was passed with, or null if it has none. The state of the
+    /// link's own object is kept here; any other object is looked up.
+    /// </summary>
+    internal ModelChanges.ObservationNode? ObservationOf(object owner) =>
+        ReferenceEquals(owner, holder) ? observation : ModelChanges.FindObservationNode(owner);
+
+    /// <summary>Whether the object is the one that names this link as its own. The first to do so holds it.</summary>
+    internal bool IsHeldBy(object owner) => ReferenceEquals(holder ??= owner, owner);
+
+    internal ModelChanges.ObservationNode? Observation => observation;
+
+    internal ModelChanges.ObservationNode RequireObservation() =>
+        observation ?? Interlocked.CompareExchange(ref observation, new(), null) ?? observation;
 
     public object? Collection => CurrentCollection;
 
@@ -119,7 +137,7 @@ public class ContainmentLink
     {
         string? oppositeName = (previous ?? next)!.OppositeName;
         var propertyName = oppositeName ?? "__vmf_prop_unnamed_container";
-        var deliver = ModelChanges.CapturePropertyDelivery(child, propertyName);
+        var deliver = ModelChanges.CapturePropertyDelivery(child, this, propertyName);
         if (deliver is null) return;
         ContainmentEdits.Notify(deliver, InverseChange(child, propertyName, oppositeName, previous, next), ref failure);
     }
@@ -151,6 +169,9 @@ internal interface IContainment
     ContainmentLink? OwnerLink { get; }
     string? OppositeName { get; }
     IEnumerable<object> Children { get; }
+    /// <summary>The number of slots, and the child of one slot (null for an empty slot).</summary>
+    int SlotCount { get; }
+    object? ChildAt(int slot);
     ContainmentLink GetChildLink(object child);
     int FindChild(object child);
     void RequireWritable();
@@ -381,6 +402,8 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
     ContainmentLink? IContainment.OwnerLink => ownerLink;
     string? IContainment.OppositeName => oppositeName;
     IEnumerable<object> IContainment.Children => items.OfType<object>();
+    int IContainment.SlotCount => items.Count;
+    object? IContainment.ChildAt(int slot) => items[slot];
     ContainmentLink IContainment.GetChildLink(object child) => getLink((TChild)child);
     bool IKeyedContainment.HasKey => key is not null;
 

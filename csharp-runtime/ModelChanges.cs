@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-
 namespace Vmf.Runtime;
 
 /// <summary>Defines what a live model listener observes.</summary>
@@ -12,7 +10,6 @@ public enum ModelChangeScope
 /// <summary>Provides synchronous listeners and optional in-memory recording for a mutable model object.</summary>
 public sealed partial class ModelChanges
 {
-    private static readonly ConditionalWeakTable<object, ModelChanges> Streams = new();
     private static int hasStreams;
     private readonly ObserverGroup local;
     private readonly ObserverGroup recursive;
@@ -41,7 +38,7 @@ public sealed partial class ModelChanges
     public static ModelChanges For(object owner)
     {
         ArgumentNullException.ThrowIfNull(owner);
-        var stream = Streams.GetValue(owner, static model => new ModelChanges(model));
+        var stream = GetObservationNode(owner).StreamOf(owner);
         Volatile.Write(ref hasStreams, 1);
         return stream;
     }
@@ -147,27 +144,29 @@ public sealed partial class ModelChanges
         if (ModelPropertyValues<TValue>.AreEqualForAssignment(oldValue, value, isModelReference)) return false;
         field = value;
 
-        if (Volatile.Read(ref hasStreams) == 0
+        // The link keeps the observation state of its object: an unobserved setter looks nothing up.
+        if (Volatile.Read(ref hasStreams) == 0 || link.ObservationOf(owner) is not { } node) return true;
+        var groups = node.Groups;
+        var direct = SnapshotDirectPropertyObservers(node, modelName);
+        if (groups.Length == 0 && !direct.HasObservers
             || ModelPropertyValues<TValue>.AreEqual(oldValue, value, isModelReference)) return true;
 
-        var groups = SnapshotGroups(owner);
-        var direct = SnapshotDirectPropertyObservers(owner, modelName);
-        if (groups.Length != 0 || direct.HasObservers)
-        {
-            var change = new ModelPropertyChange<TOwner, TValue>(owner, modelName, oldValue, value, get, set, isModelReference);
-            var recorders = SnapshotRecorders(groups);
-            if (direct.HasObservers) DeliverDirectProperty(groups, recorders, direct, change, null);
-            else Deliver(groups, recorders, change, null);
-        }
+        var change = new ModelPropertyChange<TOwner, TValue>(owner, modelName, oldValue, value, get, set, isModelReference);
+        var recorders = SnapshotRecorders(groups);
+        if (direct.HasObservers) DeliverDirectProperty(groups, recorders, direct, change, null);
+        else Deliver(groups, recorders, change, null);
         return true;
     }
 
-    internal static Action<ModelChange>? CaptureDelivery(object owner, IContainment? relationship = null)
-    {
-        if (Volatile.Read(ref hasStreams) == 0) return null;
-        var groups = SnapshotGroups(owner);
-        return groups.Length == 0 ? null : DeliveryTo(groups, relationship);
-    }
+    internal static Action<ModelChange>? CaptureDelivery(object owner, IContainment? relationship = null) =>
+        Volatile.Read(ref hasStreams) == 0 ? null : CaptureDelivery(FindObservationNode(owner), relationship);
+
+    /// <param name="link">The containment link of the owner, which keeps its observation state.</param>
+    internal static Action<ModelChange>? CaptureDelivery(object owner, ContainmentLink link, IContainment? relationship) =>
+        Volatile.Read(ref hasStreams) == 0 ? null : CaptureDelivery(link.ObservationOf(owner), relationship);
+
+    private static Action<ModelChange>? CaptureDelivery(ObservationNode? node, IContainment? relationship) =>
+        node is { Groups: { Length: > 0 } groups } ? DeliveryTo(groups, relationship) : null;
 
     // A method of its own: an edit that nobody observes creates no closure.
     private static Action<ModelChange> DeliveryTo(ObservationRegistration[] groups, IContainment? relationship)

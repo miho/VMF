@@ -4,17 +4,18 @@ namespace Vmf.Runtime;
 
 public sealed partial class ModelChanges
 {
+    // The observation state of objects that do not name a containment link to keep it at.
     private static readonly ConditionalWeakTable<object, ObservationNode> ObservationNodes = new();
     private static long observationOrder;
 
     internal static long NextObservationOrder() => Interlocked.Increment(ref observationOrder);
 
     internal static void RegisterContainment(object owner, IContainment containment) =>
-        GetObservationNode(owner).Containments.Add(containment);
+        GetObservationNode(owner).AddContainment(containment);
 
     internal static IContainmentCursorSlot? FindContainmentSlot(object owner, object child)
     {
-        if (!ObservationNodes.TryGetValue(owner, out var node)) return null;
+        if (FindObservationNode(owner) is not { } node) return null;
         foreach (var containment in node.Containments)
         {
             if (containment is IContainmentCursorSlot slot && containment.FindChild(child) >= 0
@@ -26,14 +27,26 @@ public sealed partial class ModelChanges
         return null;
     }
 
-    private static ObservationNode GetObservationNode(object owner) =>
-        ObservationNodes.GetValue(owner, static _ => new ObservationNode());
+    /// <summary>
+    /// What the change streams know about a model object, or null if nothing yet. A generated mutable object names
+    /// its containment link, and its state is a field of that link; the state of any other object is in a table.
+    /// </summary>
+    internal static ObservationNode? FindObservationNode(object owner)
+    {
+        if (owner is IModelLinkAccess { VmfContainmentLink: { } link } && link.IsHeldBy(owner)) return link.Observation;
+        return ObservationNodes.TryGetValue(owner, out var node) ? node : null;
+    }
 
-    private static ObservationRegistration[] SnapshotGroups(object owner) =>
-        ObservationNodes.TryGetValue(owner, out var node) ? node.Groups : [];
+    private static ObservationNode GetObservationNode(object owner)
+    {
+        if (owner is IModelLinkAccess { VmfContainmentLink: { } link } && link.IsHeldBy(owner)) return link.RequireObservation();
+        return ObservationNodes.GetValue(owner, static _ => new ObservationNode());
+    }
+
+    private static ObservationRegistration[] SnapshotGroups(object owner) => FindObservationNode(owner)?.Groups ?? [];
 
     internal static bool HasObservedCollections(object owner) =>
-        ObservationNodes.TryGetValue(owner, out var node) && node.HasObservedCollections;
+        FindObservationNode(owner) is { HasObservedCollections: true };
 
     internal static void ReconcileUntrackedContainment(IContainment relationship, IEnumerable<object> removed,
         IEnumerable<object> added, bool useMemberIndex)
@@ -45,16 +58,27 @@ public sealed partial class ModelChanges
         }
     }
 
-    private sealed class ObservationNode
+    /// <summary>What the change streams know about one model object.</summary>
+    internal sealed class ObservationNode
     {
-        internal List<IContainment> Containments { get; } = [];
+        private ModelChanges? stream;
+
+        internal IContainment[] Containments { get; private set; } = [];
         internal ObservationRegistration[] Groups { get; set; } = [];
         internal bool HasObservedCollections { get; set; }
         // The containment link of a node that a recursive group walked into; it names the current container (E8).
         internal ContainmentLink? ContainerLink { get; set; }
+
+        /// <summary>The change stream of the object, if one was asked for.</summary>
+        internal ModelChanges? Stream => stream;
+
+        internal ModelChanges StreamOf(object owner) =>
+            stream ?? Interlocked.CompareExchange(ref stream, new ModelChanges(owner), null) ?? stream;
+
+        internal void AddContainment(IContainment containment) => Containments = [.. Containments, containment];
     }
 
-    private readonly record struct ObservationRegistration(ObserverGroup Group, long Order,
+    internal readonly record struct ObservationRegistration(ObserverGroup Group, long Order,
         IReadOnlyDictionary<string, IDisposable>? ProjectionRelays)
     {
         internal bool IsProjected(string name) => ProjectionRelays?.ContainsKey(name) == true;
@@ -224,11 +248,12 @@ public sealed partial class ModelChanges
                 }
 
                 var state = GetObservationNode(node);
-                for (int index = state.Containments.Count - 1; index >= 0; index--)
+                for (int index = state.Containments.Length - 1; index >= 0; index--)
                 {
                     IContainment relationship = state.Containments[index];
-                    foreach (object child in relationship.Children.Reverse())
+                    for (int slot = relationship.SlotCount - 1; slot >= 0; slot--)
                     {
+                        if (relationship.ChildAt(slot) is not { } child) continue;
                         var link = relationship.GetChildLink(child);
                         if (ReferenceEquals(link.CurrentCollection, relationship))
                         {
@@ -263,8 +288,11 @@ public sealed partial class ModelChanges
         private void RemoveGroup(object node)
         {
             var state = GetObservationNode(node);
-            int index = Array.FindIndex(state.Groups, registration => ReferenceEquals(registration.Group, this));
-            if (index >= 0) state.Groups = [.. state.Groups.AsSpan(0, index), .. state.Groups.AsSpan(index + 1)];
+            var groups = state.Groups;
+            int index = 0;
+            while (index < groups.Length && !ReferenceEquals(groups[index].Group, this)) index++;
+            if (index == groups.Length) return;
+            state.Groups = groups.Length == 1 ? [] : [.. groups.AsSpan(0, index), .. groups.AsSpan(index + 1)];
         }
 
         private sealed class ScopeSubscription(ObserverGroup owner, IDisposable subscription) : IDisposable
@@ -282,10 +310,10 @@ public sealed partial class ModelChanges
     private static void RememberContainerLink(object child, ContainmentLink link) =>
         GetObservationNode(child).ContainerLink ??= link;
 
-    /// <summary>The current container of a node that a recursive group walked into.</summary>
+    /// <summary>The current container of a node: of its own link, or of the link a recursive group walked in by.</summary>
     private static object? ContainerOf(object node) =>
-        (node as IModelGraphAccess)?.VmfContainmentLink.Owner
-        ?? (ObservationNodes.TryGetValue(node, out var state) ? state.ContainerLink?.Owner : null);
+        node is IModelLinkAccess linked ? linked.VmfContainmentLink.Owner
+            : ObservationNodes.TryGetValue(node, out var state) ? state.ContainerLink?.Owner : null;
 
     /// <summary>
     /// The observers farther away than the observer of one owner: those whose owner contains it (E8). One instance

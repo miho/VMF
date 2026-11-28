@@ -123,6 +123,8 @@ public sealed class ContainmentSlot<TParent, TChild> : IContainment, IContainmen
     ContainmentLink IContainment.OwnerLink => ownerLink;
     string? IContainment.OppositeName => oppositeName;
     IEnumerable<object> IContainment.Children => child is null ? [] : [child];
+    int IContainment.SlotCount => 1;
+    object? IContainment.ChildAt(int slot) => child;
     ContainmentLink IContainment.GetChildLink(object value) => getLink((TChild)value);
 
     int IContainment.FindChild(object item) => child is not null && ReferenceEquals(child, item) ? 0 : -1;
