@@ -71,8 +71,13 @@ public sealed partial class ModelChanges
         IContainment? relationship = null)
     {
         var direct = SnapshotDirectPropertyObservers(owner, propertyName);
-        if (!direct.HasObservers) return CaptureDelivery(owner, relationship);
+        return direct.HasObservers ? DirectPropertyDeliveryTo(owner, direct, relationship)
+            : CaptureDelivery(owner, relationship);
+    }
 
+    private static Action<ModelChange> DirectPropertyDeliveryTo(object owner, DirectPropertyDelivery direct,
+        IContainment? relationship)
+    {
         var groups = SnapshotGroups(owner);
         var recorders = SnapshotRecorders(groups);
         return change => DeliverDirectProperty(groups, recorders, direct, change, relationship);

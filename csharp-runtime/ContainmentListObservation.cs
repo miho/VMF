@@ -34,6 +34,9 @@ public sealed partial class ContainmentList<TParent, TChild> : IModelReferenceSe
     {
         internal bool NeedsEdit => Direct.HasObservers || Ordered is { HasModelGroups: true };
 
+        /// <summary>Whether an observer receives the edit, which then has to say what it removed and added.</summary>
+        internal bool NeedsValues => NeedsEdit || Fallback is not null;
+
         internal bool NeedsModelChange => Fallback is not null || (Ordered is not null && NeedsEdit);
 
         internal Action<ModelChange>? Prepare(ModelListListeners<TChild>.ListEdit edit, Exception? failure)

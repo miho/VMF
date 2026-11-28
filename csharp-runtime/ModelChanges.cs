@@ -166,7 +166,12 @@ public sealed partial class ModelChanges
     {
         if (Volatile.Read(ref hasStreams) == 0) return null;
         var groups = SnapshotGroups(owner);
-        if (groups.Length == 0) return null;
+        return groups.Length == 0 ? null : DeliveryTo(groups, relationship);
+    }
+
+    // A method of its own: an edit that nobody observes creates no closure.
+    private static Action<ModelChange> DeliveryTo(ObservationRegistration[] groups, IContainment? relationship)
+    {
         var recorders = SnapshotRecorders(groups);
         return change => Deliver(groups, recorders, change, relationship);
     }
@@ -177,10 +182,20 @@ public sealed partial class ModelChanges
         foreach (var registration in groups)
         {
             var stream = registration.Group.Stream;
-            if (!stream.IsRecording || route?.Any(recording => ReferenceEquals(recording.Stream, stream)) == true) continue;
+            if (!stream.IsRecording || Records(route, stream)) continue;
             (route ??= new()).Add(new(stream, stream.recordingGeneration));
         }
         return route;
+    }
+
+    private static bool Records(List<Recording>? route, ModelChanges stream)
+    {
+        if (route is null) return false;
+        foreach (var recording in route)
+        {
+            if (ReferenceEquals(recording.Stream, stream)) return true;
+        }
+        return false;
     }
 
     private static void PrepareJournalEdit(List<Recording>? recorders, ModelChange change)

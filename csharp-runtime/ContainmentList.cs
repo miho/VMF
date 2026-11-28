@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Runtime.InteropServices;
 
 namespace Vmf.Runtime;
 
@@ -120,17 +121,18 @@ public class ContainmentLink
         var propertyName = oppositeName ?? "__vmf_prop_unnamed_container";
         var deliver = ModelChanges.CapturePropertyDelivery(child, propertyName);
         if (deliver is null) return;
+        ContainmentEdits.Notify(deliver, InverseChange(child, propertyName, oppositeName, previous, next), ref failure);
+    }
 
-        var change = new ModelContainmentPropertyChange(child, propertyName,
-            previous?.OwnerObject, next?.OwnerObject,
+    private ModelContainmentPropertyChange InverseChange(object child, string propertyName, string? oppositeName,
+        IContainment? previous, IContainment? next) =>
+        new(child, propertyName, previous?.OwnerObject, next?.OwnerObject,
             () => CurrentCollection?.OppositeName == oppositeName ? Owner : null,
             value =>
             {
                 if (value is null) Detach(child);
                 else (next ?? previous)!.AttachChild(child);
             }, isInverse: true);
-        ContainmentEdits.Notify(deliver, change, ref failure);
-    }
 
     private static ArgumentException ContainmentCycle() => new("The containment edit would create a cycle.");
 }
@@ -174,6 +176,10 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
     private readonly bool orderedSet = true;
     private readonly bool unordered;
     private bool updating;
+
+    // An edit of up to this many added and removed children answers its membership questions by scanning them;
+    // a larger one builds identity sets.
+    private const int ScannedEditSize = 8;
 
     public ContainmentList(TParent owner, Func<TChild, ContainmentLink<TParent, TChild>> getLink)
         : this(owner, (Func<TChild, ContainmentLink>)getLink)
@@ -268,8 +274,14 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
 
     public void Insert(int index, TChild item)
     {
-        if (IsOrdinaryList) InsertRange(index, [item]);
-        else ReplaceRange(index, 0, [item]);
+        if (!IsOrdinaryList)
+        {
+            ReplaceRange(index, 0, [item]);
+            return;
+        }
+        RequireWritable();
+        CheckRange(index, 0);
+        InsertOrdinaryRange(index, [item]);
     }
 
     public bool AddRange(IEnumerable<TChild> children) => InsertRange(Count, children);
@@ -287,7 +299,7 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
             if (seen is null || seen.Add(child)) incoming.Add(child);
         }
         if (incoming.Count == 0) return false;
-        if (IsOrdinaryList) InsertOrdinaryRange(index, incoming);
+        if (IsOrdinaryList) InsertOrdinaryRange(index, incoming.ToArray());
         else ReplaceRange(index, 0, incoming.ToArray());
         return true;
     }
@@ -324,11 +336,28 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
 
         int first = Math.Min(oldIndex, newIndex);
         int length = Math.Abs(oldIndex - newIndex) + 1;
-        var reordered = items.GetRange(first, length);
-        TChild item = reordered[oldIndex - first];
-        reordered.RemoveAt(oldIndex - first);
-        reordered.Insert(newIndex - first, item);
-        ReplaceRange(first, length, reordered.ToArray());
+        if (key is not null)
+        {
+            // A keyed list checks the keys of its final contents with every edit.
+            var reordered = items.GetRange(first, length);
+            TChild moved = reordered[oldIndex - first];
+            reordered.RemoveAt(oldIndex - first);
+            reordered.Insert(newIndex - first, moved);
+            ReplaceRange(first, length, reordered.ToArray());
+            return;
+        }
+
+        RequireSettledSlots(first, length);
+        var delivery = CaptureListDelivery();
+        TChild[]? before = delivery.NeedsValues || !changeSource.IsTracked ? CopyRange(first, length) : null;
+        TChild item = items[oldIndex];
+        items.RemoveAt(oldIndex);
+        items.Insert(newIndex, item);
+        cursorVersion++;
+        if (before is null) return;
+        Exception? failure = null;
+        Report(delivery, first, before, CopyRange(first, length), items.Count, ref failure, reorder: true);
+        ModelObserverFailures.Rethrow(failure);
     }
 
     public IEnumerator<TChild> GetEnumerator() => items.GetEnumerator();
@@ -366,23 +395,41 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
 
     void IContainment.RemoveForTransfer(object child, ref Exception? failure)
     {
-        if (IsOrdinaryList && RemoveRepeatedForTransfer(child, ref failure)) return;
-        int index = IndexOfIdentity((TChild)child);
+        var item = (TChild)child;
+        int index = IndexOfIdentity(item);
         if (index < 0) throw Inconsistent();
+        // An ordinary list can hold the child in several slots. They leave in one edit.
+        if (IsOrdinaryList && IndexOfIdentity(item, index + 1) >= 0 && RemoveRepeatedForTransfer(child, ref failure)) return;
         var delivery = CaptureListDelivery();
         int countBefore = Count;
         items.RemoveAt(index);
         cursorVersion++;
-        TChild[] removed = [(TChild)child];
-        var edit = delivery.NeedsEdit && !unordered ? ModelListListeners<TChild>.Delivery.CreateEdit(index, removed, []) : default;
-        Publish(delivery.Prepare(edit, failure), index, removed, [], countBefore, ref failure, transferRemoval: true);
-        failure = delivery.Complete(edit, failure);
+        if (!delivery.NeedsValues && changeSource.IsTracked) return;
+        Report(delivery, index, [item], [], countBefore, ref failure, transferRemoval: true);
     }
 
     // Ordinary VMF lists select the first equal item. The resulting slot still owns its exact instance.
     private int IndexOfValue(TChild? item) => IsOrdinaryList ? items.IndexOf(item!) : IndexOfIdentity(item);
 
-    private int IndexOfIdentity(TChild? item) => items.FindIndex(other => ReferenceEquals(other, item));
+    private int IndexOfIdentity(TChild? item, int start = 0)
+    {
+        var slots = CollectionsMarshal.AsSpan(items);
+        for (int slot = start; slot < slots.Length; slot++)
+        {
+            if (ReferenceEquals(slots[slot], item)) return slot;
+        }
+        return -1;
+    }
+
+    /// <summary>The first position before <paramref name="end"/> that holds the child, or -1.</summary>
+    private static int IndexOfIdentity(TChild[] values, TChild child, int end)
+    {
+        for (int position = 0; position < end; position++)
+        {
+            if (ReferenceEquals(values[position], child)) return position;
+        }
+        return -1;
+    }
 
     private bool IsOrdinaryList => !orderedSet && key is null;
 
@@ -404,16 +451,16 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
         if (positions is null) CheckRange(index, count);
         else ModelListSlots.CheckBounds(items, positions, adding: added.Length != 0);
         if (added.Length != 0) key?.ValidateRange(items, index, count, added);
-        TChild[] removed = count == 0 ? [] : positions is null
-            ? items.GetRange(index, count).ToArray()
-            : positions.Select(position => items[position]).ToArray();
-        var identity = ReferenceEqualityComparer.Instance;
-        var replacing = new HashSet<TChild>(removed, identity);
-        var finalMembers = new HashSet<TChild>(identity);
-        var incoming = new List<Ownership>();
-        var outgoing = new List<Ownership>();
-        foreach (TChild child in added)
+        TChild[] removed = count == 0 ? [] : positions is null ? CopyRange(index, count) : CopySlots(positions);
+        bool scanned = added.Length <= ScannedEditSize && removed.Length <= ScannedEditSize;
+        var replacing = scanned ? null : new HashSet<TChild>(removed, ReferenceEqualityComparer.Instance);
+        var finalMembers = scanned ? null : new HashSet<TChild>(ReferenceEqualityComparer.Instance);
+        // The link of each added child that enters the list, and of each removed child that leaves it.
+        ContainmentLink?[]? incoming = null;
+        ContainmentLink?[]? outgoing = null;
+        for (int position = 0; position < added.Length; position++)
         {
+            TChild child = added[position];
             if (child is null)
             {
                 if (!IsOrdinaryList) throw new ArgumentNullException(nameof(added));
@@ -421,17 +468,17 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
             }
             var link = getLink(child);
             link.RequireAvailable();
-            bool first = finalMembers.Add(child);
+            bool first = finalMembers?.Add(child) ?? IndexOfIdentity(added, child, position) < 0;
             bool attachedHere = ReferenceEquals(link.CurrentCollection, this);
             if (IsOrdinaryList)
             {
                 if (!first || attachedHere) continue;
             }
-            else if (!first || (attachedHere && !replacing.Contains(child)))
+            else if (!first || (attachedHere && !Holds(replacing, removed, child)))
             {
                 throw new ArgumentException("The child is already in this containment.");
             }
-            if (replacing.Contains(child)) continue;
+            if (Holds(replacing, removed, child)) continue;
 
             link.RequireAcyclicAttachmentTo(ownerLink);
             var previous = link.CurrentCollection;
@@ -440,9 +487,9 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
                 previous.RequireWritable();
                 if (previous.FindChild(child) < 0) throw Inconsistent();
             }
-            incoming.Add(new Ownership(child, link));
+            (incoming ??= new ContainmentLink?[added.Length])[position] = link;
         }
-        if (IsOrdinaryList && replacing.Count > 0)
+        if (finalMembers is not null && IsOrdinaryList && replacing!.Count > 0)
         {
             if (positions is null)
             {
@@ -459,13 +506,17 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
                 }
             }
         }
-        foreach (TChild child in removed)
+        for (int position = 0; position < removed.Length; position++)
         {
-            if (child is null || !replacing.Remove(child)) continue;
+            TChild child = removed[position];
+            // A child that occupies several of the removed slots leaves once.
+            if (child is null || !(replacing?.Remove(child) ?? IndexOfIdentity(removed, child, position) < 0)) continue;
             var link = getLink(child);
             link.RequireAvailable();
             if (!ReferenceEquals(link.CurrentCollection, this)) throw Inconsistent();
-            if (!finalMembers.Contains(child)) outgoing.Add(new Ownership(child, link));
+            bool remains = finalMembers?.Contains(child) ?? (IndexOfIdentity(added, child, added.Length) >= 0
+                || IsOrdinaryList && OccupiesOtherSlot(child, index, count, positions));
+            if (!remains) (outgoing ??= new ContainmentLink?[removed.Length])[position] = link;
         }
 
         // The collection edit begins delivery before repairing the inverse links.
@@ -475,45 +526,150 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
         items.EnsureCapacity(countBefore - count + added.Length);
         Exception? failure = null;
         updating = true;
-        foreach (var item in incoming) item.Link.Reserve(this);
-        foreach (var item in outgoing) item.Link.Reserve(destination: null);
+        Reserve(incoming, this);
+        Reserve(outgoing, destination: null);
         try
         {
             if (positions is null)
             {
                 if (count != 0) items.RemoveRange(index, count);
-                if (added.Length != 0) items.InsertRange(index, added);
+                if (added.Length == 1) items.Insert(index, added[0]);
+                else if (added.Length != 0) items.InsertRange(index, added);
             }
             else
             {
                 ModelListSlots.Edit(items, positions, added);
             }
             if (count != 0 || added.Length != 0) cursorVersion++;
-            foreach (var item in incoming)
+            for (int position = 0; incoming is not null && position < incoming.Length; position++)
             {
-                item.Link.Unregister(item.Child, releaseBeforeInverse: false, ref failure);
-                item.Link.AssignOwner(item.Child, this, ref failure);
+                if (incoming[position] is not { } link) continue;
+                link.Unregister(added[position]!, releaseBeforeInverse: false, ref failure);
+                link.AssignOwner(added[position]!, this, ref failure);
             }
-            foreach (var item in outgoing)
+            for (int position = 0; outgoing is not null && position < outgoing.Length; position++)
             {
-                item.Link.ClearOwner(item.Child, this, releaseBeforeInverse: true, ref failure);
+                outgoing[position]?.ClearOwner(removed[position]!, this, releaseBeforeInverse: true, ref failure);
             }
         }
         finally
         {
-            foreach (var item in incoming) item.Link.Release();
-            foreach (var item in outgoing) item.Link.Release();
+            Release(incoming);
+            Release(outgoing);
             updating = false;
         }
+        Report(delivery, index, removed, added, countBefore, ref failure, positions);
+        ModelObserverFailures.Rethrow(failure);
+    }
+
+    private static bool Holds(HashSet<TChild>? members, TChild[] values, TChild child) =>
+        members?.Contains(child) ?? IndexOfIdentity(values, child, values.Length) >= 0;
+
+    /// <summary>Whether a child also occupies a slot that an edit of the given slots does not remove.</summary>
+    private bool OccupiesOtherSlot(TChild child, int index, int count, int[]? positions)
+    {
+        if (positions is null)
+        {
+            int before = IndexOfIdentity(child);
+            return before >= 0 && (before < index || IndexOfIdentity(child, index + count) >= 0);
+        }
+        int next = 0;
+        for (int slot = 0; slot < items.Count; slot++)
+        {
+            if (next < positions.Length && positions[next] == slot) next++;
+            else if (ReferenceEquals(items[slot], child)) return true;
+        }
+        return false;
+    }
+
+    private static void Reserve(ContainmentLink?[]? links, IContainment? destination)
+    {
+        if (links is null) return;
+        foreach (var link in links) link?.Reserve(destination);
+    }
+
+    private static void Release(ContainmentLink?[]? links)
+    {
+        if (links is null) return;
+        foreach (var link in links) link?.Release();
+    }
+
+    private TChild[] CopyRange(int index, int count)
+    {
+        var slots = new TChild[count];
+        items.CopyTo(index, slots, 0, count);
+        return slots;
+    }
+
+    private TChild[] CopySlots(int[] positions)
+    {
+        var slots = new TChild[positions.Length];
+        for (int i = 0; i < positions.Length; i++) slots[i] = items[positions[i]];
+        return slots;
+    }
+
+    /// <summary>
+    /// Reorders the slots of one range. No child enters or leaves the list, so no ownership changes; the children
+    /// only must not be part of another containment edit.
+    /// </summary>
+    private void RequireSettledSlots(int index, int count)
+    {
+        for (int slot = index; slot < index + count; slot++)
+        {
+            if (items[slot] is { } child) getLink(child).RequireAvailable();
+        }
+        for (int slot = index; slot < index + count; slot++)
+        {
+            if (items[slot] is { } child && !ReferenceEquals(getLink(child).CurrentCollection, this)) throw Inconsistent();
+        }
+    }
+
+    /// <summary>
+    /// Replays a recorded edit of one range. A recorded reordering of slots that still hold what it expects
+    /// changes no ownership and skips the analysis of an ordinary replacement.
+    /// </summary>
+    private void ReplayRange(int index, TChild[] expected, TChild[] replacement, bool reorder)
+    {
+        if (!reorder || key is not null || !HoldsSlots(index, expected))
+        {
+            ReplaceRange(index, expected.Length, replacement);
+            return;
+        }
+        RequireWritable();
+        RequireSettledSlots(index, expected.Length);
+        var delivery = CaptureListDelivery();
+        for (int offset = 0; offset < replacement.Length; offset++) items[index + offset] = replacement[offset];
+        cursorVersion++;
+        Exception? failure = null;
+        Report(delivery, index, expected, replacement, items.Count, ref failure, reorder: true);
+        ModelObserverFailures.Rethrow(failure);
+    }
+
+    private bool HoldsSlots(int index, TChild[] expected)
+    {
+        if (index > Count - expected.Length) return false;
+        for (int offset = 0; offset < expected.Length; offset++)
+        {
+            if (!ReferenceEquals(items[index + offset], expected[offset])) return false;
+        }
+        return true;
+    }
+
+    /// <summary>Reports a committed edit to the observers of the list and of its owner.</summary>
+    private void Report(ListDelivery delivery, int index, TChild[] removed, TChild[] added, int countBefore,
+        ref Exception? failure, int[]? positions = null, bool transferRemoval = false, bool reorder = false)
+    {
+        if (!delivery.NeedsValues && changeSource.IsTracked) return;
         var edit = !delivery.NeedsEdit || unordered ? default : positions is null
             ? ModelListListeners<TChild>.Delivery.CreateEdit(index, removed, added)
             : ModelListListeners<TChild>.Delivery.CreateEdit(positions, removed, added);
-        Publish(delivery.Prepare(edit, failure), index, removed, added, countBefore, ref failure, positions: positions);
-        ModelObserverFailures.Rethrow(delivery.Complete(edit, failure));
+        Publish(delivery.Prepare(edit, failure), index, removed, added, countBefore, ref failure, transferRemoval, positions,
+            reorder);
+        failure = delivery.Complete(edit, failure);
     }
 
     private void Publish(Action<ModelChange>? deliver, int index, TChild[] removed, TChild[] added, int countBefore,
-        ref Exception? failure, bool transferRemoval = false, int[]? positions = null)
+        ref Exception? failure, bool transferRemoval = false, int[]? positions = null, bool reorder = false)
     {
         if (deliver is null)
         {
@@ -531,55 +687,61 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
             return;
         }
 
+        var change = positions is not null ? SlotsChange(positions, removed, added, countBefore)
+            : RangeChange(index, removed, added, countBefore, transferRemoval, reorder);
+        ContainmentEdits.Notify(deliver, change, ref failure);
+    }
+
+    private ModelCollectionChange SlotsChange(int[] positions, TChild[] removed, TChild[] added, int countBefore)
+    {
         int countAfter = countBefore - removed.Length + added.Length;
-        var kind = orderedSet ? ModelChangeKind.ReferenceSet : ModelChangeKind.List;
-        if (positions is not null)
-        {
-            bool restoreKeyedRuns = key is not null && !orderedSet && added.Length == 0;
-            var sparse = changeSource.Create(kind, isModelReference: true,
-                ModelListSlots.Entries(positions, removed), ModelListSlots.Entries(positions, added),
-                matches: undo => undo ? ModelListSlots.Match(items, positions, added, countAfter)
-                    && (!restoreKeyedRuns || CanRestoreKeyedEntries(removed))
-                    : ModelListSlots.Match(items, positions, removed, countBefore),
-                replay: undo =>
-                {
-                    int removeCount = undo ? added.Length : removed.Length;
-                    TChild[] replacement = undo ? removed : added;
-                    if (IsOrdinaryList) ReplayOrdinarySlots(positions, removeCount, replacement);
-                    else if (undo && restoreKeyedRuns)
-                        ModelListSlots.RestoreRuns(positions, replacement, (start, run) => ReplaceRange(start, 0, run));
-                    else ReplaceRange(0, removeCount, replacement, positions);
-                },
-                apply: target =>
-                {
-                    if (changeSource.IsOwner(target)) ReplaceRange(0, removed.Length, added, positions);
-                    else if (!changeSource.TryApplyNullListRemoval(target, positions))
-                        changeSource.ResolveTarget<IOrdinaryModelListMembership<TChild>>(target).RemoveSlots(positions);
-                },
-                isContainment: true, isOrdinaryCollection: IsOrdinaryList, isKeyedContainment: key is not null,
-                allowCompatibleNulls: IsOrdinaryList && removed.Length != 0);
-            ContainmentEdits.Notify(deliver, sparse, ref failure);
-            return;
-        }
-        var delta = changeSource.Create(kind, isModelReference: true,
+        bool restoreKeyedRuns = key is not null && !orderedSet && added.Length == 0;
+        return changeSource.Create(orderedSet ? ModelChangeKind.ReferenceSet : ModelChangeKind.List, isModelReference: true,
+            ModelListSlots.Entries(positions, removed), ModelListSlots.Entries(positions, added),
+            matches: undo => undo ? ModelListSlots.Match(items, positions, added, countAfter)
+                && (!restoreKeyedRuns || CanRestoreKeyedEntries(removed))
+                : ModelListSlots.Match(items, positions, removed, countBefore),
+            replay: undo =>
+            {
+                int removeCount = undo ? added.Length : removed.Length;
+                TChild[] replacement = undo ? removed : added;
+                if (IsOrdinaryList) ReplayOrdinarySlots(positions, removeCount, replacement);
+                else if (undo && restoreKeyedRuns)
+                    ModelListSlots.RestoreRuns(positions, replacement, (start, run) => ReplaceRange(start, 0, run));
+                else ReplaceRange(0, removeCount, replacement, positions);
+            },
+            apply: target =>
+            {
+                if (changeSource.IsOwner(target)) ReplaceRange(0, removed.Length, added, positions);
+                else if (!changeSource.TryApplyNullListRemoval(target, positions))
+                    changeSource.ResolveTarget<IOrdinaryModelListMembership<TChild>>(target).RemoveSlots(positions);
+            },
+            isContainment: true, isOrdinaryCollection: IsOrdinaryList, isKeyedContainment: key is not null,
+            allowCompatibleNulls: IsOrdinaryList && removed.Length != 0);
+    }
+
+    private ModelCollectionChange RangeChange(int index, TChild[] removed, TChild[] added, int countBefore,
+        bool transferRemoval, bool reorder)
+    {
+        int countAfter = countBefore - removed.Length + added.Length;
+        return changeSource.Create(orderedSet ? ModelChangeKind.ReferenceSet : ModelChangeKind.List, isModelReference: true,
             removed.Select((child, offset) => new ModelCollectionEntry(child, Index: index + offset)),
             added.Select((child, offset) => new ModelCollectionEntry(child, Index: index + offset)),
             matches: undo => undo ? Matches(index, added, removed, countAfter, undo: true)
                 : Matches(index, removed, added, countBefore, undo: false),
             replay: undo =>
             {
-                if (undo) ReplaceRange(index, added.Length, removed);
-                else ReplaceRange(index, removed.Length, added);
+                if (undo) ReplayRange(index, added, removed, reorder);
+                else ReplayRange(index, removed, added, reorder);
             },
             apply: target =>
             {
-                if (changeSource.IsOwner(target)) ReplaceRange(index, removed.Length, added);
+                if (changeSource.IsOwner(target)) ReplayRange(index, removed, added, reorder);
                 else if (!changeSource.TryApplyNullListRange(target, index, removed.Length, added.Length))
                     changeSource.ResolveTarget<IOrdinaryModelListMembership<TChild>>(target).ApplyRange(index, removed.Length, added);
             },
             isContainment: true, isOrdinaryCollection: IsOrdinaryList, isKeyedContainment: key is not null,
             isTransferRemoval: transferRemoval, allowCompatibleNulls: IsOrdinaryList && !transferRemoval);
-        ContainmentEdits.Notify(deliver, delta, ref failure);
     }
 
     private bool CanRestoreKeyedEntries(TChild[] restoring)
@@ -642,6 +804,4 @@ public sealed partial class ContainmentList<TParent, TChild> : IContainmentColle
     }
 
     private static InvalidOperationException Inconsistent() => new("The child and its containment are inconsistent.");
-
-    private readonly record struct Ownership(object Child, ContainmentLink Link);
 }

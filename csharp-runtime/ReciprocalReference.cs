@@ -282,8 +282,8 @@ public sealed class ReciprocalEndpoint
     {
         var deliver = source.CapturePropertyDelivery();
         if (deliver is null) return;
-        var change = new ReciprocalReferenceChange(this, oldValue, newValue, isInverse, removal);
-        Attempt(() => deliver(change), ref failure);
+        ContainmentEdits.Notify(deliver, new ReciprocalReferenceChange(this, oldValue, newValue, isInverse, removal),
+            ref failure);
     }
 
     internal static void Attempt(Action operation, ref Exception? failure)
