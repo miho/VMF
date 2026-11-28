@@ -79,6 +79,21 @@ function linkOf(model: object): ContainmentLink | undefined {
     return link instanceof ContainmentLink ? link : undefined;
 }
 
+/**
+ * The link a containment was given for a child that is about to enter it. The runtime finds the link of an object
+ * in its field `__vmfContainerLink`: that is how it knows where an object is contained and who observes it. A model
+ * class that keeps its link elsewhere would lose events and get wrong answers, so it is rejected here.
+ */
+function requireLink(child: object, link: unknown): ContainmentLink {
+    if (!(link instanceof ContainmentLink)) {
+        throw new TypeError("The child does not have a VMF containment link.");
+    }
+    if ((child as { __vmfContainerLink?: unknown }).__vmfContainerLink !== link) {
+        throw new TypeError("A model object keeps its VMF containment link in its field '__vmfContainerLink'.");
+    }
+    return link;
+}
+
 __vmfUseContainers(linkOf);
 
 /** Rejects an edit that would make the child contain its new owner. */
@@ -201,12 +216,13 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         // The previous child is in this list: whoever observes the owner observes it too.
         const frame = begin(this.owner, watched(previous) || watched(child));
         requireNoCycle(this.owner, child);
-        const link = this.#link(child);
+        const link = requireLink(child, this.getLink(child));
         link.__vmfAttachment?.__vmfLeave(child, frame);
         const previousLink = this.getLink(previous);
-        this.#items[index] = child;
-        previousLink.__vmfAttachment = undefined;
+        // The link of the new child first: if it cannot be written (a frozen object), the list is as it was.
         link.__vmfAttachment = this;
+        previousLink.__vmfAttachment = undefined;
+        this.#items[index] = child;
         if (frame !== undefined) {
             exchanged(frame, this, this.#items, index, previous, previousLink, child, link);
             containerChanged(frame, previous, this.opposite, this.owner, null);
@@ -332,14 +348,6 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         incoming.forEach(child => check(of(child)));
     }
 
-    #link(child: TChild): ContainmentLink {
-        const link = this.getLink(child);
-        if (!(link instanceof ContainmentLink)) {
-            throw new TypeError("The child does not have a VMF containment link.");
-        }
-        return link;
-    }
-
     /** Takes a child that is not in this list, from its previous container if it has one. */
     #attach(index: number, child: TChild): void {
         if (this.#key !== undefined) {
@@ -347,10 +355,11 @@ export class ContainmentList<TParent extends object, TChild extends object> impl
         }
         const frame = begin(this.owner, watched(this.owner) || watched(child));
         requireNoCycle(this.owner, child);
-        const link = this.#link(child);
+        const link = requireLink(child, this.getLink(child));
         link.__vmfAttachment?.__vmfLeave(child, frame);
-        insertAt(this.#items, index, child);
+        // The link first: if it cannot be written (a frozen object), the list is as it was.
         link.__vmfAttachment = this;
+        insertAt(this.#items, index, child);
         if (frame !== undefined) {
             attached(frame, this, this.#items, index, child, link, this.#positions([index]));
             containerChanged(frame, child, this.opposite, null, this.owner);
@@ -494,10 +503,7 @@ export class ContainmentSlot<TParent extends object, TChild extends object> {
         const frame = begin(this.owner, watched(previous ?? this.owner) || (child !== null && watched(child)));
         if (child !== null) {
             requireNoCycle(this.owner, child);
-            const link = this.getLink(child);
-            if (!(link instanceof ContainmentLink)) {
-                throw new TypeError("The child does not have a VMF containment link.");
-            }
+            const link = requireLink(child, this.getLink(child));
             link.__vmfAttachment?.__vmfLeave(child, frame);
         }
         this.#assign(child, frame);
@@ -518,13 +524,14 @@ export class ContainmentSlot<TParent extends object, TChild extends object> {
         }
         const previousLink = previous === null ? undefined : this.getLink(previous);
         const link = child === null ? undefined : this.getLink(child);
-        this.#value = child;
-        if (previousLink !== undefined) {
-            previousLink.__vmfAttachment = undefined;
-        }
+        // The link of the new child first: if it cannot be written (a frozen object), the slot is as it was.
         if (link !== undefined) {
             link.__vmfAttachment = this;
         }
+        if (previousLink !== undefined) {
+            previousLink.__vmfAttachment = undefined;
+        }
+        this.#value = child;
         if (frame !== undefined) {
             ContainmentSlot.#assigned(frame, this, previous, previousLink, child, link);
             if (previous !== null) {
@@ -746,6 +753,20 @@ function unlink(target: object, opposite: string, owner: object, frame: Frame | 
 }
 
 /**
+ * Everything {@link linkFrom} looks up, without changing anything: fails for an item without the opposite property,
+ * and for an item whose current owner has no such end. A caller that changes state before it links checks first.
+ */
+function requireLinkable(item: object, opposite: string, owner: object, property: string): void {
+    const end = endOf(item, opposite);
+    if (end instanceof ReferenceSlot) {
+        const previous = end.value;
+        if (previous !== null && previous !== owner) {
+            endOf(previous, property);
+        }
+    }
+}
+
+/**
  * Points the item's opposite to the owner of a many-valued end as part of the change in progress. A single-valued
  * opposite leaves its previous owner, whose end (`property`) loses the item.
  */
@@ -928,8 +949,8 @@ export class ReferenceList<T extends object> implements Iterable<T> {
             return previous;
         }
         const frame = begin(this.owner, watching());
-        // Before anything changes: fails for an item without the opposite property.
-        endOf(item, this.opposite);
+        // Before anything changes: fails for an item that cannot be linked.
+        requireLinkable(item, this.opposite, this.owner, this.property);
         this.#removeAt(index, frame);
         linkFrom(item, this.opposite, this.owner, this.property, frame);
         this.#insert(index, item, frame);

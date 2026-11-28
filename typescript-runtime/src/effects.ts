@@ -6,11 +6,22 @@ import { __vmfEffect as effect, type Frame } from "./changes.js";
 // is no edit to register them with.
 
 /**
- * @internal Inserts the value at the index, or at the end if the index is beyond it: `items.splice(index, 0, value)`
- * without the array that `splice` creates for the elements it removed, on every call.
+ * How many elements a loop moves before `splice` is the faster way. `splice` creates an array for the elements it
+ * removed on every call, which costs more than moving a few elements; but it moves many elements at once, and a
+ * loop moves them one by one. Measured on Node 24: the loop wins up to about 250 elements.
+ */
+const LOOP_LIMIT = 192;
+
+/**
+ * @internal Inserts the value at the index (not negative), or at the end if the index is beyond it:
+ * `items.splice(index, 0, value)`, for a short way without the array that `splice` creates on every call.
  */
 export function insertAt<T>(items: T[], index: number, value: T): void {
     let position = items.length;
+    if (position - index > LOOP_LIMIT) {
+        items.splice(index, 0, value);
+        return;
+    }
     items.push(value);
     if (index < position) {
         for (; position > index; position--) {
@@ -20,9 +31,16 @@ export function insertAt<T>(items: T[], index: number, value: T): void {
     }
 }
 
-/** @internal Removes the element at the index, if there is one: `items.splice(index, 1)` without its array. */
+/**
+ * @internal Removes the element at the index (not negative), if there is one: `items.splice(index, 1)`, for a short
+ * way without its array.
+ */
 export function removeAt<T>(items: T[], index: number): void {
     const last = items.length - 1;
+    if (last - index > LOOP_LIMIT) {
+        items.splice(index, 1);
+        return;
+    }
     if (index <= last) {
         for (let position = index; position < last; position++) {
             items[position] = items[position + 1];

@@ -173,8 +173,9 @@ JSON objects (`String` keys) or arrays of `{"key": k, "value": v}`.
 
 Setting a containment property or adding to a containment list moves the child: it leaves its previous owner,
 and its container property changes with it. Opposite references are kept consistent on both sides. An edit
-the contract rejects throws (`TypeError`, `RangeError` or `Error`) and leaves the model unchanged: every edit
-runs as a unit that is rolled back when it throws.
+the contract rejects throws (`TypeError`, `RangeError` or `Error`) and leaves the model unchanged: a property
+or collection checks everything before it changes anything. `vmf.edit(origin, body)` makes several changes one
+unit, which is rolled back when the body throws.
 
 ## Equality and copies (Q, N)
 
