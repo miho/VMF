@@ -72,6 +72,34 @@ namespace Vmf.Portable.Hosts
     {
         public string? Describe(Tile caller) => "tile " + caller.Name;
     }
+
+    /// <summary>The behavior of FirstHooked; its construction hook appends "first" to Origin.</summary>
+    public sealed class FirstHookDefault : FirstHooked.DefaultBehavior
+    {
+        public void OnFirstHookedInstantiated(FirstHooked caller) => caller.Origin = Origins.Append(caller.Origin, "first");
+
+        public string? FirstRole(FirstHooked caller) => "first role";
+    }
+
+    /// <summary>The behavior of SecondHooked; its construction hook appends "second" to Origin.</summary>
+    public sealed class SecondHookDefault : SecondHooked.DefaultBehavior
+    {
+        public void OnSecondHookedInstantiated(ISecondHooked caller) => caller.Origin = Origins.Append(caller.Origin, "second");
+
+        public string? SecondRole(ISecondHooked caller) => "second role";
+    }
+
+    /// <summary>The construction hook of OwnHooked, which runs instead of the one of FirstHooked.</summary>
+    public sealed class OwnHookDefault : OwnHooked.DefaultBehavior
+    {
+        public void OnOwnHookedInstantiated(OwnHooked caller) => caller.Origin = Origins.Append(caller.Origin, "own");
+    }
+
+    /// <summary>Appends a hook's word to the origin, so that a second hook would show.</summary>
+    internal static class Origins
+    {
+        public static string Append(string? origin, string word) => origin is null ? word : origin + "," + word;
+    }
 }
 
 namespace Eu.Mihosoft.Vmf.Portable.Delegation
@@ -89,5 +117,20 @@ namespace Eu.Mihosoft.Vmf.Portable.Delegation
     public sealed partial class Tile
     {
         private static partial DefaultBehavior CreateDefaultBehavior() => new global::Vmf.Portable.Hosts.TileDefault();
+    }
+
+    public partial class FirstHooked
+    {
+        private static partial DefaultBehavior CreateDefaultBehavior() => new global::Vmf.Portable.Hosts.FirstHookDefault();
+    }
+
+    public partial class SecondHooked
+    {
+        private static partial DefaultBehavior CreateDefaultBehavior() => new global::Vmf.Portable.Hosts.SecondHookDefault();
+    }
+
+    public sealed partial class OwnHooked
+    {
+        private static partial DefaultBehavior CreateDefaultBehavior() => new global::Vmf.Portable.Hosts.OwnHookDefault();
     }
 }

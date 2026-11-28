@@ -115,6 +115,26 @@
         {"call": "t.describe", "result": "tile b"},
         {"instanceOf": "t", "type": "Shape"}
       ]
+    },
+    {
+      "id": "one-construction-hook-the-own-or-the-first-inherited",
+      "from": "Java Implementation: one constructor delegation per type, its own before its supertypes'",
+      "requires": ["behavior"],
+      "rules": ["B3"],
+      "steps": [
+        {"new": "f", "type": "FirstHooked"},
+        {"check": "f.origin", "value": "first"},
+        {"new": "s", "type": "SecondHooked"},
+        {"check": "s.origin", "value": "second"},
+        {"new": "b", "type": "BothHooked"},
+        {"check": "b.origin", "value": "first"},
+        {"call": "b.firstRole", "result": "first role"},
+        {"call": "b.secondRole", "result": "second role"},
+        {"new": "o", "type": "OwnHooked"},
+        {"check": "o.origin", "value": "own"},
+        {"copy": "b", "as": "copy"},
+        {"check": "copy.origin", "value": "first"}
+      ]
     }
   ]
 }

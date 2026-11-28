@@ -68,3 +68,32 @@ interface Tile extends Square {
     @DelegateTo(className = "eu.mihosoft.vmf.portable.delegation.TileBehavior")
     String describe();
 }
+
+/** Its construction hook appends "first" to origin. */
+@DelegateTo(className = "eu.mihosoft.vmf.portable.delegation.FirstHook")
+interface FirstHooked {
+    String getOrigin();
+
+    /** "first role" */
+    @DelegateTo(className = "eu.mihosoft.vmf.portable.delegation.FirstHook")
+    String firstRole();
+}
+
+/** Its construction hook appends "second" to origin. */
+@DelegateTo(className = "eu.mihosoft.vmf.portable.delegation.SecondHook")
+interface SecondHooked {
+    String getOrigin();
+
+    /** "second role" */
+    @DelegateTo(className = "eu.mihosoft.vmf.portable.delegation.SecondHook")
+    String secondRole();
+}
+
+/** Binds no hook: only the one of FirstHooked, its first supertype that binds one, runs (B3). */
+interface BothHooked extends FirstHooked, SecondHooked {
+}
+
+/** Binds a hook of its own, which runs instead of the one of FirstHooked (B3). */
+@DelegateTo(className = "eu.mihosoft.vmf.portable.delegation.OwnHook")
+interface OwnHooked extends FirstHooked {
+}

@@ -93,11 +93,27 @@ class AlternativeCounter implements CounterBehavior {
     }
 }
 
+/** Appends a construction hook's word to the origin, so that a second hook would show. */
+function appendOrigin(origin: string | null, word: string): string {
+    return origin === null ? word : `${origin},${word}`;
+}
+
 export const bindings: ModelBindings = {
     behaviors: {
         Counter: () => new DefaultCounter(),
         Shape: () => ({ describe: caller => `shape ${caller.name}` }),
         Tile: () => ({ describe: caller => `tile ${caller.name}` }),
+        FirstHooked: () => ({
+            onFirstHookedInstantiated: caller => { caller.origin = appendOrigin(caller.origin, "first"); },
+            firstRole: () => "first role",
+        }),
+        SecondHooked: () => ({
+            onSecondHookedInstantiated: caller => { caller.origin = appendOrigin(caller.origin, "second"); },
+            secondRole: () => "second role",
+        }),
+        OwnHooked: () => ({
+            onOwnHookedInstantiated: caller => { caller.origin = appendOrigin(caller.origin, "own"); },
+        }),
     },
 };
 

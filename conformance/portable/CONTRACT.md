@@ -334,7 +334,9 @@ construction hook `on<Type>Instantiated`.
 - **B2** Each object has its own default behavior, so the state that a behavior keeps belongs to one object.
 - **B3** The construction hook runs exactly once for each new object, including deep copies and objects read
   from documents, before the declared defaults are applied: it sees the zero values, and the defaults replace
-  what it set on properties that declare one.
+  what it set on properties that declare one. An object runs one hook: the one its type binds, or, when its type
+  binds none, the one of the first supertype that binds one (depth first, in the order in which the type extends
+  its supertypes).
 - **B4** Replacing the behavior of one object (Java `vmf().behavior().set`, C# `ReplaceBehavior`, TypeScript
   `replaceBehavior`) routes that object's delegated calls to the replacement, with the object as caller; other
   objects keep theirs. Deep copies and objects read from documents start with the default behavior. A
@@ -366,8 +368,6 @@ across targets:
 - untyped values that are not JSON values (Java writes any value that Jackson can serialize)
 - what a construction hook sets on a property that creation with initial values also sets: Java's builders
   set every property, C# and TypeScript only the given ones
-- the hooks of several supertypes: Java runs every inherited type-level hook, C# and TypeScript the one that
-  the model selects
 - whether several types of an object that bind the same behavior class share one behavior: Java and C# create
   one per object and class, TypeScript one per object and declaring type
 - plain documents for models whose subtypes occur where a property declares their supertype

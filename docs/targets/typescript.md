@@ -141,10 +141,10 @@ counter.replaceBehavior(new TestCounter());           // only this object
 |---|---|
 | a call (B1) | `x.add(2)` calls `add(x, 2)` of the object's behavior and returns its result |
 | default behavior (B2) | the binding creates one per object and declaring type, when the object first needs it; Java and C# share one per object among the types that bind the same class |
-| construction hook (B3) | `on<Type>Instantiated(caller)` runs in the constructor of every new object (also deep copies and objects read from documents) before the declared defaults are applied; immutable objects have none, as in Java |
+| construction hook (B3) | `on<Type>Instantiated(caller)` runs in the constructor of every new object (also deep copies and objects read from documents) before the declared defaults are applied; it is the hook of the object's type or else the first inherited one, never several; immutable objects have none, as in Java |
 | replacement (B4) | `x.replaceBehavior(b)`: `b` implements all delegated methods of `x`'s class (else `TypeError`), never receives the hook and is not copied |
 | inherited methods (B5) | a subtype uses the behavior of the type that declares the method until it binds the method again; a method that an interface-only type declares without a binding throws unless the object's behavior was replaced |
-| several supertypes | a class declares the delegated methods of the supertypes it implements besides its base class; they call the behavior of the declaring type, and `replaceBehavior` takes a replacement for all of them. As in C#, a concrete implemented supertype is data only or a bound behavior role (its delegated methods all have bindings, from one binding along its base chain); of the construction hooks, the one the model selects for the class runs |
+| several supertypes | a class declares the delegated methods of the supertypes it implements besides its base class; they call the behavior of the declaring type, and `replaceBehavior` takes a replacement for all of them. As in C#, a concrete implemented supertype is data only or a bound behavior role (its delegated methods all have bindings, from one binding along its base chain); the class runs one construction hook (B3) |
 
 Parameters and results map like properties (`unknown` for `Object`); arrays are `readonly T[] | null` as
 parameters and `T[] | null` as results, `List` and `VList` results are arrays, and variable arguments are a rest

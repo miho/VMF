@@ -164,9 +164,9 @@ installed codecs, and takes replacement behaviors from its `replacements`.
 
 | Target | Models generated | Scenarios passed | Known failures |
 |---|---|---|---|
-| Java | 23 of 23 | 224 of 224 (the identity-equality scenario does not apply) | none |
-| C# | 23 of 23 | 224 of 224 (the identity-equality scenario does not apply) | none |
-| TypeScript | 23 of 23 | 221 of 221 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
+| Java | 23 of 23 | 225 of 225 (the identity-equality scenario does not apply) | none |
+| C# | 23 of 23 | 225 of 225 (the identity-equality scenario does not apply) | none |
+| TypeScript | 23 of 23 | 222 of 222 (identity-equality; the 4 equality-mode scenarios do not apply) | none |
 
 The first runs found three bugs that are fixed now: clearing a many-to-one reference notified the owner twice
 (Java and C#), and content equality of `@Immutable` types was identity (Java). The JSON module led to one
@@ -209,7 +209,7 @@ behavior.
 | ContainmentCycleTest (6, 2026) | cycle rejection | core C5 | `containment.json` (3) |
 | ModelValidationTest (3, 2026) | multiplicities, ranges, lengths, patterns, paths | validation | `validation.json` (12) |
 | ReadOnlyExternalListTest (6, 2026) | live read-only lists | views | `views.json` (2) |
-| parentcontainment01 (2), delegationinherit, vflow delegates | `@DelegateTo` methods and construction hooks | behavior | `behavior.json` (7) |
+| parentcontainment01 (2), delegationinherit, vflow delegates | `@DelegateTo` methods and construction hooks | behavior | `behavior.json` (8) |
 | ExternalTypesTest (2), journalvalues, devcom, vmf-jackson external_types01 | enums, UUIDs, untyped values, host value types | externals | `externals.json` (14) |
 | ToStringTest (3), StaticReflectionTest (1), PropertyTypeTest (3), CustomLoaderPropertyTest (1), ModelRegistryTest (2), GeneratedDispatchTest (4) | Java API | Java only | none |
 | VMFGenerateRuns (25), VMFGeneratorTest (1), MemoryResourceSetTest (2), ImmutableContainmentValidationTest (1) | generator | generator tests | none |
