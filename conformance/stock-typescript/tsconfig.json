@@ -19,7 +19,7 @@
     }
   },
   "include": [
-    "../build/generated/stock-typescript/**/*.ts",
+    "build/generated/**/*.ts",
     "hosts/**/*.ts"
   ]
 }

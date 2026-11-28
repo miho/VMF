@@ -649,10 +649,10 @@ def generateStockModels = tasks.register('generateCSharpStockModels', JavaExec) 
 }
 verifyDotNet.configure { dependsOn generateStockModels }
 
-// The same packages for TypeScript, type-checked (strict, noImplicitOverride) against the runtime sources. Host
-// types that the models import from "@vmftest/hosts" live in stock-typescript/hosts.
+// The same packages for TypeScript, type-checked (strict, noImplicitOverride) as ES modules against the runtime
+// sources. Host types that the models import from "@vmftest/hosts" live in stock-typescript/hosts.
 def stockTypeScript = conformance.dir('stock-typescript')
-def stockTypeScriptGenerated = conformance.dir('build/generated/stock-typescript')
+def stockTypeScriptGenerated = stockTypeScript.dir('build/generated')
 def generateTypeScriptStockModels = tasks.register('generateTypeScriptStockModels', GenerateConformanceModelTask) {
     dependsOn compileStockGenerator
     classpath = files(stockClasses) + modelClasspath
