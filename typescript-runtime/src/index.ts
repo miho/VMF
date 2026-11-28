@@ -1,6 +1,6 @@
 export {
-    ContainmentLink, ContainmentList, ContainmentSet, ContainmentSlot, containerOf, containmentLinkOf, ReferenceList,
-    ReferenceSet, ReferenceSlot, setReference, setValue,
+    ContainmentLink, ContainmentList, ContainmentSet, ContainmentSlot, containerOf, containmentLinkOf, didSet,
+    ReferenceList, ReferenceSet, ReferenceSlot, setReference, willSet,
 } from "./relationships.js";
 export type { ContainmentKey, ContainmentOptions, ReferenceListOptions } from "./relationships.js";
 export { ScalarList, ScalarMap, ScalarSet } from "./collections.js";

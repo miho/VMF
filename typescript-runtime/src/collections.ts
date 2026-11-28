@@ -1,4 +1,7 @@
-import { __vmfEffect as effect, edit } from "./changes.js";
+import {
+    __vmfBegin as begin, __vmfEffect as effect, __vmfEnd as end, __vmfWatched as watched, type Frame,
+} from "./changes.js";
+import { insertAt, inserted, memberAdded, memberRemoved, removeAt, removed, replaced } from "./effects.js";
 
 /**
  * How a scalar list checks its elements. A unique list is an ordered set (`@Multiplicity(kind = ORDERED_SET)`);
@@ -26,11 +29,11 @@ export class ScalarList<T> implements Iterable<T> {
     readonly #nullable: boolean;
     readonly #normalize: (value: T) => T;
 
-    constructor(readonly owner: object, readonly property: string, options: ScalarListOptions<T> = {}) {
-        this.#unique = options.unique === true;
-        this.#upperBound = checkedUpperBound(options.upperBound);
-        this.#nullable = options.nullable !== false;
-        this.#normalize = options.normalize ?? (value => value);
+    constructor(readonly owner: object, readonly property: string, options?: ScalarListOptions<T>) {
+        this.#unique = options?.unique === true;
+        this.#upperBound = checkedUpperBound(options?.upperBound);
+        this.#nullable = options?.nullable !== false;
+        this.#normalize = options?.normalize ?? unchanged;
     }
 
     get count(): number {
@@ -38,7 +41,7 @@ export class ScalarList<T> implements Iterable<T> {
     }
 
     at(index: number): T {
-        requireIndex(index, this.count - 1);
+        requireIndex(index, this.#items.length - 1);
         return this.#items[index];
     }
 
@@ -57,8 +60,8 @@ export class ScalarList<T> implements Iterable<T> {
         if (this.#unique && this.contains(value)) {
             return false;
         }
-        requireCapacity(this.#upperBound, this.count + 1);
-        edit(this.owner, () => this.#insert(this.count, value));
+        requireCapacity(this.#upperBound, this.#items.length + 1);
+        this.#insert(this.#items.length, value);
         return true;
     }
 
@@ -79,31 +82,33 @@ export class ScalarList<T> implements Iterable<T> {
             return false;
         }
         requireCapacity(this.#upperBound, this.count + added.length);
-        edit(this.owner, () => {
-            const start = this.count;
-            this.#items.push(...added);
-            effect({ source: this.owner, property: this.property, kind: "add", values: [...added],
+        const frame = begin(this.owner, watched(this.owner));
+        const start = this.count;
+        this.#items.push(...added);
+        if (frame !== undefined) {
+            effect(frame, { source: this.owner, property: this.property, kind: "add", values: [...added],
                 indices: added.map((_, offset) => start + offset) },
             () => { this.#items.splice(start, added.length); }, () => { this.#items.splice(start, 0, ...added); });
-        });
+        }
+        end(frame);
         return true;
     }
 
     /** Inserts the value at the index. A unique list rejects a value it already holds. */
     insert(index: number, value: T): void {
-        requireIndex(index, this.count);
+        requireIndex(index, this.#items.length);
         value = this.#normalize(value);
         this.#requireValue(value);
         if (this.#unique && this.contains(value)) {
             throw new Error("The value is already in this ordered set.");
         }
-        requireCapacity(this.#upperBound, this.count + 1);
-        edit(this.owner, () => this.#insert(index, value));
+        requireCapacity(this.#upperBound, this.#items.length + 1);
+        this.#insert(index, value);
     }
 
     /** Replaces the element at the index. A unique list rejects a value it holds at another index. */
     set(index: number, value: T): T {
-        requireIndex(index, this.count - 1);
+        requireIndex(index, this.#items.length - 1);
         value = this.#normalize(value);
         this.#requireValue(value);
         const previous = this.#items[index];
@@ -116,11 +121,12 @@ export class ScalarList<T> implements Iterable<T> {
                 throw new Error("The value is already in this ordered set at another index.");
             }
         }
-        edit(this.owner, () => {
-            this.#items[index] = value;
-            effect({ source: this.owner, property: this.property, kind: "replace", values: [value], replaced: [previous],
-                indices: [index] }, () => { this.#items[index] = previous; }, () => { this.#items[index] = value; });
-        });
+        const frame = begin(this.owner, watched(this.owner));
+        this.#items[index] = value;
+        if (frame !== undefined) {
+            replaced(frame, this.owner, this.property, this.#items, index, previous, value);
+        }
+        end(frame);
         return previous;
     }
 
@@ -135,13 +141,14 @@ export class ScalarList<T> implements Iterable<T> {
     }
 
     removeAt(index: number): T {
-        requireIndex(index, this.count - 1);
+        requireIndex(index, this.#items.length - 1);
         const value = this.#items[index];
-        edit(this.owner, () => {
-            this.#items.splice(index, 1);
-            effect({ source: this.owner, property: this.property, kind: "remove", values: [value], indices: [index] },
-                () => { this.#items.splice(index, 0, value); }, () => { this.#items.splice(index, 1); });
-        });
+        const frame = begin(this.owner, watched(this.owner));
+        removeAt(this.#items, index);
+        if (frame !== undefined) {
+            removed(frame, this.owner, this.property, this.#items, index, value);
+        }
+        end(frame);
         return value;
     }
 
@@ -149,12 +156,14 @@ export class ScalarList<T> implements Iterable<T> {
         if (this.count === 0) {
             return;
         }
-        edit(this.owner, () => {
-            const values = this.#items.splice(0);
-            effect({ source: this.owner, property: this.property, kind: "remove", values: [...values],
+        const frame = begin(this.owner, watched(this.owner));
+        const values = this.#items.splice(0);
+        if (frame !== undefined) {
+            effect(frame, { source: this.owner, property: this.property, kind: "remove", values: [...values],
                 indices: values.map((_, index) => index) },
             () => { this.#items.push(...values); }, () => { this.#items.splice(0); });
-        });
+        }
+        end(frame);
     }
 
     toArray(): T[] {
@@ -172,10 +181,17 @@ export class ScalarList<T> implements Iterable<T> {
     }
 
     #insert(index: number, value: T): void {
-        this.#items.splice(index, 0, value);
-        effect({ source: this.owner, property: this.property, kind: "add", values: [value], indices: [index] },
-            () => { this.#items.splice(index, 1); }, () => { this.#items.splice(index, 0, value); });
+        const frame = begin(this.owner, watched(this.owner));
+        insertAt(this.#items, index, value);
+        if (frame !== undefined) {
+            inserted(frame, this.owner, this.property, this.#items, index, value);
+        }
+        end(frame);
     }
+}
+
+function unchanged<T>(value: T): T {
+    return value;
 }
 
 /**
@@ -200,7 +216,18 @@ export class ScalarSet<T> implements Iterable<T> {
 
     /** Adds the value. Returns false if the set already holds it. */
     add(value: T): boolean {
-        return this.addAll([value]);
+        requireMember(value);
+        if (this.#items.has(value)) {
+            return false;
+        }
+        requireCapacity(this.#upperBound, this.#items.size + 1);
+        const frame = begin(this.owner, watched(this.owner));
+        this.#items.add(value);
+        if (frame !== undefined) {
+            memberAdded(frame, this.owner, this.property, this.#items, value);
+        }
+        end(frame);
+        return true;
     }
 
     /** Adds the values as one edit; rejects the whole edit if the set would exceed its upper bound. */
@@ -216,11 +243,13 @@ export class ScalarSet<T> implements Iterable<T> {
             return false;
         }
         requireCapacity(this.#upperBound, this.count + added.size);
-        edit(this.owner, () => {
-            added.forEach(value => this.#items.add(value));
-            effect({ source: this.owner, property: this.property, kind: "add", values: [...added] },
+        const frame = begin(this.owner, watched(this.owner));
+        added.forEach(value => this.#items.add(value));
+        if (frame !== undefined) {
+            effect(frame, { source: this.owner, property: this.property, kind: "add", values: [...added] },
                 () => added.forEach(value => this.#items.delete(value)), () => added.forEach(value => this.#items.add(value)));
-        });
+        }
+        end(frame);
         return true;
     }
 
@@ -228,11 +257,12 @@ export class ScalarSet<T> implements Iterable<T> {
         if (!this.#items.has(value)) {
             return false;
         }
-        edit(this.owner, () => {
-            this.#items.delete(value);
-            effect({ source: this.owner, property: this.property, kind: "remove", values: [value] },
-                () => { this.#items.add(value); }, () => { this.#items.delete(value); });
-        });
+        const frame = begin(this.owner, watched(this.owner));
+        this.#items.delete(value);
+        if (frame !== undefined) {
+            memberRemoved(frame, this.owner, this.property, this.#items, value);
+        }
+        end(frame);
         return true;
     }
 
@@ -240,12 +270,14 @@ export class ScalarSet<T> implements Iterable<T> {
         if (this.#items.size === 0) {
             return;
         }
-        edit(this.owner, () => {
-            const values = [...this.#items];
-            this.#items.clear();
-            effect({ source: this.owner, property: this.property, kind: "remove", values },
+        const frame = begin(this.owner, watched(this.owner));
+        const values = [...this.#items];
+        this.#items.clear();
+        if (frame !== undefined) {
+            effect(frame, { source: this.owner, property: this.property, kind: "remove", values },
                 () => values.forEach(value => this.#items.add(value)), () => { this.#items.clear(); });
-        });
+        }
+        end(frame);
     }
 
     toArray(): T[] {
@@ -290,7 +322,9 @@ export class ScalarMap<K, V> implements Iterable<[K, V]> {
         if (!this.#entries.has(key)) {
             requireCapacity(this.#upperBound, this.count + 1);
         }
-        edit(this.owner, () => this.#put(key, value));
+        const frame = begin(this.owner, watched(this.owner));
+        this.#put(key, value, frame);
+        end(frame);
         return previous;
     }
 
@@ -318,7 +352,9 @@ export class ScalarMap<K, V> implements Iterable<[K, V]> {
         });
         requireCapacity(this.#upperBound, size);
         if (pending.size > 0) {
-            edit(this.owner, () => pending.forEach((value, key) => this.#put(key, value)));
+            const frame = begin(this.owner, watched(this.owner));
+            pending.forEach((value, key) => this.#put(key, value, frame));
+            end(frame);
         }
     }
 
@@ -327,13 +363,12 @@ export class ScalarMap<K, V> implements Iterable<[K, V]> {
         if (!this.#entries.has(key)) {
             return false;
         }
-        edit(this.owner, () => {
-            const value = this.#entries.get(key) as V;
-            const index = [...this.#entries.keys()].findIndex(candidate => sameValue(candidate, key));
-            this.#entries.delete(key);
-            effect({ source: this.owner, property: this.property, kind: "remove", keys: [key], values: [value] },
-                () => this.#restore(index, key, value), () => { this.#entries.delete(key); });
-        });
+        const frame = begin(this.owner, watched(this.owner));
+        if (frame !== undefined) {
+            entryRemoved(frame, this.owner, this.property, this.#entries, key);
+        }
+        this.#entries.delete(key);
+        end(frame);
         return true;
     }
 
@@ -341,13 +376,15 @@ export class ScalarMap<K, V> implements Iterable<[K, V]> {
         if (this.#entries.size === 0) {
             return;
         }
-        edit(this.owner, () => {
-            const entries = [...this.#entries];
-            this.#entries.clear();
-            effect({ source: this.owner, property: this.property, kind: "remove", keys: entries.map(([key]) => key),
-                values: entries.map(([, value]) => value) },
+        const frame = begin(this.owner, watched(this.owner));
+        const entries = [...this.#entries];
+        this.#entries.clear();
+        if (frame !== undefined) {
+            effect(frame, { source: this.owner, property: this.property, kind: "remove",
+                keys: entries.map(([key]) => key), values: entries.map(([, value]) => value) },
             () => entries.forEach(([key, value]) => this.#entries.set(key, value)), () => { this.#entries.clear(); });
-        });
+        }
+        end(frame);
     }
 
     keys(): IterableIterator<K> {
@@ -371,27 +408,45 @@ export class ScalarMap<K, V> implements Iterable<[K, V]> {
         return this.#entries.entries();
     }
 
-    #put(key: K, value: V): void {
+    #put(key: K, value: V, frame: Frame | undefined): void {
         const stored = (value === undefined ? null : value) as V;
         if (this.#entries.has(key)) {
             const previous = this.#entries.get(key) as V;
             this.#entries.set(key, stored);
-            effect({ source: this.owner, property: this.property, kind: "replace", keys: [key], values: [stored],
-                replaced: [previous] }, () => { this.#entries.set(key, previous); }, () => { this.#entries.set(key, stored); });
+            if (frame !== undefined) {
+                entryReplaced(frame, this.owner, this.property, this.#entries, key, previous, stored);
+            }
         } else {
             this.#entries.set(key, stored);
-            effect({ source: this.owner, property: this.property, kind: "add", keys: [key], values: [stored] },
-                () => { this.#entries.delete(key); }, () => { this.#entries.set(key, stored); });
+            if (frame !== undefined) {
+                entryAdded(frame, this.owner, this.property, this.#entries, key, stored);
+            }
         }
     }
 
-    /** Puts a removed entry back at its former position. */
-    #restore(index: number, key: K, value: V): void {
-        const entries = [...this.#entries];
-        entries.splice(index, 0, [key, value]);
-        this.#entries.clear();
-        entries.forEach(([entryKey, entryValue]) => this.#entries.set(entryKey, entryValue));
-    }
+}
+
+/** Registers an entry that is about to be removed; undoing puts it back at its position. */
+function entryRemoved<K, V>(frame: Frame, owner: object, property: string, entries: Map<K, V>, key: K): void {
+    const value = entries.get(key) as V;
+    const index = [...entries.keys()].findIndex(candidate => sameValue(candidate, key));
+    effect(frame, { source: owner, property, kind: "remove", keys: [key], values: [value] }, () => {
+        const restored = [...entries];
+        restored.splice(index, 0, [key, value]);
+        entries.clear();
+        restored.forEach(([entryKey, entryValue]) => entries.set(entryKey, entryValue));
+    }, () => { entries.delete(key); });
+}
+
+function entryReplaced<K, V>(frame: Frame, owner: object, property: string, entries: Map<K, V>, key: K, previous: V,
+                             stored: V): void {
+    effect(frame, { source: owner, property, kind: "replace", keys: [key], values: [stored], replaced: [previous] },
+        () => { entries.set(key, previous); }, () => { entries.set(key, stored); });
+}
+
+function entryAdded<K, V>(frame: Frame, owner: object, property: string, entries: Map<K, V>, key: K, stored: V): void {
+    effect(frame, { source: owner, property, kind: "add", keys: [key], values: [stored] },
+        () => { entries.delete(key); }, () => { entries.set(key, stored); });
 }
 
 /** SameValueZero, the equality of JavaScript's `Set`, `Map` and `includes`. */

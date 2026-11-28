@@ -947,7 +947,7 @@ final class TypeScriptRenderModel {
                 return field("/** @internal */\n"
                         + "    readonly __vmfRef_" + member + " = new vmf.ReferenceSlot<" + target + ">(this, " + name + ");\n\n"
                         + accessor(member, target, "this.__vmfRef_" + member + ".value",
-                                "vmf.setReference(this, value, " + name + ", " + oppositeName + ");"));
+                                "vmf.setReference(this.__vmfRef_" + member + ", value, " + oppositeName + ");"));
             }
             case SCALAR: {
                 ValueType value = property.getValueType();
@@ -1044,20 +1044,35 @@ final class TypeScriptRenderModel {
         return property.getUpperBound() >= 0 ? ", " + property.getUpperBound() : "";
     }
 
-    /** A single value stored in a field and changed through {@code vmf.setValue}, which reports the change. */
+    /**
+     * A single value stored in a field. The setter compares, reads and writes the field itself, between
+     * {@code vmf.willSet}, which checks the change, and {@code vmf.didSet}, which reports it. In the generated
+     * class these are accesses to one field of one class with one value type, which the JavaScript engine compiles
+     * to a few instructions; in a runtime function shared by all properties they are lookups by a computed name.
+     */
     private static Map<String, Object> valueAccessor(String member, String type, String initial) {
         return valueAccessor(member, type, initial, "value");
     }
 
     /** {@code write} checks and normalizes the new value, for UUIDs and untyped values. */
     private static Map<String, Object> valueAccessor(String member, String type, String initial, String write) {
+        boolean normalized = !write.equals("value");
+        String next = normalized ? "next" : "value";
+        String field = "this.__vmfValue_" + member;
+        String name = quoted(member);
         return field("/** @internal */\n"
                 + "    __vmfValue_" + member + ": " + type + " = " + initial + ";\n\n"
                 + "    get " + member + "(): " + type + " {\n"
-                + "        return this.__vmfValue_" + member + ";\n"
+                + "        return " + field + ";\n"
                 + "    }\n\n"
                 + "    set " + member + "(value: " + type + ") {\n"
-                + "        vmf.setValue(this, " + quoted(member) + ", " + write + ");\n"
+                + (normalized ? "        const next = " + write + ";\n" : "")
+                + "        const previous = " + field + ";\n"
+                + "        if (!Object.is(previous, " + next + ")) {\n"
+                + "            vmf.willSet(this.__vmfContainerLink, this, " + name + ", " + next + ");\n"
+                + "            " + field + " = " + next + ";\n"
+                + "            vmf.didSet(this, " + name + ", previous, " + next + ");\n"
+                + "        }\n"
                 + "    }");
     }
 
