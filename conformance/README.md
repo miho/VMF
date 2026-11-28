@@ -17,12 +17,12 @@ declarations. The generated Java classes, running on the Java VMF runtime,
 are the behavioral reference for the shared cases. The gate runs the Java
 and native .NET tests, plus the Workshop behavior and JSON checks. Test
 results and generated interchange documents are under `conformance/build`.
-The TypeScript regression gate remains
-`:vmf:verifyTypeScriptWorkshop`. The [portable contract](portable/CONTRACT.md)
+The TypeScript gates are `:vmf:verifyTypeScriptWorkshop` and
+`:vmf:verifyTypeScriptStockModels`. The [portable contract](portable/CONTRACT.md)
 and its shared scenarios (`:vmf:verifyPortableContract`) cover the behavior
 all targets share.
 
-GitHub CI runs both target gates on Windows and Linux. The Linux job also
+GitHub CI runs the target gates on Windows and Linux. The Linux job also
 validates the generated Draft-07 schemas independently with `jsonschema`.
 
 The Java scalar membership gate runs against the published VCollections
@@ -1045,5 +1045,9 @@ suites and compiles the output with warnings as errors. Host values and
 delegated behavior use explicit C# bindings. The gate checks
 [the Java model declaration package list](stock-java/packages.txt) against the
 packages discovered on disk. Adding a Java model requires C# compile coverage.
+`:vmf:verifyTypeScriptStockModels` generates the same packages for TypeScript
+and type-checks them (strict, `noImplicitOverride`); the host types that their
+external type annotations import are in [stock-typescript/hosts](stock-typescript/hosts/index.ts).
+Adding a Java model requires TypeScript coverage as well.
 Runtime and interchange cases use dedicated fixtures with explicit
 expectations in each target.

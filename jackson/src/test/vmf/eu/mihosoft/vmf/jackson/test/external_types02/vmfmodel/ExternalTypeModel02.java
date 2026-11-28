@@ -9,9 +9,11 @@ import java.util.Map;
 public interface ExternalTypeModel02 {
     @DefaultValue("new java.util.HashMap<>()")
     @Annotation(key = "vmf:csharp:bind-default", value = "true")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
     Map<String,String> getStringMap();
 
     @DefaultValue("new java.util.HashMap<>()")
     @Annotation(key = "vmf:csharp:bind-default", value = "true")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
     Map<String,Object> getObjectMap();
 }

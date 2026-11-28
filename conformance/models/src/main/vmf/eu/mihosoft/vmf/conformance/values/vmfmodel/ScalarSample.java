@@ -81,6 +81,7 @@ interface PatternedLabel {
     @Length(min = 4, max = 8)
     @Pattern(value = "\\A[A-Z&&[^IO]]+[0-9]{2}\\z", portable = false)
     @Annotation(key = "vmf:pattern:csharp", value = "\\A[A-Z-[IO]]+[0-9]{2}\\z")
+    @Annotation(key = "vmf:pattern:typescript", value = "^[A-HJ-NP-Z]+[0-9]{2}$")
     String getLabel();
 }
 
@@ -88,6 +89,7 @@ interface NonzeroPatternedLabel extends PatternedLabel {
     @Override
     @Pattern(value = "(?<!0)0\\z|[1-9]\\z", portable = false)
     @Annotation(key = "vmf:pattern:csharp", value = "(?<!0)0\\z|[1-9]\\z")
+    @Annotation(key = "vmf:pattern:typescript", value = "(?<!0)0$|[1-9]$")
     @Annotation(key = "vmf:jackson:rename", value = "tracking_label")
     String getLabel();
 }

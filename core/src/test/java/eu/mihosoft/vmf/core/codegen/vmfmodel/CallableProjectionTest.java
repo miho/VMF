@@ -268,8 +268,10 @@ public class CallableProjectionTest {
         assertTrue(values.getType().getElementType().getValueType().isPrimitive());
         CSharpCapabilities.validate(model);
 
+        // TypeScript has one method per name: overloads must differ in their number of parameters.
         var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage().contains("uses behavior delegation"));
+        assertTrue(typescript.getMessage().contains("CallableGauge.scale needs overloads that differ in their number"));
+        assertFalse(typescript.getMessage().contains("uses behavior delegation"));
     }
 
     @Test
@@ -285,9 +287,11 @@ public class CallableProjectionTest {
         rejectGeneration("CallableJaggedResult.read needs portable scalars", CallableJaggedResult.class);
         rejectGeneration("CallableJaggedExternal.mark needs portable scalars", CallableJaggedExternal.class);
         rejectGeneration("CallableJaggedObject.mark needs portable scalars", CallableJaggedObject.class);
-        var typescript = assertThrows(IllegalArgumentException.class,
-                () -> PortableCapabilities.validate(model(declarations), "TypeScript"));
-        assertTrue(typescript.getMessage().contains("uses behavior delegation"));
+        var typescript = new MemoryResourceSet();
+        VMF.generate(GenerationTarget.TYPESCRIPT, typescript, declarations);
+        String script = typescript.getMemSet().elements().nextElement().asString();
+        assertTrue(script.contains("countRows(...arg0: (readonly number[] | null)[]): number {"));
+        assertTrue(script.contains("mark(caller: CallableJagged, arg0: readonly (readonly number[] | null)[] | null): number;"));
     }
 
     @Test
@@ -409,8 +413,12 @@ public class CallableProjectionTest {
         assertTrue(source.contains("global::System.Collections.Generic.IList<object?>? Payloads()"));
         assertTrue(source.contains("global::System.Collections.Generic.IList<object?>? DirectPayloads()"));
 
-        var typescript = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(typescript.getMessage().contains("uses behavior delegation"));
+        // TypeScript returns untyped values as unknown.
+        var typescript = new MemoryResourceSet();
+        VMF.generate(GenerationTarget.TYPESCRIPT, typescript, CallableObjectCollectionResult.class);
+        String script = typescript.getMemSet().elements().nextElement().asString();
+        assertTrue(script.contains("payloads(): unknown[] | null {"));
+        assertTrue(script.contains("directPayloads(caller: CallableObjectCollectionResult): unknown[] | null;"));
     }
 
     @Test

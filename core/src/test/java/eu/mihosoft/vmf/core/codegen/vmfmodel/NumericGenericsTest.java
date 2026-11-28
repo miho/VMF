@@ -80,10 +80,14 @@ public class NumericGenericsTest {
         assertEquals(1, property(contract, "threshold").getConstraints().size());
         assertEquals(1, property(floating, "threshold").getConstraints().size());
 
-        var unsupported = assertThrows(IllegalArgumentException.class,
-                () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertTrue(unsupported.getMessage().contains(".NumericContract.T needs a single named model upper bound"));
-        assertTrue(unsupported.getMessage().contains(".NumericContract.byNumber uses map properties"));
+        // TypeScript binds a Number parameter to number or bigint; other features of this model may still be
+        // reported.
+        try {
+            PortableCapabilities.validate(model, "TypeScript");
+        } catch (IllegalArgumentException rejected) {
+            assertFalse(rejected.getMessage(), rejected.getMessage().contains(".NumericContract.T"));
+            assertFalse(rejected.getMessage(), rejected.getMessage().contains("type arguments"));
+        }
     }
 
     @Test

@@ -24,6 +24,8 @@
 package eu.mihosoft.vmf.core.codegen.vmfmodel;
 
 import eu.mihosoft.vcollections.VMap;
+import eu.mihosoft.vmf.GenerationTarget;
+import eu.mihosoft.vmf.VMF;
 import eu.mihosoft.vmf.core.Annotation;
 import eu.mihosoft.vmf.core.DefaultValue;
 import eu.mihosoft.vmf.core.Immutable;
@@ -36,6 +38,8 @@ import eu.mihosoft.vmf.core.codegen.PortableCapabilities;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Property;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.ValueType;
+import eu.mihosoft.vmf.core.io.MemoryResourceSet;
+import java.io.IOException;
 import java.util.List;
 import java.util.Set;
 import org.junit.Test;
@@ -173,14 +177,17 @@ public class ScalarCollectionsTest {
     }
 
     @Test
-    public void typeScriptRetainsItsScalarCollectionAndMapGate() {
-        ResolvedModel model = model(ScalarCollectionBase.class, ScalarCollectionChild.class);
-        var exception = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        String message = exception.getMessage();
-        assertFalse(message, message.contains(".samples "));
-        assertTrue(message, message.contains(".actions needs an ordered scalar list"));
-        assertTrue(message, message.contains(".levels needs an ordered scalar list"));
-        assertTrue(message, message.contains(".settings uses map properties"));
+    public void typeScriptGeneratesScalarSetsOrderedSetsBoundedListsAndMaps() throws IOException {
+        Class<?>[] declarations = {ScalarCollectionBase.class, ScalarCollectionChild.class};
+        PortableCapabilities.validate(model(declarations), "TypeScript");
+        var output = new MemoryResourceSet();
+        VMF.generate(GenerationTarget.TYPESCRIPT, output, declarations);
+        String source = output.getMemSet().elements().nextElement().asString();
+        assertTrue(source, source.contains("new vmf.ScalarSet<"));
+        assertTrue(source, source.contains("new vmf.ScalarMap<string, number | null>(this, \"settings\", 3)"));
+        assertTrue(source, source.contains("{ unique: true"));
+        assertTrue(source, source.contains("nullable: false"));
+        assertTrue(source, source.contains("kind: \"scalarMap\", name: \"settings\", keyType: \"string\", scalarType: \"float64\""));
     }
 
     @Test
@@ -212,8 +219,8 @@ public class ScalarCollectionsTest {
         CSharpCapabilities.validate(references);
         assertEquals(List.of("true"), property(references, "BoundReferenceCollectionDefault", "entries")
                 .getAnnotationValues("vmf:property:reference-default"));
-        var baseline = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(managed, "TypeScript"));
-        assertTrue(baseline.getMessage(), baseline.getMessage().contains(".numbers uses declared default expressions"));
+        // TypeScript generates the literal and binds other expressions only with its own annotation.
+        PortableCapabilities.validate(managed, "TypeScript");
         var baselineReferences = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(references, "TypeScript"));
         assertTrue(baselineReferences.getMessage(), baselineReferences.getMessage().contains(".entries uses declared default expressions"));
 

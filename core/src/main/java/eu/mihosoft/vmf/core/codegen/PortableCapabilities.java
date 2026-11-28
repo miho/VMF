@@ -41,9 +41,9 @@ import java.util.stream.Collectors;
 /** Checks the subset shared by portable model backends before opening any output files. */
 public final class PortableCapabilities {
     private static final Set<String> RESERVED_WIRE_FIELDS = Set.of("@vmf-type", "@vmf-id");
-    private static final Set<ValueType.Kind> TYPESCRIPT_TYPES = Set.of(ValueType.Kind.BOOLEAN, ValueType.Kind.INT32,
-            ValueType.Kind.INT64, ValueType.Kind.FLOAT64, ValueType.Kind.STRING, ValueType.Kind.MODEL,
-            ValueType.Kind.PARAMETER);
+    private static final Set<ValueType.Kind> TYPESCRIPT_TYPES = Set.of(ValueType.Kind.BOOLEAN, ValueType.Kind.INT8,
+            ValueType.Kind.INT16, ValueType.Kind.INT32, ValueType.Kind.INT64, ValueType.Kind.CHAR, ValueType.Kind.FLOAT32,
+            ValueType.Kind.FLOAT64, ValueType.Kind.STRING, ValueType.Kind.MODEL, ValueType.Kind.PARAMETER);
     private static final Set<String> OBJECT_METHODS = Set.of("equals", "hashCode", "toString", "clone", "finalize");
 
     enum Profile {
@@ -86,9 +86,7 @@ public final class PortableCapabilities {
 
     private static void validateType(ResolvedModel model, Type type, Profile profile, List<String> diagnostics) {
         String name = type.getQualifiedName();
-        if (profile == Profile.CSHARP) {
-            type.getEffectiveProperties().forEach(property -> validatePatternBindings(name, property, diagnostics));
-        }
+        type.getEffectiveProperties().forEach(property -> validatePatternBindings(name, property, profile, diagnostics));
         if (type.isImmutable()) {
             if (type.isInterfaceOnly()) {
                 diagnostics.add(name + " needs a concrete immutable declaration");
@@ -111,8 +109,12 @@ public final class PortableCapabilities {
         if (profile == Profile.CSHARP && (!type.getEffectiveMethods().isEmpty() || type.getConstructionHook().isPresent())) {
             validateBehavior(model, type, diagnostics);
         }
+        if (profile == Profile.TYPESCRIPT && (!type.getEffectiveMethods().isEmpty() || type.getConstructionHook().isPresent())) {
+            TypeScriptCapabilities.validateBehavior(model, type, diagnostics);
+        }
         for (var feature : type.getFeatures()) {
             if (profile == Profile.CSHARP && feature == Feature.DELEGATION) continue;
+            if (profile == Profile.TYPESCRIPT && feature == Feature.DELEGATION) continue;
             if (feature == Feature.CUSTOM_EQUALITY && profile == Profile.CSHARP && type.isStructuralEquality()) {
                 continue;
             }
@@ -122,16 +124,9 @@ public final class PortableCapabilities {
         }
         if (type.getSuperTypeApplications().size() > 1) {
             if (profile == Profile.TYPESCRIPT) {
-                // A TypeScript class extends one base class and implements the interface-only supertypes.
-                long classes = type.getSuperTypes().stream()
-                        .filter(parent -> model.findType(parent).filter(Type::isInterfaceOnly).isEmpty()).count();
-                if (classes > 1) {
-                    diagnostics.add(name + " extends more than one model type that is not interface-only");
-                }
-                if (!type.getTypeParameters().isEmpty() || type.getSuperTypeApplications().stream()
-                        .anyMatch(application -> !application.getArguments().isEmpty())) {
-                    diagnostics.add(name + " combines several model supertypes with type parameters");
-                }
+                // A TypeScript class extends one base class and implements the other supertypes; it declares the
+                // properties of the implemented ones itself, so their behavior would not be inherited.
+                checkTypeScriptSecondaries(model, type, diagnostics);
                 checkTypeScriptComposition(model, type, diagnostics);
             } else {
                 PortableInheritance.checkCSharpComposition(model, type, diagnostics);
@@ -139,6 +134,18 @@ public final class PortableCapabilities {
         }
 
         for (var parameter : type.getTypeParameters()) {
+            if (profile == Profile.TYPESCRIPT && (parameter.isNumberBound() || parameter.getBound() == null)) {
+                // A scalar parameter stays open in the interface-only class that declares it; concrete classes
+                // bind it, so their documents know the scalar type.
+                if (!type.isInterfaceOnly() || type.isImmutable()) {
+                    diagnostics.add(name + "." + parameter.getName()
+                            + " needs an interface-only type for a scalar type parameter");
+                }
+                continue;
+            }
+            if (profile == Profile.TYPESCRIPT && parameter.getBounds().size() == 1
+                    && parameter.getBound().getKind() == ValueType.Kind.PARAMETER
+                    && parameter.getBound().getModelType() != null) continue;
             if (profile == Profile.CSHARP && parameter.isNumberBound()) continue;
             if (profile == Profile.CSHARP && parameter.getBound() == null) {
                 if (hasCompanion(model, type.getName()) && !acceptsScalarParameter(type, parameter.getName(), true)) {
@@ -175,13 +182,16 @@ public final class PortableCapabilities {
         }
     }
 
-    private static void validatePatternBindings(String owner, Property property, List<String> diagnostics) {
+    /** A Java-only pattern needs one counterpart in the target's dialect: vmf:pattern:csharp or vmf:pattern:typescript. */
+    private static void validatePatternBindings(String owner, Property property, Profile profile,
+                                                List<String> diagnostics) {
         for (var constraint : property.getConstraints()) {
             if (constraint.isPortable()) continue;
-            var bindings = constraint.getPatternBindings("csharp");
+            var bindings = constraint.getPatternBindings(profile == Profile.CSHARP ? "csharp" : "typescript");
             if (bindings.size() == 1 && !bindings.get(0).isBlank()) continue;
             diagnostics.add(owner + "." + property.getName() + (bindings.isEmpty() ? " uses a Java-only @Pattern"
-                    : " needs one CLR pattern binding for each Java-only @Pattern"));
+                    : " needs one " + (profile == Profile.CSHARP ? "CLR" : "TypeScript")
+                        + " pattern binding for each Java-only @Pattern"));
         }
     }
 
@@ -511,11 +521,16 @@ public final class PortableCapabilities {
         for (int i = 0; i < arguments.size(); i++) {
             var argument = arguments.get(i);
             var parameter = parameters.get(i);
-            if (profile == Profile.CSHARP && parameter.isNumberBound()) {
+            if (parameter.isNumberBound()) {
                 if (!argument.isNumericScalar() && !isNumberParameter(owner, argument)) return false;
             } else if (profile == Profile.CSHARP && parameter.getBound() == null) {
                 if (!isScalarSlot(owner, argument) && !isImmutableType(model, argument)
                         && !supportsCSharpExternalType(model, argument)) return false;
+            } else if (profile == Profile.TYPESCRIPT && parameter.getBound() == null) {
+                // An immutable value can fill a scalar slot: a single value or an ordinary list.
+                if (!isScalarSlot(owner, argument) && !(isImmutableType(model, argument)
+                        && acceptsScalarParameter(parent, parameter.getName(), false))
+                        && !TypeScriptCapabilities.supportsExternalType(model, argument)) return false;
             } else if (argument.getModelType() == null) {
                 return false;
             }
@@ -542,6 +557,8 @@ public final class PortableCapabilities {
         for (var property : type.getProperties()) {
             var inherited = findProperty(parent, property.getName());
             if (inherited.isEmpty()) continue;
+            if (profile == Profile.TYPESCRIPT
+                    && supportsTypeScriptRedeclaration(model, type, parent, application, property, inherited.get())) continue;
             if (profile == Profile.CSHARP && type.isImmutable() && !type.isInterfaceOnly()
                     && parent.isGetterOnlyTrait() && inherited.get().isGetterOnly()
                     && sameScalarSlot(property, inherited.get())) continue;
@@ -562,6 +579,115 @@ public final class PortableCapabilities {
                             && supportsObjectGetter(model, parent, inherited.get())))) continue;
             diagnostics.add(type.getQualifiedName() + "." + property.getName() + " redeclares an inherited property");
         }
+    }
+
+    /**
+     * The redeclarations a TypeScript class hierarchy can represent: the same storage again (a scalar may change its
+     * literal default), a getter-only reference narrowed by a getter-only trait or by a subtype of an interface-only
+     * type, a getter-only reference that each implementation declares as its containment or container end, and on
+     * several supertypes the same inherited contract or a narrowed trait getter.
+     */
+    private static boolean supportsTypeScriptRedeclaration(ResolvedModel model, Type type, Type parent,
+                                                           ValueType application, Property property, Property inherited) {
+        if (type.isImmutable() && !type.isInterfaceOnly() && parent.isGetterOnlyTrait() && inherited.isGetterOnly()
+                && sameScalarSlot(property, inherited)) return true;
+        if (type.getSuperTypes().size() > 1) {
+            return PortableInheritance.sameInheritedContract(type, property, inherited, parent, application)
+                    || supportsCovariantTraitGetter(model, type, parent, property, inherited)
+                    || narrowsTypeScriptObjectGetter(model, property, inherited);
+        }
+        if (type.isInterfaceOnly() && property.isGetterOnly() != inherited.isGetterOnly()) return false;
+        if (sameScalarSlot(property, inherited) || PortableInheritance.sameStorageSlot(property, inherited, parent, application)) {
+            return true;
+        }
+        if (narrowsTypeScriptObjectGetter(model, property, inherited)) return true;
+        return supportsCovariantReference(model, type, parent, property, inherited)
+                || supportsRelationshipGetter(model, type, parent, property, inherited);
+    }
+
+    /**
+     * A getter-only untyped value (Object) of a mutable interface-only type that a subtype declares again as a single
+     * value or plain reference. The interface-only class leaves the getter abstract, so every implementation must
+     * declare the property itself.
+     */
+    private static boolean narrowsTypeScriptObjectGetter(ResolvedModel model, Property property, Property inherited) {
+        if (inherited.getKind() != Property.Kind.SCALAR || inherited.isCollection() || !inherited.isGetterOnly()
+                || !TypeScriptCapabilities.isUnboundObject(model, inherited.getValueType())
+                || property.isCollection() || !property.getWireName().equals(inherited.getWireName())
+                || !(property.getKind() == Property.Kind.SCALAR || property.getKind() == Property.Kind.REFERENCE
+                    && property.getOppositeName().isEmpty() && property.getValueType().getKind() == ValueType.Kind.MODEL)) {
+            return false;
+        }
+        Type owner = model.findType(inherited.getDeclaringType()).orElse(null);
+        if (owner == null || !owner.isInterfaceOnly() || owner.isImmutable()) return false;
+        return model.getTypes().stream().filter(candidate -> !candidate.isInterfaceOnly()
+                        && assignable(model, candidate, owner.getName()))
+                .allMatch(candidate -> findProperty(candidate, inherited.getName())
+                        .filter(declared -> !declared.getDeclaringType().equals(owner.getName())).isPresent());
+    }
+
+    /**
+     * The supertypes a TypeScript class implements besides its base class. The class declares their properties and
+     * their delegated methods itself; a method calls the behavior of the type that declares it, as in its base
+     * class. As in C#, a concrete supertype that is not on the base class chain contributes data only, or behavior as
+     * a bound behavior role: a type whose delegated methods all have bindings, alone or along its own base chain.
+     * Its construction hook runs only when the model selects that hook for the class, as in Java and C#.
+     */
+    private static void checkTypeScriptSecondaries(ResolvedModel model, Type type, List<String> diagnostics) {
+        var chain = new HashSet<String>();
+        for (Type base = typeScriptBase(model, type); base != null; base = typeScriptBase(model, base)) {
+            chain.add(base.getName());
+        }
+        var pending = new java.util.ArrayDeque<>(type.getSuperTypes());
+        var seen = new HashSet<String>();
+        while (!pending.isEmpty()) {
+            String name = pending.removeFirst();
+            if (chain.contains(name) || !seen.add(name)) continue;
+            var secondary = model.findType(name).orElse(null);
+            if (secondary == null) continue;
+            // An immutable value has no construction hook; its class declares the delegated methods it implements.
+            if (type.isImmutable() && secondary.isImmutable()) continue;
+            if (CSharpCapabilities.isBoundBehaviorRole(model, secondary)
+                    || CSharpCapabilities.hasBoundBehaviorBranches(model, secondary)) continue;
+            if (!secondary.isInterfaceOnly()
+                    && (!secondary.getEffectiveMethods().isEmpty() || secondary.getConstructionHook().isPresent())) {
+                diagnostics.add(type.getQualifiedName() + " needs a data-only secondary supertype or a bound behavior"
+                        + " role (delegated methods that all have bindings, from one binding along its base chain)"
+                        + " instead of " + secondary.getQualifiedName());
+            }
+            pending.addAll(secondary.getSuperTypes());
+        }
+    }
+
+    private static Set<String> ancestorsOf(ResolvedModel model, Type type) {
+        var ancestors = new java.util.LinkedHashSet<String>();
+        var pending = new java.util.ArrayDeque<>(type.getSuperTypes());
+        while (!pending.isEmpty()) {
+            String name = pending.removeFirst();
+            if (ancestors.add(name)) {
+                model.findType(name).ifPresent(parent -> pending.addAll(parent.getSuperTypes()));
+            }
+        }
+        return ancestors;
+    }
+
+    /** The base class of a TypeScript class, as the TypeScript generator chooses it. */
+    private static Type typeScriptBase(ResolvedModel model, Type type) {
+        Type firstInterfaceOnly = null;
+        for (String name : type.getSuperTypes()) {
+            Type parent = model.findType(name).orElse(null);
+            if (parent == null) continue;
+            if (type.isGetterOnlyTrait()) return parent;
+            if (parent.isGetterOnlyTrait()) continue;
+            if (type.isImmutable()) {
+                if (parent.isImmutable()) return parent;
+            } else if (!parent.isInterfaceOnly()) {
+                return parent;
+            } else if (firstInterfaceOnly == null) {
+                firstInterfaceOnly = parent;
+            }
+        }
+        return type.isImmutable() ? null : firstInterfaceOnly;
     }
 
     static boolean projectsRelationshipGetter(ResolvedModel model, Type owner, Property property) {
@@ -814,8 +940,8 @@ public final class PortableCapabilities {
                 diagnostics.add(name + " declares @SyncWith, which is inactive in the Java generator");
                 continue;
             }
-            if (profile == Profile.CSHARP && feature == Feature.MAP) continue;
-            if (profile == Profile.CSHARP && feature == Feature.KEYED) {
+            if (feature == Feature.MAP) continue;
+            if (feature == Feature.KEYED) {
                 var key = property.getEntryKey().orElseThrow().getValueType();
                 var element = property.getValueType();
                 boolean concreteEntry = element.getKind() == ValueType.Kind.MODEL && !containsTypeParameter(element);
@@ -836,12 +962,20 @@ public final class PortableCapabilities {
             }
             if ((executableDefault || collectionDefault || literalCollectionDefault || referenceDefault)
                     && feature == Feature.DEFAULT_VALUE) continue;
-            if (profile == Profile.TYPESCRIPT && feature == Feature.DEFAULT_VALUE
-                    && property.getKind() == Property.Kind.SCALAR && !property.isCollection()
-                    && property.getScalarDefault().isPresent()) continue;
-            if (profile == Profile.CSHARP && feature == Feature.VALUE_CONSTRAINT) continue;
+            if (profile == Profile.TYPESCRIPT && feature == Feature.DEFAULT_VALUE) {
+                if (!TypeScriptCapabilities.acceptsDefault(model, owner, property)) {
+                    diagnostics.add(TypeScriptCapabilities.unsupportedDefault(property, name));
+                }
+                continue;
+            }
+            // Both targets check declared value constraints; validatePatternBindings covers Java-only patterns.
+            if (feature == Feature.VALUE_CONSTRAINT) continue;
             if (feature == Feature.READ_ONLY && property.isSharedContainer()) continue;
             diagnostics.add(name + " uses " + feature.getDescription());
+        }
+
+        if (profile == Profile.TYPESCRIPT) {
+            TypeScriptCapabilities.validateDefault(property, name, diagnostics);
         }
 
         if (property.isGetterOnly() && !owner.isImmutable() && !owner.isInterfaceOnly()
@@ -863,19 +997,22 @@ public final class PortableCapabilities {
                 && (property.isCollection()
                     ? property.isOrdered() && !property.isUnique() && property.allowsNullElements()
                     : property.getLowerBound() == 0 && property.getUpperBound() == 1);
-        if (valueType.getKind() == ValueType.Kind.EXTERNAL && !external && !objectGetter && !objectValue
-                || (profile == Profile.TYPESCRIPT && !TYPESCRIPT_TYPES.contains(valueType.getKind()))) {
+        // TypeScript maps UUID, annotated host types and untyped Object values (see TypeScriptCapabilities).
+        boolean typescriptExternal = profile == Profile.TYPESCRIPT
+                && (TypeScriptCapabilities.supportsExternalProperty(model, property)
+                    || TypeScriptCapabilities.supportsObjectProperty(model, owner, property));
+        if (valueType.getKind() == ValueType.Kind.EXTERNAL && !external && !objectGetter && !objectValue && !typescriptExternal
+                || (profile == Profile.TYPESCRIPT && !TYPESCRIPT_TYPES.contains(valueType.getKind()) && !typescriptExternal)) {
             diagnostics.add(name + " has unsupported type " + valueType.getSourceType());
+        }
+        if (typescriptExternal) {
+            TypeScriptCapabilities.validateMapping(model, valueType, name, diagnostics);
         }
 
         switch (property.getKind()) {
             case SCALAR:
                 if (property.isCollection()) {
-                    if (profile == Profile.TYPESCRIPT) {
-                        if (!property.isOrdered() || property.isUnique()) {
-                            diagnostics.add(name + " needs an ordered scalar list");
-                        }
-                    } else if (!external && !objectValue && !isScalarSlot(owner, valueType)) {
+                    if (profile == Profile.CSHARP && !external && !objectValue && !isScalarSlot(owner, valueType)) {
                         diagnostics.add(name + " needs a concrete portable scalar element type");
                     }
                 } else if (!isSupportedSingularBound(property, profile)) {
@@ -883,48 +1020,34 @@ public final class PortableCapabilities {
                 }
                 break;
             case MAP:
-                if (profile == Profile.CSHARP
-                        && (!isScalarSlot(owner, property.getKeyType()) || !isScalarSlot(owner, valueType))) {
+                if (!isScalarSlot(owner, property.getKeyType()) || !isScalarSlot(owner, valueType)) {
                     diagnostics.add(name + " needs concrete portable scalar map key and value types");
                 }
                 break;
             case REFERENCE:
                 if (!isSupportedReference(property, profile)) {
-                    String forms = profile == Profile.CSHARP
-                            ? "a single-valued reference, an ordered reference sequence, or an identity reference set"
-                            : "a single-valued reference, an ordered reference list, or an unbounded unordered identity"
-                                + " reference set without an opposite";
-                    diagnostics.add(name + " needs " + forms);
-                }
-                // Immutable owners report unordered collections in checkTypeScriptImmutable.
-                if (profile == Profile.TYPESCRIPT && !owner.isImmutable() && property.isCollection()
-                        && !property.isOrdered()
-                        && (isImmutableType(model, valueType) || isGetterOnlyTrait(model, valueType))) {
-                    diagnostics.add(name + " needs an ordered list for immutable values");
+                    diagnostics.add(name + " needs a single-valued reference, an ordered reference sequence, or an identity"
+                            + " reference set");
                 }
                 if (!property.getOppositeName().isEmpty()) {
                     checkOpposite(model, owner, property, Property.Kind.REFERENCE, profile, name, diagnostics);
-                    if (profile == Profile.TYPESCRIPT
-                            && (isImmutableType(model, valueType) || isGetterOnlyTrait(model, valueType))) {
+                    // A getter-only trait can be the other end when every implementation is mutable: each one
+                    // declares the reciprocal reference itself.
+                    if (profile == Profile.TYPESCRIPT && (isImmutableType(model, valueType)
+                            || isGetterOnlyTrait(model, valueType) && !hasOnlyMutableImplementations(model, valueType))) {
                         diagnostics.add(name + " needs a mutable model type for a reference with an opposite");
                     }
                 }
                 break;
             case CONTAINMENT:
                 if (valueType.getModelType() == null || !isSupportedContainment(property, profile)) {
-                    String forms = profile == Profile.CSHARP
-                            ? "a single-valued containment, an ordered collection, or an identity set"
-                            : "a single-valued containment or an ordered collection of model objects";
-                    diagnostics.add(name + " needs " + forms);
+                    diagnostics.add(name + " needs a single-valued containment, an ordered collection, or an identity set");
                 }
                 if (isImmutableType(model, valueType)) {
                     diagnostics.add(name + " cannot contain an immutable value");
                 }
-                if (profile == Profile.TYPESCRIPT && isGetterOnlyTrait(model, valueType)) {
-                    diagnostics.add(name + " cannot use a getter-only trait as a containment target");
-                }
-                if (profile == Profile.CSHARP && isGetterOnlyTrait(model, valueType)
-                        && !supportsOwningGetterRole(model, property)) {
+                // A getter-only trait can own children when every implementation is mutable.
+                if (isGetterOnlyTrait(model, valueType) && !supportsOwningGetterRole(model, property)) {
                     diagnostics.add(name + " cannot use a getter-only trait as a containment target");
                 }
                 if (!property.getOppositeName().isEmpty()) {
@@ -932,10 +1055,9 @@ public final class PortableCapabilities {
                 }
                 break;
             case CONTAINER:
-                if (property.isCollection() || !isSupportedSingularBound(property, profile)
-                        || profile == Profile.TYPESCRIPT && property.getLowerBound() != 0) {
-                    diagnostics.add(name + " needs " + (profile == Profile.CSHARP
-                            ? "a single-valued container" : "an optional single-valued container"));
+                // A required container (lower bound 1) is reported by validation while the object is uncontained.
+                if (property.isCollection() || !isSupportedSingularBound(property, profile)) {
+                    diagnostics.add(name + " needs a single-valued container");
                 }
                 if (property.isSharedContainer()) {
                     if (valueType.getKind() != ValueType.Kind.MODEL || !valueType.getArguments().isEmpty()
@@ -979,6 +1101,12 @@ public final class PortableCapabilities {
                                 || annotation.getKey().equals("vmf:csharp:external-value-type")));
     }
 
+    private static boolean hasOnlyMutableImplementations(ResolvedModel model, ValueType type) {
+        var implementations = model.getTypes().stream().filter(candidate -> !candidate.isInterfaceOnly()
+                && assignable(model, candidate, type.getModelType())).collect(java.util.stream.Collectors.toList());
+        return !implementations.isEmpty() && implementations.stream().noneMatch(Type::isImmutable);
+    }
+
     private static boolean isImmutableType(ResolvedModel model, ValueType type) {
         return model.findType(type.getModelType()).filter(Type::isImmutable).isPresent();
     }
@@ -989,7 +1117,7 @@ public final class PortableCapabilities {
 
     private static boolean isSupportedContainment(Property property, Profile profile) {
         if (property.isCollection()) {
-            if (!property.isOrdered()) return profile == Profile.CSHARP && property.isUnique()
+            if (!property.isOrdered()) return property.isUnique()
                     && (property.getEntryKey().isEmpty() || property.getOppositeName().isEmpty());
             // A child has one container, so every ordered containment list holds each child once.
             return true;
@@ -998,7 +1126,8 @@ public final class PortableCapabilities {
     }
 
     private static boolean isSupportedSingularBound(Property property, Profile profile) {
-        return property.getUpperBound() == 1 || profile == Profile.CSHARP && property.getUpperBound() == 0;
+        // An upper bound of 0 is a validation rule: the value must stay unset.
+        return property.getUpperBound() == 1 || property.getUpperBound() == 0;
     }
 
     private static boolean isBoundKeyedEntry(ResolvedModel model, Type owner, Property property, ValueType key) {
@@ -1026,11 +1155,8 @@ public final class PortableCapabilities {
     private static boolean isSupportedReference(Property property, Profile profile) {
         if (property.getValueType().getModelType() == null) return false;
         if (!property.isCollection()) return isSupportedSingularBound(property, profile);
-        boolean opposite = !property.getOppositeName().isEmpty();
-        // TypeScript reference lists allow repeats unless an opposite keeps each member once.
-        if (property.isOrdered()) return profile == Profile.CSHARP || !property.isUnique() || opposite;
-        return property.isUnique() && (profile == Profile.CSHARP
-                || !opposite && property.getLowerBound() == 0 && property.getUpperBound() == -1);
+        // Ordered lists and sets, and unordered identity sets; bounds of model collections are validated only.
+        return property.isOrdered() || property.isUnique();
     }
 
     private static void checkOpposite(ResolvedModel model, Type owner, Property property,
@@ -1045,6 +1171,10 @@ public final class PortableCapabilities {
         }
         var target = model.findType(property.getValueType().getModelType());
         var opposite = target.flatMap(type -> findProperty(type, property.getOppositeName()));
+        if (opposite.isPresent() && oppositeKind == Property.Kind.CONTAINER
+                && isAlternateOwningField(owner, property, target.get(), opposite.get())) {
+            return;
+        }
         if (opposite.isEmpty() || !matchesTypeScriptOpposite(model, owner, property, opposite.get(), oppositeKind)) {
             diagnostics.add(name + " needs a matching reciprocal " + oppositeKind.name().toLowerCase(Locale.ROOT)
                     + " property on a local model type");
@@ -1053,46 +1183,54 @@ public final class PortableCapabilities {
 
     /** Properties that several supertypes provide must agree, because the class declares them once. */
     /**
-     * A TypeScript immutable class extends at most one immutable class and implements getter-only traits. Its
-     * values are scalars, ordered scalar lists, and immutable values or ordered lists of them.
+     * A TypeScript immutable class extends its first immutable supertype and implements the other immutable
+     * supertypes and getter-only traits. Its values are scalars, scalar collections and maps, and immutable values
+     * or collections of them.
      */
     private static void checkTypeScriptImmutable(ResolvedModel model, Type type, List<String> diagnostics) {
         String name = type.getQualifiedName();
-        boolean primary = false;
         for (String parentName : type.getSuperTypes()) {
             var parent = model.findType(parentName);
-            if (parent.isEmpty() || parent.get().isGetterOnlyTrait()) continue;
-            if (parent.get().isImmutable() && !parent.get().isInterfaceOnly() && !primary) {
-                primary = true;
+            if (parent.isEmpty()) continue;
+            if (parent.get().isGetterOnlyTrait()) {
+                // A TypeScript trait extends its first supertype; an immutable class can only implement traits
+                // whose supertypes are traits too (a generic interface-only type is not one).
+                for (String ancestor : ancestorsOf(model, parent.get())) {
+                    model.findType(ancestor).filter(candidate -> !candidate.isGetterOnlyTrait()).ifPresent(candidate ->
+                            diagnostics.add(name + " needs getter-only traits whose supertypes are getter-only traits, found "
+                                    + candidate.getQualifiedName()));
+                }
                 continue;
             }
-            diagnostics.add(name + " can extend one immutable type and getter-only traits, found "
+            if (parent.get().isImmutable() && !parent.get().isInterfaceOnly()) continue;
+            diagnostics.add(name + " can extend immutable types and getter-only traits, found "
                     + parent.get().getQualifiedName());
         }
         if (!type.getTypeParameters().isEmpty()) {
             diagnostics.add(name + " needs a nongeneric immutable type");
         }
-        for (var property : type.getEffectiveProperties()) {
-            if (property.getKind() == Property.Kind.REFERENCE && property.isCollection() && !property.isOrdered()) {
-                diagnostics.add(name + "." + property.getName() + " needs an ordered list on an immutable type");
-            }
-        }
     }
 
     private static void checkTypeScriptComposition(ResolvedModel model, Type type, List<String> diagnostics) {
-        var declarations = new java.util.LinkedHashMap<String, Property>();
+        var declarations = new java.util.LinkedHashMap<String, List<?>>();
         var conflicts = new java.util.TreeSet<String>();
-        for (String parent : type.getSuperTypes()) {
-            var parentType = model.findType(parent);
+        for (var application : type.getSuperTypeApplications()) {
+            var parentType = model.findType(application.getModelType());
             if (parentType.isEmpty()) continue;
             for (var property : parentType.get().getEffectiveProperties()) {
-                var previous = declarations.putIfAbsent(property.getName(), property);
-                if (previous != null && (previous.getKind() != property.getKind()
-                        || previous.isCollection() != property.isCollection()
-                        || !previous.getWireName().equals(property.getWireName())
-                        || !previous.getOppositeName().equals(property.getOppositeName())
-                        || !String.valueOf(previous.getValueType().getSourceType())
-                            .equals(String.valueOf(property.getValueType().getSourceType())))) {
+                // The declaration as this type inherits it, with the supertype's arguments applied.
+                List<?> declaration = java.util.Arrays.asList(property.getKind(), property.isCollection(), property.isOrdered(),
+                        property.isUnique(), property.getWireName(), property.getOppositeName(),
+                        PortableInheritance.boundTypeKey(parentType.get(), application, property.getValueType()));
+                var previous = declarations.putIfAbsent(property.getName(), declaration);
+                // A property the type declares again is checked against each supertype in checkOverrides. A plain
+                // reference list of the first supertype can become the keyed containment that the others declare.
+                boolean redeclared = type.getProperties().stream()
+                        .anyMatch(own -> own.getName().equals(property.getName()));
+                boolean promoted = type.getEffectiveProperties().stream()
+                        .filter(effective -> effective.getName().equals(property.getName())).findFirst()
+                        .filter(effective -> PortableInheritance.promotesKeyedSequence(model, type, effective)).isPresent();
+                if (previous != null && !redeclared && !promoted && !previous.equals(declaration)) {
                     conflicts.add(property.getName());
                 }
             }
@@ -1109,7 +1247,12 @@ public final class PortableCapabilities {
         if (opposite.getKind() != oppositeKind) return false;
         boolean named = property.getName().equals(opposite.getOppositeName())
                 || oppositeKind == Property.Kind.CONTAINER && opposite.isSharedContainer();
-        return named && assignable(model, owner, opposite.getValueType().getModelType());
+        String accepted = opposite.getValueType().getModelType();
+        // An interface-only owner can declare the end for subtypes that the opposite accepts.
+        return named && (assignable(model, owner, accepted) || owner.isInterfaceOnly()
+                && model.getTypes().stream().filter(candidate -> !candidate.isInterfaceOnly()
+                        && assignable(model, candidate, owner.getName()))
+                        .allMatch(candidate -> assignable(model, candidate, accepted)));
     }
 
     private static boolean hasSupportedOpposite(ResolvedModel model, Type owner, Property property,

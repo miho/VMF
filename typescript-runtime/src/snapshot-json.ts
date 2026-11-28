@@ -1,17 +1,34 @@
 import {
     idField,
     type ModelConstructor,
+    type ScalarType,
     SnapshotRegistry,
     type SnapshotProperty,
     type SnapshotType,
     typeField,
 } from "./snapshot-registry.js";
+import { canonicalUuid, type ExternalCodec, fromWire, toWire, type WireValue } from "./json-values.js";
 import { childPath, JsonNumber, type JsonValue, parseJson, requireValidText } from "./wire-json.js";
 
-type ScalarProperty = Extract<SnapshotProperty, { kind: "scalar" | "scalarList" }>;
+/** The type of a scalar value: a scalar property, the elements of a scalar list or set, or a map's keys or values. */
+interface ScalarSpec {
+    readonly scalarType: ScalarType;
+    readonly nullable?: boolean;
+    /** The allowed values of an enum-like string type. */
+    readonly literals?: readonly string[];
+    /** The codec of an "external" scalar type. */
+    readonly codec?: () => ExternalCodec<unknown>;
+}
+
 type Scalar = string | number | boolean | bigint;
-type Encoded = Scalar | Encoded[] | { [key: string]: Encoded };
+type Encoded = Scalar | null | WireValue | Encoded[] | { [key: string]: Encoded } | EncodedFields;
 const snapshotFields = new Set([typeField, idField]);
+
+/** A JSON object whose fields keep their order, also for names that look like array indices (map keys). */
+class EncodedFields {
+    constructor(readonly fields: readonly (readonly [string, Encoded])[]) {
+    }
+}
 
 interface Definition {
     readonly instance: object;
@@ -27,13 +44,14 @@ class ImmutableValue {
 }
 
 type Field =
-    | { name: string; kind: "scalar"; value: Scalar }
+    | { name: string; kind: "scalar"; value: Encoded }
     | { name: string; kind: "containment"; value: Definition }
     | { name: string; kind: "containmentList"; value: Definition[] }
     | { name: string; kind: "reference"; value: object }
     | { name: string; kind: "value"; value: Definition }
-    | { name: string; kind: "referenceSet"; value: object[] }
-    | { name: string; kind: "scalarList"; value: (Scalar | null)[] }
+    | { name: string; kind: "referenceSet"; value: (object | ImmutableValue)[] }
+    | { name: string; kind: "scalarList"; value: Encoded[] }
+    | { name: string; kind: "scalarMap"; value: { textKeys: boolean; entries: [Scalar, Scalar | null][] } }
     | { name: string; kind: "referenceList"; value: (object | ImmutableValue)[] };
 
 const minInt64 = -(2n ** 63n);
@@ -51,6 +69,8 @@ interface PendingReference {
     readonly path: string;
     readonly type: ModelConstructor<object>;
     readonly assign: (target: object) => void;
+    /** Marks a deferred attachment of a keyed entry (`value`) after all references are resolved. */
+    readonly attach?: true;
 }
 
 /**
@@ -130,7 +150,8 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
         const fieldPath = childPath(path, name);
         const value = property.get(instance);
         switch (property.kind) {
-            case "scalarList": {
+            case "scalarList":
+            case "scalarSet": {
                 const items = [...(value as Iterable<unknown>)].map((item, index) => {
                     const itemPath = childPath(fieldPath, index);
                     if (item === null || item === undefined) {
@@ -139,9 +160,20 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                         }
                         return null;
                     }
-                    return requireScalar(item, property, itemPath);
+                    return writeScalar(item, property, itemPath);
                 });
-                fields.push({ name, kind: property.kind, value: items });
+                fields.push({ name, kind: "scalarList", value: items });
+                break;
+            }
+            case "scalarMap": {
+                const keySpec = { scalarType: property.keyType, nullable: false };
+                const entries = [...(value as Iterable<[unknown, unknown]>)].map(([key, entry], index): [Scalar, Scalar | null] => {
+                    const entryPath = childPath(fieldPath, index);
+                    return [requireScalar(key, keySpec, childPath(entryPath, "key")),
+                        entry === null || entry === undefined ? null
+                            : requireScalar(entry, property, childPath(entryPath, "value"))];
+                });
+                fields.push({ name, kind: "scalarMap", value: { textKeys: property.keyType === "string", entries } });
                 break;
             }
             case "referenceList": {
@@ -152,7 +184,8 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                 if (mutable && !omit) {
                     requireReferences(references, fieldPath);
                 }
-                if (references || (!mutable && members.length > 0)) {
+                // An empty collection with a declared default is written, so that readers do not restore the default.
+                if (references || (!mutable && (members.length > 0 || property.hasDefault === true))) {
                     fields.push({ name, kind: property.kind, value: members.map((member, index) => {
                         const memberPath = childPath(fieldPath, index);
                         if (isImmutable(member, registry, memberPath)) {
@@ -170,8 +203,11 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                     if (!allowsNull(property)) {
                         throw invalid(fieldPath, `Expected a JSON value of type '${property.scalarType}'`);
                     }
+                    if (property.writeNull === true) {
+                        fields.push({ name, kind: property.kind, value: null });
+                    }
                 } else {
-                    fields.push({ name, kind: property.kind, value: requireScalar(value, property, fieldPath) });
+                    fields.push({ name, kind: property.kind, value: writeScalar(value, property, fieldPath) });
                 }
                 break;
             case "containment":
@@ -181,11 +217,12 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                         modelType, fieldPath, registry, references, contained, uses, omit) });
                 }
                 break;
-            case "containmentList": {
+            case "containmentList":
+            case "containmentSet": {
                 const modelType = property.modelType();
                 const children = readMembers(value, modelType, fieldPath).map((member, index) =>
                     capture(member, modelType, childPath(fieldPath, index), registry, references, contained, uses, omit));
-                fields.push({ name, kind: property.kind, value: children });
+                fields.push({ name, kind: "containmentList", value: children });
                 break;
             }
             case "reference":
@@ -205,13 +242,24 @@ function capture(instance: object, expectedType: ModelConstructor<object>, path:
                 }
                 break;
             case "referenceSet": {
-                const members = readMembers(value, property.modelType(), fieldPath);
-                if (members.length > 0 && !omit) {
+                // Immutable members are values, written in place in every mode; mutable members need ids.
+                const modelType = property.modelType();
+                const members = readMembers(value, modelType, fieldPath);
+                const mutable = members.some(member => !isImmutable(member, registry, fieldPath));
+                if (mutable && !omit) {
                     requireReferences(references, fieldPath);
                 }
-                if (references) {
-                    members.forEach((target, index) => uses.push({ target, path: childPath(fieldPath, index) }));
-                    fields.push({ name, kind: property.kind, value: members });
+                // An empty collection with a declared default is written, so that readers do not restore the default.
+                if (references || (!mutable && (members.length > 0 || property.hasDefault === true))) {
+                    fields.push({ name, kind: property.kind, value: members.map((member, index) => {
+                        const memberPath = childPath(fieldPath, index);
+                        if (isImmutable(member, registry, memberPath)) {
+                            return new ImmutableValue(capture(member, modelType, memberPath, registry, references,
+                                contained, uses, omit));
+                        }
+                        uses.push({ target: member, path: memberPath });
+                        return member;
+                    }) });
                 }
                 break;
             }
@@ -265,10 +313,19 @@ function encode(node: Definition, registry: SnapshotRegistry, references: boolea
                 result[name] = encode(value, registry, references, ids);
                 break;
             case "referenceSet":
-                result[name] = value.map(member => ids.get(member)!).sort((left, right) => left - right).map(String);
+                // Members by ascending id; a set of immutable values keeps its iteration order.
+                result[name] = value.some(member => member instanceof ImmutableValue)
+                    ? value.map(member => member instanceof ImmutableValue
+                        ? encode(member.definition, registry, references, ids) : String(ids.get(member)!))
+                    : value.map(member => ids.get(member)!).sort((left, right) => left - right).map(String);
                 break;
             case "scalarList":
                 result[name] = value as Encoded[];
+                break;
+            case "scalarMap":
+                result[name] = value.textKeys
+                    ? new EncodedFields(value.entries.map(([key, entry]) => [key as string, entry] as const))
+                    : value.entries.map(([key, entry]) => new EncodedFields([["key", key], ["value", entry]]));
                 break;
             case "referenceList":
                 result[name] = value.map(member => member instanceof ImmutableValue
@@ -289,7 +346,14 @@ function read<T extends object>(json: string, rootType: ModelConstructor<T>, reg
     const root = decode(parseJson(json, references ? undefined : snapshotFields),
         rootType, "$", registry, references, ids, pending) as T;
     const resolved = pending.map(reference => resolveReference(reference, ids));
-    pending.forEach((reference, index) => reference.assign(resolved[index]));
+    // Entries keyed by a model reference are attached once their keys are resolved.
+    const keyed = pending.filter(reference => reference.attach !== undefined);
+    pending.forEach((reference, index) => {
+        if (reference.attach === undefined) {
+            reference.assign(resolved[index]);
+        }
+    });
+    keyed.forEach(reference => reference.assign(reference.value!));
     return root;
 }
 
@@ -331,10 +395,19 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
             continue;
         }
         const fieldPath = childPath(path, property.wireName);
+        if ("hasDefault" in property && property.hasDefault === true) {
+            clearDefault(property, result);
+        }
         switch (property.kind) {
             case "scalarList":
                 array(value, fieldPath).forEach((item, index) =>
-                    property.add(result, readScalar(item, property, childPath(fieldPath, index))));
+                    property.add(result, readValue(item, property, childPath(fieldPath, index))));
+                break;
+            case "scalarSet":
+                readSet(value, property, fieldPath).forEach(member => property.add(result, member));
+                break;
+            case "scalarMap":
+                readMap(value, property, fieldPath).forEach(([key, entry]) => property.put(result, key, entry));
                 break;
             case "referenceList": {
                 const modelType = property.modelType();
@@ -352,16 +425,25 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
                 break;
             }
             case "scalar":
-                property.set(result, readScalar(value, property, fieldPath));
+                property.set(result, readValue(value, property, fieldPath));
                 break;
             case "containment":
                 property.set(result, value === null ? null
                     : decode(value, property.modelType(), fieldPath, registry, references, ids, pending));
                 break;
-            case "containmentList": {
+            case "containmentList":
+            case "containmentSet": {
                 const modelType = property.modelType();
-                array(value, fieldPath).forEach((member, index) => property.add(result,
-                    decode(member, modelType, childPath(fieldPath, index), registry, references, ids, pending)));
+                array(value, fieldPath).forEach((member, index) => {
+                    const memberPath = childPath(fieldPath, index);
+                    const child = decode(member, modelType, memberPath, registry, references, ids, pending);
+                    if (property.keyedByReference === true) {
+                        pending.push({ value: child, path: memberPath, type: modelType, attach: true,
+                            assign: target => property.add(result, target) });
+                    } else {
+                        property.add(result, child);
+                    }
+                });
                 break;
             }
             case "reference":
@@ -377,26 +459,34 @@ function decode(node: JsonValue, expectedType: ModelConstructor<object>, path: s
                 }
                 break;
             case "referenceSet": {
-                const members = array(value, fieldPath);
-                if (members.length > 0) {
-                    requireReferences(references, fieldPath);
-                }
                 const seen = new Set<string>();
                 const modelType = property.modelType();
-                members.forEach((member, index) => {
+                array(value, fieldPath).forEach((member, index) => {
                     const memberPath = childPath(fieldPath, index);
+                    const assign = (target: object): void => property.add(result, target);
+                    if (member instanceof Map) {
+                        pending.push({ value: readImmutable(member, modelType, memberPath, registry, references, ids,
+                            pending), path: memberPath, type: modelType, assign });
+                        return;
+                    }
+                    requireReferences(references, fieldPath);
                     const id = readId(member, memberPath);
                     if (seen.has(id)) {
                         throw invalid(memberPath, `Duplicate reference identity '${id}'`);
                     }
                     seen.add(id);
-                    pending.push({ id, path: memberPath, type: modelType, assign: target => property.add(result, target) });
+                    pending.push({ id, path: memberPath, type: modelType, assign });
                 });
                 break;
             }
         }
     }
     return result;
+}
+
+/** Removes the declared default of a new object's collection, which a field in the document replaces. */
+function clearDefault(property: SnapshotProperty, owner: object): void {
+    (property.get(owner) as { clear(): void }).clear();
 }
 
 /** Reads an immutable object from its values; it has no identity and holds no containment. */
@@ -418,17 +508,24 @@ function decodeImmutable(node: Map<string, JsonValue>, type: SnapshotType, path:
         const name = property.name ?? property.wireName;
         switch (property.kind) {
             case "scalar":
-                values[name] = readScalar(value, property, fieldPath);
+                values[name] = readValue(value, property, fieldPath);
                 break;
             case "scalarList":
                 values[name] = array(value, fieldPath).map((item, index) =>
-                    readScalar(item, property, childPath(fieldPath, index)));
+                    readValue(item, property, childPath(fieldPath, index)));
+                break;
+            case "scalarSet":
+                values[name] = readSet(value, property, fieldPath);
+                break;
+            case "scalarMap":
+                values[name] = readMap(value, property, fieldPath);
                 break;
             case "reference":
                 values[name] = value === null ? null
                     : readImmutable(value, property.modelType(), fieldPath, registry, references, ids, pending);
                 break;
             case "referenceList":
+            case "referenceSet":
                 values[name] = array(value, fieldPath).map((item, index) => readImmutable(item, property.modelType(),
                     childPath(fieldPath, index), registry, references, ids, pending));
                 break;
@@ -479,6 +576,50 @@ function array(value: JsonValue, path: string): JsonValue[] {
     return value;
 }
 
+/** The members of a scalar set; null and repeated members are rejected. */
+function readSet(value: JsonValue, property: ScalarSpec, path: string): Scalar[] {
+    const members: Scalar[] = [];
+    array(value, path).forEach((item, index) => {
+        const itemPath = childPath(path, index);
+        const member = readScalar(item, { scalarType: property.scalarType, nullable: false }, itemPath)!;
+        if (members.some(other => other === member)) {
+            throw invalid(itemPath, "Duplicate value in scalar set");
+        }
+        members.push(member);
+    });
+    return members;
+}
+
+/**
+ * The entries of a scalar map in document order: a JSON object for string keys, otherwise an array of
+ * `{"key": ..., "value": ...}` objects. Null and repeated keys are rejected; values may be null.
+ */
+function readMap(value: JsonValue, property: Extract<SnapshotProperty, { kind: "scalarMap" }>,
+                 path: string): [Scalar, Scalar | null][] {
+    const keySpec = { scalarType: property.keyType, nullable: false };
+    const valueSpec = { scalarType: property.scalarType, nullable: true };
+    const entries: [Scalar, Scalar | null][] = [];
+    if (property.keyType === "string") {
+        if (!(value instanceof Map)) {
+            throw invalid(path, "Expected a JSON object for a map with string keys");
+        }
+        value.forEach((entry, key) => entries.push([key, readScalar(entry, valueSpec, childPath(path, key))]));
+        return entries;
+    }
+    array(value, path).forEach((item, index) => {
+        const entryPath = childPath(path, index);
+        if (!(item instanceof Map) || item.size !== 2 || !item.has("key") || !item.has("value")) {
+            throw invalid(entryPath, "Expected a map entry with a key and a value");
+        }
+        const key = readScalar(item.get("key")!, keySpec, childPath(entryPath, "key"))!;
+        if (entries.some(([other]) => other === key)) {
+            throw invalid(childPath(entryPath, "key"), "Duplicate map key");
+        }
+        entries.push([key, readScalar(item.get("value")!, valueSpec, childPath(entryPath, "value"))]);
+    });
+    return entries;
+}
+
 function readId(value: JsonValue, path: string): string {
     if (typeof value === "string" && value.length > 0) {
         return value;
@@ -489,18 +630,47 @@ function readId(value: JsonValue, path: string): string {
     throw invalid(path, "Expected a non-empty string or integer VMF ID");
 }
 
+const integralRanges = { int8: [-128, 127], int16: [-32768, 32767], int32: [-2147483648, 2147483647] } as const;
+const maxFloat32 = 3.4028234663852886e38;
+
+function isIntegral(type: string): type is keyof typeof integralRanges {
+    return type === "int8" || type === "int16" || type === "int32";
+}
+
 function isIntegerToken(text: string): boolean {
     return /^-?[0-9]+$/.test(text);
 }
 
-function readScalar(value: JsonValue, property: ScalarProperty, path: string): Scalar | null {
+/** A value of a scalar property or list read from a document, including untyped and external values. */
+function readValue(value: JsonValue, property: ScalarSpec, path: string): unknown {
     if (value === null && allowsNull(property)) {
         return null;
     }
-    if (property.scalarType === "int32" && value instanceof JsonNumber && isIntegerToken(value.text)) {
+    switch (property.scalarType) {
+        case "object":
+            return fromWire(value, path);
+        case "external": {
+            const codec = property.codec!();
+            const json = fromWire(value, path);
+            try {
+                return codec.read(json);
+            } catch (error) {
+                throw invalid(path, `Could not read the external value (${describe(error)})`);
+            }
+        }
+        default:
+            return readScalar(value, property, path);
+    }
+}
+
+function readScalar(value: JsonValue, property: ScalarSpec, path: string): Scalar | null {
+    if (value === null && allowsNull(property)) {
+        return null;
+    }
+    if (isIntegral(property.scalarType) && value instanceof JsonNumber && isIntegerToken(value.text)) {
         return requireScalar(Number(value.text), property, path);
     }
-    if (property.scalarType === "float64" && value instanceof JsonNumber) {
+    if ((property.scalarType === "float64" || property.scalarType === "float32") && value instanceof JsonNumber) {
         return requireScalar(Number(value.text), property, path);
     }
     if (property.scalarType === "int64" && value instanceof JsonNumber && isIntegerToken(value.text)) {
@@ -509,19 +679,59 @@ function readScalar(value: JsonValue, property: ScalarProperty, path: string): S
     return requireScalar(value, property, path);
 }
 
-function requireScalar(value: unknown, property: ScalarProperty, path: string): Scalar {
+/** The document form of a non-null scalar value, including untyped and external values. */
+function writeScalar(value: unknown, property: ScalarSpec, path: string): Encoded {
+    switch (property.scalarType) {
+        case "object":
+            return toWire(value, path);
+        case "external": {
+            const codec = property.codec!();
+            let json: unknown;
+            try {
+                json = codec.write(value);
+            } catch (error) {
+                throw invalid(path, `Could not write the external value (${describe(error)})`);
+            }
+            if (json === null || json === undefined) {
+                throw invalid(path, "An external codec must write a JSON value other than null");
+            }
+            return toWire(json, path);
+        }
+        default:
+            return requireScalar(value, property, path);
+    }
+}
+
+function requireScalar(value: unknown, property: ScalarSpec, path: string): Scalar {
     if (property.scalarType === "string" && typeof value === "string") {
         requireValidText(value, path);
+        if (property.literals !== undefined && !property.literals.includes(value)) {
+            throw invalid(path, `Expected one of ${property.literals.map(literal => JSON.stringify(literal)).join(", ")}`);
+        }
         return value;
+    }
+    if (property.scalarType === "uuid" && typeof value === "string") {
+        try {
+            return canonicalUuid(value)!;
+        } catch {
+            throw invalid(path, "Expected a UUID of 8-4-4-4-12 hexadecimal digits");
+        }
     }
     if (property.scalarType === "boolean" && typeof value === "boolean") {
         return value;
     }
-    if (property.scalarType === "int32" && typeof value === "number" && Number.isInteger(value)
-        && value >= -2147483648 && value <= 2147483647) {
+    if (isIntegral(property.scalarType) && typeof value === "number" && Number.isInteger(value)
+        && value >= integralRanges[property.scalarType][0] && value <= integralRanges[property.scalarType][1]) {
         return value === 0 ? 0 : value;
     }
     if (property.scalarType === "float64" && typeof value === "number" && Number.isFinite(value)) {
+        return value;
+    }
+    if (property.scalarType === "float32" && typeof value === "number" && Number.isFinite(value)
+        && Math.abs(value) <= maxFloat32) {
+        return value;
+    }
+    if (property.scalarType === "char" && typeof value === "string" && value.length === 1) {
         return value;
     }
     if (property.scalarType === "int64" && typeof value === "bigint" && value >= minInt64 && value <= maxInt64) {
@@ -530,8 +740,12 @@ function requireScalar(value: unknown, property: ScalarProperty, path: string): 
     throw invalid(path, `Expected a JSON value of type '${property.scalarType}'`);
 }
 
-function allowsNull(property: ScalarProperty): boolean {
+function allowsNull(property: ScalarSpec): boolean {
     return property.nullable ?? property.scalarType === "string";
+}
+
+function describe(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
 }
 
 function requireReferences(references: boolean, path: string): void {
@@ -559,6 +773,12 @@ function nativeType(value: object, path: string): ModelConstructor<object> {
 function stringify(value: Encoded): string {
     if (typeof value === "bigint") {
         return value.toString();
+    }
+    if (value instanceof JsonNumber) {
+        return value.text;
+    }
+    if (value instanceof EncodedFields) {
+        return "{" + value.fields.map(([key, member]) => JSON.stringify(key) + ":" + stringify(member)).join(",") + "}";
     }
     if (Array.isArray(value)) {
         return "[" + value.map(stringify).join(",") + "]";

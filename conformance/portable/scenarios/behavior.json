@@ -1,0 +1,140 @@
+{
+  "model": "delegation",
+  "scenarios": [
+    {
+      "id": "calls-receive-the-object-and-arguments",
+      "from": "parentcontainment01 CodeEntity.root, vflow VFlow.connect",
+      "requires": ["behavior"],
+      "rules": ["B1"],
+      "steps": [
+        {"new": "c", "type": "Counter"},
+        {"set": "c.start", "value": 13},
+        {"call": "c.add", "args": [2], "result": 15},
+        {"call": "c.label", "args": ["x"], "result": "x:hooked"},
+        {"call": "c.sum", "args": [1, 2, 3], "result": 6},
+        {"call": "c.sum", "args": [], "result": 0},
+        {"new": "d", "type": "Counter", "with": {"start": 20}},
+        {"call": "c.larger", "args": [{"obj": "d"}], "resultObj": "d"},
+        {"call": "d.larger", "args": [{"obj": "c"}], "resultObj": "d"},
+        {"call": "c.larger", "args": [null], "resultObj": "c"},
+        {"call": "c.reset"},
+        {"check": "c.start", "value": 0}
+      ]
+    },
+    {
+      "id": "default-behavior-per-object",
+      "requires": ["behavior"],
+      "rules": ["B2"],
+      "steps": [
+        {"new": "a", "type": "Counter"},
+        {"new": "b", "type": "Counter"},
+        {"call": "a.add", "args": [1], "result": 6},
+        {"call": "a.add", "args": [2], "result": 7},
+        {"call": "a.calls", "result": 2},
+        {"call": "b.calls", "result": 0}
+      ]
+    },
+    {
+      "id": "construction-hook-runs-before-declared-defaults",
+      "from": "C# BehaviorTests.NativeSignaturesAndConstructorHookUseTheTypedModel",
+      "requires": ["behavior"],
+      "rules": ["B3", "T2"],
+      "steps": [
+        {"new": "c", "type": "Counter"},
+        {"check": "c.start", "value": 5},
+        {"check": "c.note", "value": "hooked"},
+        {"call": "c.startSeenByHook", "result": 0},
+        {"new": "built", "type": "Counter", "with": {"start": 8}},
+        {"check": "built.start", "value": 8},
+        {"call": "built.startSeenByHook", "result": 0}
+      ]
+    },
+    {
+      "id": "construction-hook-runs-once-per-new-object",
+      "requires": ["behavior", "json"],
+      "rules": ["B3", "Q3", "J4"],
+      "steps": [
+        {"new": "c", "type": "Counter"},
+        {"call": "c.hooksSince", "result": 0},
+        {"new": "other", "type": "Counter"},
+        {"call": "c.hooksSince", "result": 1},
+        {"copy": "c", "as": "copy"},
+        {"call": "c.hooksSince", "result": 2},
+        {"call": "copy.hooksSince", "result": 0},
+        {"write": "c", "as": "d", "plain": true},
+        {"read": "d", "type": "Counter", "as": "read", "plain": true},
+        {"call": "c.hooksSince", "result": 3},
+        {"call": "read.hooksSince", "result": 0},
+        {"check": "read.start", "value": 5},
+        {"check": "read.note", "value": "hooked"}
+      ]
+    },
+    {
+      "id": "replaced-behavior",
+      "from": "C# BehaviorTests.PerInstanceReplacementAffectsNativeEditsAndResetsOnCopyAndInterchange",
+      "requires": ["behavior"],
+      "rules": ["B4", "B1"],
+      "steps": [
+        {"new": "a", "type": "Counter"},
+        {"new": "b", "type": "Counter"},
+        {"call": "a.add", "args": [2], "result": 7},
+        {"replaceBehavior": "a", "with": "AlternativeCounter"},
+        {"call": "a.add", "args": [2], "result": 200},
+        {"call": "a.label", "args": ["p"], "result": "p@5"},
+        {"call": "a.sum", "args": [4, 4, 4], "result": 3},
+        {"call": "a.reset"},
+        {"check": "a.start", "value": -1},
+        {"call": "b.add", "args": [2], "result": 7},
+        {"call": "b.calls", "result": 1}
+      ]
+    },
+    {
+      "id": "copies-and-documents-use-the-default-behavior",
+      "requires": ["behavior", "json"],
+      "rules": ["B4", "Q3", "J4"],
+      "steps": [
+        {"new": "a", "type": "Counter", "with": {"start": 13}},
+        {"replaceBehavior": "a", "with": "AlternativeCounter"},
+        {"copy": "a", "as": "copy"},
+        {"call": "copy.add", "args": [2], "result": 15},
+        {"call": "a.add", "args": [2], "result": 200},
+        {"write": "a", "as": "d"},
+        {"read": "d", "type": "Counter", "as": "read"},
+        {"call": "read.add", "args": [2], "result": 15}
+      ]
+    },
+    {
+      "id": "inherited-and-rebound-methods",
+      "from": "delegationinherit DeviceDelegate and CircuitDeviceDelegate",
+      "requires": ["behavior"],
+      "rules": ["B5"],
+      "steps": [
+        {"new": "s", "type": "Square", "with": {"name": "a", "side": 2}},
+        {"call": "s.describe", "result": "shape a"},
+        {"new": "t", "type": "Tile", "with": {"name": "b"}},
+        {"call": "t.describe", "result": "tile b"},
+        {"instanceOf": "t", "type": "Shape"}
+      ]
+    },
+    {
+      "id": "one-construction-hook-the-own-or-the-first-inherited",
+      "from": "Java Implementation: one constructor delegation per type, its own before its supertypes'",
+      "requires": ["behavior"],
+      "rules": ["B3"],
+      "steps": [
+        {"new": "f", "type": "FirstHooked"},
+        {"check": "f.origin", "value": "first"},
+        {"new": "s", "type": "SecondHooked"},
+        {"check": "s.origin", "value": "second"},
+        {"new": "b", "type": "BothHooked"},
+        {"check": "b.origin", "value": "first"},
+        {"call": "b.firstRole", "result": "first role"},
+        {"call": "b.secondRole", "result": "second role"},
+        {"new": "o", "type": "OwnHooked"},
+        {"check": "o.origin", "value": "own"},
+        {"copy": "b", "as": "copy"},
+        {"check": "copy.origin", "value": "first"}
+      ]
+    }
+  ]
+}

@@ -50,10 +50,12 @@ import eu.mihosoft.vmf.core.*;
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.complex.devcom")
 @eu.mihosoft.vmf.core.Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmftest.Complex.Devcom.Host.StopBits")
+@eu.mihosoft.vmf.core.Annotation(key = "vmf:typescript:external-type", value = "\"ONE_STOP_BIT\" | \"TWO_STOP_BITS\"")
 interface StopBits {}
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.complex.devcom")
 @eu.mihosoft.vmf.core.Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmftest.Complex.Devcom.Host.ParityBits")
+@eu.mihosoft.vmf.core.Annotation(key = "vmf:typescript:external-type", value = "\"NO_PARITY\" | \"EVEN_PARITY\" | \"ODD_PARITY\" | \"MARK_PARITY\" | \"SPACE_PARITY\"")
 interface ParityBits {}
 
 @InterfaceOnly
@@ -165,6 +167,7 @@ interface PortEvent {
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.complex.devcom.Device")
 @eu.mihosoft.vmf.core.Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmftest.Complex.Devcom.Host.State")
+@eu.mihosoft.vmf.core.Annotation(key = "vmf:typescript:external-type", value = "\"DISCONNECTED\" | \"CONNECTING\" | \"CONNECTED\" | \"DISCONNECTING\" | \"ERROR\"")
 interface State {
 
 }

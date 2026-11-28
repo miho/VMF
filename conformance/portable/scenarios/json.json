@@ -217,6 +217,24 @@
         {"read": {"json": {"sections": [{"items": [{"@vmf-type": "tool", "@vmf-id": "1", "name": "a"},
           {"@vmf-type": "tool", "@vmf-id": "1", "name": "b"}]}]}}, "type": "Catalog", "as": "c", "fails": true}
       ]
+    },
+    {"id": "small-numbers-and-characters-in-documents", "model": "scalars", "requires": ["json"], "rules": ["J1", "T6"], "steps": [{"new": "s", "type": "Scalars", "with": {"tiny": -7, "small": 300, "single": 2.5, "letter": "\u00e9", "optionalSingle": -0.75, "optionalLetter": "\u2713", "smalls": [1, -2], "singles": [0.125], "letters": ["x", "y"]}}, {"write": "s", "as": "d"}, {"document": "d", "is": {"tiny": -7, "small": 300, "single": 2.5, "letter": "\u00e9", "optionalSingle": -0.75, "optionalLetter": "\u2713", "smalls": [1, -2], "singles": [0.125], "letters": ["x", "y"]}}, {"read": "d", "type": "Scalars", "as": "copy"}, {"equal": ["s", "copy"]}, {"check": "copy.letter", "value": "\u00e9"}, {"check": "copy.single", "value": 2.5}, {"check": "copy.letters", "values": ["x", "y"]}]},
+    {
+      "id": "cleared-default-is-written-as-null",
+      "model": "values",
+      "requires": ["json"],
+      "rules": ["J1", "J4", "T2"],
+      "steps": [
+        {"new": "w", "type": "WithDefaultValues"},
+        {"set": "w.name", "value": null},
+        {"write": "w", "as": "d"},
+        {"document": "d", "is": {"visible": true, "name": null, "answer": 42}},
+        {"read": "d", "type": "WithDefaultValues", "as": "copy"},
+        {"check": "copy.name", "value": null},
+        {"equal": ["w", "copy"]},
+        {"read": {"json": {"visible": true, "answer": 42}}, "type": "WithDefaultValues", "as": "defaulted"},
+        {"check": "defaulted.name", "value": "my name"}
+      ]
     }
   ]
 }

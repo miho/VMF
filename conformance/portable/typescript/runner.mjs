@@ -7,7 +7,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import * as vmf from "@vmf/runtime";
 
 const TARGET = "typescript";
-const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "identity-equality", "json"]);
+const CAPABILITIES = new Set(["core", "views", "events", "history", "reflection", "identity-equality", "json",
+    "validation", "collections", "externals", "behavior"]);
 /** Modules that do not apply to the language, with the reason. */
 const NOT_APPLICABLE = new Map([
     ["equality-modes", "JavaScript compares objects by identity only (===, Map, Set); TypeScript follows N3"],
@@ -15,21 +16,31 @@ const NOT_APPLICABLE = new Map([
 const OPERATIONS = ["new", "set", "add", "insert", "remove", "clear", "check", "let", "equal", "notEqual",
     "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly", "instanceOf", "notInstanceOf",
     "listen", "unlisten", "events", "record", "recorded", "undoAll", "redoAll", "properties", "annotations", "write",
-    "read", "document", "calls"];
+    "read", "document", "calls", "validate", "put", "putAll", "removeKey", "find", "call", "replaceBehavior"];
 const generated = join(dirname(fileURLToPath(import.meta.url)), "build", "js", "build", "generated", "eu", "mihosoft",
     "vmf", "portable");
+/** Host code of a model (hosts/<model>.ts): the bindings to install and named replacement behaviors. */
+const hostCode = join(dirname(fileURLToPath(import.meta.url)), "build", "js", "hosts");
 
 /** A scenario expectation that did not hold (as opposed to an edit the model rejected). */
 class ScenarioFailure extends Error {
 }
 
 const modules = new Map();
+const hosts = new Map();
 
+/** Loads a generated model module and installs the bindings of its host code, if it has any. */
 async function loadModel(model) {
     let module = modules.get(model);
     if (module === undefined) {
         module = await import(pathToFileURL(join(generated, model, "model.g.js")).href);
+        const file = join(hostCode, `${model}.js`);
+        const host = existsSync(file) ? await import(pathToFileURL(file).href) : {};
+        if (host.bindings !== undefined) {
+            module.installModelBindings(host.bindings);
+        }
         modules.set(model, module);
+        hosts.set(model, host);
     }
     return module;
 }
@@ -67,7 +78,7 @@ async function main() {
                 result.message = `model '${model}' was not generated: ${unsupported.get(model)}`;
             } else {
                 try {
-                    new Execution(await loadModel(model)).run(scenario.steps);
+                    new Execution(await loadModel(model), hosts.get(model)).run(scenario.steps);
                     result.status = "passed";
                 } catch (error) {
                     result.status = "failed";
@@ -174,11 +185,81 @@ function describe(error) {
     return message.replace(/\s+/g, " ");
 }
 
-/** Parses JSON and keeps integers beyond 2^53 exact as bigint. */
+/** The keys of a parsed JSON object in document order; JavaScript objects list integer-like keys first. */
+const KEY_ORDER = Symbol("keyOrder");
+const JSON_SPACE = /[\t\n\r ]*/y;
+const JSON_STRING = /"(?:[^"\\\x00-\x1F]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/y;
+const JSON_LITERAL = /true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y;
+
+/**
+ * Parses JSON, keeps integers beyond 2^53 exact as bigint, and remembers the order of object keys, so that a
+ * literal document is written again in its own order (map entries keep their order).
+ */
 function parseJson(text) {
-    return JSON.parse(text, (_key, value, context) =>
-        typeof value === "number" && Number.isInteger(value) && !Number.isSafeInteger(value)
-            && context?.source !== undefined && /^-?[0-9]+$/.test(context.source) ? BigInt(context.source) : value);
+    let offset = 0;
+    const take = pattern => {
+        JSON_SPACE.lastIndex = offset;
+        JSON_SPACE.exec(text);
+        pattern.lastIndex = JSON_SPACE.lastIndex;
+        const match = pattern.exec(text);
+        if (match === null) {
+            throw new SyntaxError(`Invalid JSON at offset ${JSON_SPACE.lastIndex}`);
+        }
+        offset = pattern.lastIndex;
+        return match[0];
+    };
+    const punctuation = /[{}[\],:]/y;
+    const peek = () => {
+        JSON_SPACE.lastIndex = offset;
+        JSON_SPACE.exec(text);
+        return text[JSON_SPACE.lastIndex];
+    };
+    const value = () => {
+        const next = peek();
+        if (next === "{" || next === "[") {
+            take(punctuation);
+            const object = next === "{";
+            const result = object ? {} : [];
+            const order = [];
+            if (peek() !== (object ? "}" : "]")) {
+                do {
+                    if (object) {
+                        const key = JSON.parse(take(JSON_STRING));
+                        if (take(punctuation) !== ":") {
+                            throw new SyntaxError(`Expected ':' at offset ${offset}`);
+                        }
+                        Object.defineProperty(result, key, { value: value(), enumerable: true, writable: true,
+                            configurable: true });
+                        order.push(key);
+                    } else {
+                        result.push(value());
+                    }
+                } while (take(punctuation) === ",");
+                offset--;
+            }
+            if (take(punctuation) !== (object ? "}" : "]")) {
+                throw new SyntaxError(`Unterminated JSON ${object ? "object" : "array"} at offset ${offset}`);
+            }
+            if (object) {
+                Object.defineProperty(result, KEY_ORDER, { value: order });
+            }
+            return result;
+        }
+        if (next === '"') {
+            return JSON.parse(take(JSON_STRING));
+        }
+        const token = take(JSON_LITERAL);
+        const parsed = JSON.parse(token);
+        return typeof parsed === "number" && Number.isInteger(parsed) && !Number.isSafeInteger(parsed)
+            && /^-?[0-9]+$/.test(token) ? BigInt(token) : parsed;
+    };
+    const result = value();
+    JSON_SPACE.lastIndex = offset;
+    JSON_SPACE.exec(text);
+    if (JSON_SPACE.lastIndex !== text.length) {
+        throw new SyntaxError(`Unexpected text after JSON at offset ${JSON_SPACE.lastIndex}`);
+    }
+    return result;
 }
 
 function has(node, key) {
@@ -215,11 +296,16 @@ function nativelyEqual(left, right) {
 
 function isCollection(value) {
     return value instanceof vmf.ContainmentList || value instanceof vmf.ScalarList || value instanceof vmf.ReferenceList
-        || value instanceof vmf.ReferenceSet || isReadOnlyCollection(value);
+        || value instanceof vmf.ReferenceSet || value instanceof vmf.ScalarSet || value instanceof vmf.ContainmentSet
+        || isMap(value) || isReadOnlyCollection(value);
+}
+
+function isMap(value) {
+    return value instanceof vmf.ScalarMap || value instanceof vmf.ReadOnlyMap;
 }
 
 function isReadOnlyCollection(value) {
-    return value instanceof vmf.ReadOnlyList || value instanceof vmf.ReadOnlySet;
+    return value instanceof vmf.ReadOnlyList || value instanceof vmf.ReadOnlySet || value instanceof vmf.ReadOnlyMap;
 }
 
 /** A read-only list has no edit operations: an edit through it is rejected (it does not exist in the API). */
@@ -252,7 +338,9 @@ function sameScalar(actual, expected) {
         return items !== undefined && items.length === expected.length
             && items.every((item, index) => sameScalar(item, expected[index]));
     }
-    return false;
+    // An untyped JSON value, or the document form of an external value (see Execution.documentForm).
+    return typeof expected === "object" && typeof actual === "object" && actual !== null && !Array.isArray(actual)
+        && sameJson(actual, expected);
 }
 
 /**
@@ -267,7 +355,7 @@ function merged(received) {
             && last.property === event.property && last.kind === event.kind;
         if (sameTarget && (event.kind === "add" || event.kind === "remove")) {
             result[result.length - 1] = { ...last, elements: [...last.elements, ...event.elements],
-                indices: [...last.indices, ...event.indices] };
+                indices: [...last.indices, ...event.indices], keys: [...last.keys, ...event.keys] };
         } else if (sameTarget && event.kind === "set" && Object.is(last.newValue, event.oldValue)) {
             result[result.length - 1] = { ...last, newValue: event.newValue };
         } else {
@@ -286,7 +374,8 @@ function stringifyJson(value) {
         return `[${value.map(stringifyJson).join(",")}]`;
     }
     if (typeof value === "object" && value !== null) {
-        return `{${Object.entries(value).map(([key, member]) => `${JSON.stringify(key)}:${stringifyJson(member)}`).join(",")}}`;
+        return `{${(value[KEY_ORDER] ?? Object.keys(value)).map(key => `${JSON.stringify(key)}:${stringifyJson(value[key])}`)
+            .join(",")}}`;
     }
     return JSON.stringify(value);
 }
@@ -317,6 +406,22 @@ function sameJson(actual, expected) {
             && keys.every(key => Object.hasOwn(actual, key) && sameJson(actual[key], expected[key]));
     }
     return actual === expected;
+}
+
+/** Scalars in order, or in any order (each expected value matches one element). */
+function sameValues(actual, expected, unordered) {
+    if (!unordered) {
+        return sameScalar(actual, expected);
+    }
+    const remaining = [...actual];
+    return remaining.length === expected.length && expected.every(value => {
+        const index = remaining.findIndex(item => sameScalar(item, value));
+        if (index < 0) {
+            return false;
+        }
+        remaining.splice(index, 1);
+        return true;
+    });
 }
 
 function sameObjects(actual, expected, unordered) {
@@ -365,8 +470,9 @@ class Execution {
     documents = new Map();
     step = 0;
 
-    constructor(module) {
+    constructor(module, host = {}) {
         this.module = module;
+        this.host = host;
         this.registry = module.ModelSnapshot.registry;
     }
 
@@ -431,6 +537,24 @@ class Execution {
             }
             case "check":
                 this.check(node.check, node);
+                break;
+            case "put": {
+                const [map, types] = this.map(node.put);
+                map.put(this.convert(node.key, types.keyType), this.convert(node.value, types.scalarType));
+                break;
+            }
+            case "putAll": {
+                const [map, types] = this.map(node.putAll);
+                map.putAll(this.entries(node.entries, types));
+                break;
+            }
+            case "removeKey": {
+                const [map, types] = this.map(node.removeKey);
+                map.remove(this.convert(node.key, types.keyType));
+                break;
+            }
+            case "find":
+                this.find(node.find, node);
                 break;
             case "let":
                 this.labels.set(node.let, this.resolve(node.path));
@@ -576,6 +700,20 @@ class Execution {
                 }
                 break;
             }
+            case "validate":
+                this.checkIssues(node.validate, node.issues);
+                break;
+            case "call":
+                this.call(node.call, node);
+                break;
+            case "replaceBehavior": {
+                const create = this.host.replacements?.[node.with];
+                if (typeof create !== "function") {
+                    throw new ScenarioFailure(`no replacement behavior '${node.with}' in hosts/${node.with}`);
+                }
+                this.content(this.resolve(node.replaceBehavior)).replaceBehavior(create());
+                break;
+            }
             default:
                 throw new ScenarioFailure(`unsupported operation ${operation}`);
         }
@@ -590,6 +728,21 @@ class Execution {
             return this.documents.get(source);
         }
         return stringifyJson(source.json);
+    }
+
+    // ------------------------------------------------------------------------------------------------ validation
+
+    /** Validates an object and compares the issues, model code and model path in reported order, with the expected ones. */
+    checkIssues(path, expected) {
+        const model = this.resolve(path);
+        if (!isModel(model) || typeof model.validate !== "function") {
+            throw new ScenarioFailure(`cannot validate ${this.render(model)}`);
+        }
+        const actual = model.validate().map(issue => `${issue.modelCode} ${issue.modelPath}`);
+        const wanted = expected.map(issue => `${issue.code} ${issue.path}`);
+        if (actual.length !== wanted.length || actual.some((issue, index) => issue !== wanted[index])) {
+            throw new ScenarioFailure(`${path}: expected issues ${JSON.stringify(wanted)}, found ${JSON.stringify(actual)}`);
+        }
     }
 
     // ------------------------------------------------------------------------------------------------ events
@@ -629,6 +782,7 @@ class Execution {
                 newValue: change.newValue ?? null,
                 elements: [...(change.values ?? [])],
                 indices: [...(change.indices ?? [])],
+                keys: [...(change.keys ?? [])],
             };
             received.push(event);
             log?.push({ listener: name, event });
@@ -699,6 +853,7 @@ class Execution {
         if (has(wanted, "oldObj") && this.object(wanted.oldObj) !== event.oldValue) return false;
         if (has(wanted, "newObj") && this.object(wanted.newObj) !== event.newValue) return false;
         if (has(wanted, "values") && !sameScalar(event.elements, wanted.values)) return false;
+        if (has(wanted, "keys") && !sameScalar(event.keys, wanted.keys)) return false;
         if (has(wanted, "objs") && !sameObjects(event.elements, wanted.objs.map(label => this.object(label)), false)) {
             return false;
         }
@@ -712,7 +867,8 @@ class Execution {
     renderEvents(events) {
         return `[${events.map(event => `{${this.render(event.source)}.${event.property} ${event.kind} `
             + (event.kind === "set" ? `${this.render(event.oldValue)}->${this.render(event.newValue)}`
-                : `${this.render(event.elements)}@[${event.indices.join(",")}]`) + "}").join(", ")}]`;
+                : `${this.render(event.elements)}@${event.keys.length > 0 ? this.render(event.keys)
+                    : `[${event.indices.join(",")}]`}`) + "}").join(", ")}]`;
     }
 
     // ------------------------------------------------------------------------------------------------ objects
@@ -734,23 +890,25 @@ class Execution {
             const values = {};
             for (const [property, value] of Object.entries(initial ?? {})) {
                 const meta = registered.properties.find(candidate => (candidate.name ?? candidate.wireName) === property);
-                const scalarType = meta !== undefined && (meta.kind === "scalar" || meta.kind === "scalarList")
-                    ? meta.scalarType : undefined;
-                values[property] = Array.isArray(value) ? value.map(item => this.convert(item, scalarType))
-                    : this.convert(value, scalarType);
+                const scalarType = meta !== undefined && "scalarType" in meta ? meta.scalarType : undefined;
+                values[property] = has(value, "entries") ? this.entries(value.entries, meta)
+                    : Array.isArray(value) ? value.map(item => this.convert(item, scalarType))
+                        : this.convert(value, scalarType);
             }
             return new constructor(values);
         }
         const instance = new constructor();
         for (const [property, value] of Object.entries(initial ?? {})) {
             const current = this.get(instance, property);
-            const scalarType = this.scalarTypeOf(instance, property);
-            if (isCollection(current)) {
+            const meta = this.propertyOf(instance, property);
+            if (isMap(current)) {
+                current.putAll(this.entries(value.entries, meta));
+            } else if (isCollection(current)) {
                 for (const item of value) {
-                    current.add(this.convert(item, scalarType));
+                    current.add(this.convertFor(item, meta));
                 }
             } else {
-                instance[property] = this.convert(value, scalarType);
+                instance[property] = this.convertFor(value, meta);
             }
         }
         return instance;
@@ -774,12 +932,87 @@ class Execution {
     }
 
     scalarTypeOf(owner, property) {
-        if (!isModel(owner)) {
+        return this.scalarMeta(owner, property)?.scalarType;
+    }
+
+    /** The snapshot metadata of a scalar, scalar list or scalar set, which knows external codecs. */
+    scalarMeta(owner, property) {
+        const meta = this.propertyOf(owner, property);
+        return meta !== undefined && (meta.kind === "scalar" || meta.kind === "scalarList" || meta.kind === "scalarSet")
+            ? meta : undefined;
+    }
+
+    /** The snapshot registration of a property of a model object (or of the object a read-only view shows). */
+    propertyOf(owner, property) {
+        const model = vmf.unwrapReadOnly(owner);
+        if (!isModel(model)) {
             return undefined;
         }
-        const type = this.registry.types.find(candidate => candidate.runtimeType === owner.constructor);
-        const meta = type?.properties.find(candidate => (candidate.name ?? candidate.wireName) === property);
-        return meta !== undefined && (meta.kind === "scalar" || meta.kind === "scalarList") ? meta.scalarType : undefined;
+        const type = this.registry.types.find(candidate => candidate.runtimeType === model.constructor);
+        return type?.properties.find(candidate => (candidate.name ?? candidate.wireName) === property);
+    }
+
+    /** A map property and its key and value types. */
+    map(path) {
+        const [owner, name] = this.owner(path);
+        const map = this.get(owner, name);
+        if (!isMap(map)) {
+            throw new ScenarioFailure(`${path} is not a map`);
+        }
+        requireEditable(map, path);
+        return [map, this.propertyOf(owner, name) ?? {}];
+    }
+
+    /** Map entries written as [[key, value], ...], as key/value pairs of the map's types. */
+    entries(pairs, types) {
+        return pairs.map(([key, value]) => [this.convert(key, types?.keyType), this.convert(value, types?.scalarType)]);
+    }
+
+    /** Calls the generated lookup find<Property>By<Key> of a keyed collection's owner. */
+    find(path, node) {
+        const [owner, name] = this.owner(path);
+        const lookup = `find${name[0].toUpperCase()}${name.substring(1)}By${node.by[0].toUpperCase()}${node.by.substring(1)}`;
+        if (typeof owner[lookup] !== "function") {
+            throw new ScenarioFailure(`no lookup ${lookup}`);
+        }
+        const found = owner[lookup](this.convert(node.key, undefined));
+        const expected = this.object(node.obj);
+        if (found !== expected) {
+            throw new ScenarioFailure(`${lookup}(${JSON.stringify(node.key)}): expected ${this.render(expected)}, `
+                + `found ${this.render(found)}`);
+        }
+    }
+
+    /** A scenario value for a scalar property: external values come from their document form through the codec. */
+    convertFor(value, meta) {
+        if (meta?.scalarType === "external" && value !== null && value !== undefined && !has(value, "obj")) {
+            return meta.codec().read(value);
+        }
+        return this.convert(value, meta?.scalarType);
+    }
+
+    /** The value to compare with a scenario value: external values in their document form. */
+    documentForm(value, meta) {
+        if (meta?.scalarType === "external" && value !== null && value !== undefined) {
+            return isCollection(value) || Array.isArray(value) ? [...value].map(item => this.documentForm(item, meta))
+                : meta.codec().write(value);
+        }
+        return value;
+    }
+
+    /** Calls a delegated method with the scenario's arguments and checks its result. */
+    call(path, node) {
+        const [owner, name] = this.owner(path);
+        if (typeof owner?.[name] !== "function") {
+            throw new ScenarioFailure(`${path} is not a method`);
+        }
+        const result = owner[name](...(node.args ?? []).map(value => this.convert(value, undefined)));
+        if (has(node, "result") && !sameScalar(result ?? null, node.result)) {
+            throw new ScenarioFailure(`${path}: expected ${JSON.stringify(node.result, bigintJson)}, returned ${this.render(result)}`);
+        }
+        if (has(node, "resultObj") && result !== this.object(node.resultObj)) {
+            throw new ScenarioFailure(`${path}: expected ${node.resultObj}, returned ${this.render(result)}`);
+        }
     }
 
     resolve(path) {
@@ -863,7 +1096,8 @@ class Execution {
     set(path, node) {
         const [owner, name, index] = this.owner(path);
         const current = this.get(owner, name);
-        const value = this.single(node, this.scalarTypeOf(owner, name));
+        const meta = this.scalarMeta(owner, name);
+        const value = has(node, "value") ? this.convertFor(node.value, meta) : this.single(node, meta?.scalarType);
         if (index !== undefined) {
             if (isCollection(current)) {
                 requireEditable(current, path);
@@ -887,8 +1121,14 @@ class Execution {
             throw new ScenarioFailure(`${path} is not a list`);
         }
         requireEditable(current, path);
-        const scalarType = this.scalarTypeOf(owner, name);
-        const values = has(node, "objs") || has(node, "values") ? this.many(node, scalarType) : [this.single(node, scalarType)];
+        const meta = this.scalarMeta(owner, name);
+        const values = has(node, "values") ? node.values.map(value => this.convertFor(value, meta))
+            : has(node, "value") ? [this.convertFor(node.value, meta)]
+                : has(node, "objs") ? this.many(node, meta?.scalarType) : [this.single(node, meta?.scalarType)];
+        if (index < 0 && values.length > 1 && typeof current.addAll === "function") {
+            current.addAll(values);
+            return;
+        }
         values.forEach((value, offset) => {
             if (index < 0) {
                 current.add(value);
@@ -925,21 +1165,28 @@ class Execution {
     // ------------------------------------------------------------------------------------------------ checks
 
     check(path, node) {
+        const dot = path.lastIndexOf(".");
+        const meta = dot < 0 ? undefined : this.scalarMeta(this.resolve(path.substring(0, dot)),
+            parse(path.substring(dot + 1))[0][0]);
         const actual = this.resolve(path);
+        if (isMap(actual)) {
+            this.checkMap(path, actual, node);
+            return;
+        }
         if (has(node, "obj")) {
             const expected = this.object(node.obj);
             if (actual !== expected) {
                 throw new ScenarioFailure(`${path}: expected ${this.render(expected)}, found ${this.render(actual)}`);
             }
         }
-        if (has(node, "value") && !sameScalar(actual, node.value)) {
+        if (has(node, "value") && !sameScalar(this.documentForm(actual, meta), node.value)) {
             throw new ScenarioFailure(`${path}: expected ${JSON.stringify(node.value, bigintJson)}, found ${this.render(actual)}`);
         }
         if (has(node, "objs") || has(node, "values") || has(node, "size")) {
             if (!isCollection(actual)) {
                 throw new ScenarioFailure(`${path} is not a collection: ${this.render(actual)}`);
             }
-            const items = [...actual];
+            const items = has(node, "values") ? this.documentForm([...actual], meta) : [...actual];
             if (has(node, "size") && items.length !== node.size) {
                 throw new ScenarioFailure(`${path}: expected size ${node.size}, found ${items.length} ${this.render(items)}`);
             }
@@ -949,9 +1196,37 @@ class Execution {
                     throw new ScenarioFailure(`${path}: expected ${this.render(expected)}, found ${this.render(items)}`);
                 }
             }
-            if (has(node, "values") && !sameScalar(items, node.values)) {
+            if (has(node, "values") && !sameValues(items, node.values, node.unordered === true)) {
                 throw new ScenarioFailure(`${path}: expected ${JSON.stringify(node.values, bigintJson)}, found ${this.render(items)}`);
             }
+        }
+    }
+
+    /** A map: size and entries ([[key, value], ...]) in iteration order or unordered. */
+    checkMap(path, map, node) {
+        const entries = [...map];
+        if (has(node, "size") && entries.length !== node.size) {
+            throw new ScenarioFailure(`${path}: expected size ${node.size}, found ${entries.length} ${this.render(entries)}`);
+        }
+        if (has(node, "entries")) {
+            const remaining = [...entries];
+            const same = remaining.length === node.entries.length && node.entries.every(([key, value]) => {
+                const candidates = node.unordered === true ? remaining.length : Math.min(1, remaining.length);
+                for (let index = 0; index < candidates; index++) {
+                    if (sameScalar(remaining[index][0], key) && sameScalar(remaining[index][1], value)) {
+                        remaining.splice(index, 1);
+                        return true;
+                    }
+                }
+                return false;
+            });
+            if (!same) {
+                throw new ScenarioFailure(`${path}: expected ${JSON.stringify(node.entries, bigintJson)}, found `
+                    + this.render(entries));
+            }
+        }
+        if (has(node, "obj") || has(node, "value") || has(node, "objs") || has(node, "values")) {
+            throw new ScenarioFailure(`${path} is a map`);
         }
     }
 
@@ -1016,6 +1291,9 @@ class Execution {
                 }
             }
             return `<${value.constructor.name}>`;
+        }
+        if (typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+            return stringifyJson(value);
         }
         return typeof value === "string" ? `"${value}"` : String(value);
     }

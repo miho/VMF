@@ -32,11 +32,15 @@ interface UUID {
 
 @ExternalType(pkgName = "eu.mihosoft.vmftest.journalvalues")
 @Annotation(key = "vmf:csharp:external-value-type", value = "Eu.Mihosoft.Vmftest.Journalvalues.DocumentRevision")
+@Annotation(key = "vmf:typescript:external-type", value = "DocumentRevision")
+@Annotation(key = "vmf:typescript:external-module", value = "@vmftest/hosts")
 interface DocumentRevision {
 }
 
 @ExternalType(pkgName = "java.lang")
 @Annotation(key = "vmf:csharp:external-type", value = "System.Text.StringBuilder")
+@Annotation(key = "vmf:typescript:external-type", value = "StringBuilder")
+@Annotation(key = "vmf:typescript:external-module", value = "@vmftest/hosts")
 interface StringBuilder {
 }
 

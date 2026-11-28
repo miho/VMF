@@ -7,11 +7,13 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
+    "noImplicitOverride": true,
     "noEmitOnError": true,
     "rootDir": ".",
     "outDir": "build/js"
   },
   "include": [
-    "build/generated/**/*.ts"
+    "build/generated/**/*.ts",
+    "hosts/**/*.ts"
   ]
 }

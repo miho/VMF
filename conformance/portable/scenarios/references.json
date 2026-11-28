@@ -293,6 +293,7 @@
         {"check": "c.refs", "size": 0},
         {"check": "d.refs", "size": 0}
       ]
-    }
+    },
+    {"id": "opposite-declared-by-a-getter-only-trait", "from": "C# conformance inheritedopposites (GetterRoleTeam)", "rules": ["R1", "R3", "T1"], "steps": [{"new": "t", "type": "RoleTeam", "with": {"name": "t"}}, {"new": "u", "type": "RoleTeam", "with": {"name": "u"}}, {"new": "p", "type": "RolePerson", "with": {"name": "p"}}, {"instanceOf": "p", "type": "RoleMember"}, {"add": "t.members", "obj": "p"}, {"check": "p.team", "obj": "t"}, {"set": "p.team", "obj": "u"}, {"check": "t.members", "size": 0}, {"check": "u.members", "objs": ["p"]}, {"remove": "u.members", "obj": "p"}, {"check": "p.team", "value": null}]}
   ]
 }

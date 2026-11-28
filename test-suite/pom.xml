@@ -35,10 +35,19 @@ Computing and Visualization in Science, 2013, 16(4),
 	<packaging>jar</packaging>
 	<properties>
 		<revision>0.0</revision>
-		<maven.compiler.source>1.8</maven.compiler.source>
-		<maven.compiler.target>1.8</maven.compiler.target>
+		<maven.compiler.release>17</maven.compiler.release>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
+	<!-- Snapshot builds depend on VCollections snapshots, which Central publishes in its snapshot repository
+	     (as in the Maven plugin's POM). -->
+	<repositories>
+		<repository>
+			<id>central-snapshots</id>
+			<url>https://central.sonatype.com/repository/maven-snapshots/</url>
+			<releases><enabled>false</enabled></releases>
+			<snapshots><enabled>true</enabled></snapshots>
+		</repository>
+	</repositories>
 	<dependencies>
 		<dependency>
 			<groupId>eu.mihosoft.vmf</groupId>

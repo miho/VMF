@@ -14,11 +14,13 @@ import java.util.List;
 interface HookedValues {
     @Multiplicity(upper = 3)
     @Annotation(key = "vmf:csharp:bind-default", value = "true")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
     @DefaultValue("eu.mihosoft.vmf.jackson.test.executabledeserialization.DefaultTrace.numbers()")
     @Annotation(key = "vmf:jackson:rename", value = "counts")
     List<Integer> getNumbers();
 
     @Annotation(key = "vmf:csharp:bind-default", value = "true")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
     @DefaultValue("eu.mihosoft.vmf.jackson.test.executabledeserialization.DefaultTrace.settings()")
     VMap<String, Integer> getSettings();
 }
@@ -27,11 +29,13 @@ interface HookedValues {
 interface HookedReferences {
     @Multiplicity(upper = 3)
     @Annotation(key = "vmf:csharp:bind-default", value = "true")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
     @DefaultValue("eu.mihosoft.vmf.jackson.test.executabledeserialization.DefaultTrace.numbers()")
     @Annotation(key = "vmf:jackson:rename", value = "counts")
     List<Integer> getNumbers();
 
     @Annotation(key = "vmf:csharp:bind-default", value = "true")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
     @DefaultValue("eu.mihosoft.vmf.jackson.test.executabledeserialization.DefaultTrace.settings()")
     VMap<String, Integer> getSettings();
 

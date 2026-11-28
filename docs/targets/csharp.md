@@ -3,7 +3,8 @@
 How the rules of the [portable contract](../../conformance/portable/CONTRACT.md) appear in the generated C#
 API. Rule ids (T1, C2, ...) refer to the contract.
 
-Claimed modules: core, views, events, history, reflection, equality-modes, json.
+Claimed modules: core, views, events, history, reflection, equality-modes, json, validation, collections,
+externals, behavior.
 
 ## Generating
 
@@ -25,13 +26,29 @@ not published to nuget.org yet.
 | model type `X` | `sealed class X` |
 | create an object | `new X()`, an object initializer, or `X.NewBuilder().WithName("a").Build()` |
 | `@InterfaceOnly` type | `abstract class`; with several supertypes, an `I<Name>` interface |
+| property declared again (T7) | one property; a narrowed getter or relationship end is a `new` property of the subtype |
+| generic type (T8) | a generic class (`Series<T>`, `NumericSeries<N>` for `Number` bounds); a subtype binds the arguments (`Temperatures : NumericSeries<double>`) |
 | property `name` | property `Name` |
 | `int`, `long`, `double`, `boolean` | `int`, `long`, `double`, `bool`; boxed Java types become nullable (`int?`) |
+| `byte`, `short`, `float`, `char` | `sbyte`, `short`, `float`, `char` (T6) |
 | `String` | `string?` |
 | list property (`T[]`) | `ScalarList<T>`, `ContainmentList<TOwner, TChild>` or a reference list, each with `Add`, `Insert`, `RemoveAt`, `Clear` and an indexer |
 | `@DefaultValue` | the initial value of new objects |
 
 Generated classes also implement `INotifyPropertyChanged`.
+
+## Collections (K)
+
+| Model | C# |
+|---|---|
+| `Set<T>` of scalars | `ScalarSet<T>` with `Add`, `AddRange`, `Remove`, `Clear`, `Contains` and `Count` |
+| `@Multiplicity(kind = ORDERED_SET)` list | `ScalarList<T>` or `OrderedReferenceSet<T>` that holds each element once |
+| `@Multiplicity(upper = n)` list of scalars | `ScalarList<T>` that rejects edits beyond `n` |
+| `VMap<K, V>` | `ScalarMap<TKey, TValue?>`: `Put` (inserts or replaces in place), `Add` (rejects a present key), `PutAll`, `Remove`, `Clear`, the indexer and `TryGetValue`; an `IReadOnlyDictionary` in insertion order |
+| `Set<T>` of model objects | `ReferenceSet<T>`, also with an opposite; `@Contains Set<T>` is a `ContainmentSet<TOwner, TChild>` |
+| `@Contains @Keyed(by = "sku")` | a keyed `ContainmentList` (or `ContainmentSet`) and `owner.FindItemsBySku(key)` returning the entry or `null` |
+| in a read-only view or an `@Immutable` type | `IReadOnlyScalarSet<T>`, `IReadOnlyScalarList<T>` and `IReadOnlyDictionary<TKey, TValue>` |
+| `@DefaultValue` of a collection (K12) | the content of a new object's collection, applied after the construction hook |
 
 ## Containment and references (C, R)
 
@@ -97,3 +114,35 @@ each with `Name` and `Annotations`, and the type's `Annotations`.
 `Vmf.Runtime.ReferenceMode` is `Ids`, `Reject` or `Omit`; documents without ids reject references to mutable
 objects unless `Omit` is given. References to immutable values are written by value in every mode. XML and YAML
 variants of these methods exist but are not part of the contract.
+
+## Validation (L)
+
+| Rule | C# |
+|---|---|
+| validate | `x.Validate()` returns an `IReadOnlyList<ValidationIssue>`; an empty list means valid |
+| an issue | `ValidationIssue` with `ModelCode` (`"vmf.range"`) and `ModelPath` (`"/segments/0/start"`) as the contract defines them, `Code` (`"range"`), `Path` (the member path `"Segments[0].Start"`), `Message` and `Severity` |
+| with application rules | `ModelValidator.NewBuilder(ModelSnapshot.Reflection).Build().Validate(x)` returns a `ValidationReport` whose `Issues` carry the model code and path as `Code` and `Path` |
+
+Declared constraints report errors. `ModelValidator` can add rules and follow references
+(`WithFollowReferences()`); both are outside the contract. `long` ranges are exact, and `float` and `double`
+values are compared by their shortest decimal representation, as in Java (L3). A Java-only pattern
+(`@Pattern(value = "...", portable = false)`) needs one `@Annotation(key = "vmf:pattern:csharp", value = "...")`
+with a .NET regular expression; the generator rejects the model without it. Adding an element beyond the upper
+bound of a scalar list throws, as in Java.
+
+## External types (X)
+
+| External type | C# |
+|---|---|
+| enum | the CLR enum named by `vmf:csharp:external-value-type` on the stub; `ExternalSnapshotCodecs.WithEnum<T>(javaName)` writes the names (X1); a `@DefaultValue` naming a constant needs `vmf:csharp:bind-default` and a partial `CreateDefault<Property>()` |
+| `java.util.UUID` | `Guid`, written in the `D` form (lower case) |
+| `java.lang.Object` | `object?`: `null`, `string`, `bool`, `int`, `long`, `BigInteger`, `double`, `List<object?>` and `Dictionary<string, object?>` |
+| any other type | the type named by `vmf:csharp:external-type` or `vmf:csharp:external-value-type`; the partial `ModelSnapshot.CreateExternalValueCodecs()` registers its codec with `WithValue` (X5); content equality uses `Equals` (X6) |
+
+## Behavior (B)
+
+Each type with delegated methods has a nested `Behavior` interface whose methods take the caller first; a partial
+`CreateDefaultBehavior()` creates the default behavior of each object when it first needs it (a `DefaultBehavior`
+per binding in hierarchies). `On<Type>Instantiated(caller)` runs in the constructor before the declared defaults
+are applied (B3). `x.ReplaceBehavior(behavior)` replaces the behavior of one object and `BehaviorOverride` shows
+it (B4); copies and objects read from documents start with the default behavior.

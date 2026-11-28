@@ -23,3 +23,16 @@ export function isInstance(value: unknown, type: AnyClass): boolean {
     }
     return false;
 }
+
+/**
+ * Whether objects of a class are instances of a model type: the class itself, one of its base classes, or a
+ * supertype that the class or a base class implements.
+ */
+export function isSubtype(subtype: AnyClass, type: AnyClass): boolean {
+    for (let current: unknown = subtype; typeof current === "function"; current = Object.getPrototypeOf(current)) {
+        if (current === type || declared.get(current)?.includes(type)) {
+            return true;
+        }
+    }
+    return false;
+}

@@ -60,6 +60,32 @@ Resolve types and check capabilities in Java before rendering. Apply target-spec
 3. Qualify TypeScript against the same JSON fixtures and check plain external JSON on all three targets. Keep the encoded contract independent of native API choices. The [three-target check](../examples/csharp-workshop/README.md) establishes this for the initial shared model capabilities. Expand C# conformance incrementally, including read-only projections and immutable models.
 4. Use the backend implementations to inform a VMF-authored metamodel. Move the Java backend to it with generated-code and behavioral parity checks. Qualify self-hosting with a pinned seed and deterministic regeneration before it becomes part of the normal build.
 
-## Branch synchronization
+## Adding a target language
 
-Develop on `feature/multi-target-codegen` and bring in shared VMF features from `main` as they land. Rebase an unpublished branch when useful. Merge upstream into a shared branch to preserve its published history. Change the common model semantics and shared fixtures once, then use backend diagnostics and conformance runs to expose any coverage gaps. Use the repository's local qualification and artifact workflows while the branch is in development. [VMF release workflow](RELEASING.md#snapshots)
+C# and TypeScript were added the same way; a further language follows these steps.
+
+1. **Generator.** Add a `GenerationTarget` value and its case in `VMF.generate`, and a package
+   `core/src/main/java/eu/mihosoft/vmf/<target>/` that renders from `ResolvedModel` (the resolved, target-neutral
+   model) and never from the Java templates. Check the model before writing files: `PortableCapabilities` holds the
+   C# and TypeScript profiles; reject what the language cannot represent with a diagnostic that names the
+   declaration and the missing capability.
+2. **Runtime.** A small library next to `csharp-runtime/` and `typescript-runtime/` that implements containment,
+   opposites, collections, change events and history, documents, reflection and validation for generated classes.
+3. **Contract runner.** Add `conformance/portable/<target>/` with a runner that reads the scenario files and
+   implements their steps ([adding a target](../conformance/portable/README.md#adding-a-target)), an empty
+   `expected-failures/<target>.txt`, and `generatePortable<Target>` / `runPortable<Target>` tasks in
+   `conformance/portable/portable.gradle`, included in `verifyPortableContract`. The runner claims the modules the
+   target implements; claim `core` first, then the optional modules one by one.
+4. **Language mapping.** Write `docs/targets/<target>.md`: claimed modules, how each rule appears in the language
+   (names, creation, collections, numbers, equality, listeners, documents) and what it does not support.
+5. **Build integration.** Accept the target in the Gradle plugin (`vmf { targets = [...] }`) and the Maven plugin
+   (`<targets>`), with an output folder of its own.
+6. **Qualification.** Generate the test-suite and vmf-jackson model packages with the new target and compile the
+   output: `conformance/stock-java/GenerateStockModels.java` takes the target as its first argument, and
+   `:vmf:generateCSharpStockModels` / `:vmf:verifyTypeScriptStockModels` in `conformance/conformance.gradle` show the
+   gate for C# and TypeScript. The rejections the generator reports are the remaining gaps; the C# conformance model
+   packages are a further corpus. Add CI steps that run the stock gate and the contract runner on Linux and
+   Windows.
+
+Contract scenarios grow with the targets: when a target needs a behavior that the rules do not pin yet, add the
+rule and a scenario that Java (the reference), C# and TypeScript pass too, rather than a test for one language.

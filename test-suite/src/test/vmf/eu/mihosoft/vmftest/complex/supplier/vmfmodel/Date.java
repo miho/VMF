@@ -5,4 +5,5 @@ import eu.mihosoft.vmf.core.ExternalType;
 
 @ExternalType(pkgName = "java.util")
 @Annotation(key = "vmf:csharp:external-type", value = "Eu.Mihosoft.Vmftest.Complex.Supplier.JavaDate")
+@Annotation(key = "vmf:typescript:external-type", value = "Date")
 interface Date { }

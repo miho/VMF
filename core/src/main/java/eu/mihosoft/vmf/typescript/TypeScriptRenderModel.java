@@ -27,10 +27,12 @@ import eu.mihosoft.vmf.core.codegen.ResolvedModel;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Property;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.Type;
 import eu.mihosoft.vmf.core.codegen.ResolvedModel.ValueType;
+import eu.mihosoft.vmf.core.codegen.TypeScriptCapabilities;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -61,6 +63,29 @@ final class TypeScriptRenderModel {
     private final List<Map<String, Object>> readOnlyTypes;
     private final List<String> modelTypes;
     private final TypeScriptSnapshotRenderModel snapshots;
+    /** Getter-only properties of interface-only types that each subtype declares with its own storage. */
+    private final Map<String, Set<String>> abstractSlots = new HashMap<>();
+    /** The properties whose storage a class declares or inherits from its base classes. */
+    private final Map<String, Set<String>> storage = new HashMap<>();
+    /** The type whose class is being prepared. */
+    private Type preparing;
+    /** Concrete types that other classes implement besides their base class; their brand is a public symbol. */
+    private final Set<String> symbolBrands = new java.util.TreeSet<>();
+    /** External types: UUID, untyped values, literal unions and host types with their imports. */
+    private final TypeScriptExternals externals;
+    /** Delegated methods and construction hooks. */
+    private final TypeScriptBehaviorRenderModel behaviors;
+    /** Mutable classes whose declared defaults are applied after the construction hook, as in Java. */
+    private final Set<String> deferredDefaults = new HashSet<>();
+    /** The statements of __vmfApplyDefaults by class; an abstract class has those of its base class. */
+    private final Map<String, List<String>> appliedDefaults = new HashMap<>();
+    /** Bound defaults by declaring type and property: the TypeScript type of the value. */
+    private final Map<String, Map<String, String>> boundDefaults = new java.util.TreeMap<>();
+    /** External types whose document codec the bindings supply, by member name. */
+    private final Map<String, String> codecs = new java.util.TreeMap<>();
+    private final Set<String> emittedNames;
+    private final List<String> behaviorDeclarations;
+    private final List<String> behaviorInterfaces;
 
     TypeScriptRenderModel(ResolvedModel model) {
         this.model = model;
@@ -68,7 +93,7 @@ final class TypeScriptRenderModel {
                 .map(part -> namespacePart(part, model.getNamespace()))
                 .collect(Collectors.joining("/")) + "/model.g.ts";
 
-        Set<String> emittedNames = new HashSet<>();
+        emittedNames = new HashSet<>();
         emittedNames.add("ModelSnapshot");
         for (Type type : model.getTypes()) {
             String emitted = typeIdentifier(type.getName(), type.getQualifiedName());
@@ -84,12 +109,130 @@ final class TypeScriptRenderModel {
             }
         }
 
+        behaviors = new TypeScriptBehaviorRenderModel(model, this, emittedNames);
+        externals = new TypeScriptExternals(model, emittedNames);
+
         List<Type> ordered = parentFirst(model);
+        for (Type type : ordered) {
+            prepareStorage(type);
+            for (String secondary : secondarySupertypes(type)) {
+                if (!model.findType(secondary).orElseThrow().isInterfaceOnly()) {
+                    symbolBrands.add(secondary);
+                }
+            }
+        }
+        prepareDeferredDefaults(ordered);
         types = ordered.stream().map(this::prepareType).collect(Collectors.toUnmodifiableList());
         readOnlyTypes = ordered.stream().filter(type -> !type.isImmutable()).map(this::prepareReadOnly)
                 .collect(Collectors.toUnmodifiableList());
         modelTypes = ordered.stream().map(this::modelTypeDeclaration).collect(Collectors.toUnmodifiableList());
         snapshots = new TypeScriptSnapshotRenderModel(this, ordered, model.polymorphicWireTypeNames());
+        behaviorDeclarations = behaviors.getDeclarations(ordered);
+        behaviorInterfaces = behaviors.getInterfaces();
+        if (needsBindings() && (!emittedNames.add("ModelBindings") || !emittedNames.add("installModelBindings"))) {
+            throw invalidName(model.getNamespace(), "ModelBindings", "conflicts with another TypeScript declaration");
+        }
+    }
+
+    /**
+     * A construction hook runs before the declared defaults, as in Java: the hook sees the zero values, and the
+     * defaults replace what it set. Every class of a base class family with a hook therefore starts with zero
+     * values and applies its defaults in __vmfApplyDefaults(), which the constructor of the concrete class calls
+     * after the hook. Collection defaults and bound defaults are applied there too, hook or not, so that each
+     * object evaluates the bindings of its effective defaults once.
+     */
+    private void prepareDeferredDefaults(List<Type> ordered) {
+        Set<String> roots = new HashSet<>();
+        for (Type type : ordered) {
+            if (!type.isInterfaceOnly() && !type.isImmutable() && (behaviors.hasHook(type)
+                    || type.getEffectiveProperties().stream().anyMatch(property ->
+                            TypeScriptCapabilities.hasCollectionDefault(property)
+                                    || TypeScriptCapabilities.bindsDefault(property)))) {
+                roots.add(familyRoot(type).getName());
+            }
+        }
+        for (Type type : ordered) {
+            if (!type.isImmutable() && !type.isGetterOnlyTrait() && roots.contains(familyRoot(type).getName())) {
+                deferredDefaults.add(type.getName());
+            }
+        }
+    }
+
+    private Type familyRoot(Type type) {
+        Type base = primaryType(type);
+        return base == null ? type : familyRoot(base);
+    }
+
+    /** True if the model needs host code: external codecs, bound defaults or behaviors. */
+    boolean needsBindings() {
+        return !codecs.isEmpty() || !boundDefaults.isEmpty() || !behaviors.getBindings().isEmpty();
+    }
+
+    /** The imports of external types from their modules. */
+    List<String> getExternalImports() {
+        return externals.getImports();
+    }
+
+    /** The type aliases of external types that are unions of string literals. */
+    List<String> getExternalAliases() {
+        return externals.getAliases();
+    }
+
+    /** The behavior interfaces of the types that declare delegated methods or construction hooks. */
+    List<String> getBehaviorInterfaces() {
+        return behaviorInterfaces;
+    }
+
+    /** vmf.declareBehavior calls for the classes with delegated methods. */
+    List<String> getBehaviorDeclarations() {
+        return behaviorDeclarations;
+    }
+
+    /** The ModelBindings interface, the binding slot and the behavior factories, or nothing if none is needed. */
+    Map<String, Object> getBindings() {
+        if (!needsBindings()) {
+            return Map.of();
+        }
+        List<String> members = new ArrayList<>();
+        List<String> required = new ArrayList<>();
+        if (!codecs.isEmpty()) {
+            members.add("    /** Document codecs of the external value types: how documents write and read their values. */");
+            members.add("    readonly externals: {");
+            codecs.forEach((key, type) -> {
+                members.add("        readonly " + key + ": vmf.ExternalCodec<" + type + ">;");
+                required.add("externals." + key);
+            });
+            members.add("    };");
+        }
+        if (!boundDefaults.isEmpty()) {
+            members.add("    /** Declared defaults bound with " + TypeScriptCapabilities.BIND_DEFAULT_ANNOTATION
+                    + ": called for each new object. */");
+            members.add("    readonly defaults: {");
+            boundDefaults.forEach((owner, properties) -> {
+                members.add("        readonly " + owner + ": {");
+                properties.forEach((property, type) -> {
+                    members.add("            readonly " + property + ": () => " + type + ";");
+                    required.add("defaults." + owner + "." + property);
+                });
+                members.add("        };");
+            });
+            members.add("    };");
+        }
+        var behaviorBindings = behaviors.getBindings();
+        if (!behaviorBindings.isEmpty()) {
+            members.add("    /** Default behaviors: each object gets its own, created when it first needs it. */");
+            members.add("    readonly behaviors: {");
+            behaviorBindings.forEach((owner, type) -> {
+                members.add("        readonly " + owner + ": " + type + ";");
+                required.add("behaviors." + owner);
+            });
+            members.add("    };");
+        }
+        return Map.of("members", List.copyOf(members),
+                "slot", "const __vmfBindings = new vmf.ModelBindingSlot<ModelBindings>(" + quoted(model.getNamespace())
+                        + ", [" + required.stream().map(TypeScriptRenderModel::quoted).collect(Collectors.joining(", "))
+                        + "]);",
+                "factories", behaviors.getFactories());
     }
 
     private static List<Type> parentFirst(ResolvedModel model) {
@@ -136,6 +279,113 @@ final class TypeScriptRenderModel {
         return supertypeDeclarations;
     }
 
+    /** The brand symbols of concrete types that other classes implement besides their base class. */
+    List<String> getBrandSymbols() {
+        return symbolBrands.stream().map(name -> "declare const " + BRAND_PREFIX + typeNames.get(name) + ": unique symbol;")
+                .collect(Collectors.toUnmodifiableList());
+    }
+
+    /** The base class of a class, or null. */
+    Type primaryType(Type type) {
+        ValueType primary = primarySupertype(type);
+        return primary == null ? null : model.findType(primary.getModelType()).orElseThrow();
+    }
+
+    /** The supertypes of a class that are not on the chain of its base classes. */
+    private Set<String> secondarySupertypes(Type type) {
+        ValueType primary = primarySupertype(type);
+        Set<String> secondary = supertypeClosure(type.getName());
+        if (primary != null) {
+            secondary.removeAll(supertypeClosure(primary.getModelType()));
+            secondary.remove(primary.getModelType());
+        }
+        return secondary;
+    }
+
+    /**
+     * Records which properties a class stores. A class stores what its base classes store and declares the rest;
+     * an interface-only type leaves a getter-only property abstract when a subtype declares it again with other
+     * storage (a narrower reference, or the containment or container end of a relationship), so each subtype
+     * declares its own. Getter-only traits store nothing.
+     */
+    private void prepareStorage(Type type) {
+        Type base = primaryType(type);
+        Set<String> inherited = base == null ? Set.of() : storage.get(base.getName());
+        Set<String> abstracted = new HashSet<>();
+        Set<String> stored = new HashSet<>(inherited);
+        if (!type.isGetterOnlyTrait()) {
+            for (Property property : type.getEffectiveProperties()) {
+                if (inherited.contains(property.getName())) continue;
+                if (type.isInterfaceOnly() && !type.isImmutable()
+                        && (property.isGetterOnly() && redeclaredWithOtherStorage(type, property)
+                            || mergedWithOtherStorage(type, property))) {
+                    abstracted.add(property.getName());
+                } else {
+                    stored.add(property.getName());
+                }
+            }
+        } else {
+            stored.clear();
+        }
+        abstractSlots.put(type.getName(), abstracted);
+        storage.put(type.getName(), stored);
+    }
+
+    private boolean redeclaredWithOtherStorage(Type owner, Property property) {
+        for (Type candidate : model.getTypes()) {
+            if (candidate == owner || !isSubtype(candidate, owner.getName())) continue;
+            for (Property declared : candidate.getProperties()) {
+                if (declared.getName().equals(property.getName()) && !sameStorage(declared, property)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a subtype merges a property of an interface-only type into other storage without declaring it again,
+     * as when a plain reference list becomes the keyed containment that another supertype declares. Properties
+     * typed by a type parameter only change with the type arguments, which the storage of the base class keeps.
+     */
+    private boolean mergedWithOtherStorage(Type owner, Property property) {
+        if (property.getValueType().getKind() == ValueType.Kind.PARAMETER) return false;
+        for (Type candidate : model.getTypes()) {
+            if (candidate == owner || !isSubtype(candidate, owner.getName())) continue;
+            Optional<Property> merged = effectiveProperty(candidate, property.getName());
+            if (merged.isPresent() && !sameStorage(merged.get(), property)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean sameStorage(Property first, Property second) {
+        return first.getKind() == second.getKind() && first.isCollection() == second.isCollection()
+                && first.isOrdered() == second.isOrdered() && first.isUnique() == second.isUnique()
+                && first.allowsNullElements() == second.allowsNullElements()
+                && first.getOppositeName().equals(second.getOppositeName())
+                && sameValueType(first.getValueType(), second.getValueType());
+    }
+
+    private static boolean sameValueType(ValueType first, ValueType second) {
+        if (first.getKind() != second.getKind() || first.isPrimitive() != second.isPrimitive()
+                || !java.util.Objects.equals(first.getModelType(), second.getModelType())
+                || !java.util.Objects.equals(first.getExternalType(), second.getExternalType())
+                || !java.util.Objects.equals(first.getParameterName(), second.getParameterName())
+                || first.getArguments().size() != second.getArguments().size()) {
+            return false;
+        }
+        for (int i = 0; i < first.getArguments().size(); i++) {
+            if (!sameValueType(first.getArguments().get(i), second.getArguments().get(i))) return false;
+        }
+        return true;
+    }
+
+    private Optional<Property> effectiveProperty(Type type, String name) {
+        return type.getEffectiveProperties().stream().filter(property -> property.getName().equals(name)).findFirst();
+    }
+
     /**
      * The supertype a class extends. TypeScript classes have one base class; the other supertypes must be
      * interface-only and are implemented. A mutable class extends the first supertype that is not interface-only,
@@ -180,6 +430,7 @@ final class TypeScriptRenderModel {
     }
 
     private Map<String, Object> prepareType(Type type) {
+        preparing = type;
         String name = typeNames.get(type.getName());
         Set<String> parameterNames = new HashSet<>();
         List<String> parameters = new ArrayList<>();
@@ -190,7 +441,7 @@ final class TypeScriptRenderModel {
                 throw invalidName(type.getQualifiedName(), parameterName, "conflicts with another type name");
             }
             parameters.add(parameterName);
-            declarations.add(parameterName + " extends " + typeName(parameter.getBound()));
+            declarations.add(parameterDeclaration(parameterName, parameter));
         }
 
         Set<String> members = new HashSet<>(RESERVED_MEMBERS);
@@ -201,88 +452,186 @@ final class TypeScriptRenderModel {
                         "conflicts with another TypeScript member");
             }
         }
+        for (Property property : type.getEffectiveProperties()) {
+            Optional<String> lookup = lookupName(type, property);
+            if (lookup.isPresent() && !members.add(lookup.get())) {
+                throw invalidName(type.getQualifiedName() + "." + property.getName(), lookup.get(),
+                        "conflicts with another TypeScript member");
+            }
+        }
 
         ValueType primary = primarySupertype(type);
+        Type base = primaryType(type);
         Set<String> inherited = new HashSet<>();
-        if (primary != null) {
-            model.findType(primary.getModelType()).orElseThrow().getEffectiveProperties()
-                    .forEach(property -> inherited.add(property.getName()));
+        if (base != null) {
+            if (type.isGetterOnlyTrait()) {
+                base.getEffectiveProperties().forEach(property -> inherited.add(property.getName()));
+            } else {
+                inherited.addAll(storage.get(base.getName()));
+            }
         }
+        Set<String> baseAbstract = base == null ? Set.of() : abstractSlots.get(base.getName());
         List<String> implemented = new ArrayList<>();
         for (ValueType application : type.getSuperTypeApplications()) {
             if (application != primary) {
                 implemented.add(typeName(application));
             }
         }
+        Set<String> secondary = secondarySupertypes(type);
         if (!implemented.isEmpty()) {
-            Set<String> secondary = supertypeClosure(type.getName());
-            secondary.removeAll(primary == null ? Set.of() : supertypeClosure(primary.getModelType()));
-            if (primary != null) {
-                secondary.remove(primary.getModelType());
-            }
             supertypeDeclarations.add(Map.of("type", name, "supertypes", secondary.stream()
                     .map(typeNames::get).collect(Collectors.joining(", "))));
         }
-
-        List<Map<String, Object>> properties = new ArrayList<>();
-        List<Map<String, Object>> containments = new ArrayList<>();
-        List<Map<String, Object>> multiplicities = new ArrayList<>();
-        String owner = apply(name, parameters);
-        // Properties of interface-only supertypes besides the base class are declared on the class itself.
-        for (Property property : type.getEffectiveProperties()) {
-            if (inherited.contains(property.getName())) {
-                continue;
+        // A concrete type's brand keeps structurally equal classes apart. Classes that other classes implement
+        // besides their base carry a public symbol brand, which the implementing classes declare too.
+        List<String> brands = new ArrayList<>();
+        if (!type.isInterfaceOnly()) {
+            brands.add(symbolBrands.contains(type.getName())
+                    ? "declare readonly [" + BRAND_PREFIX + name + "]: true;"
+                    : "declare protected readonly " + BRAND_PREFIX + name + ": void;");
+        }
+        for (String implementedType : secondary) {
+            if (symbolBrands.contains(implementedType)) {
+                brands.add("declare readonly [" + BRAND_PREFIX + typeNames.get(implementedType) + "]: true;");
             }
-            String member = propertyName(type, property);
-            properties.add(prepareMember(owner, member, property));
-            if (property.getKind() == Property.Kind.CONTAINMENT) {
-                containments.add(Map.of("name", member, "many", property.isCollection()));
-            }
-            addMultiplicity(property, member, multiplicities);
         }
 
+        List<Map<String, Object>> properties = new ArrayList<>();
+        String owner = apply(name, parameters);
+        // Properties of supertypes besides the base class are declared on the class itself.
+        Set<String> abstracted = abstractSlots.get(type.getName());
+        boolean deferred = deferredDefaults.contains(type.getName());
+        // A concrete class of a deferred family applies the effective default of every property it stores.
+        List<String> defaults = new ArrayList<>();
+        for (Property property : type.getEffectiveProperties()) {
+            String member = propertyName(type, property);
+            if (deferred && !type.isInterfaceOnly()
+                    && (inherited.contains(property.getName()) || !abstracted.contains(property.getName()))) {
+                defaultStatement(member, property).ifPresent(defaults::add);
+            }
+            if (inherited.contains(property.getName())) {
+                // A redeclaration can change the literal default of the inherited storage.
+                if (!type.isGetterOnlyTrait() && !type.isImmutable() && !deferred) {
+                    redeclaredDefault(base, property, member).ifPresent(properties::add);
+                }
+                continue;
+            }
+            boolean override = baseAbstract.contains(property.getName());
+            if (abstracted.contains(property.getName())) {
+                Property earlier = override ? effectiveProperty(base, property.getName()).orElseThrow() : null;
+                if (earlier == null || !sameValueType(earlier.getValueType(), property.getValueType())) {
+                    properties.add(field("abstract " + (override ? "override " : "") + "get " + member + "(): "
+                            + valueType(property, false) + ";"));
+                }
+                continue;
+            }
+            properties.add(prepareMember(owner, member, property, override));
+        }
+        // An abstract class keeps the method of its base class: only concrete classes are created.
+        List<String> applied = type.isInterfaceOnly() && base != null
+                ? appliedDefaults.getOrDefault(base.getName(), List.of()) : List.copyOf(defaults);
+        appliedDefaults.put(type.getName(), applied);
+
         boolean hasBase = primary != null;
-        String base = (hasBase ? " extends " + typeName(primary) : "")
+        String extendsClause = (hasBase ? " extends " + typeName(primary) : "")
                 + (implemented.isEmpty() ? "" : " implements " + String.join(", ", implemented));
         String modifier = type.isInterfaceOnly() ? "abstract " : "";
-        boolean hasValidation = !containments.isEmpty() || !multiplicities.isEmpty();
         String readOnlyType = apply(READ_ONLY_PREFIX + name, parameters);
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("name", name);
-        result.put("declaration", "export " + modifier + "class " + apply(name, declarations) + base);
+        result.put("declaration", "export " + modifier + "class " + apply(name, declarations) + extendsClause);
         // Interface-only types stay structural so that classes can implement them besides their base.
-        result.put("brand", type.isInterfaceOnly() ? "" : BRAND_PREFIX + name);
+        result.put("brands", List.copyOf(brands));
         result.put("interfaceOnly", type.isInterfaceOnly());
+        result.put("hasInstance", type.isInterfaceOnly() || symbolBrands.contains(type.getName()));
+        // A subclass's constructor inherits Symbol.hasInstance (from Function at the latest), so redefining it
+        // needs the override modifier under noImplicitOverride.
+        result.put("staticOverride", base != null ? "override " : "");
         result.put("hasBase", hasBase);
         result.put("readOnlyType", readOnlyType);
+        List<String> methods = behaviors.methods(type, base, members);
         if (type.isGetterOnlyTrait()) {
             result.put("kind", "trait");
-            result.put("members", traitMembers(type, inherited, hasBase, readOnlyType));
-        } else if (type.isImmutable()) {
-            result.put("kind", "immutable");
-            prepareImmutable(type, inherited, result);
+            List<String> traitMembers = new ArrayList<>(traitMembers(type, base, inherited, hasBase, readOnlyType));
+            traitMembers.addAll(methods);
+            result.put("members", traitMembers);
         } else {
-            result.put("kind", "model");
-            result.put("hasValidation", hasValidation);
-            result.put("emitValidation", !hasBase || hasValidation);
-            result.put("properties", List.copyOf(properties));
-            result.put("containments", List.copyOf(containments));
-            result.put("multiplicities", List.copyOf(multiplicities));
+            // Every class checks the effective properties of its own type (see TypeScriptValidationRenderModel).
+            TypeScriptValidationRenderModel.prepare(type, base, result);
+            result.put("methods", methods);
+            if (type.isImmutable()) {
+                result.put("kind", "immutable");
+                prepareImmutable(type, base, inherited, result);
+            } else {
+                result.put("kind", "model");
+                result.put("properties", List.copyOf(properties));
+                result.put("construct", deferred && !type.isInterfaceOnly() ? construct(type, name, hasBase) : "");
+                // The base class's method applies the same defaults, or the declaration of an abstract base class.
+                boolean inheritsDefaults = base != null
+                        && applied.equals(appliedDefaults.getOrDefault(base.getName(), List.of()));
+                result.put("applyDefaults", deferred && !inheritsDefaults ? applyDefaults(base != null, defaults) : "");
+                result.put("replace", behaviors.replace(type, base));
+            }
         }
         return result;
     }
 
+    /** The constructor of a class whose family has a construction hook: hook first, then the declared defaults. */
+    private String construct(Type type, String name, boolean hasBase) {
+        String hook = behaviors.hookCall(type);
+        return "constructor() {\n"
+                + (hasBase ? "        super();\n" : "")
+                + "        if (new.target === " + name + ") {\n"
+                + (hook.isEmpty() ? "" : "            " + hook + "\n")
+                + "            this.__vmfApplyDefaults();\n"
+                + "        }\n"
+                + "    }";
+    }
+
+    /**
+     * The method that applies the effective defaults of a class: the constructor of the concrete class calls it once,
+     * after the construction hook, so that every default, a bound one included, is evaluated once.
+     */
+    private static String applyDefaults(boolean override, List<String> assignments) {
+        StringBuilder text = new StringBuilder("/** @internal Applies the declared defaults; constructors call it after the"
+                + " construction hook. */\n    " + (override ? "override " : "") + "__vmfApplyDefaults(): void {\n");
+        assignments.forEach(assignment -> text.append("        ").append(assignment).append("\n"));
+        return text.append("    }").toString();
+    }
+
+    /** How a new object gets the default of a property, unless it starts with it (the zero value). */
+    private Optional<String> defaultStatement(String member, Property property) {
+        if (TypeScriptCapabilities.hasCollectionDefault(property)) {
+            return Optional.of(collectionDefault(member, property));
+        }
+        if (property.getKind() != Property.Kind.SCALAR || property.isCollection()) {
+            return Optional.empty();
+        }
+        String initial = initialValue(property);
+        return initial.equals(zeroValue(property)) ? Optional.empty()
+                : Optional.of("this.__vmfValue_" + member + " = " + initial + ";");
+    }
+
     /** A getter-only trait is an abstract contract that mutable and immutable classes implement. */
-    private List<String> traitMembers(Type type, Set<String> inherited, boolean hasBase, String readOnlyType) {
+    private List<String> traitMembers(Type type, Type base, Set<String> inherited, boolean hasBase,
+                                      String readOnlyType) {
         List<String> members = new ArrayList<>();
         for (Property property : type.getEffectiveProperties()) {
             if (!inherited.contains(property.getName())) {
                 members.add("abstract get " + propertyName(type, property) + "(): " + valueType(property, false) + ";");
+            } else if (!sameValueType(effectiveProperty(base, property.getName()).orElseThrow().getValueType(),
+                    property.getValueType())) {
+                // A trait can narrow the getter it inherits.
+                members.add("abstract override get " + propertyName(type, property) + "(): "
+                        + valueType(property, false) + ";");
             }
         }
         if (hasBase) {
             members.add("abstract override asReadOnly(): " + readOnlyType + ";");
         } else {
+            // Every class that implements a trait validates itself, so trait-typed children can be validated.
+            members.add("/** @internal */\n    abstract __vmfValidateInto(issues: vmf.ValidationIssue[], path: string, "
+                    + "modelPath: string, pending: vmf.ValidationTask[]): void;");
             members.add("abstract asReadOnly(): " + readOnlyType + ";");
             members.add("abstract contentEquals(other: unknown): boolean;");
             members.add("abstract contentHashCode(): number;");
@@ -292,32 +641,87 @@ final class TypeScriptRenderModel {
     }
 
     /** An immutable class receives all its values in the constructor and freezes the finished object. */
-    private void prepareImmutable(Type type, Set<String> inherited, Map<String, Object> result) {
+    private void prepareImmutable(Type type, Type base, Set<String> inherited, Map<String, Object> result) {
         List<String> inputs = new ArrayList<>();
         List<String> fields = new ArrayList<>();
         List<String> assignments = new ArrayList<>();
         List<String> getters = new ArrayList<>();
+        List<String> redeclared = new ArrayList<>();
         for (Property property : type.getEffectiveProperties()) {
             String member = propertyName(type, property);
             String stored = valueType(property, true);
-            String input = property.isCollection() ? "Iterable<" + elementType(property) + ">" : stored;
+            String input = property.getKind() == Property.Kind.MAP
+                    ? "Iterable<readonly [" + typeName(property.getKeyType()) + ", " + mapValueType(property) + "]>"
+                    : property.isCollection() ? "Iterable<" + elementType(property) + ">" : stored;
             inputs.add("        readonly " + member + "?: " + input + ";");
             if (inherited.contains(property.getName())) {
+                Property earlier = effectiveProperty(base, property.getName()).orElseThrow();
+                String field = "__vmfValue_" + member;
+                // A redeclaration can change the default the base class would store: the base class gets it as the
+                // value, so that only the effective default is evaluated.
+                if (!property.isCollection() && !initialValue(property).equals(initialValue(earlier))) {
+                    redeclared.add(member + ": values." + member + " !== undefined ? values." + member + " : "
+                            + initialValue(property));
+                }
+                // A narrowed reference keeps the base class's field; the constructor only accepts the narrower type.
+                if (!sameValueType(earlier.getValueType(), property.getValueType())) {
+                    getters.add("override get " + member + "(): " + stored + " {\n        return this." + field
+                            + " as " + stored + ";\n    }");
+                }
                 continue;
             }
             String field = "__vmfValue_" + member;
             fields.add("/** @internal */\n    readonly " + field + ": " + stored + ";");
+            boolean uuid = isUuid(property.getValueType());
+            String fallback = TypeScriptCapabilities.hasCollectionDefault(property) ? collectionDefaultValues(property)
+                    : "[]";
             assignments.add(property.isCollection()
-                    ? "this." + field + " = vmf.ReadOnlyList.of(values." + member + " ?? []);"
-                    : "this." + field + " = values." + member + " !== undefined ? values." + member + " : "
+                    ? "this." + field + " = " + immutableCollection(property, uuid ? "[...(values." + member
+                        + " ?? [])].map(value => vmf.canonicalUuid(value)" + (property.allowsNullElements() ? "" : "!")
+                        + ")" : "values." + member + " ?? " + fallback) + ";"
+                    : "this." + field + " = values." + member + " !== undefined ? "
+                        + (uuid ? "vmf.canonicalUuid(values." + member + ")" : "values." + member) + " : "
                         + initialValue(property) + ";");
             getters.add("get " + member + "(): " + stored + " {\n        return this." + field + ";\n    }");
         }
         result.put("parameter", inputs.isEmpty() ? "values: Readonly<Record<string, never>> = {}"
                 : "values: {\n" + String.join("\n", inputs) + "\n    } = {}");
+        result.put("superValues", redeclared.isEmpty() ? "values" : "{ ...values, " + String.join(", ", redeclared) + " }");
         result.put("fields", List.copyOf(fields));
         result.put("assignments", List.copyOf(assignments));
         result.put("getters", List.copyOf(getters));
+    }
+
+    /**
+     * The fixed collection of an immutable value: a list, a set or a map, checked like the collection of a mutable
+     * type (bounds, unique and non-null elements).
+     */
+    private static String immutableCollection(Property property, String input) {
+        // Model collections and ordinary lists leave bounds to validation.
+        boolean managed = property.getKind() == Property.Kind.MAP
+                || property.getKind() == Property.Kind.SCALAR && !property.allowsNullElements();
+        String bound = managed && property.getUpperBound() >= 0 ? "upperBound: " + property.getUpperBound() : "";
+        if (property.getKind() == Property.Kind.MAP) {
+            return "vmf.ReadOnlyMap.of(" + input + options(bound) + ")";
+        }
+        if (!property.isOrdered()) {
+            return "vmf.ReadOnlySet.of(" + input + options(bound) + ")";
+        }
+        List<String> checks = new ArrayList<>();
+        if (property.isUnique()) {
+            checks.add("unique: true");
+        }
+        if (!bound.isEmpty()) {
+            checks.add(bound);
+        }
+        if (property.getKind() == Property.Kind.SCALAR && !property.allowsNullElements()) {
+            checks.add("nullable: false");
+        }
+        return "vmf.ReadOnlyList.of(" + input + options(String.join(", ", checks)) + ")";
+    }
+
+    private static String options(String entries) {
+        return entries.isEmpty() ? "" : ", { " + entries + " }";
     }
 
     /** The read-only view interface of a mutable type or getter-only trait. */
@@ -328,13 +732,21 @@ final class TypeScriptRenderModel {
         for (var parameter : type.getTypeParameters()) {
             String parameterName = typeIdentifier(parameter.getName(), type.getQualifiedName());
             parameters.add(parameterName);
-            declarations.add(parameterName + " extends " + typeName(parameter.getBound()));
+            declarations.add(parameterDeclaration(parameterName, parameter));
         }
         List<String> parents = type.getSuperTypeApplications().stream()
                 .map(application -> READ_ONLY_PREFIX + typeName(application)).collect(Collectors.toList());
         List<String> members = new ArrayList<>();
         for (Property property : type.getEffectiveProperties()) {
             members.add("readonly " + propertyName(type, property) + ": " + readOnlyType(property) + ";");
+        }
+        for (Property property : type.getEffectiveProperties()) {
+            lookupName(type, property).ifPresent(lookup -> {
+                ValueType key = property.getEntryKey().orElseThrow().getValueType();
+                String keyType = key.getKind() == ValueType.Kind.MODEL
+                        ? typeName(key) + " | " + readOnlyTypeName(key) : typeName(key);
+                members.add(lookup + "(key: " + keyType + "): " + readOnlyTypeName(property.getValueType()) + " | null;");
+            });
         }
         members.add("asReadOnly(): " + apply(READ_ONLY_PREFIX + name, parameters) + ";");
         members.add("contentEquals(other: unknown): boolean;");
@@ -361,7 +773,14 @@ final class TypeScriptRenderModel {
         if (!type.getEffectiveProperties().isEmpty()) {
             declaration.append("\n");
         }
-        return declaration.append("]);").toString();
+        declaration.append("]");
+        List<String> lookups = type.getEffectiveProperties().stream()
+                .map(property -> lookupName(type, property)).flatMap(Optional::stream)
+                .map(TypeScriptRenderModel::quoted).collect(Collectors.toList());
+        if (!lookups.isEmpty()) {
+            declaration.append(", [").append(String.join(", ", lookups)).append("]");
+        }
+        return declaration.append(");").toString();
     }
 
     private static String annotations(List<ResolvedModel.MetadataAnnotation> annotations) {
@@ -374,27 +793,56 @@ final class TypeScriptRenderModel {
      * traits declare as {@code vmf.ListView}; immutable classes return a {@code vmf.ReadOnlyList}.
      */
     private String valueType(Property property, boolean immutable) {
+        if (property.getKind() == Property.Kind.MAP) {
+            return (immutable ? "vmf.ReadOnlyMap<" : "vmf.MapView<") + typeName(property.getKeyType()) + ", "
+                    + mapValueType(property) + ">";
+        }
         if (property.isCollection()) {
             if (immutable) {
-                return "vmf.ReadOnlyList<" + elementType(property) + ">";
+                return (property.isOrdered() ? "vmf.ReadOnlyList<" : "vmf.ReadOnlySet<") + elementType(property) + ">";
             }
             return (property.isOrdered() ? "vmf.ListView<" : "vmf.CollectionView<") + elementType(property) + ">";
         }
         ValueType value = property.getValueType();
-        return typeName(value) + (value.isPrimitive() ? "" : " | null");
+        return value.isPrimitive() ? typeName(value) : orNull(typeName(value));
     }
 
     private String elementType(Property property) {
-        return typeName(property.getValueType())
-                + (property.getKind() == Property.Kind.SCALAR && property.allowsNullElements() ? " | null" : "");
+        String type = typeName(property.getValueType());
+        return property.getKind() == Property.Kind.SCALAR && property.allowsNullElements() ? orNull(type) : type;
+    }
+
+    /** A type that also holds null; untyped values (unknown) include null already. */
+    static String orNull(String type) {
+        return type.equals("unknown") ? type : type + " | null";
+    }
+
+    /** Map values may be null. */
+    private String mapValueType(Property property) {
+        return typeName(property.getValueType()) + " | null";
+    }
+
+    /** The lookup method of a keyed containment: {@code find<Property>By<Key>}, as in Java. */
+    private static Optional<String> lookupName(Type owner, Property property) {
+        return property.getEntryKey().map(key -> "find" + capitalized(propertyName(owner, property)) + "By"
+                + capitalized(checkedIdentifier(key.getPropertyName(), owner.getQualifiedName() + "." + property.getName()
+                        + " key")));
+    }
+
+    private static String capitalized(String name) {
+        return Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
     /** The type of a property in a read-only view: model values and lists are read-only too. */
     private String readOnlyType(Property property) {
         ValueType value = property.getValueType();
+        if (property.getKind() == Property.Kind.MAP) {
+            return valueType(property, false);
+        }
         if (property.getKind() == Property.Kind.SCALAR) {
-            return property.isCollection() ? "vmf.ListView<" + elementType(property) + ">"
-                    : typeName(value) + (value.isPrimitive() ? "" : " | null");
+            return property.isCollection()
+                    ? (property.isOrdered() ? "vmf.ListView<" : "vmf.CollectionView<") + elementType(property) + ">"
+                    : value.isPrimitive() ? typeName(value) : orNull(typeName(value));
         }
         String element = readOnlyTypeName(value);
         if (!property.isCollection()) {
@@ -411,6 +859,44 @@ final class TypeScriptRenderModel {
         return immutable ? typeName(value) : READ_ONLY_PREFIX + typeName(value);
     }
 
+    /**
+     * The scalar field of an inherited property whose redeclaration changes the literal default; it starts with the
+     * new default when the object is created.
+     */
+    private Optional<Map<String, Object>> redeclaredDefault(Type base, Property property, String member) {
+        if (base == null || property.getKind() != Property.Kind.SCALAR || property.isCollection()) {
+            return Optional.empty();
+        }
+        Property earlier = effectiveProperty(base, property.getName()).orElseThrow();
+        String initial = initialValue(property);
+        if (initial.equals(initialValue(earlier))) {
+            return Optional.empty();
+        }
+        String type = property.getValueType().isPrimitive() ? typeName(property.getValueType())
+                : orNull(typeName(property.getValueType()));
+        return Optional.of(field("/** @internal */\n    override __vmfValue_" + member + ": " + type + " = "
+                + initial + ";"));
+    }
+
+    private Map<String, Object> prepareMember(String owner, String member, Property property, boolean override) {
+        Map<String, Object> declaration = prepareMember(owner, member, property);
+        if (!override) {
+            return declaration;
+        }
+        if (Boolean.TRUE.equals(declaration.get("container"))) {
+            Map<String, Object> container = new LinkedHashMap<>(declaration);
+            container.put("modifier", "override ");
+            return container;
+        }
+        String text = (String) declaration.get("declaration");
+        text = text.replace("    get " + member + "(", "    override get " + member + "(")
+                .replace("    set " + member + "(", "    override set " + member + "(");
+        if (text.startsWith("readonly " + member + " ")) {
+            text = "override " + text;
+        }
+        return field(text);
+    }
+
     private Map<String, Object> prepareMember(String owner, String member, Property property) {
         String target = typeName(property.getValueType());
         String name = quoted(member);
@@ -418,26 +904,40 @@ final class TypeScriptRenderModel {
             case CONTAINMENT: {
                 String containerProperty = property.getOppositeName().isEmpty() ? ""
                         : ", " + quoted(checkedIdentifier(property.getOppositeName(), owner + "." + member + " opposite"));
+                // A getter-only trait does not show the containment link that its mutable implementations have.
+                String link = ownedByRole(property) ? "vmf.containmentLinkOf" : "child => child.__vmfContainerLink";
                 if (property.isCollection()) {
-                    return field("readonly " + member + " = new vmf.ContainmentList<" + owner + ", "
-                            + target + ">(this, " + name + ", child => child.__vmfContainerLink" + containerProperty + ");");
+                    return field(containmentCollection(owner, member, property, target, containerProperty, link));
                 }
                 return field("/** @internal */\n"
                         + "    readonly __vmfSlot_" + member + " = new vmf.ContainmentSlot<" + owner + ", " + target
-                        + ">(this, " + name + ", child => child.__vmfContainerLink" + containerProperty + ");\n\n"
+                        + ">(this, " + name + ", " + link + containerProperty + ");\n\n"
                         + accessor(member, target, "this.__vmfSlot_" + member + ".value",
                                 "this.__vmfSlot_" + member + ".set(value);"));
             }
             case CONTAINER:
                 return prepareContainer(owner, member, property, target);
             case REFERENCE: {
+                // A class that implements a generic supertype besides its base declares the supertype's scalar
+                // slot itself; an immutable type argument keeps the slot's storage.
+                Optional<Property> slot = scalarSlotOrigin(property);
+                if (slot.isPresent()) {
+                    if (property.isCollection()) {
+                        String element = target + (slot.get().allowsNullElements() ? " | null" : "");
+                        return field("readonly " + member + " = new vmf.ScalarList<" + element + ">(this, " + name + ");");
+                    }
+                    return valueAccessor(member, target + " | null", "null");
+                }
                 String opposite = property.getOppositeName();
                 if (property.isCollection()) {
-                    if (!property.isOrdered()) {
-                        return field("readonly " + member + " = new vmf.ReferenceSet<" + target + ">(this, " + name + ");");
-                    }
                     String arguments = "this, " + name + (opposite.isEmpty() ? "" : ", "
                             + quoted(checkedIdentifier(opposite, owner + "." + member + " opposite")));
+                    if (!property.isOrdered()) {
+                        return field("readonly " + member + " = new vmf.ReferenceSet<" + target + ">(" + arguments + ");");
+                    }
+                    if (opposite.isEmpty() && property.isUnique()) {
+                        arguments += ", undefined, { unique: true }";
+                    }
                     return field("readonly " + member + " = new vmf.ReferenceList<" + target + ">(" + arguments + ");");
                 }
                 if (opposite.isEmpty()) {
@@ -449,27 +949,115 @@ final class TypeScriptRenderModel {
                         + accessor(member, target, "this.__vmfRef_" + member + ".value",
                                 "vmf.setReference(this, value, " + name + ", " + oppositeName + ");"));
             }
-            case SCALAR:
+            case SCALAR: {
+                ValueType value = property.getValueType();
                 if (property.isCollection()) {
-                    String element = target + (property.allowsNullElements() ? " | null" : "");
-                    return field("readonly " + member + " = new vmf.ScalarList<" + element + ">(this, " + name + ");");
+                    return field(scalarCollection(member, property, target));
                 }
-                return valueAccessor(member, target + (property.getValueType().isPrimitive() ? "" : " | null"),
-                        initialValue(property));
+                String write = isUuid(value) ? "vmf.canonicalUuid(value)" : isUntyped(value) ? "vmf.untyped(value)" : "value";
+                return valueAccessor(member, value.isPrimitive() ? target : orNull(target),
+                        deferredDefaults.contains(preparing.getName()) ? zeroValue(property) : initialValue(property),
+                        write);
+            }
+            case MAP:
+                return field("readonly " + member + " = new vmf.ScalarMap<" + typeName(property.getKeyType()) + ", "
+                        + mapValueType(property) + ">(this, " + name + upperBound(property) + ");");
             default:
                 throw new IllegalStateException("Unsupported property kind " + property.getKind());
         }
     }
 
+    /** The declaration of a property as a scalar slot of a type parameter, if its declaring type has one. */
+    private Optional<Property> scalarSlotOrigin(Property property) {
+        return model.findType(property.getDeclaringType())
+                .flatMap(declaring -> declaring.getProperties().stream()
+                        .filter(origin -> origin.getName().equals(property.getName())).findFirst())
+                .filter(origin -> origin.getKind() == Property.Kind.SCALAR
+                        && origin.getValueType().getKind() == ValueType.Kind.PARAMETER);
+    }
+
+    /** Whether the children of a containment property are typed by a getter-only trait (or a parameter bound to one). */
+    private boolean ownedByRole(Property property) {
+        String target = property.getValueType().getModelType();
+        return target != null && model.findType(target).filter(Type::isGetterOnlyTrait).isPresent();
+    }
+
+    /**
+     * An ordered containment list or an unordered containment set. A keyed one checks the keys of its children and
+     * gets a lookup method on the owner, {@code find<Property>By<Key>(key)}.
+     */
+    private String containmentCollection(String owner, String member, Property property, String target,
+                                         String containerProperty, String link) {
+        String kind = property.isOrdered() ? "ContainmentList" : "ContainmentSet";
+        String name = quoted(member);
+        String declaration = "readonly " + member + " = new vmf." + kind + "<" + owner + ", " + target + ">(this, "
+                + name + ", " + link;
+        Optional<ResolvedModel.EntryKey> key = property.getEntryKey();
+        if (key.isEmpty()) {
+            return declaration + containerProperty + ");";
+        }
+        String keyProperty = checkedIdentifier(key.get().getPropertyName(), owner + "." + member + " key");
+        String keyType = typeName(key.get().getValueType());
+        String lookup = "find" + capitalized(member) + "By" + capitalized(keyProperty);
+        return declaration + (containerProperty.isEmpty() ? ", undefined" : containerProperty)
+                + ", {\n        key: { property: " + quoted(keyProperty) + ", of: child => child." + keyProperty + " },\n    });\n\n"
+                + "    /** The entry of {@link " + member + "} whose " + keyProperty + " is the key, or null. */\n"
+                + "    " + lookup + "(key: " + keyType + "): " + target + " | null {\n"
+                + "        return this." + member + ".findByKey(key);\n"
+                + "    }";
+    }
+
+    /**
+     * A scalar list or set. Sets, ordered sets ({@code ORDERED_SET}) and lists with an upper bound reject null and
+     * edits beyond the bound; other lists accept null and leave bounds to validation.
+     */
+    private String scalarCollection(String member, Property property, String target) {
+        String name = quoted(member);
+        if (!property.isOrdered()) {
+            return "readonly " + member + " = new vmf.ScalarSet<" + target + ">(this, " + name + upperBound(property)
+                    + ");";
+        }
+        // UUIDs are kept in canonical form and untyped values store undefined as null.
+        ValueType value = property.getValueType();
+        String normalize = isUuid(value) ? (property.allowsNullElements() ? "normalize: vmf.canonicalUuid"
+                : "normalize: value => vmf.canonicalUuid(value)!") : isUntyped(value) ? "normalize: vmf.untyped" : "";
+        if (property.allowsNullElements()) {
+            return "readonly " + member + " = new vmf.ScalarList<" + orNull(target) + ">(this, " + name
+                    + (normalize.isEmpty() ? "" : ", { " + normalize + " }") + ");";
+        }
+        List<String> options = new ArrayList<>();
+        if (property.isUnique()) {
+            options.add("unique: true");
+        }
+        if (property.getUpperBound() >= 0) {
+            options.add("upperBound: " + property.getUpperBound());
+        }
+        options.add("nullable: false");
+        if (!normalize.isEmpty()) {
+            options.add(normalize);
+        }
+        return "readonly " + member + " = new vmf.ScalarList<" + target + ">(this, " + name + ", { "
+                + String.join(", ", options) + " });";
+    }
+
+    private static String upperBound(Property property) {
+        return property.getUpperBound() >= 0 ? ", " + property.getUpperBound() : "";
+    }
+
     /** A single value stored in a field and changed through {@code vmf.setValue}, which reports the change. */
     private static Map<String, Object> valueAccessor(String member, String type, String initial) {
+        return valueAccessor(member, type, initial, "value");
+    }
+
+    /** {@code write} checks and normalizes the new value, for UUIDs and untyped values. */
+    private static Map<String, Object> valueAccessor(String member, String type, String initial, String write) {
         return field("/** @internal */\n"
                 + "    __vmfValue_" + member + ": " + type + " = " + initial + ";\n\n"
                 + "    get " + member + "(): " + type + " {\n"
                 + "        return this.__vmfValue_" + member + ";\n"
                 + "    }\n\n"
                 + "    set " + member + "(value: " + type + ") {\n"
-                + "        vmf.setValue(this, " + quoted(member) + ", value);\n"
+                + "        vmf.setValue(this, " + quoted(member) + ", " + write + ");\n"
                 + "    }");
     }
 
@@ -504,11 +1092,23 @@ final class TypeScriptRenderModel {
         } else {
             String opposite = checkedIdentifier(property.getOppositeName(), owner + "." + member + " opposite");
             owners.add(opposite);
+            // Further containment properties of the container can name this end as their opposite.
+            for (Property alternate : containerType.getEffectiveProperties()) {
+                if (alternate.getKind() == Property.Kind.CONTAINMENT && !alternate.getName().equals(opposite)
+                        && alternate.getOppositeName().equals(property.getName())) {
+                    owners.add(alternate.getName());
+                }
+            }
             Property inverse = containerType.getEffectiveProperties().stream()
                     .filter(candidate -> candidate.getName().equals(opposite)).findFirst().orElseThrow();
-            attach = inverse.isCollection() ? "value." + opposite + ".add(this)" : "value." + opposite + " = this";
+            // The container can have narrowed its end to a subtype of this class (Owner.primary: Owned for an
+            // OwnedTarget); the objects that reach this setter are of that subtype.
+            String self = inverse.getValueType().getModelType() == null
+                    || isSubtype(preparing, inverse.getValueType().getModelType())
+                    ? "this" : "this as unknown as " + typeName(inverse.getValueType());
+            attach = inverse.isCollection() ? "value." + opposite + ".add(" + self + ")" : "value." + opposite + " = " + self;
         }
-        return Map.of("container", true, "name", member, "type", target,
+        return Map.of("container", true, "name", member, "type", target, "modifier", "",
                 "ownerType", typeName(containerType),
                 "owners", owners.stream().map(TypeScriptRenderModel::quoted).collect(Collectors.joining(", ")),
                 "settable", !attach.isEmpty(), "attach", attach);
@@ -523,11 +1123,147 @@ final class TypeScriptRenderModel {
         return false;
     }
 
-    private static String initialValue(Property property) {
+    /**
+     * The value a new object starts with: the declared literal default, the value of a bound default from the
+     * installed bindings, the member of a literal union that the default names, or the zero value.
+     */
+    private String initialValue(Property property) {
         if (property.hasDeclaredDefault() && property.getScalarDefault().isPresent()) {
             ResolvedModel.ScalarDefault declared = property.getScalarDefault().get();
             return declared.isNull() ? "null" : literal(declared.getKind(), declared.getValue());
         }
+        if (TypeScriptCapabilities.bindsDefault(property)) {
+            return boundDefault(property);
+        }
+        var literal = TypeScriptCapabilities.literalDefault(model, property);
+        if (literal.isPresent()) {
+            return quoted(literal.get());
+        }
+        return zeroValue(property);
+    }
+
+    /**
+     * A bound default: the declaring type's binding computes the value for each new object, or the values of a
+     * collection: list and set elements, map entries or reference set members.
+     */
+    private String boundDefault(Property property) {
+        String owner = property.getDeclaringType();
+        String key = "defaults." + owner + "." + property.getName();
+        ValueType value = property.getValueType();
+        String type = property.getKind() == Property.Kind.MAP
+                ? "Iterable<readonly [" + typeName(property.getKeyType()) + ", " + mapValueType(property) + "]>"
+                : property.isCollection() ? "Iterable<" + typeName(value) + ">"
+                : value.isPrimitive() ? typeName(value) : orNull(typeName(value));
+        boundDefaults.computeIfAbsent(owner, unused -> new java.util.TreeMap<>()).put(property.getName(), type);
+        String call = "__vmfBindings.use(" + quoted(key) + ", bindings => bindings." + key + ")()";
+        return isUuid(value) && !property.isCollection() ? "vmf.canonicalUuid(" + call + ")" : call;
+    }
+
+    /**
+     * Gives the collection of a new object its declared default after the construction hook: the default replaces
+     * what the hook added.
+     */
+    private String collectionDefault(String member, Property property) {
+        String collection = "this." + member;
+        String statements = collection + ".clear();\n        ";
+        if (property.getKind() == Property.Kind.REFERENCE && TypeScriptCapabilities.bindsCollectionDefault(property)) {
+            return statements + "for (const member of " + boundDefault(property) + ") {\n            " + collection
+                    + ".add(member);\n        }";
+        }
+        if (property.getKind() == Property.Kind.REFERENCE) {
+            return statements + collection + ".add(" + newMember(property) + ");";
+        }
+        return statements + collection + (property.getKind() == Property.Kind.MAP ? ".putAll(" : ".addAll(")
+                + collectionDefaultValues(property) + ");";
+    }
+
+    /**
+     * The values of a collection default: the literal elements or map entries, the bound values, or a new member of
+     * a reference set.
+     */
+    private String collectionDefaultValues(Property property) {
+        if (TypeScriptCapabilities.bindsCollectionDefault(property)) {
+            return boundDefault(property);
+        }
+        if (property.getKind() == Property.Kind.REFERENCE) {
+            return "[" + newMember(property) + "]";
+        }
+        ResolvedModel.CollectionDefault literal = property.getCollectionDefault().orElseThrow();
+        List<String> values = new ArrayList<>();
+        for (int index = 0; index < literal.getValues().size(); index++) {
+            ResolvedModel.ScalarDefault value = literal.getValues().get(index);
+            String text = literal(value.getKind(), value.getValue());
+            if (property.getKind() == Property.Kind.MAP) {
+                ResolvedModel.ScalarDefault key = literal.getKeys().get(index);
+                text = "[" + literal(key.getKind(), key.getValue()) + ", " + text + "]";
+            }
+            values.add(text);
+        }
+        return "[" + String.join(", ", values) + "]";
+    }
+
+    /**
+     * The new member of a reference set default ({@code Type.newInstance()}, or a builder that sets one string
+     * property): a new object, or an immutable value.
+     */
+    private String newMember(Property property) {
+        ResolvedModel.ReferenceSetDefault recipe = property.getReferenceSetDefault().orElseThrow();
+        Type target = model.findType(property.getValueType().getModelType()).orElseThrow();
+        List<String> values = new ArrayList<>();
+        recipe.getAssignments().forEach((name, value) -> {
+            Property assigned = effectiveProperty(target, name).orElseThrow();
+            values.add(propertyName(target, assigned) + ": " + literal(value.getKind(), value.getValue()));
+        });
+        values.sort(Comparator.naturalOrder());
+        String created = "new " + typeName(target) + "(";
+        if (values.isEmpty()) {
+            return created + ")";
+        }
+        String entries = "{ " + String.join(", ", values) + " }";
+        return target.isImmutable() ? created + entries + ")" : "Object.assign(" + created + "), " + entries + ")";
+    }
+
+    /** True if documents write null for the property instead of leaving it out: its default is not null. */
+    boolean writesNull(Property property) {
+        return !property.isCollection() && !property.getValueType().isPrimitive()
+                && (property.getScalarDefault().filter(value -> !value.isNull()).isPresent()
+                    || TypeScriptCapabilities.bindsDefault(property)
+                    || TypeScriptCapabilities.literalDefault(model, property).isPresent());
+    }
+
+    /** The scalar type of a scalar property in the snapshot registry, with the value semantics of externals. */
+    String scalarData(Property property) {
+        ValueType value = property.getValueType();
+        String kind = value.getKind().name().toLowerCase(java.util.Locale.ROOT);
+        String extra = "";
+        if (value.getKind() == ValueType.Kind.EXTERNAL) {
+            var mapping = externals.mapping(value);
+            kind = mapping.getScalarType();
+            if (mapping.getLiterals() != null) {
+                extra = ", literals: [" + mapping.getLiterals().stream().map(TypeScriptRenderModel::quoted)
+                        .collect(Collectors.joining(", ")) + "]";
+            }
+            if (mapping.needsCodec()) {
+                codecs.put(mapping.getKey(), mapping.getTypeName());
+                String key = "externals." + mapping.getKey();
+                extra = ", codec: () => __vmfBindings.use(" + quoted(key) + ", bindings => bindings." + key + ")";
+            }
+        }
+        return "scalarType: \"" + kind + "\", nullable: "
+                + (property.isCollection() ? property.allowsNullElements() : !value.isPrimitive()) + extra
+                + (writesNull(property) ? ", writeNull: true" : "");
+    }
+
+    private static boolean isUuid(ValueType value) {
+        return TypeScriptCapabilities.UUID.equals(value.getExternalType());
+    }
+
+    private boolean isUntyped(ValueType value) {
+        return value.getKind() == ValueType.Kind.EXTERNAL && TypeScriptCapabilities.isUnboundObject(model, value);
+    }
+
+    /** The zero value of a property: false, 0, 0n or U+0000 for primitives, else null. */
+    private static String zeroValue(Property property) {
         ValueType value = property.getValueType();
         if (!value.isPrimitive()) {
             return "null";
@@ -537,6 +1273,8 @@ final class TypeScriptRenderModel {
                 return "false";
             case INT64:
                 return "0n";
+            case CHAR:
+                return quoted("\u0000");
             default:
                 return "0";
         }
@@ -548,10 +1286,20 @@ final class TypeScriptRenderModel {
                 return quoted(String.valueOf(value));
             case BOOLEAN:
                 return String.valueOf(value);
+            case INT8:
+            case INT16:
             case INT32:
                 return String.valueOf(((Number) value).intValue());
             case INT64:
                 return ((Number) value).longValue() + "n";
+            case CHAR:
+                return quoted(String.valueOf(value));
+            case FLOAT32: {
+                float number = ((Number) value).floatValue();
+                if (Float.isNaN(number)) return "Number.NaN";
+                if (Float.isInfinite(number)) return number > 0 ? "Number.POSITIVE_INFINITY" : "Number.NEGATIVE_INFINITY";
+                return Float.toString(number);
+            }
             case FLOAT64: {
                 double number = ((Number) value).doubleValue();
                 if (Double.isNaN(number)) return "Number.NaN";
@@ -571,47 +1319,34 @@ final class TypeScriptRenderModel {
         return Map.of("container", false, "declaration", declaration);
     }
 
-    private static void addMultiplicity(Property property, String name, List<Map<String, Object>> checks) {
-        boolean collection = property.isCollection();
-        if (!collection && property.getValueType().isPrimitive()) {
-            return;
-        }
-        int lower = property.getLowerBound();
-        int upper = property.getUpperBound();
-        boolean checkLower = lower > 0;
-        boolean checkUpper = collection && upper >= 0;
-        if (!checkLower && !checkUpper) {
-            return;
-        }
-
-        String count = collection ? "this." + name + ".count" : "this." + name + " === null ? 0 : 1";
-        String variable = "count" + checks.size();
-        List<String> conditions = new ArrayList<>();
-        if (checkLower) {
-            conditions.add(variable + " < " + lower);
-        }
-        if (checkUpper) {
-            conditions.add(variable + " > " + upper);
-        }
-        String expected = checkLower && checkUpper ? "between " + lower + " and " + upper
-                : checkLower ? "at least " + lower : "at most " + upper;
-        checks.add(Map.of("name", name, "variable", variable, "count", count,
-                "condition", String.join(" || ", conditions), "expected", expected));
-    }
-
     String typeName(Type type) {
         return typeNames.get(type.getName());
+    }
+
+    /**
+     * A type parameter: unbounded and {@code Number}-bounded parameters hold scalars, which are numbers or bigints
+     * for {@code Number}; other parameters extend their model or parameter bound.
+     */
+    private String parameterDeclaration(String name, ResolvedModel.TypeParameter parameter) {
+        if (parameter.getBound() == null) {
+            return name;
+        }
+        return name + " extends " + (parameter.isNumberBound() ? "number | bigint" : typeName(parameter.getBound()));
     }
 
     String typeName(ValueType value) {
         switch (value.getKind()) {
             case BOOLEAN:
                 return "boolean";
+            case INT8:
+            case INT16:
             case INT32:
+            case FLOAT32:
             case FLOAT64:
                 return "number";
             case INT64:
                 return "bigint";
+            case CHAR:
             case STRING:
                 return "string";
             case PARAMETER:
@@ -619,6 +1354,8 @@ final class TypeScriptRenderModel {
             case MODEL:
                 return apply(typeNames.get(value.getModelType()), value.getArguments().stream().map(this::typeName)
                         .collect(Collectors.toList()));
+            case EXTERNAL:
+                return externals.mapping(value).getTypeName();
             default:
                 throw new IllegalStateException("Unsupported TypeScript type " + value.getKind());
         }

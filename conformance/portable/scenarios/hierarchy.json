@@ -1,0 +1,327 @@
+{
+  "model": "redeclaration",
+  "scenarios": [
+    {
+      "id": "redeclared-property-keeps-one-slot",
+      "from": "PropertyInheritanceTest, VMF-Text grammar models",
+      "rules": ["T7", "T2"],
+      "steps": [
+        {"new": "i", "type": "Item"},
+        {"check": "i.name", "value": "item"},
+        {"check": "i.rank", "value": 0},
+        {"set": "i.rank", "value": 5},
+        {"check": "i.rank", "value": 5},
+        {"new": "s", "type": "SpecialItem"},
+        {"instanceOf": "s", "type": "Item"},
+        {"instanceOf": "s", "type": "Ranked"},
+        {"check": "s.name", "value": "special"},
+        {"set": "s.name", "value": "x"},
+        {"check": "s.name", "value": "x"},
+        {"set": "s.name", "value": null},
+        {"check": "s.name", "value": null}
+      ]
+    },
+    {
+      "id": "redeclared-property-is-listed-once",
+      "requires": ["reflection"],
+      "rules": ["T7", "F1"],
+      "steps": [
+        {"new": "s", "type": "SpecialItem"},
+        {"properties": "s", "are": ["name", "rank"]}
+      ]
+    },
+    {
+      "id": "redeclared-default-of-an-immutable-subtype",
+      "requires": ["views"],
+      "rules": ["T7", "V3"],
+      "steps": [
+        {"new": "v", "type": "Version"},
+        {"check": "v.major", "value": 1},
+        {"new": "r", "type": "Release"},
+        {"instanceOf": "r", "type": "Version"},
+        {"check": "r.major", "value": 2},
+        {"new": "r7", "type": "Release", "with": {"major": 7, "tag": "x"}},
+        {"check": "r7.major", "value": 7},
+        {"check": "r7.tag", "value": "x"}
+      ]
+    },
+    {
+      "id": "several-immutable-supertypes",
+      "requires": ["views"],
+      "rules": ["T1", "T7", "V3"],
+      "from": "C# conformance hierarchy models (LiteralRank)",
+      "steps": [
+        {"new": "l", "type": "LiteralRank"},
+        {"instanceOf": "l", "type": "LeftRank"},
+        {"instanceOf": "l", "type": "RightRank"},
+        {"check": "l.rank", "value": 5},
+        {"check": "l.note", "value": null},
+        {"new": "m", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"check": "m.rank", "value": 7},
+        {"check": "m.note", "value": "n"},
+        {"new": "m2", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"equal": ["m", "m2"]},
+        {"notEqual": ["l", "m"]}
+      ]
+    },
+    {
+      "id": "immutable-subtype-narrows-a-reference",
+      "requires": ["views"],
+      "rules": ["T7", "V3"],
+      "from": "C# conformance covariance models (FrozenColorChoice)",
+      "steps": [
+        {"new": "c", "type": "ColorTag", "with": {"title": "t", "color": "red"}},
+        {"new": "f", "type": "FrozenColorChoice", "with": {"current": {"obj": "c"}}},
+        {"instanceOf": "f", "type": "FrozenChoice"},
+        {"check": "f.current", "obj": "c"},
+        {"check": "f.current.color", "value": "red"},
+        {"check": "f.current.title", "value": "t"},
+        {"new": "e", "type": "FrozenColorChoice"},
+        {"check": "e.current", "value": null}
+      ]
+    },
+    {
+      "id": "immutable-supertypes-in-documents",
+      "requires": ["json", "views"],
+      "rules": ["T1", "T7", "J1"],
+      "steps": [
+        {"new": "m", "type": "LiteralRank", "with": {"rank": 7, "note": "n"}},
+        {"write": "m", "as": "md"},
+        {"document": "md", "is": {"note": "n", "rank": 7}},
+        {"read": "md", "type": "LiteralRank", "as": "m2"},
+        {"equal": ["m", "m2"]},
+        {"new": "c", "type": "ColorTag", "with": {"title": "t", "color": "red"}},
+        {"new": "f", "type": "FrozenColorChoice", "with": {"current": {"obj": "c"}}},
+        {"write": "f", "as": "fd"},
+        {"read": "fd", "type": "FrozenColorChoice", "as": "f2"},
+        {"equal": ["f", "f2"]},
+        {"check": "f2.current.color", "value": "red"}
+      ]
+    },
+    {
+      "id": "relationship-ends-declared-by-each-subtype",
+      "from": "vflow (2017)",
+      "rules": ["T7", "C1", "C2", "C3", "C4"],
+      "steps": [
+        {"new": "n", "type": "Node"},
+        {"new": "i", "type": "InPort", "with": {"name": "in"}},
+        {"new": "o", "type": "OutPort", "with": {"name": "out"}},
+        {"instanceOf": "i", "type": "Port"},
+        {"add": "n.inputs", "obj": "i"},
+        {"add": "n.outputs", "obj": "o"},
+        {"check": "i.node", "obj": "n"},
+        {"check": "o.node", "obj": "n"},
+        {"new": "w", "type": "Wire", "with": {"name": "w"}},
+        {"add": "i.wires", "obj": "w"},
+        {"check": "w.target", "obj": "i"},
+        {"check": "w.source", "value": null},
+        {"add": "o.wires", "obj": "w"},
+        {"check": "w.source", "obj": "o"},
+        {"check": "w.target", "value": null},
+        {"check": "i.wires", "size": 0},
+        {"set": "w.target", "obj": "i"},
+        {"check": "i.wires", "objs": ["w"]},
+        {"check": "o.wires", "size": 0},
+        {"check": "w.source", "value": null},
+        {"set": "i.node", "value": null},
+        {"check": "n.inputs", "size": 0},
+        {"check": "i.wires", "objs": ["w"]}
+      ]
+    },
+    {
+      "id": "relationship-ends-in-documents",
+      "requires": ["json"],
+      "rules": ["T7", "J1"],
+      "steps": [
+        {"new": "w", "type": "Wire", "with": {"name": "w"}},
+        {"new": "i", "type": "InPort", "with": {"name": "in", "wires": [{"obj": "w"}]}},
+        {"new": "n", "type": "Node", "with": {"inputs": [{"obj": "i"}]}},
+        {"write": "n", "as": "d"},
+        {"document": "d", "is": {"inputs": [{"name": "in", "wires": [{"name": "w"}]}], "outputs": []}},
+        {"read": "d", "type": "Node", "as": "copy"},
+        {"equal": ["n", "copy"]},
+        {"let": "w2", "path": "copy.inputs[0].wires[0]"},
+        {"check": "w2.target.name", "value": "in"},
+        {"check": "w2.target.node.inputs", "size": 1}
+      ]
+    },
+    {
+      "id": "narrowed-trait-getter",
+      "from": "PropertyInheritanceTest.propertyInheritanceTest01",
+      "rules": ["T7", "T1"],
+      "steps": [
+        {"new": "c", "type": "Circle", "with": {"label": "c", "radius": 2.5}},
+        {"new": "b", "type": "Badge"},
+        {"instanceOf": "b", "type": "WithCircle"},
+        {"instanceOf": "b", "type": "WithShape"},
+        {"check": "b.shape", "value": null},
+        {"set": "b.shape", "obj": "c"},
+        {"check": "b.shape", "obj": "c"},
+        {"check": "b.shape.radius", "value": 2.5}
+      ]
+    },
+    {
+      "id": "two-supertypes-that-are-not-interface-only",
+      "from": "PropertyInheritanceTest.propertyInheritanceTest01, StaticReflectionTest",
+      "rules": ["T1"],
+      "steps": [
+        {"new": "t", "type": "TaggedPoint", "with": {"x": 3, "tag": "a"}},
+        {"instanceOf": "t", "type": "Point"},
+        {"instanceOf": "t", "type": "Tagged"},
+        {"notInstanceOf": "t", "type": "Item"},
+        {"check": "t.x", "value": 3},
+        {"check": "t.tag", "value": "a"},
+        {"set": "t.tag", "value": "b"},
+        {"check": "t.tag", "value": "b"},
+        {"new": "p", "type": "Point", "with": {"x": 3}},
+        {"notInstanceOf": "p", "type": "Tagged"},
+        {"notEqual": ["t", "p"]}
+      ]
+    },
+    {
+      "id": "two-supertypes-in-documents",
+      "requires": ["json"],
+      "rules": ["T1", "J1"],
+      "steps": [
+        {"new": "t", "type": "TaggedPoint", "with": {"x": 3, "tag": "a"}},
+        {"write": "t", "as": "d"},
+        {"document": "d", "is": {"tag": "a", "x": 3}},
+        {"read": "d", "type": "TaggedPoint", "as": "copy"},
+        {"equal": ["t", "copy"]}
+      ]
+    },
+    {
+      "id": "scalar-type-arguments",
+      "model": "generics",
+      "from": "GenericSeriesTest",
+      "rules": ["T8", "T4", "T5"],
+      "steps": [
+        {"new": "t", "type": "Temperatures"},
+        {"instanceOf": "t", "type": "Series"},
+        {"check": "t.latest", "value": null},
+        {"set": "t.latest", "value": 21.5},
+        {"add": "t.samples", "values": [1.5, 2.5]},
+        {"check": "t.latest", "value": 21.5},
+        {"check": "t.samples", "values": [1.5, 2.5]},
+        {"new": "c", "type": "Counters"},
+        {"set": "c.latest", "value": 9007199254740993},
+        {"add": "c.samples", "values": [-9223372036854775808, 9223372036854775807]},
+        {"check": "c.latest", "value": 9007199254740993},
+        {"check": "c.samples", "values": [-9223372036854775808, 9223372036854775807]},
+        {"new": "l", "type": "Labels"},
+        {"set": "l.latest", "value": "x"},
+        {"add": "l.samples", "values": ["a", "a"]},
+        {"check": "l.latest", "value": "x"},
+        {"check": "l.samples", "values": ["a", "a"]}
+      ]
+    },
+    {
+      "id": "parameters-passed-on-in-another-order",
+      "model": "generics",
+      "from": "GenericSeriesTest",
+      "rules": ["T8"],
+      "steps": [
+        {"new": "n", "type": "NamedCount", "with": {"left": "a", "right": 3}},
+        {"instanceOf": "n", "type": "Pair"},
+        {"check": "n.left", "value": "a"},
+        {"check": "n.right", "value": 3},
+        {"set": "n.right", "value": 4},
+        {"check": "n.right", "value": 4}
+      ]
+    },
+    {
+      "id": "immutable-type-argument",
+      "model": "generics",
+      "from": "KeyedCollectionTest",
+      "requires": ["views"],
+      "rules": ["T8", "V3"],
+      "steps": [
+        {"new": "k", "type": "Code", "with": {"name": "k"}},
+        {"new": "s", "type": "CodeSlot"},
+        {"set": "s.value", "obj": "k"},
+        {"add": "s.history", "obj": "k"},
+        {"add": "s.history", "obj": "k"},
+        {"check": "s.value", "obj": "k"},
+        {"check": "s.history", "objs": ["k", "k"]},
+        {"check": "s.value.name", "value": "k"}
+      ]
+    },
+    {
+      "id": "model-bounded-type-argument",
+      "model": "generics",
+      "rules": ["T8", "C1"],
+      "steps": [
+        {"new": "l", "type": "Ledger"},
+        {"new": "e", "type": "Entry", "with": {"key": "a"}},
+        {"add": "l.entries", "obj": "e"},
+        {"set": "l.favorite", "obj": "e"},
+        {"check": "l.entries", "objs": ["e"]},
+        {"check": "l.favorite", "obj": "e"},
+        {"new": "m", "type": "Ledger"},
+        {"add": "m.entries", "obj": "e"},
+        {"check": "l.entries", "size": 0},
+        {"check": "l.favorite", "obj": "e"}
+      ]
+    },
+    {
+      "id": "one-base-through-two-generic-supertypes",
+      "model": "generics",
+      "from": "GenericSeriesTest",
+      "rules": ["T1", "T8"],
+      "steps": [
+        {"new": "j", "type": "Journal"},
+        {"instanceOf": "j", "type": "LeftBranch"},
+        {"instanceOf": "j", "type": "RightBranch"},
+        {"instanceOf": "j", "type": "Holder"},
+        {"new": "e", "type": "Entry", "with": {"key": "a"}},
+        {"add": "j.entries", "obj": "e"},
+        {"set": "j.favorite", "obj": "e"},
+        {"check": "j.entries", "objs": ["e"]},
+        {"check": "j.favorite.key", "value": "a"}
+      ]
+    },
+    {
+      "id": "type-arguments-in-documents",
+      "model": "generics",
+      "requires": ["json"],
+      "rules": ["T8", "J1"],
+      "steps": [
+        {"new": "t", "type": "Temperatures"},
+        {"set": "t.latest", "value": 21.5},
+        {"add": "t.samples", "values": [1.5, 2.5]},
+        {"write": "t", "as": "td"},
+        {"document": "td", "is": {"latest": 21.5, "samples": [1.5, 2.5]}},
+        {"read": "td", "type": "Temperatures", "as": "t2"},
+        {"equal": ["t", "t2"]},
+        {"new": "c", "type": "Counters"},
+        {"set": "c.latest", "value": 9007199254740993},
+        {"write": "c", "as": "cd"},
+        {"document": "cd", "is": {"latest": 9007199254740993, "samples": []}},
+        {"read": "cd", "type": "Counters", "as": "c2"},
+        {"check": "c2.latest", "value": 9007199254740993},
+        {"new": "n", "type": "NamedCount", "with": {"left": "a", "right": 3}},
+        {"write": "n", "as": "nd"},
+        {"document": "nd", "is": {"left": "a", "right": 3}},
+        {"read": "nd", "type": "NamedCount", "as": "n2"},
+        {"equal": ["n", "n2"]},
+        {"new": "k", "type": "Code", "with": {"name": "k"}},
+        {"new": "s", "type": "CodeSlot"},
+        {"set": "s.value", "obj": "k"},
+        {"add": "s.history", "obj": "k"},
+        {"write": "s", "as": "sd"},
+        {"read": "sd", "type": "CodeSlot", "as": "s2"},
+        {"equal": ["s", "s2"]},
+        {"check": "s2.value.name", "value": "k"},
+        {"check": "s2.history[0].name", "value": "k"}
+      ]
+    },
+    {"id": "getter-only-trait-as-containment-target", "from": "C# conformance traits (Folder, NamedItem)", "rules": ["T1", "C1", "C2", "C3"], "steps": [{"new": "s", "type": "Shelf"}, {"new": "b", "type": "Book", "with": {"label": "b", "isbn": "1"}}, {"new": "n", "type": "Note", "with": {"label": "n", "text": "t"}}, {"add": "s.items", "objs": ["b", "n"]}, {"check": "s.items", "objs": ["b", "n"]}, {"check": "b.shelf", "obj": "s"}, {"check": "n.shelf", "obj": "s"}, {"set": "s.first", "obj": "b"}, {"check": "s.items", "objs": ["n"]}, {"check": "s.first", "obj": "b"}, {"check": "b.shelf", "value": null}, {"remove": "s.items", "obj": "n"}, {"check": "n.shelf", "value": null}]},
+    {"id": "getter-only-trait-children-in-documents", "requires": ["json"], "rules": ["T1", "J1"], "steps": [{"new": "s", "type": "Shelf"}, {"new": "b", "type": "Book", "with": {"label": "b", "isbn": "1"}}, {"new": "n", "type": "Note", "with": {"label": "n", "text": "t"}}, {"add": "s.items", "objs": ["b", "n"]}, {"write": "s", "as": "d"}, {"read": "d", "type": "Shelf", "as": "copy"}, {"equal": ["s", "copy"]}, {"let": "b2", "path": "copy.items[0]"}, {"instanceOf": "b2", "type": "Book"}, {"check": "b2.shelf.items", "size": 2}]},
+    {"id": "concrete-supertypes-share-a-containment-list", "from": "C# conformance exactredeclarations (CombinedRecord)", "rules": ["T1", "C1", "C2"], "steps": [{"new": "c", "type": "CombinedRecord"}, {"instanceOf": "c", "type": "FirstRecord"}, {"instanceOf": "c", "type": "SecondRecord"}, {"new": "a", "type": "Asset", "with": {"name": "a"}}, {"add": "c.assets", "obj": "a"}, {"check": "c.assets", "objs": ["a"]}, {"new": "f", "type": "FirstRecord"}, {"add": "f.assets", "obj": "a"}, {"check": "c.assets", "size": 0}]},
+    {"id": "concrete-supertypes-share-a-containment-list-in-documents", "requires": ["json"], "rules": ["T1", "J1"], "steps": [{"new": "a", "type": "Asset", "with": {"name": "a"}}, {"new": "c", "type": "CombinedRecord", "with": {"assets": [{"obj": "a"}]}}, {"write": "c", "as": "d"}, {"document": "d", "is": {"assets": [{"name": "a"}]}}, {"read": "d", "type": "CombinedRecord", "as": "copy"}, {"equal": ["c", "copy"]}]},
+    {"id": "reference-list-promoted-to-keyed-containment", "from": "KeyedCollectionTest (Warehouse)", "requires": ["collections"], "rules": ["T1", "K6"], "steps": [{"new": "s", "type": "Store"}, {"instanceOf": "s", "type": "ArticleRefs"}, {"instanceOf": "s", "type": "ArticleStock"}, {"new": "a", "type": "Article", "with": {"code": "a"}}, {"new": "b", "type": "Article", "with": {"code": "b"}}, {"add": "s.articles", "objs": ["a", "b"]}, {"find": "s.articles", "by": "code", "key": "b", "obj": "b"}, {"new": "a2", "type": "Article", "with": {"code": "a"}}, {"add": "s.articles", "obj": "a2", "fails": true}, {"check": "s.articles", "objs": ["a", "b"]}]},
+    {"id": "generic-scalar-slot-declared-by-an-implementing-class", "model": "generics", "requires": ["views"], "rules": ["T1", "T8", "V3"], "steps": [{"new": "k", "type": "Code", "with": {"name": "k"}}, {"new": "r", "type": "ReviewedSlot", "with": {"id": "r"}}, {"instanceOf": "r", "type": "Slot"}, {"instanceOf": "r", "type": "Header"}, {"set": "r.value", "obj": "k"}, {"add": "r.history", "obj": "k"}, {"check": "r.value", "obj": "k"}, {"check": "r.history", "objs": ["k"]}]},
+    {"id": "generic-scalar-slot-declared-by-an-implementing-class-in-documents", "model": "generics", "requires": ["json", "views"], "rules": ["T8", "J1"], "steps": [{"new": "k", "type": "Code", "with": {"name": "k"}}, {"new": "r", "type": "ReviewedSlot", "with": {"id": "r"}}, {"set": "r.value", "obj": "k"}, {"add": "r.history", "obj": "k"}, {"write": "r", "as": "d"}, {"read": "d", "type": "ReviewedSlot", "as": "copy"}, {"equal": ["r", "copy"]}, {"check": "copy.history[0].name", "value": "k"}]},
+    {"id": "container-of-a-narrowed-containment-end", "model": "generics", "from": "GenericSeriesTest (OwnerOf)", "rules": ["T7", "T8", "C1", "C4"], "steps": [{"new": "o", "type": "Owner"}, {"new": "d", "type": "Owned", "with": {"name": "d"}}, {"set": "d.owner", "obj": "o"}, {"check": "o.primary", "obj": "d"}, {"set": "o.primary", "value": null}, {"check": "d.owner", "value": null}, {"set": "o.primary", "obj": "d"}, {"check": "d.owner", "obj": "o"}, {"set": "d.owner", "value": null}, {"check": "o.primary", "value": null}]}
+  ]
+}

@@ -43,5 +43,6 @@ interface Labels {
     VMap<String, Double> getNumbers();
     @DefaultValue("new java.util.LinkedHashMap<>()")
     @Annotation(key = "vmf:csharp:bind-default", value = "true")
+    @Annotation(key = "vmf:typescript:bind-default", value = "true")
     Map<String, String> getExternal();
 }

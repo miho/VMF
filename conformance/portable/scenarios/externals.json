@@ -1,0 +1,227 @@
+{
+  "model": "externals",
+  "scenarios": [
+    {
+      "id": "enum-values",
+      "from": "ExternalTypesTest, vmf-jackson external_types01",
+      "requires": ["externals"],
+      "rules": ["X1", "T4", "T5"],
+      "steps": [
+        {"new": "s", "type": "Sensor"},
+        {"check": "s.level", "value": null},
+        {"set": "s.level", "value": "HIGH"},
+        {"check": "s.level", "value": "HIGH"},
+        {"add": "s.history", "values": ["LOW", "HIGH", "LOW"]},
+        {"check": "s.history", "values": ["LOW", "HIGH", "LOW"]},
+        {"set": "s.history[1]", "value": "MEDIUM"},
+        {"remove": "s.history", "at": 0},
+        {"check": "s.history", "values": ["MEDIUM", "LOW"]},
+        {"set": "s.level", "value": null},
+        {"check": "s.level", "value": null}
+      ]
+    },
+    {
+      "id": "enum-default",
+      "from": "devcom PortConfig.parityBits",
+      "requires": ["externals"],
+      "rules": ["X2", "T2"],
+      "steps": [
+        {"new": "s", "type": "Sensor"},
+        {"check": "s.threshold", "value": "MEDIUM"},
+        {"new": "built", "type": "Sensor", "with": {"level": "LOW"}},
+        {"check": "built.threshold", "value": "MEDIUM"},
+        {"set": "s.threshold", "value": "LOW"},
+        {"check": "s.threshold", "value": "LOW"},
+        {"set": "s.threshold", "value": null},
+        {"check": "s.threshold", "value": null}
+      ]
+    },
+    {
+      "id": "enum-documents",
+      "requires": ["externals", "json"],
+      "rules": ["X1", "X2", "J1", "J4"],
+      "steps": [
+        {"new": "s", "type": "Sensor", "with": {"level": "HIGH", "history": ["LOW", "HIGH"]}},
+        {"write": "s", "as": "d"},
+        {"document": "d", "is": {"level": "HIGH", "threshold": "MEDIUM", "history": ["LOW", "HIGH"], "related": [],
+          "payloads": [], "ranges": []}},
+        {"read": "d", "type": "Sensor", "as": "copy"},
+        {"equal": ["s", "copy"]},
+        {"check": "copy.level", "value": "HIGH"},
+        {"check": "copy.history", "values": ["LOW", "HIGH"]},
+        {"read": {"json": {"level": "LOW"}}, "type": "Sensor", "as": "partial"},
+        {"check": "partial.level", "value": "LOW"},
+        {"check": "partial.threshold", "value": "MEDIUM"}
+      ]
+    },
+    {
+      "id": "cleared-enum-default-is-written-as-null",
+      "requires": ["externals", "json"],
+      "rules": ["X2", "J1"],
+      "steps": [
+        {"new": "s", "type": "Sensor"},
+        {"set": "s.threshold", "value": null},
+        {"write": "s", "as": "d"},
+        {"document": "d", "is": {"threshold": null, "history": [], "related": [], "payloads": [], "ranges": []}},
+        {"read": "d", "type": "Sensor", "as": "copy"},
+        {"check": "copy.threshold", "value": null},
+        {"equal": ["s", "copy"]}
+      ]
+    },
+    {
+      "id": "unknown-enum-name-is-rejected",
+      "requires": ["externals", "json"],
+      "rules": ["X1", "J4"],
+      "steps": [
+        {"read": {"json": {"level": "EXTREME"}}, "type": "Sensor", "as": "s", "fails": true},
+        {"read": {"json": {"history": ["LOW", "low"]}}, "type": "Sensor", "as": "s", "fails": true}
+      ]
+    },
+    {
+      "id": "uuid-values",
+      "from": "journalvalues ArchiveEntry",
+      "requires": ["externals"],
+      "rules": ["X3", "T4", "T5"],
+      "steps": [
+        {"new": "s", "type": "Sensor"},
+        {"check": "s.id", "value": null},
+        {"set": "s.id", "value": "980E13C6-84A0-49D6-821D-737269635AEF"},
+        {"check": "s.id", "value": "980e13c6-84a0-49d6-821d-737269635aef"},
+        {"add": "s.related", "values": ["00000000-0000-0000-0000-000000000001", "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF"]},
+        {"check": "s.related", "values": ["00000000-0000-0000-0000-000000000001", "ffffffff-ffff-ffff-ffff-ffffffffffff"]},
+        {"set": "s.id", "value": "not-a-uuid", "fails": true},
+        {"check": "s.id", "value": "980e13c6-84a0-49d6-821d-737269635aef"}
+      ]
+    },
+    {
+      "id": "uuid-equality",
+      "requires": ["externals"],
+      "rules": ["X3", "Q1"],
+      "steps": [
+        {"new": "a", "type": "Sensor", "with": {"id": "980e13c6-84a0-49d6-821d-737269635aef"}},
+        {"new": "b", "type": "Sensor", "with": {"id": "980E13C6-84A0-49D6-821D-737269635AEF"}},
+        {"equal": ["a", "b"]},
+        {"set": "b.id", "value": "980e13c6-84a0-49d6-821d-737269635aee"},
+        {"notEqual": ["a", "b"]}
+      ]
+    },
+    {
+      "id": "uuid-documents",
+      "requires": ["externals", "json"],
+      "rules": ["X3", "J1", "J4"],
+      "steps": [
+        {"new": "s", "type": "Sensor", "with": {"id": "980E13C6-84A0-49D6-821D-737269635AEF",
+          "related": ["00000000-0000-0000-0000-000000000001"]}},
+        {"write": "s", "as": "d"},
+        {"document": "d", "is": {"id": "980e13c6-84a0-49d6-821d-737269635aef", "threshold": "MEDIUM", "history": [],
+          "related": ["00000000-0000-0000-0000-000000000001"], "payloads": [], "ranges": []}},
+        {"read": "d", "type": "Sensor", "as": "copy"},
+        {"equal": ["s", "copy"]},
+        {"read": {"json": {"id": "980E13C6-84A0-49D6-821D-737269635AEF"}}, "type": "Sensor", "as": "upper"},
+        {"check": "upper.id", "value": "980e13c6-84a0-49d6-821d-737269635aef"},
+        {"read": {"json": {"id": "not-a-uuid"}}, "type": "Sensor", "as": "bad", "fails": true}
+      ]
+    },
+    {
+      "id": "untyped-values",
+      "from": "vflow WithValue.value, VMF-Text CodeElement.payload",
+      "requires": ["externals"],
+      "rules": ["X4", "T4", "T5"],
+      "steps": [
+        {"new": "s", "type": "Sensor"},
+        {"check": "s.payload", "value": null},
+        {"set": "s.payload", "value": "text"},
+        {"check": "s.payload", "value": "text"},
+        {"set": "s.payload", "value": 42},
+        {"check": "s.payload", "value": 42},
+        {"set": "s.payload", "value": {"a": [1, "x", true, null], "b": 2.5, "c": {"d": "e"}}},
+        {"check": "s.payload", "value": {"a": [1, "x", true, null], "b": 2.5, "c": {"d": "e"}}},
+        {"add": "s.payloads", "values": [1, "a", null, [true, 2.5], {"k": "v"}]},
+        {"check": "s.payloads", "values": [1, "a", null, [true, 2.5], {"k": "v"}]},
+        {"check": "s.payloads", "size": 5}
+      ]
+    },
+    {
+      "id": "untyped-documents",
+      "requires": ["externals", "json"],
+      "rules": ["X4", "J1", "J4"],
+      "steps": [
+        {"new": "s", "type": "Sensor", "with": {"payload": {"a": [1, "x", true, null], "b": 2.5, "c": {"d": "e"},
+          "big": 9007199254740993, "huge": 18446744073709551616, "small": -0.125},
+          "payloads": [1, "a", null, [true, 2.5], {"k": "v"}]}},
+        {"write": "s", "as": "d"},
+        {"document": "d", "is": {"payload": {"a": [1, "x", true, null], "b": 2.5, "c": {"d": "e"},
+          "big": 9007199254740993, "huge": 18446744073709551616, "small": -0.125},
+          "payloads": [1, "a", null, [true, 2.5], {"k": "v"}], "threshold": "MEDIUM", "history": [], "related": [],
+          "ranges": []}},
+        {"read": "d", "type": "Sensor", "as": "copy"},
+        {"equal": ["s", "copy"]},
+        {"check": "copy.payload", "value": {"a": [1, "x", true, null], "b": 2.5, "c": {"d": "e"},
+          "big": 9007199254740993, "huge": 18446744073709551616, "small": -0.125}},
+        {"check": "copy.payloads", "values": [1, "a", null, [true, 2.5], {"k": "v"}]}
+      ]
+    },
+    {
+      "id": "untyped-equality",
+      "requires": ["externals"],
+      "rules": ["X4", "Q1"],
+      "steps": [
+        {"new": "a", "type": "Sensor", "with": {"payload": {"x": 1, "y": [true, "z"]}}},
+        {"new": "b", "type": "Sensor", "with": {"payload": {"y": [true, "z"], "x": 1}}},
+        {"equal": ["a", "b"]},
+        {"new": "c", "type": "Sensor", "with": {"payload": {"x": 2, "y": [true, "z"]}}},
+        {"notEqual": ["a", "c"]},
+        {"new": "d", "type": "Sensor", "with": {"payload": {"x": 1, "y": ["z", true]}}},
+        {"notEqual": ["a", "d"]},
+        {"new": "e", "type": "Sensor", "with": {"payload": {"x": "1", "y": [true, "z"]}}},
+        {"notEqual": ["a", "e"]}
+      ]
+    },
+    {
+      "id": "external-values",
+      "from": "journalvalues DocumentRevision",
+      "requires": ["externals"],
+      "rules": ["X5", "T4", "T5"],
+      "steps": [
+        {"new": "s", "type": "Sensor"},
+        {"check": "s.range", "value": null},
+        {"set": "s.range", "value": {"meters": 2.5}},
+        {"check": "s.range", "value": {"meters": 2.5}},
+        {"add": "s.ranges", "values": [{"meters": 1}, {"meters": 3}]},
+        {"check": "s.ranges", "values": [{"meters": 1}, {"meters": 3}]},
+        {"set": "s.range", "value": null},
+        {"check": "s.range", "value": null}
+      ]
+    },
+    {
+      "id": "external-value-documents",
+      "requires": ["externals", "json"],
+      "rules": ["X5", "J1", "J4"],
+      "steps": [
+        {"new": "s", "type": "Sensor", "with": {"range": {"meters": 2.5}, "ranges": [{"meters": 1}, {"meters": 3.75}]}},
+        {"write": "s", "as": "d"},
+        {"document": "d", "is": {"range": {"meters": 2.5}, "ranges": [{"meters": 1}, {"meters": 3.75}],
+          "threshold": "MEDIUM", "history": [], "related": [], "payloads": []}},
+        {"read": "d", "type": "Sensor", "as": "copy"},
+        {"equal": ["s", "copy"]},
+        {"check": "copy.range", "value": {"meters": 2.5}},
+        {"check": "copy.ranges", "values": [{"meters": 1}, {"meters": 3.75}]}
+      ]
+    },
+    {
+      "id": "external-value-equality",
+      "requires": ["externals"],
+      "rules": ["X6", "Q1"],
+      "steps": [
+        {"new": "a", "type": "Sensor", "with": {"range": {"meters": 2.5}, "ranges": [{"meters": 1}]}},
+        {"new": "b", "type": "Sensor", "with": {"range": {"meters": 2.5}, "ranges": [{"meters": 1}]}},
+        {"notSame": ["a.range", "b.range"]},
+        {"equal": ["a", "b"]},
+        {"set": "b.range", "value": {"meters": 2.0}},
+        {"notEqual": ["a", "b"]},
+        {"copy": "a", "as": "copy"},
+        {"equal": ["a", "copy"]}
+      ]
+    }
+  ]
+}

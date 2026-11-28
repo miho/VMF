@@ -133,14 +133,17 @@ public class GraphCapabilitiesTest {
         assertEquals(Property.Kind.REFERENCE, property(projected, "AbstractPort", "node").getKind());
         assertEquals(Property.Kind.REFERENCE, property(projected, "AbstractPort", "links").getKind());
 
-        var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(projected, "TypeScript"));
-        assertTrue(ts.getMessage().contains("ConnectedPort.node redeclares an inherited property"));
+        // TypeScript declares the abstract port's getters abstract; the connected port implements them.
+        PortableCapabilities.validate(projected, "TypeScript");
 
         ResolvedModel incomplete = model(ConnectorName.class, AbstractPort.class, ConnectedPort.class,
                 UnconnectedPort.class, PortNode.class, PortLink.class);
         var csharp = assertThrows(IllegalArgumentException.class, () -> CSharpCapabilities.validate(incomplete));
         assertTrue(csharp.getMessage().contains("ConnectedPort.node redeclares an inherited property"));
         assertTrue(csharp.getMessage().contains("ConnectedPort.links redeclares an inherited property"));
+        var typescript = assertThrows(IllegalArgumentException.class,
+                () -> PortableCapabilities.validate(incomplete, "TypeScript"));
+        assertTrue(typescript.getMessage().contains("ConnectedPort.node redeclares an inherited property"));
     }
 
     @Test
@@ -193,12 +196,8 @@ public class GraphCapabilitiesTest {
         assertEquals(1, priority.getLowerBound());
         assertEquals(3, priority.getUpperBound());
 
-        var ts = assertThrows(IllegalArgumentException.class, () -> PortableCapabilities.validate(model, "TypeScript"));
-        assertFalse(ts.getMessage(), ts.getMessage().contains(".optional "));
-        assertFalse(ts.getMessage(), ts.getMessage().contains(".primary "));
-        assertFalse(ts.getMessage(), ts.getMessage().contains(".trail "));
-        assertTrue(ts.getMessage(), ts.getMessage().contains(
-                ".priority needs a single-valued reference, an ordered reference list, or an unbounded unordered"));
+        // TypeScript accepts the ordered reference set too; the bounds of model collections are left to validation.
+        PortableCapabilities.validate(model, "TypeScript");
     }
 
     @Test

@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2022"
+    ],
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noEmit": true,
+    "paths": {
+      "@vmf/runtime": [
+        "../../typescript-runtime/src/index.ts"
+      ],
+      "@vmftest/hosts": [
+        "./hosts/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "build/generated/**/*.ts",
+    "hosts/**/*.ts"
+  ]
+}

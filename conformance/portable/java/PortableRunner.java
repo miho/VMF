@@ -8,9 +8,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import eu.mihosoft.vcollections.VListChangeEvent;
 import eu.mihosoft.vmf.runtime.core.Annotation;
 import eu.mihosoft.vmf.runtime.core.Change;
+import eu.mihosoft.vmf.runtime.core.OrderedRefSet;
 import eu.mihosoft.vmf.runtime.core.Property;
+import eu.mihosoft.vmf.runtime.core.RefSet;
 import eu.mihosoft.vmf.jackson.VMFJacksonModule;
 import eu.mihosoft.vmf.runtime.core.VObject;
+import eu.mihosoft.vmf.runtime.core.ValidationReport;
 import vjavax.observer.Subscription;
 
 import java.io.IOException;
@@ -48,7 +51,10 @@ public final class PortableRunner {
     static final String TARGET = "java";
     static final String BASE_PACKAGE = "eu.mihosoft.vmf.portable.";
     static final Set<String> CAPABILITIES = Set.of(
-            "core", "views", "events", "history", "reflection", "equality-modes", "json");
+            "core", "views", "events", "history", "reflection", "equality-modes", "json", "validation",
+            "collections", "externals", "behavior");
+    /** Converts host values (enums, UUIDs, untyped values, external types) as documents do. */
+    static final ObjectMapper JSON = new ObjectMapper();
     /** Modules that do not apply to the language, with the reason. */
     static final Map<String, String> NOT_APPLICABLE = Map.of(
             "identity-equality", "Java's equals and hashCode follow the declared mode (N2)");
@@ -255,9 +261,16 @@ public final class PortableRunner {
         final Object newValue;
         final List<Object> elements;
         final List<Integer> indices;
+        /** The keys of a map event, one per element. */
+        final List<Object> keys;
 
         Event(int step, Object source, String property, String kind, Object oldValue, Object newValue,
               List<Object> elements, List<Integer> indices) {
+            this(step, source, property, kind, oldValue, newValue, elements, indices, List.of());
+        }
+
+        Event(int step, Object source, String property, String kind, Object oldValue, Object newValue,
+              List<Object> elements, List<Integer> indices, List<Object> keys) {
             this.step = step;
             this.source = source;
             this.property = property;
@@ -266,6 +279,7 @@ public final class PortableRunner {
             this.newValue = newValue;
             this.elements = elements;
             this.indices = indices;
+            this.keys = keys;
         }
     }
 
@@ -273,7 +287,8 @@ public final class PortableRunner {
         static final List<String> OPERATIONS = List.of("new", "set", "add", "insert", "remove", "clear", "check",
                 "let", "equal", "notEqual", "nativeEqual", "nativeNotEqual", "same", "notSame", "copy", "readOnly",
                 "instanceOf", "notInstanceOf", "listen", "unlisten", "events", "record", "recorded", "undoAll",
-                "redoAll", "properties", "annotations", "write", "read", "document", "calls");
+                "redoAll", "properties", "annotations", "write", "read", "document", "calls", "validate", "put",
+                "putAll", "removeKey", "find", "call", "replaceBehavior");
 
         final String model;
         final Map<String, Object> labels = new LinkedHashMap<>();
@@ -352,7 +367,29 @@ public final class PortableRunner {
                     remove(node.get("remove").asText(), node);
                     break;
                 case "clear":
-                    mutableList(node.get("clear").asText()).clear();
+                    clear(node.get("clear").asText());
+                    break;
+                case "put": {
+                    Object[] owner = owner(node.get("put").asText());
+                    Property property = property(owner[0], (String) owner[1]);
+                    Class<?>[] types = mapTypes(property);
+                    map(property).put(toJava(node.get("key"), types[0]), toJava(node.get("value"), types[1]));
+                    break;
+                }
+                case "putAll": {
+                    Object[] owner = owner(node.get("putAll").asText());
+                    Property property = property(owner[0], (String) owner[1]);
+                    map(property).putAll(entries(node.get("entries"), mapTypes(property)));
+                    break;
+                }
+                case "removeKey": {
+                    Object[] owner = owner(node.get("removeKey").asText());
+                    Property property = property(owner[0], (String) owner[1]);
+                    map(property).remove(toJava(node.get("key"), mapTypes(property)[0]));
+                    break;
+                }
+                case "find":
+                    find(node.get("find").asText(), node);
                     break;
                 case "check":
                     check(node.get("check").asText(), node);
@@ -486,6 +523,15 @@ public final class PortableRunner {
                     }
                     break;
                 }
+                case "validate":
+                    checkIssues(node.get("validate").asText(), node.get("issues"));
+                    break;
+                case "call":
+                    call(node.get("call").asText(), node);
+                    break;
+                case "replaceBehavior":
+                    replaceBehavior(node.get("replaceBehavior").asText(), node.get("with").asText());
+                    break;
                 default:
                     throw new ScenarioFailure("unsupported operation " + operation);
             }
@@ -628,6 +674,19 @@ public final class PortableRunner {
                             list.add(toJava(item, element));
                         }
                         argument = list;
+                    } else if (value.isObject() && value.has("entries") && Map.class.isAssignableFrom(parameter)) {
+                        Class<?>[] types = {Object.class, Object.class};
+                        java.lang.reflect.Type generic = method.getGenericParameterTypes()[0];
+                        if (generic instanceof java.lang.reflect.ParameterizedType) {
+                            java.lang.reflect.Type[] arguments =
+                                    ((java.lang.reflect.ParameterizedType) generic).getActualTypeArguments();
+                            for (int i = 0; i < 2; i++) {
+                                if (arguments[i] instanceof Class) {
+                                    types[i] = (Class<?>) arguments[i];
+                                }
+                            }
+                        }
+                        argument = entries(value.get("entries"), types);
                     } else if (!value.isArray() && !parameter.isArray()) {
                         argument = toJava(value, parameter);
                         if (argument != null && !box(parameter).isInstance(argument)) {
@@ -670,10 +729,19 @@ public final class PortableRunner {
             if (index == null) {
                 return value;
             }
-            if (!(value instanceof List)) {
+            if (value instanceof OrderedRefSet) {
+                return ((OrderedRefSet<?>) value).get(Integer.parseInt(index));
+            }
+            if (value instanceof List) {
+                return ((List<?>) value).get(Integer.parseInt(index));
+            }
+            // A set in its iteration order, which scenarios only index when it holds one element.
+            if (!(value instanceof Iterable)) {
                 throw new ScenarioFailure("cannot index " + path);
             }
-            return ((List<?>) value).get(Integer.parseInt(index));
+            List<Object> items = new ArrayList<>();
+            ((Iterable<?>) value).forEach(items::add);
+            return items.get(Integer.parseInt(index));
         }
 
         /** Splits {@code a.b[2].c} into (name, index) pairs. */
@@ -716,64 +784,163 @@ public final class PortableRunner {
             return vobject(value).vmf().content();
         }
 
-        @SuppressWarnings("unchecked")
-        List<Object> mutableList(String path) {
-            Object value = resolve(path);
-            if (!(value instanceof List)) {
-                throw new ScenarioFailure(path + " is not a list");
-            }
-            return (List<Object>) value;
-        }
-
         // ---------------------------------------------------------------------------------------- edits
 
         void set(String path, JsonNode node) {
             Object[] owner = owner(path);
             Property property = property(owner[0], (String) owner[1]);
             if (owner[2] != null) {
+                int index = Integer.parseInt((String) owner[2]);
+                if (property.get() instanceof OrderedRefSet) {
+                    @SuppressWarnings("unchecked")
+                    OrderedRefSet<VObject> set = (OrderedRefSet<VObject>) property.get();
+                    set.set(index, (VObject) single(node, elementType(property)));
+                    return;
+                }
                 @SuppressWarnings("unchecked")
                 List<Object> list = (List<Object>) property.get();
-                list.set(Integer.parseInt((String) owner[2]), single(node, elementType(property)));
+                list.set(index, single(node, elementType(property)));
                 return;
             }
             property.set(single(node, scalarType(property)));
         }
 
+        /** Appends to a list or adds to a set; several values are added in one call. */
         void add(String path, JsonNode node, int index) {
             Object[] owner = owner(path);
             Property property = property(owner[0], (String) owner[1]);
+            if (property.get() instanceof RefSet) {
+                @SuppressWarnings("unchecked")
+                RefSet<VObject> set = (RefSet<VObject>) property.get();
+                List<Object> values = node.has("objs") ? many(node, Object.class) : List.of(single(node, Object.class));
+                if (index < 0) {
+                    for (Object value : values) {
+                        set.add((VObject) value);
+                    }
+                } else if (set instanceof OrderedRefSet) {
+                    for (int i = 0; i < values.size(); i++) {
+                        ((OrderedRefSet<VObject>) set).add(index + i, (VObject) values.get(i));
+                    }
+                } else {
+                    throw new ScenarioFailure(path + " is unordered");
+                }
+                return;
+            }
             @SuppressWarnings("unchecked")
-            List<Object> list = (List<Object>) property.get();
+            Collection<Object> collection = (Collection<Object>) property.get();
+            if (index >= 0 && !(collection instanceof List)) {
+                throw new ScenarioFailure(path + " is unordered");
+            }
             if (node.has("objs") || node.has("values")) {
                 List<Object> values = many(node, elementType(property));
                 if (index < 0) {
-                    list.addAll(values);
+                    collection.addAll(values);
                 } else {
-                    list.addAll(index, values);
+                    ((List<Object>) collection).addAll(index, values);
                 }
             } else if (index < 0) {
-                list.add(single(node, elementType(property)));
+                collection.add(single(node, elementType(property)));
             } else {
-                list.add(index, single(node, elementType(property)));
+                ((List<Object>) collection).add(index, single(node, elementType(property)));
             }
         }
 
         void remove(String path, JsonNode node) {
-            List<Object> list = mutableList(path);
+            Object resolved = resolve(path);
+            if (resolved instanceof RefSet) {
+                RefSet<?> set = (RefSet<?>) resolved;
+                if (node.has("at")) {
+                    ((OrderedRefSet<?>) set).remove(node.get("at").asInt());
+                } else if (!set.remove(object(node.get("obj")))) {
+                    throw new ScenarioFailure("nothing to remove from " + path);
+                }
+                return;
+            }
+            Collection<Object> collection = mutableCollection(path);
             if (node.has("at")) {
-                list.remove(node.get("at").asInt());
+                ((List<Object>) collection).remove(node.get("at").asInt());
                 return;
             }
             boolean identity = node.has("obj");
-            Object target = identity ? object(node.get("obj")) : toJava(node.get("value"), Object.class);
-            for (int i = 0; i < list.size(); i++) {
-                Object element = list.get(i);
+            Object target = identity ? object(node.get("obj")) : null;
+            int position = 0;
+            for (Object element : collection) {
                 if (identity ? element == target : sameScalar(element, node.get("value"))) {
-                    list.remove(i);
+                    if (collection instanceof List) {
+                        ((List<Object>) collection).remove(position);
+                    } else {
+                        collection.remove(element);
+                    }
                     return;
                 }
+                position++;
             }
             throw new ScenarioFailure("nothing to remove from " + path);
+        }
+
+        void clear(String path) {
+            Object value = resolve(path);
+            if (value instanceof Map) {
+                ((Map<?, ?>) value).clear();
+            } else if (value instanceof RefSet) {
+                ((RefSet<?>) value).clear();
+            } else {
+                mutableCollection(path).clear();
+            }
+        }
+
+        @SuppressWarnings("unchecked")
+        Collection<Object> mutableCollection(String path) {
+            Object value = resolve(path);
+            if (!(value instanceof Collection)) {
+                throw new ScenarioFailure(path + " is not a collection");
+            }
+            return (Collection<Object>) value;
+        }
+
+        @SuppressWarnings("unchecked")
+        static Map<Object, Object> map(Property property) {
+            Object value = property.get();
+            if (!(value instanceof Map)) {
+                throw new ScenarioFailure(property.getName() + " is not a map");
+            }
+            return (Map<Object, Object>) value;
+        }
+
+        /** The key and value types of a map property. */
+        static Class<?>[] mapTypes(Property property) {
+            var arguments = property.getType().getDescriptor().getArguments();
+            return new Class<?>[]{javaType(arguments.get(0).getName()), javaType(arguments.get(1).getName())};
+        }
+
+        /** Map entries written as {@code [[key, value], ...]}, in their order. */
+        Map<Object, Object> entries(JsonNode pairs, Class<?>[] types) {
+            Map<Object, Object> result = new LinkedHashMap<>();
+            for (JsonNode pair : pairs) {
+                result.put(toJava(pair.get(0), types[0]), toJava(pair.get(1), types[1]));
+            }
+            return result;
+        }
+
+        /** Calls the generated lookup {@code find<Property>By<Key>} of a keyed collection's owner. */
+        void find(String path, JsonNode node) throws Exception {
+            Object[] owner = owner(path);
+            String name = "find" + capitalize((String) owner[1]) + "By" + capitalize(node.get("by").asText());
+            Method lookup = Arrays.stream(owner[0].getClass().getMethods())
+                    .filter(method -> method.getName().equals(name) && method.getParameterCount() == 1)
+                    .findFirst().orElseThrow(() -> new ScenarioFailure("no lookup " + name));
+            lookup.setAccessible(true);
+            Object found = ((Optional<?>) lookup.invoke(owner[0],
+                    toJava(node.get("key"), lookup.getParameterTypes()[0]))).orElse(null);
+            Object expected = object(node.get("obj"));
+            if (found != expected) {
+                throw new ScenarioFailure(name + "(" + node.get("key") + "): expected " + render(expected) + ", found "
+                        + render(found));
+            }
+        }
+
+        static String capitalize(String name) {
+            return Character.toUpperCase(name.charAt(0)) + name.substring(1);
         }
 
         Object single(JsonNode node, Class<?> type) {
@@ -811,6 +978,55 @@ public final class PortableRunner {
             return javaType(property.getType().getElementTypeName().orElse("java.lang.Object"));
         }
 
+        /**
+         * Calls a delegated method of the model interface; the last arguments fill a variable-argument array. Checks
+         * the result against "result" (a value) or "resultObj" (a label).
+         */
+        void call(String path, JsonNode node) throws Exception {
+            Object[] owner = owner(path);
+            Object target = owner[0];
+            JsonNode args = node.path("args");
+            Method method = null;
+            for (Method candidate : modelInterface(target).getMethods()) {
+                int count = candidate.getParameterCount();
+                if (candidate.getName().equals(owner[1])
+                        && (count == args.size() || candidate.isVarArgs() && args.size() >= count - 1)) {
+                    method = candidate;
+                    break;
+                }
+            }
+            if (method == null) {
+                throw new ScenarioFailure(path + " is not a method that takes " + args.size() + " arguments");
+            }
+            Class<?>[] types = method.getParameterTypes();
+            Object[] arguments = new Object[types.length];
+            for (int i = 0; i < types.length; i++) {
+                if (method.isVarArgs() && i == types.length - 1) {
+                    Object rest = Array.newInstance(types[i].getComponentType(), args.size() - i);
+                    for (int j = i; j < args.size(); j++) {
+                        Array.set(rest, j - i, toJava(args.get(j), types[i].getComponentType()));
+                    }
+                    arguments[i] = rest;
+                } else {
+                    arguments[i] = toJava(args.get(i), types[i]);
+                }
+            }
+            Object result = method.invoke(target, arguments);
+            if (node.has("result") && !sameScalar(result, node.get("result"))) {
+                throw new ScenarioFailure(path + ": expected " + node.get("result") + ", returned " + render(result));
+            }
+            if (node.has("resultObj") && result != object(node.get("resultObj"))) {
+                throw new ScenarioFailure(path + ": expected " + node.get("resultObj") + ", returned " + render(result));
+            }
+        }
+
+        /** Replaces the behavior of one object with a new instance of a host class of the model's package. */
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        void replaceBehavior(String path, String name) throws Exception {
+            Object behavior = Class.forName(BASE_PACKAGE + model + "." + name).getConstructor().newInstance();
+            vobject(resolve(path)).vmf().behavior().set((eu.mihosoft.vmf.runtime.core.DelegatedBehavior) behavior);
+        }
+
         static Class<?> javaType(String name) {
             switch (name) {
                 case "int":
@@ -825,11 +1041,45 @@ public final class PortableRunner {
                 case "boolean":
                 case "java.lang.Boolean":
                     return Boolean.class;
+                case "byte":
+                case "java.lang.Byte":
+                    return Byte.class;
+                case "short":
+                case "java.lang.Short":
+                    return Short.class;
+                case "float":
+                case "java.lang.Float":
+                    return Float.class;
+                case "char":
+                case "java.lang.Character":
+                    return Character.class;
                 case "java.lang.String":
                     return String.class;
                 default:
-                    return Object.class;
+                    return hostType(name);
             }
+        }
+
+        /** An external host type such as an enum, UUID or value class; Object if it cannot be loaded. */
+        static Class<?> hostType(String name) {
+            for (String binary = name; ; ) {
+                try {
+                    return Class.forName(binary);
+                } catch (ClassNotFoundException missing) {
+                    // A nested class has a binary name with '$'.
+                    int dot = binary.lastIndexOf('.');
+                    if (dot < 0) {
+                        return Object.class;
+                    }
+                    binary = binary.substring(0, dot) + "$" + binary.substring(dot + 1);
+                }
+            }
+        }
+
+        static boolean isPortableScalar(Class<?> type) {
+            return type == String.class || type == Boolean.class || type == Integer.class || type == Long.class
+                    || type == Double.class || type == Float.class || type == Short.class || type == Byte.class
+                    || type == Character.class;
         }
 
         static Class<?> box(Class<?> type) {
@@ -854,10 +1104,21 @@ public final class PortableRunner {
             if (value.isObject() && value.has("obj")) {
                 return object(value.get("obj"));
             }
+            Class<?> host = box(type);
+            if (!isPortableScalar(host) && !VObject.class.isAssignableFrom(host)) {
+                // Untyped values, enums, UUIDs and external value types convert as documents do.
+                try {
+                    return JSON.treeToValue(value, host);
+                } catch (com.fasterxml.jackson.core.JsonProcessingException mismatch) {
+                    throw new IllegalArgumentException(mismatch.getMessage(), mismatch);
+                }
+            }
             if (value.isBoolean()) {
                 return value.asBoolean();
             }
             if (value.isTextual()) {
+                // A char is one UTF-16 code unit (T6).
+                if (box(type) == Character.class && value.asText().length() == 1) return value.asText().charAt(0);
                 return value.asText();
             }
             if (value.isNumber()) {
@@ -866,6 +1127,8 @@ public final class PortableRunner {
                 if (boxed == Double.class) return value.asDouble();
                 if (boxed == Float.class) return (float) value.asDouble();
                 if (boxed == Integer.class) return value.asInt();
+                if (boxed == Short.class) return (short) value.asInt();
+                if (boxed == Byte.class) return (byte) value.asInt();
                 return value.isIntegralNumber() ? (Object) value.asInt() : (Object) value.asDouble();
             }
             throw new ScenarioFailure("cannot convert " + value);
@@ -875,6 +1138,11 @@ public final class PortableRunner {
 
         void check(String path, JsonNode node) {
             Object actual = resolve(path);
+            // An untyped value can be a Map too (externals); it is compared as a value.
+            if (actual instanceof Map && !node.has("value")) {
+                checkMap(path, (Map<?, ?>) actual, node);
+                return;
+            }
             if (node.has("obj")) {
                 Object expected = object(node.get("obj"));
                 if (actual != expected) {
@@ -885,10 +1153,10 @@ public final class PortableRunner {
                 throw new ScenarioFailure(path + ": expected " + node.get("value") + ", found " + render(actual));
             }
             if (node.has("objs") || node.has("values") || node.has("size")) {
-                if (!(actual instanceof Collection)) {
+                if (!(actual instanceof Collection) && !(actual instanceof RefSet)) {
                     throw new ScenarioFailure(path + " is not a collection: " + render(actual));
                 }
-                List<Object> items = new ArrayList<>((Collection<?>) actual);
+                List<Object> items = members(actual);
                 if (node.has("size") && items.size() != node.get("size").asInt()) {
                     throw new ScenarioFailure(path + ": expected size " + node.get("size") + ", found "
                             + items.size() + " " + render(items));
@@ -902,15 +1170,74 @@ public final class PortableRunner {
                 }
                 if (node.has("values")) {
                     JsonNode expected = node.get("values");
-                    boolean same = items.size() == expected.size();
-                    for (int i = 0; same && i < items.size(); i++) {
-                        same = sameScalar(items.get(i), expected.get(i));
-                    }
-                    if (!same) {
+                    if (!sameValues(items, expected, node.path("unordered").asBoolean(false))) {
                         throw new ScenarioFailure(path + ": expected " + expected + ", found " + render(items));
                     }
                 }
             }
+        }
+
+        /** Scalars in order, or in any order (each expected value matches one element). */
+        static boolean sameValues(List<?> items, JsonNode expected, boolean unordered) {
+            if (items.size() != expected.size()) {
+                return false;
+            }
+            List<Object> remaining = new ArrayList<>(items);
+            for (int i = 0; i < expected.size(); i++) {
+                int match = -1;
+                for (int j = 0; j < (unordered ? remaining.size() : Math.min(1, remaining.size())); j++) {
+                    if (sameScalar(remaining.get(j), expected.get(i))) {
+                        match = j;
+                        break;
+                    }
+                }
+                if (match < 0) {
+                    return false;
+                }
+                remaining.remove(match);
+            }
+            return true;
+        }
+
+        /** A map: {@code size} and {@code entries} ({@code [[key, value], ...]}) in iteration order or unordered. */
+        void checkMap(String path, Map<?, ?> actual, JsonNode node) {
+            if (node.has("size") && actual.size() != node.get("size").asInt()) {
+                throw new ScenarioFailure(path + ": expected size " + node.get("size") + ", found " + actual.size()
+                        + " " + actual);
+            }
+            if (node.has("entries")) {
+                JsonNode expected = node.get("entries");
+                List<Map.Entry<?, ?>> remaining = new ArrayList<>(actual.entrySet());
+                boolean same = remaining.size() == expected.size();
+                boolean unordered = node.path("unordered").asBoolean(false);
+                for (int i = 0; same && i < expected.size(); i++) {
+                    int match = -1;
+                    for (int j = 0; j < (unordered ? remaining.size() : 1); j++) {
+                        if (sameScalar(remaining.get(j).getKey(), expected.get(i).get(0))
+                                && sameScalar(remaining.get(j).getValue(), expected.get(i).get(1))) {
+                            match = j;
+                            break;
+                        }
+                    }
+                    same = match >= 0;
+                    if (same) {
+                        remaining.remove(match);
+                    }
+                }
+                if (!same) {
+                    throw new ScenarioFailure(path + ": expected " + expected + ", found " + actual);
+                }
+            }
+            if (node.has("obj") || node.has("value") || node.has("objs") || node.has("values")) {
+                throw new ScenarioFailure(path + " is a map");
+            }
+        }
+
+        /** The elements of a collection or reference set in iteration order. */
+        static List<Object> members(Object collection) {
+            List<Object> items = new ArrayList<>();
+            ((Iterable<?>) collection).forEach(items::add);
+            return items;
         }
 
         static boolean sameObjects(List<Object> actual, List<Object> expected, boolean unordered) {
@@ -949,12 +1276,20 @@ public final class PortableRunner {
             if (actual == null) {
                 return false;
             }
+            if (expected.isObject() || !(actual instanceof Number || actual instanceof Boolean
+                    || actual instanceof String || actual instanceof Character || actual instanceof List)) {
+                // Untyped maps, enums, UUIDs and external values compare in their document form.
+                return sameJson(JSON.valueToTree(actual), expected);
+            }
             if (expected.isNumber()) {
                 if (!(actual instanceof Number)) {
                     return false;
                 }
                 Number number = (Number) actual;
-                return expected.isIntegralNumber() && !(actual instanceof Double || actual instanceof Float)
+                if (actual instanceof Float) {
+                    return number.floatValue() == (float) expected.asDouble();
+                }
+                return expected.isIntegralNumber() && !(actual instanceof Double)
                         ? number.longValue() == expected.asLong()
                         : number.doubleValue() == expected.asDouble();
             }
@@ -962,7 +1297,8 @@ public final class PortableRunner {
                 return actual.equals(expected.asBoolean());
             }
             if (expected.isTextual()) {
-                return actual instanceof String && actual.equals(expected.asText());
+                return (actual instanceof String || actual instanceof Character)
+                        && actual.toString().equals(expected.asText());
             }
             if (expected.isArray()) {
                 if (!(actual instanceof List) || ((List<?>) actual).size() != expected.size()) {
@@ -1012,6 +1348,24 @@ public final class PortableRunner {
             }
         }
 
+        // ---------------------------------------------------------------------------------------- validation
+
+        /** Validates an object and compares the issues, code and path in reported order, with the expected ones. */
+        void checkIssues(String path, JsonNode expected) {
+            ValidationReport report = vobject(resolve(path)).vmf().content().validate();
+            List<String> actual = report.getIssues().stream()
+                    .map(issue -> issue.getCode() + " " + issue.getPath()).collect(Collectors.toList());
+            List<String> wanted = new ArrayList<>();
+            expected.forEach(issue -> wanted.add(issue.get("code").asText() + " " + issue.get("path").asText()));
+            if (!actual.equals(wanted)) {
+                throw new ScenarioFailure(path + ": expected issues " + wanted + ", found " + actual);
+            }
+            if (report.isValid() != wanted.isEmpty()) {
+                throw new ScenarioFailure(path + ": the report is " + (report.isValid() ? "valid" : "invalid")
+                        + " with the issues " + actual);
+            }
+        }
+
         // ---------------------------------------------------------------------------------------- events
 
         void listen(String path, String name, String scope, JsonNode node) {
@@ -1020,20 +1374,21 @@ public final class PortableRunner {
                     key -> new ArrayList<>()) : null;
             JsonNode react = node.get("react");
             Subscription subscription = vobject(resolve(path)).vmf().changes().addListener(change -> {
-                Event event = toEvent(change);
-                received.add(event);
-                if (log != null) {
-                    log.add(new Object[]{name, event});
-                }
-                if (react != null && matches(react.get("when"), event)) {
-                    // the listener edits the model while the change is delivered
-                    JsonNode edit = react.get("do");
-                    try {
-                        execute(operation(edit), edit);
-                    } catch (RuntimeException e) {
-                        throw e;
-                    } catch (Exception e) {
-                        throw new IllegalStateException(e);
+                for (Event event : toEvents(change)) {
+                    received.add(event);
+                    if (log != null) {
+                        log.add(new Object[]{name, event});
+                    }
+                    if (react != null && matches(react.get("when"), event)) {
+                        // the listener edits the model while the change is delivered
+                        JsonNode edit = react.get("do");
+                        try {
+                            execute(operation(edit), edit);
+                        } catch (RuntimeException e) {
+                            throw e;
+                        } catch (Exception e) {
+                            throw new IllegalStateException(e);
+                        }
                     }
                 }
             }, !"local".equals(scope));
@@ -1060,6 +1415,78 @@ public final class PortableRunner {
             }
             if (!same) {
                 throw new ScenarioFailure(name + ": expected " + expected + ", received " + rendered);
+            }
+        }
+
+        /**
+         * A set change becomes an add and a remove event of its members; a map change becomes per-key events:
+         * removed keys, replaced keys (with the new values) and added keys.
+         */
+        List<Event> toEvents(Change change) {
+            if (change.setChange().isPresent()) {
+                var set = change.setChange().get();
+                List<Event> events = new ArrayList<>();
+                if (!set.removed().isEmpty()) {
+                    events.add(new Event(step, change.object(), change.propertyName(), "remove", null, null,
+                            new ArrayList<>(set.removed()), List.of()));
+                }
+                if (!set.added().isEmpty()) {
+                    events.add(new Event(step, change.object(), change.propertyName(), "add", null, null,
+                            new ArrayList<>(set.added()), List.of()));
+                }
+                return events;
+            }
+            if (change.mapChange().isPresent()) {
+                Map<Object, Object> removed = change.mapChange().get().removed().entries();
+                Map<Object, Object> added = change.mapChange().get().added().entries();
+                List<Event> events = new ArrayList<>();
+                List<Object> keys = new ArrayList<>();
+                List<Object> values = new ArrayList<>();
+                removed.forEach((key, value) -> {
+                    if (!added.containsKey(key)) {
+                        keys.add(key);
+                        values.add(value);
+                    }
+                });
+                mapEvent(change, "remove", keys, values, events);
+                added.forEach((key, value) -> {
+                    if (removed.containsKey(key)) {
+                        keys.add(key);
+                        values.add(value);
+                    }
+                });
+                mapEvent(change, "replace", keys, values, events);
+                added.forEach((key, value) -> {
+                    if (!removed.containsKey(key)) {
+                        keys.add(key);
+                        values.add(value);
+                    }
+                });
+                mapEvent(change, "add", keys, values, events);
+                return events;
+            }
+            if (change.referenceSetChange().isPresent()) {
+                var set = change.referenceSetChange().get();
+                List<Event> events = new ArrayList<>();
+                if (!set.removed().isEmpty()) {
+                    events.add(new Event(step, change.object(), change.propertyName(), "remove", null, null,
+                            new ArrayList<>(set.removed()), set.added().isEmpty() ? set.indices() : List.of()));
+                }
+                if (!set.added().isEmpty()) {
+                    events.add(new Event(step, change.object(), change.propertyName(), "add", null, null,
+                            new ArrayList<>(set.added()), set.indices()));
+                }
+                return events;
+            }
+            return List.of(toEvent(change));
+        }
+
+        void mapEvent(Change change, String kind, List<Object> keys, List<Object> values, List<Event> events) {
+            if (!keys.isEmpty()) {
+                events.add(new Event(step, change.object(), change.propertyName(), kind, null, null,
+                        new ArrayList<>(values), List.of(), new ArrayList<>(keys)));
+                keys.clear();
+                values.clear();
             }
         }
 
@@ -1097,8 +1524,10 @@ public final class PortableRunner {
                     elements.addAll(event.elements);
                     List<Integer> indices = new ArrayList<>(last.indices);
                     indices.addAll(event.indices);
+                    List<Object> keys = new ArrayList<>(last.keys);
+                    keys.addAll(event.keys);
                     result.set(result.size() - 1, new Event(last.step, last.source, last.property, last.kind,
-                            null, null, elements, indices));
+                            null, null, elements, indices, keys));
                 } else if (sameTarget && event.kind.equals("set") && chained(last.newValue, event.oldValue)) {
                     result.set(result.size() - 1, new Event(last.step, last.source, last.property, "set",
                             last.oldValue, event.newValue, List.of(), List.of()));
@@ -1168,6 +1597,7 @@ public final class PortableRunner {
             if (wanted.has("oldObj") && object(wanted.get("oldObj")) != event.oldValue) return false;
             if (wanted.has("newObj") && object(wanted.get("newObj")) != event.newValue) return false;
             if (wanted.has("values") && !sameScalar(event.elements, wanted.get("values"))) return false;
+            if (wanted.has("keys") && !sameScalar(event.keys, wanted.get("keys"))) return false;
             if (wanted.has("objs")) {
                 List<Object> expected = new ArrayList<>();
                 wanted.get("objs").forEach(label -> expected.add(object(label)));
@@ -1205,10 +1635,11 @@ public final class PortableRunner {
                 Event event = (Event) value;
                 return "{" + render(event.source) + "." + event.property + " " + event.kind
                         + (event.kind.equals("set") ? " " + render(event.oldValue) + "->" + render(event.newValue)
-                        : " " + render(event.elements) + "@" + event.indices) + "}";
+                        : " " + render(event.elements) + "@" + (event.keys.isEmpty() ? event.indices
+                                : render(event.keys))) + "}";
             }
-            if (value instanceof Collection) {
-                return ((Collection<?>) value).stream().map(this::render).collect(Collectors.joining(", ", "[", "]"));
+            if (value instanceof Collection || value instanceof RefSet) {
+                return members(value).stream().map(this::render).collect(Collectors.joining(", ", "[", "]"));
             }
             if (value instanceof VObject || value.getClass().getName().startsWith(BASE_PACKAGE)) {
                 for (Map.Entry<String, Object> label : labels.entrySet()) {
@@ -1235,9 +1666,9 @@ public final class PortableRunner {
                 for (Property property : vobject(current).vmf().reflect().properties()) {
                     Object value = property.get();
                     text.append(property.getName()).append('=');
-                    if (value instanceof Collection) {
+                    if (value instanceof Collection || value instanceof RefSet) {
                         text.append('[');
-                        for (Object element : (Collection<?>) value) {
+                        for (Object element : members(value)) {
                             text.append(reference(element, ids, pending)).append(',');
                         }
                         text.append(']');

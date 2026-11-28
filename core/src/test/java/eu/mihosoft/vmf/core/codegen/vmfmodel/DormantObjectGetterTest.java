@@ -59,9 +59,8 @@ public class DormantObjectGetterTest {
         assertFalse(members.isUnique());
         assertEquals(Object.class.getName(), members.getValueType().getExternalType());
 
-        var baseline = assertThrows(IllegalArgumentException.class,
-                () -> PortableCapabilities.validate(declarations, "TypeScript"));
-        assertTrue(baseline.getMessage().contains("UntypedObjectMembers.value has unsupported type java.lang.Object"));
+        // TypeScript holds untyped values as unknown.
+        PortableCapabilities.validate(declarations, "TypeScript");
     }
 
     @Test
