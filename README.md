@@ -58,6 +58,8 @@ Java, C#, and TypeScript.
 
 Checkout the tutorial projects: https://github.com/miho/VMF-Tutorials
 
+For Maven projects, see the [VMF Maven plugin guide](maven-plugin/README.md).
+
 VMF comes with excellent Gradle support. Just add the plugin like so (get the latest version [here](https://plugins.gradle.org/plugin/eu.mihosoft.vmf)):
 
 ```gradle
