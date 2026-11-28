@@ -25,6 +25,16 @@ configurations {
 
 repositories {
     mavenCentral()
+    // The runtime can depend on a VCollections snapshot (runtime/build.gradle). These configurations resolve the
+    // runtime's dependencies in the root project, which needs the repositories of the snapshot as well.
+    mavenLocal {
+        content { includeGroup 'eu.mihosoft.vcollections' }
+    }
+    maven {
+        url = uri('https://central.sonatype.com/repository/maven-snapshots/')
+        mavenContent { snapshotsOnly() }
+        content { includeGroup 'eu.mihosoft.vcollections' }
+    }
 }
 
 dependencies {

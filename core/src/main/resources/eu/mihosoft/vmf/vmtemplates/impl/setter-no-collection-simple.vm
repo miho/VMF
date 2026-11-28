@@ -71,8 +71,11 @@
   // ----------------------------------------
   // fire property changed event
   // ----------------------------------------
-  this._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, this.__vmf_prop_${prop.name},
-      ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_ORDINARY_PROPERTY);
+  // without listeners there is nothing to report: skip the call and the boxing of primitive values
+  if (this.propertyChanges != null) {
+    this._vmf_firePropertyChangeIfListenersArePresent("${prop.name}", oldValue, this.__vmf_prop_${prop.name},
+        ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_ORDINARY_PROPERTY);
+  }
   //this._vmf_firePropertyChangeIfListenersArePresent("${oppositeRefProp.name}", refOldVal, null, ${VMFPKG_INT}.ChangeInternal.CHANGE_TYPE_CROSS_REF);
   // ----------------------------------------
 #end

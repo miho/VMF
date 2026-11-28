@@ -53,6 +53,8 @@ public class ObservableModelList<T> extends AbstractList<T> implements VList<T> 
 
     private final ReciprocalOpposite reciprocalOpposite;
     private List<ListListenerRegistration<T>> listeners = Collections.emptyList();
+    // The order in which the observers' relays are called, kept for DeliveryOrder.
+    Object deliveryOrder;
     private Subscription relay;
     private VList<T> unmodifiable;
     private boolean crossReferencePending;
@@ -337,10 +339,14 @@ public class ObservableModelList<T> extends AbstractList<T> implements VList<T> 
         return modelElements ? ReferenceCollections.identity(value) : value;
     }
 
-    static final class ModelListEvent<T> implements VListChangeEvent<T> {
+    static final class ModelListEvent<T> implements VListChangeEvent<T>, DeliveryOrder.Stamped {
         private final VList<T> source;
         private final VListChangeEvent<T> event;
         private final boolean crossReference;
+        private long deliveryStamp;
+
+        @Override public long deliveryStamp() { return deliveryStamp; }
+        @Override public void deliveryStamp(long stamp) { deliveryStamp = stamp; }
 
         private ModelListEvent(VList<T> source, VListChangeEvent<T> event, boolean crossReference) {
             this.source = source;

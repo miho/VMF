@@ -58,6 +58,7 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
 
   // Null, a single ordinary listener, or full JavaBeans support.
   private Object propertyChanges;
+  private Object __vmf_deliveryOrder;
 
 #foreach($prop in ${type.implementation.properties})
 #if(${prop.propType} != "COLLECTION" && !${prop.container} && !${prop.contained} && ${prop.crossRefProperty})
@@ -188,6 +189,16 @@ class $type.implementation.typeName implements ${type.typeName}, __VMF_TYPE_$typ
   @Override
   public boolean _vmf_hasPropertyChangeListeners() {
       return propertyChanges != null;
+  }
+
+  @Override
+  public Object _vmf_getDeliveryOrder() {
+      return __vmf_deliveryOrder;
+  }
+
+  @Override
+  public void _vmf_setDeliveryOrder(Object order) {
+      __vmf_deliveryOrder = order;
   }
 
   @Override

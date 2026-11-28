@@ -7,7 +7,7 @@ Run from the VMF repository root with the same JDK and on the same machine as th
 ./gradlew performanceTest
 ```
 
-On Windows, use `gradlew.bat` in place of `./gradlew`. Capture a baseline on a known-good checkout. The task saves it under `.gradle/vmf-performance/baseline.json`, outside the normal `clean` output. Run `performanceReport` to inspect a candidate without changing or comparing the baseline. Run `check -PwithPerformanceTests` to include the performance gate in a local verification run. An ordinary `test` or `check` skips the benchmark.
+On Windows, use `gradlew.bat` in place of `./gradlew`. Capture a baseline on a known-good checkout. The task saves it under `.gradle/vmf-performance/baseline.json`, outside the normal `clean` output. Run `performanceReport` to inspect a candidate without changing or comparing the baseline. Run `check -PwithPerformanceTests` to include the performance gate in a local verification run. An ordinary `test` or `check` skips the benchmark. `build-and-test-all`, which CI runs, compiles the benchmarks (`compilePerformanceBenchmarks`) so that the gate stays runnable; it does not measure.
 
 The gate compiles the checkout's runtime and generates the model with the checkout's generator. Its codec cases compile the checkout's Jackson sources. It launches three sequential JVMs with fixed heap, G1, and active processor settings and rotates the case order. Setup and correctness checks run outside the timer. Close CPU-heavy applications before calibrating or checking a baseline.
 

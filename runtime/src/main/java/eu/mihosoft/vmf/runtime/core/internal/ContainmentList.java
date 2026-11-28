@@ -59,6 +59,8 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
     private final List<T> backing;
     private final VListChangeListener<T> internalListener;
     private List<ListListenerRegistration<T>> listeners;
+    // The order in which the observers' relays are called, kept for DeliveryOrder.
+    Object deliveryOrder;
     private VList<T> unmodifiable;
     private boolean syntheticRemovalPending;
     private VListChangeEvent<T> restoredLinksPending;
@@ -943,11 +945,15 @@ public final class ContainmentList<T> extends CheckedContainmentView<T> implemen
         return true;
     }
 
-    private static final class Change<T> implements VListChangeEvent<T> {
+    private static final class Change<T> implements VListChangeEvent<T>, DeliveryOrder.Stamped {
         private final VList<T> source;
         private final VListChangeEvent<T> event;
         private final boolean internalRemoval;
         private final boolean aliasRestoration;
+        private long deliveryStamp;
+
+        @Override public long deliveryStamp() { return deliveryStamp; }
+        @Override public void deliveryStamp(long stamp) { deliveryStamp = stamp; }
 
         private Change(VList<T> source, VListChangeEvent<T> event, boolean internalRemoval, boolean aliasRestoration) {
             this.source = source;
