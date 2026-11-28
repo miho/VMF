@@ -25,10 +25,12 @@ export const cases: Scenario[] = [
     { name: "typed-scalar-get-set", operations: 65_536, setup: () => scalarAccess(false) },
     // Reads and writes the property by its name (node[name]).
     { name: "reflective-scalar-get-set", operations: 16_384, setup: () => scalarAccess(true) },
+    { name: "scalar-set-listener-elsewhere", operations: 65_536, setup: scalarAccessBesideListener },
     { name: "containment-reparent", operations: 511, setup: () => reparent(false) },
     { name: "containment-reparent-observed", operations: 255, setup: () => reparent(true) },
     // Java's Collections.swap on a containment list; the TypeScript list offers move().
     { name: "containment-swap", operations: 1_023, setup: swap },
+    { name: "containment-append-1024", operations: 1_024, setup: appendChildren },
     { name: "opposite-reference-replace", operations: 8_191, setup: replaceReference },
     { name: "root-scalar-event", operations: 8_192, setup: () => scalarEvents(false) },
     { name: "deep-scalar-event", operations: 8_192, setup: () => scalarEvents(true) },
@@ -62,6 +64,44 @@ function scalarAccess(reflect: boolean): Batch {
             for (let i = 0; i < nodes.length; i++) {
                 const writes = Math.floor((iterations + SCALARS - 1 - i) / SCALARS);
                 require(nodes[i].value === i + writes, "Scalar state differs");
+            }
+        },
+    };
+}
+
+// The objects of the setter case, while a listener observes another tree: a listener anywhere must not make every
+// setter pay. (Not in the Java lane.)
+function scalarAccessBesideListener(): Batch {
+    const other = node("observed", 0);
+    chain(other);
+    let events = 0;
+    const unsubscribe = other.vmfChanges.addListener(() => { events++; }, "recursive");
+    const batch = scalarAccess(false);
+    return {
+        run: batch.run,
+        verify(iterations) {
+            batch.verify(iterations);
+            other.value = 1;
+            require(events === 1, "The listener of the other tree must work, and only for its tree");
+            unsubscribe();
+        },
+    };
+}
+
+// Appends to a growing list: adding a child must not get slower with the size of the list. (Not in the Java lane.)
+function appendChildren(): Batch {
+    const parent = node("parent", 0);
+    const appended: TreeNode[] = [];
+    for (let i = 0; i < 1_024; i++) appended.push(node("child-" + i, i));
+    return {
+        run(iterations) {
+            for (let i = 0; i < iterations; i++) parent.children.add(appended[i]);
+        },
+        verify(iterations) {
+            require(parent.children.count === iterations, "Unexpected child count");
+            for (let i = 0; i < iterations; i++) {
+                require(parent.children.at(i) === appended[i] && appended[i].parent === parent,
+                    "Appended children differ");
             }
         },
     };

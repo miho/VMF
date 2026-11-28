@@ -15,9 +15,11 @@ static class ModelScenarios
     [
         new("typed-scalar-get-set", 65_536, () => ScalarAccess(false)),
         new("reflective-scalar-get-set", 16_384, () => ScalarAccess(true)),
+        new("scalar-set-listener-elsewhere", 65_536, ScalarAccessBesideListener),
         new("containment-reparent", 511, () => Reparent(false)),
         new("containment-reparent-observed", 255, () => Reparent(true)),
         new("containment-swap", 1_023, Swap),
+        new("containment-append-1024", 1_024, AppendChildren),
         new("containment-sort", 255, Sort),
         new("opposite-reference-replace", 8_191, ReplaceReference),
         new("root-scalar-event", 8_192, () => ScalarEvents(false)),
@@ -56,6 +58,44 @@ static class ModelScenarios
             {
                 int writes = (iterations + Scalars - 1 - i) / Scalars;
                 Require(nodes[i].Value == i + writes, "Scalar state differs");
+            }
+        });
+    }
+
+    // The objects of the setter case, while a listener observes another tree: a listener anywhere must not make
+    // every setter pay. (Not in the Java lane.)
+    private static Batch ScalarAccessBesideListener()
+    {
+        TreeNode other = Node("observed", 0);
+        Chain(other);
+        int events = 0;
+        IDisposable subscription = other.VmfChanges.AddListener(_ => events++, ModelChangeScope.Recursive);
+        Batch batch = ScalarAccess(false);
+        return new(batch.Run, iterations =>
+        {
+            batch.Verify(iterations);
+            other.Value = 1;
+            Require(events == 1, "The listener of the other tree must work, and only for its tree");
+            subscription.Dispose();
+        });
+    }
+
+    // Appends to a growing list: adding a child must not get slower with the size of the list.
+    // (Not in the Java lane.)
+    private static Batch AppendChildren()
+    {
+        TreeNode parent = Node("parent", 0);
+        TreeNode[] children = Enumerable.Range(0, 1_024).Select(i => Node("child-" + i, i)).ToArray();
+        return new(iterations =>
+        {
+            for (int i = 0; i < iterations; i++) parent.Children.Add(children[i]);
+        }, iterations =>
+        {
+            Require(parent.Children.Count == iterations, "Unexpected child count");
+            for (int i = 0; i < iterations; i++)
+            {
+                Require(ReferenceEquals(parent.Children[i], children[i]) && ReferenceEquals(children[i].Parent, parent),
+                    "Appended children differ");
             }
         });
     }

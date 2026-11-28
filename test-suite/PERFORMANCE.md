@@ -37,6 +37,7 @@ A case has the same name, graph and operation count in every lane that has it, s
 - C# and TypeScript swap two children with two `Move` calls; Java uses `Collections.swap`.
 - TypeScript has no sort and no transactions: the lane has no sort case, and its recording case starts a recording, makes two edits and stops it. Its reflective case reads and writes the property by its name.
 - The journal cases exist only in Java.
+- C# and TypeScript have two more cases. `scalar-set-listener-elsewhere` sets scalars of objects that nobody observes while a listener observes another tree; `containment-append-1024` appends to a growing list. Both runtimes had exactly these costs: a listener anywhere made every setter slower, and appending got slower with the size of the list.
 
 `checkPerformanceTargets` builds both workers and runs every case once with its checks, without measuring. CI runs it, so that these lanes stay runnable as well.
 
