@@ -4,7 +4,7 @@ pushd "%~dp0"
 if errorlevel 1 exit /b %errorlevel%
 
 echo Building and testing the generator, runtime and Gradle plugin
-call gradlew.bat clean test publishToMavenLocal --no-daemon %*
+call gradlew.bat clean test compilePerformanceBenchmarks publishToMavenLocal --no-daemon %*
 if errorlevel 1 goto finish
 
 echo Building and testing the Maven plugin
