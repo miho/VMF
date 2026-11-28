@@ -211,11 +211,15 @@ public class VMFPropertyChangeSupport extends PropertyChangeSupport {
      * Extended version of a property change event. Includes a event-info. Do not rely on this API.
      */
     @Deprecated
-    static final class VMFPropertyChangeEvent extends PropertyChangeEvent {
+    static final class VMFPropertyChangeEvent extends PropertyChangeEvent implements DeliveryOrder.Stamped {
 
         private static final long serialVersionUID = 6210683145758719041L;
 
         private final String evtInfo;
+        private transient long deliveryStamp;
+
+        @Override public long deliveryStamp() { return deliveryStamp; }
+        @Override public void deliveryStamp(long stamp) { deliveryStamp = stamp; }
 
         private VMFPropertyChangeEvent(Object source, String propertyName,
             Object oldValue, Object newValue, String evtInfo) {
